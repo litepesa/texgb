@@ -230,7 +230,7 @@ class ChatList extends _$ChatList {
     try {
       state = AsyncValue.data(currentState.copyWith(isSyncing: true));
       
-      await _repository.syncChats(userId);
+      //await _repository.syncChats(userId);
       
       final updatedState = state.valueOrNull ?? currentState;
       state = AsyncValue.data(updatedState.copyWith(

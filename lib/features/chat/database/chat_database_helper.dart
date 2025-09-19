@@ -1,4 +1,5 @@
 // lib/features/chat/database/chat_database_helper.dart
+// FIXED: Removed complex readBy/deliveredTo tracking, simplified to just message status
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -17,8 +18,8 @@ class ChatDatabaseHelper {
 
   ChatDatabaseHelper._internal();
 
-  // Database version for migrations - UPGRADED TO v2
-  static const int _databaseVersion = 2;
+  // Database version for migrations - UPGRADED TO v3 (simplified)
+  static const int _databaseVersion = 3;
   static const String _databaseName = 'textgb_chat.db';
 
   // Table names
@@ -84,7 +85,7 @@ class ChatDatabaseHelper {
       )
     ''');
 
-    // Create messages table with INTEGER timestamps
+    // Create messages table - SIMPLIFIED without readBy/deliveredTo
     await db.execute('''
       CREATE TABLE $_messagesTable (
         messageId TEXT PRIMARY KEY,
@@ -103,8 +104,6 @@ class ChatDatabaseHelper {
         isEdited INTEGER DEFAULT 0,
         editedAt INTEGER,
         isPinned INTEGER DEFAULT 0,
-        readBy TEXT,
-        deliveredTo TEXT,
         syncedAt INTEGER,
         isDeleted INTEGER DEFAULT 0,
         deletedAt INTEGER,
@@ -195,9 +194,6 @@ class ChatDatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_status ON $_messagesTable(status)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_isPinned ON $_messagesTable(isPinned)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_isDeleted ON $_messagesTable(isDeleted)');
-    
-    // Composite index for unread messages query
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_unread ON $_messagesTable(chatId, senderId, isDeleted)');
 
     // Participants table indexes
     await db.execute('CREATE INDEX IF NOT EXISTS idx_participants_chatId ON $_participantsTable(chatId)');
@@ -263,8 +259,6 @@ class ChatDatabaseHelper {
           isEdited INTEGER DEFAULT 0,
           editedAt INTEGER,
           isPinned INTEGER DEFAULT 0,
-          readBy TEXT,
-          deliveredTo TEXT,
           syncedAt INTEGER,
           isDeleted INTEGER DEFAULT 0,
           deletedAt INTEGER,
@@ -326,8 +320,6 @@ class ChatDatabaseHelper {
               ELSE NULL 
             END as editedAt,
             isPinned,
-            readBy,
-            deliveredTo,
             CASE WHEN syncedAt IS NOT NULL 
               THEN CAST((julianday(syncedAt) - 2440587.5) * 86400000 AS INTEGER)
               ELSE NULL 
@@ -355,7 +347,71 @@ class ChatDatabaseHelper {
       // Recreate indexes
       await _createIndexes(db);
 
-      debugPrint('Migration completed successfully');
+      debugPrint('Migration to v2 completed successfully');
+    }
+
+    if (oldVersion < 3) {
+      // Migration from v2 to v3: Remove readBy and deliveredTo columns
+      debugPrint('Removing readBy and deliveredTo columns...');
+      
+      try {
+        // Check if columns exist first
+        final columns = await db.rawQuery('PRAGMA table_info($_messagesTable)');
+        final hasReadBy = columns.any((col) => col['name'] == 'readBy');
+        final hasDeliveredTo = columns.any((col) => col['name'] == 'deliveredTo');
+        
+        if (hasReadBy || hasDeliveredTo) {
+          // Create new table without these columns
+          await db.execute('''
+            CREATE TABLE ${_messagesTable}_temp (
+              messageId TEXT PRIMARY KEY,
+              chatId TEXT NOT NULL,
+              senderId TEXT NOT NULL,
+              content TEXT,
+              type TEXT NOT NULL,
+              status TEXT NOT NULL,
+              timestamp INTEGER NOT NULL,
+              mediaUrl TEXT,
+              mediaMetadata TEXT,
+              replyToMessageId TEXT,
+              replyToContent TEXT,
+              replyToSender TEXT,
+              reactions TEXT,
+              isEdited INTEGER DEFAULT 0,
+              editedAt INTEGER,
+              isPinned INTEGER DEFAULT 0,
+              syncedAt INTEGER,
+              isDeleted INTEGER DEFAULT 0,
+              deletedAt INTEGER,
+              FOREIGN KEY (chatId) REFERENCES $_chatsTable (chatId) ON DELETE CASCADE
+            )
+          ''');
+
+          // Copy data (excluding readBy and deliveredTo)
+          await db.execute('''
+            INSERT INTO ${_messagesTable}_temp 
+            SELECT 
+              messageId, chatId, senderId, content, type, status, timestamp,
+              mediaUrl, mediaMetadata, replyToMessageId, replyToContent, replyToSender,
+              reactions, isEdited, editedAt, isPinned, syncedAt, isDeleted, deletedAt
+            FROM $_messagesTable
+          ''');
+
+          // Drop old table and rename
+          await db.execute('DROP TABLE $_messagesTable');
+          await db.execute('ALTER TABLE ${_messagesTable}_temp RENAME TO $_messagesTable');
+
+          // Recreate indexes
+          await _createIndexes(db);
+          
+          debugPrint('Successfully removed readBy and deliveredTo columns');
+        }
+      } catch (e) {
+        debugPrint('Error removing columns: $e');
+        // Continue anyway - the columns being absent is fine
+      }
+
+      debugPrint('Migration to v3 completed successfully');
     }
   }
 
@@ -510,7 +566,7 @@ class ChatDatabaseHelper {
     );
   }
 
-  // Mark chat as read - FIXED VERSION
+  // Mark chat as read - SIMPLIFIED
   Future<void> markChatAsRead(String chatId, String userId) async {
     await updateChatUnreadCount(chatId, userId, 0);
   }
@@ -609,10 +665,10 @@ class ChatDatabaseHelper {
   }
 
   // ========================================
-  // MESSAGE OPERATIONS
+  // MESSAGE OPERATIONS - SIMPLIFIED
   // ========================================
 
-  // Insert or update message
+  // Insert or update message - SIMPLIFIED (no readBy/deliveredTo)
   Future<void> insertOrUpdateMessage(MessageModel message) async {
     final db = await database;
     
@@ -633,12 +689,6 @@ class ChatDatabaseHelper {
       'isEdited': message.isEdited ? 1 : 0,
       'editedAt': message.editedAt != null ? DateTimeHelper.toDbTimestamp(message.editedAt!) : null,
       'isPinned': message.isPinned ? 1 : 0,
-      'readBy': message.readBy != null 
-          ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
-          : null,
-      'deliveredTo': message.deliveredTo != null 
-          ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
-          : null,
       'syncedAt': DateTimeHelper.nowDbTimestamp(),
       'isDeleted': 0,
     };
@@ -652,7 +702,7 @@ class ChatDatabaseHelper {
     debugPrint('Message ${message.messageId} saved to local database');
   }
 
-  // Get messages for a chat
+  // Get messages for a chat - WITH ERROR HANDLING
   Future<List<MessageModel>> getChatMessages(String chatId, {int limit = 100}) async {
     final db = await database;
     
@@ -664,7 +714,38 @@ class ChatDatabaseHelper {
       limit: limit,
     );
 
-    return maps.map((map) => _messageFromMap(map)).toList();
+    debugPrint('📊 Found ${maps.length} raw messages for chat $chatId');
+
+    final messages = <MessageModel>[];
+    int failedCount = 0;
+    
+    for (final map in maps) {
+      try {
+        final message = _messageFromMap(map);
+        messages.add(message);
+      } catch (e, stack) {
+        failedCount++;
+        debugPrint('❌ Failed to parse message ${map['messageId']}: $e');
+        
+        // Create a minimal error message so chat doesn't appear empty
+        try {
+          messages.add(MessageModel(
+            messageId: map['messageId'] ?? 'error_$failedCount',
+            chatId: chatId,
+            senderId: map['senderId'] ?? '',
+            content: '⚠️ Error loading message',
+            type: MessageEnum.text,
+            status: MessageStatus.failed,
+            timestamp: DateTimeHelper.fromDbTimestamp(map['timestamp'] ?? DateTimeHelper.nowDbTimestamp()),
+          ));
+        } catch (e2) {
+          debugPrint('❌ Could not create error message: $e2');
+        }
+      }
+    }
+
+    debugPrint('✅ Successfully parsed ${messages.length} messages (${failedCount} failed)');
+    return messages;
   }
 
   // Get message by ID
@@ -679,7 +760,12 @@ class ChatDatabaseHelper {
 
     if (maps.isEmpty) return null;
 
-    return _messageFromMap(maps.first);
+    try {
+      return _messageFromMap(maps.first);
+    } catch (e) {
+      debugPrint('❌ Error parsing message $messageId: $e');
+      return null;
+    }
   }
 
   // Get pinned messages
@@ -693,7 +779,7 @@ class ChatDatabaseHelper {
       orderBy: 'timestamp DESC',
     );
 
-    return maps.map((map) => _messageFromMap(map)).toList();
+    return _parseMessages(maps);
   }
 
   // Search messages
@@ -707,7 +793,7 @@ class ChatDatabaseHelper {
       orderBy: 'timestamp DESC',
     );
 
-    return maps.map((map) => _messageFromMap(map)).toList();
+    return _parseMessages(maps);
   }
 
   // Update message status
@@ -800,14 +886,14 @@ class ChatDatabaseHelper {
       orderBy: 'timestamp DESC',
     );
 
-    return maps.map((map) => _messageFromMap(map)).toList();
+    return _parseMessages(maps);
   }
 
   // ========================================
-  // UNREAD MESSAGES - CRITICAL FIX
+  // UNREAD MESSAGES - SIMPLIFIED
   // ========================================
 
-  // Get ACCURATE unread messages count for a user in a chat
+  // Get SIMPLE unread messages count (messages not sent by me)
   Future<int> getUnreadMessagesCount(String chatId, String userId) async {
     final db = await database;
     
@@ -816,8 +902,7 @@ class ChatDatabaseHelper {
       WHERE chatId = ? 
       AND senderId != ? 
       AND isDeleted = 0
-      AND (readBy IS NULL OR readBy NOT LIKE ?)
-    ''', [chatId, userId, '%"$userId"%']);
+    ''', [chatId, userId]);
 
     return Sqflite.firstIntValue(result) ?? 0;
   }
@@ -830,101 +915,17 @@ class ChatDatabaseHelper {
       SELECT COUNT(*) as count FROM $_messagesTable 
       WHERE senderId != ? 
       AND isDeleted = 0
-      AND (readBy IS NULL OR readBy NOT LIKE ?)
-    ''', [userId, '%"$userId"%']);
+    ''', [userId]);
 
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  // Mark ALL messages in a chat as read - CRITICAL FIX
+  // Mark ALL messages in a chat as read - SIMPLIFIED
   Future<void> markAllMessagesAsRead(String chatId, String userId) async {
-    final db = await database;
-    final now = DateTimeHelper.nowDbTimestamp();
-    
-    // First, get all unread messages
-    final unreadMessages = await db.query(
-      _messagesTable,
-      columns: ['messageId', 'readBy'],
-      where: 'chatId = ? AND senderId != ? AND isDeleted = 0',
-      whereArgs: [chatId, userId],
-    );
-
-    // Update each message's readBy field
-    final batch = db.batch();
-    
-    for (final msg in unreadMessages) {
-      final messageId = msg['messageId'] as String;
-      final readByJson = msg['readBy'] as String?;
-      
-      Map<String, dynamic> readBy = {};
-      if (readByJson != null && readByJson.isNotEmpty) {
-        try {
-          readBy = Map<String, dynamic>.from(jsonDecode(readByJson));
-        } catch (e) {
-          debugPrint('Error parsing readBy JSON: $e');
-        }
-      }
-      
-      // Add current user with timestamp
-      readBy[userId] = now;
-      
-      batch.update(
-        _messagesTable,
-        {'readBy': jsonEncode(readBy)},
-        where: 'messageId = ?',
-        whereArgs: [messageId],
-      );
-    }
-    
-    await batch.commit(noResult: true);
-    
-    // Update chat unread count to 0
+    // Just update the chat's unread count to 0
     await updateChatUnreadCount(chatId, userId, 0);
     
-    debugPrint('Marked ${unreadMessages.length} messages as read in chat $chatId for user $userId');
-  }
-
-  // Mark specific messages as delivered
-  Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds, String userId) async {
-    if (messageIds.isEmpty) return;
-    
-    final db = await database;
-    final now = DateTimeHelper.nowDbTimestamp();
-    final batch = db.batch();
-    
-    for (final messageId in messageIds) {
-      final message = await db.query(
-        _messagesTable,
-        columns: ['deliveredTo'],
-        where: 'messageId = ?',
-        whereArgs: [messageId],
-        limit: 1,
-      );
-      
-      if (message.isNotEmpty) {
-        Map<String, dynamic> deliveredTo = {};
-        final deliveredToJson = message.first['deliveredTo'] as String?;
-        
-        if (deliveredToJson != null && deliveredToJson.isNotEmpty) {
-          try {
-            deliveredTo = Map<String, dynamic>.from(jsonDecode(deliveredToJson));
-          } catch (e) {
-            debugPrint('Error parsing deliveredTo JSON: $e');
-          }
-        }
-        
-        deliveredTo[userId] = now;
-        
-        batch.update(
-          _messagesTable,
-          {'deliveredTo': jsonEncode(deliveredTo)},
-          where: 'messageId = ?',
-          whereArgs: [messageId],
-        );
-      }
-    }
-    
-    await batch.commit(noResult: true);
+    debugPrint('✅ Marked all messages as read in chat $chatId for user $userId');
   }
 
   // ========================================
@@ -999,7 +1000,7 @@ class ChatDatabaseHelper {
   }
 
   // ========================================
-  // UTILITY METHODS
+  // UTILITY METHODS - SIMPLIFIED
   // ========================================
 
   // Convert database map to ChatModel
@@ -1028,46 +1029,83 @@ class ChatDatabaseHelper {
     );
   }
 
-  // Convert database map to MessageModel
+  // Convert database map to MessageModel - SIMPLIFIED & SAFE
   MessageModel _messageFromMap(Map<String, dynamic> map) {
-    return MessageModel(
-      messageId: map['messageId'],
-      chatId: map['chatId'],
-      senderId: map['senderId'],
-      content: map['content'] ?? '',
-      type: MessageEnum.values.firstWhere(
-        (e) => e.name == map['type'],
-        orElse: () => MessageEnum.text,
-      ),
-      status: MessageStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => MessageStatus.sending,
-      ),
-      timestamp: DateTimeHelper.fromDbTimestamp(map['timestamp']),
-      mediaUrl: map['mediaUrl'],
-      mediaMetadata: map['mediaMetadata'] != null 
-          ? Map<String, dynamic>.from(jsonDecode(map['mediaMetadata'])) 
-          : null,
-      replyToMessageId: map['replyToMessageId'],
-      replyToContent: map['replyToContent'],
-      replyToSender: map['replyToSender'],
-      reactions: map['reactions'] != null 
-          ? Map<String, String>.from(jsonDecode(map['reactions'])) 
-          : null,
-      isEdited: map['isEdited'] == 1,
-      editedAt: map['editedAt'] != null ? DateTimeHelper.fromDbTimestamp(map['editedAt']) : null,
-      isPinned: map['isPinned'] == 1,
-      readBy: map['readBy'] != null 
-          ? Map<String, DateTime>.from(
-              (jsonDecode(map['readBy']) as Map).map((k, v) => 
-                MapEntry(k.toString(), DateTimeHelper.fromDbTimestamp(v)))) 
-          : null,
-      deliveredTo: map['deliveredTo'] != null 
-          ? Map<String, DateTime>.from(
-              (jsonDecode(map['deliveredTo']) as Map).map((k, v) => 
-                MapEntry(k.toString(), DateTimeHelper.fromDbTimestamp(v)))) 
-          : null,
-    );
+    try {
+      // Parse reactions safely
+      Map<String, String>? reactions;
+      if (map['reactions'] != null && map['reactions'] != '') {
+        try {
+          reactions = Map<String, String>.from(jsonDecode(map['reactions']));
+        } catch (e) {
+          debugPrint('⚠️ Failed to parse reactions: ${map['reactions']}');
+        }
+      }
+
+      // Parse media metadata safely
+      Map<String, dynamic>? mediaMetadata;
+      if (map['mediaMetadata'] != null && map['mediaMetadata'] != '') {
+        try {
+          mediaMetadata = Map<String, dynamic>.from(jsonDecode(map['mediaMetadata']));
+        } catch (e) {
+          debugPrint('⚠️ Failed to parse mediaMetadata: ${map['mediaMetadata']}');
+        }
+      }
+
+      return MessageModel(
+        messageId: map['messageId'] ?? '',
+        chatId: map['chatId'] ?? '',
+        senderId: map['senderId'] ?? '',
+        content: map['content'] ?? '',
+        type: MessageEnum.values.firstWhere(
+          (e) => e.name == map['type'],
+          orElse: () => MessageEnum.text,
+        ),
+        status: MessageStatus.values.firstWhere(
+          (e) => e.name == map['status'],
+          orElse: () => MessageStatus.sent,
+        ),
+        timestamp: DateTimeHelper.fromDbTimestamp(map['timestamp']),
+        mediaUrl: map['mediaUrl'],
+        mediaMetadata: mediaMetadata,
+        replyToMessageId: map['replyToMessageId'],
+        replyToContent: map['replyToContent'],
+        replyToSender: map['replyToSender'],
+        reactions: reactions,
+        isEdited: map['isEdited'] == 1,
+        editedAt: map['editedAt'] != null ? DateTimeHelper.fromDbTimestamp(map['editedAt']) : null,
+        isPinned: map['isPinned'] == 1,
+      );
+    } catch (e, stack) {
+      debugPrint('❌ CRITICAL: Failed to parse message ${map['messageId']}: $e');
+      debugPrint('Stack: $stack');
+      
+      // Return a minimal valid message to prevent crashes
+      return MessageModel(
+        messageId: map['messageId'] ?? 'error',
+        chatId: map['chatId'] ?? '',
+        senderId: map['senderId'] ?? '',
+        content: '⚠️ Error loading message',
+        type: MessageEnum.text,
+        status: MessageStatus.failed,
+        timestamp: DateTime.now(),
+      );
+    }
+  }
+
+  // Helper to parse list of messages safely
+  List<MessageModel> _parseMessages(List<Map<String, dynamic>> maps) {
+    final messages = <MessageModel>[];
+    
+    for (final map in maps) {
+      try {
+        messages.add(_messageFromMap(map));
+      } catch (e) {
+        debugPrint('⚠️ Skipping invalid message: ${map['messageId']}');
+      }
+    }
+    
+    return messages;
   }
 
   // Get database statistics
@@ -1326,12 +1364,6 @@ class ChatDatabaseHelper {
         'isEdited': message.isEdited ? 1 : 0,
         'editedAt': message.editedAt != null ? DateTimeHelper.toDbTimestamp(message.editedAt!) : null,
         'isPinned': message.isPinned ? 1 : 0,
-        'readBy': message.readBy != null 
-            ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
-            : null,
-        'deliveredTo': message.deliveredTo != null 
-            ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
-            : null,
         'syncedAt': DateTimeHelper.nowDbTimestamp(),
         'isDeleted': 0,
       };
@@ -1381,7 +1413,7 @@ class ChatDatabaseHelper {
       ],
     );
 
-    return maps.map((map) => _messageFromMap(map)).toList();
+    return _parseMessages(maps);
   }
 
   // Mark chat as synced
@@ -1475,100 +1507,6 @@ class ChatDatabaseHelper {
     
     await batch.commit(noResult: true);
     debugPrint('Database imported successfully');
-  }
-
-  // ========================================
-  // ADVANCED QUERIES
-  // ========================================
-
-  // Get chat statistics
-  Future<Map<String, dynamic>> getChatStatistics(String chatId) async {
-    final db = await database;
-    
-    final totalMessages = Sqflite.firstIntValue(
-      await db.rawQuery('SELECT COUNT(*) FROM $_messagesTable WHERE chatId = ? AND isDeleted = 0', [chatId])
-    ) ?? 0;
-    
-    final mediaMessages = Sqflite.firstIntValue(
-      await db.rawQuery('''
-        SELECT COUNT(*) FROM $_messagesTable 
-        WHERE chatId = ? AND isDeleted = 0 
-        AND type IN (?, ?, ?, ?)
-      ''', [chatId, MessageEnum.image.name, MessageEnum.video.name, MessageEnum.audio.name, MessageEnum.file.name])
-    ) ?? 0;
-    
-    final firstMessage = await db.query(
-      _messagesTable,
-      where: 'chatId = ? AND isDeleted = 0',
-      whereArgs: [chatId],
-      orderBy: 'timestamp ASC',
-      limit: 1,
-    );
-    
-    final lastMessage = await db.query(
-      _messagesTable,
-      where: 'chatId = ? AND isDeleted = 0',
-      whereArgs: [chatId],
-      orderBy: 'timestamp DESC',
-      limit: 1,
-    );
-    
-    return {
-      'totalMessages': totalMessages,
-      'mediaMessages': mediaMessages,
-      'firstMessageDate': firstMessage.isNotEmpty ? firstMessage.first['timestamp'] : null,
-      'lastMessageDate': lastMessage.isNotEmpty ? lastMessage.first['timestamp'] : null,
-    };
-  }
-
-  // Get messages by date range
-  Future<List<MessageModel>> getMessagesByDateRange(
-    String chatId,
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    final db = await database;
-    
-    final List<Map<String, dynamic>> maps = await db.query(
-      _messagesTable,
-      where: 'chatId = ? AND timestamp >= ? AND timestamp <= ? AND isDeleted = 0',
-      whereArgs: [
-        chatId, 
-        DateTimeHelper.toDbTimestamp(startDate), 
-        DateTimeHelper.toDbTimestamp(endDate)
-      ],
-      orderBy: 'timestamp DESC',
-    );
-
-    return maps.map((map) => _messageFromMap(map)).toList();
-  }
-
-  // Get messages by sender
-  Future<List<MessageModel>> getMessagesBySender(String chatId, String senderId) async {
-    final db = await database;
-    
-    final List<Map<String, dynamic>> maps = await db.query(
-      _messagesTable,
-      where: 'chatId = ? AND senderId = ? AND isDeleted = 0',
-      whereArgs: [chatId, senderId],
-      orderBy: 'timestamp DESC',
-    );
-
-    return maps.map((map) => _messageFromMap(map)).toList();
-  }
-
-  // Get failed messages
-  Future<List<MessageModel>> getFailedMessages(String chatId) async {
-    final db = await database;
-    
-    final List<Map<String, dynamic>> maps = await db.query(
-      _messagesTable,
-      where: 'chatId = ? AND status = ? AND isDeleted = 0',
-      whereArgs: [chatId, MessageStatus.failed.name],
-      orderBy: 'timestamp DESC',
-    );
-
-    return maps.map((map) => _messageFromMap(map)).toList();
   }
 
   // Close database

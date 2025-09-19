@@ -1,5 +1,5 @@
 // lib/features/chat/repositories/chat_repository.dart
-// FIXED: Simplified offline-first architecture with proper timestamp handling
+// FIXED: Properly syncs messages from PostgreSQL backend to local SQLite
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -29,8 +29,6 @@ abstract class ChatRepository {
   Future<void> toggleChatPin(String chatId, String userId);
   Future<void> toggleChatArchive(String chatId, String userId);
   Future<void> toggleChatMute(String chatId, String userId);
-  Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl);
-  Future<void> setChatFontSize(String chatId, String userId, double fontSize);
   Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false});
   Future<void> clearChatHistory(String chatId, String userId);
 
@@ -55,42 +53,21 @@ abstract class ChatRepository {
   });
   Stream<List<MessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status);
-  Future<void> markMessageAsDelivered(String chatId, String messageId, String userId);
-  Future<void> markMessageAsRead(String chatId, String messageId, String userId);
   Future<void> editMessage(String chatId, String messageId, String newContent);
   Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone);
   Future<void> pinMessage(String chatId, String messageId);
   Future<void> unpinMessage(String chatId, String messageId);
   Future<List<MessageModel>> searchMessages(String chatId, String query);
   Future<List<MessageModel>> getPinnedMessages(String chatId);
-  Future<void> addMessageReaction(String chatId, String messageId, String userId, String emoji);
-  Future<void> removeMessageReaction(String chatId, String messageId, String userId);
-
-  // Media operations
-  Future<String> uploadMedia(File file, String fileName, String chatId);
-  Future<void> deleteMedia(String mediaUrl);
-
-  // User presence and status
-  Future<void> updateUserPresence(String userId, bool isOnline);
-  Future<Map<String, bool>> getUsersPresence(List<String> userIds);
-  Future<void> updateUserTypingStatus(String chatId, String userId, bool isTyping);
-  Future<Map<String, bool>> getChatTypingStatus(String chatId);
 
   // Utility
   String generateChatId(String userId1, String userId2);
-  Future<bool> chatHasMessages(String chatId);
-  Future<List<String>> getUserChats(String userId);
-  Future<int> getUnreadMessagesCount(String userId);
-  Future<int> getChatUnreadCount(String chatId, String userId);
-
-  // Sync operations
-  Future<void> syncChats(String userId);
   Future<void> syncMessages(String chatId);
   Future<void> syncAllData(String userId);
 }
 
 // ========================================
-// SIMPLIFIED OFFLINE-FIRST IMPLEMENTATION
+// FIXED OFFLINE-FIRST IMPLEMENTATION
 // ========================================
 
 class OfflineFirstChatRepository implements ChatRepository {
@@ -98,22 +75,21 @@ class OfflineFirstChatRepository implements ChatRepository {
   final ChatDatabaseHelper _dbHelper;
   final Uuid _uuid;
   
-  // Simplified stream controllers - one per type
+  // Stream controllers
   final Map<String, StreamController<List<ChatModel>>> _chatStreamControllers = {};
   final Map<String, StreamController<List<MessageModel>>> _messageStreamControllers = {};
   
-  // Background sync timer
-  Timer? _syncTimer;
-
+  // Sync tracking
+  final Map<String, bool> _isSyncing = {};
+  final Map<String, DateTime> _lastSyncTime = {};
+  
   OfflineFirstChatRepository({
     HttpClientService? httpClient,
     ChatDatabaseHelper? dbHelper,
     Uuid? uuid,
   })  : _httpClient = httpClient ?? HttpClientService(),
         _dbHelper = dbHelper ?? ChatDatabaseHelper(),
-        _uuid = uuid ?? const Uuid() {
-    _startBackgroundSync();
-  }
+        _uuid = uuid ?? const Uuid();
 
   @override
   String generateChatId(String userId1, String userId2) {
@@ -122,32 +98,7 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   // ========================================
-  // BACKGROUND SYNC (Simplified)
-  // ========================================
-
-  void _startBackgroundSync() {
-    // Sync every 30 seconds in background
-    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _backgroundSync();
-    });
-  }
-
-  Future<void> _backgroundSync() async {
-    try {
-      // Sync unsynced messages
-      final unsynced = await _dbHelper.getUnsyncedMessages();
-      for (final message in unsynced.take(10)) { // Limit to 10 per sync
-        await _sendMessageToServer(message).catchError((e) {
-          debugPrint('Background sync failed for message ${message.messageId}: $e');
-        });
-      }
-    } catch (e) {
-      debugPrint('Background sync error: $e');
-    }
-  }
-
-  // ========================================
-  // CHAT OPERATIONS (Offline-First)
+  // CHAT OPERATIONS
   // ========================================
 
   @override
@@ -155,14 +106,14 @@ class OfflineFirstChatRepository implements ChatRepository {
     final chatId = generateChatId(currentUserId, otherUserId);
     
     try {
-      // Check local database first - ATOMIC CHECK
+      // Check local database first
       var chat = await _dbHelper.getChatById(chatId);
       
       if (chat != null) {
-        return chatId; // Chat already exists
+        return chatId;
       }
       
-      // Create new chat locally (with duplicate prevention)
+      // Create new chat locally
       final newChat = ChatModel(
         chatId: chatId,
         participants: [currentUserId, otherUserId],
@@ -177,10 +128,9 @@ class OfflineFirstChatRepository implements ChatRepository {
         createdAt: DateTime.now(),
       );
       
-      // Insert with IGNORE conflict strategy (prevents duplicates)
       await _dbHelper.insertOrUpdateChat(newChat);
       
-      // Try to create on server (don't wait)
+      // Create on server (don't wait)
       _createChatOnServer(newChat).catchError((e) {
         debugPrint('Failed to create chat on server: $e');
       });
@@ -188,35 +138,28 @@ class OfflineFirstChatRepository implements ChatRepository {
       return chatId;
     } catch (e) {
       debugPrint('Error creating/getting chat: $e');
-      throw ChatRepositoryException('Failed to create or get chat: $e');
+      rethrow;
     }
   }
 
   Future<void> _createChatOnServer(ChatModel chat) async {
     try {
-      final response = await _httpClient.post('/chats', body: {
+      await _httpClient.post('/chats', body: {
         'chatId': chat.chatId,
         'participants': chat.participants,
         'createdAt': DateTimeHelper.toIso8601(chat.createdAt),
       });
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        await _dbHelper.markChatAsSynced(chat.chatId);
-      }
     } catch (e) {
       debugPrint('Error creating chat on server: $e');
-      rethrow;
     }
   }
 
   @override
   Stream<List<ChatModel>> getChatsStream(String userId) {
-    // Return existing stream or create new one
     if (_chatStreamControllers.containsKey(userId)) {
       return _chatStreamControllers[userId]!.stream;
     }
     
-    // Create new broadcast stream controller
     final controller = StreamController<List<ChatModel>>.broadcast(
       onListen: () => _startChatStream(userId),
       onCancel: () => _stopChatStream(userId),
@@ -227,7 +170,6 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   void _startChatStream(String userId) {
-    // Simple polling every 1 second for local changes
     Timer.periodic(const Duration(seconds: 1), (timer) async {
       final controller = _chatStreamControllers[userId];
       
@@ -250,158 +192,70 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   void _stopChatStream(String userId) {
-    final controller = _chatStreamControllers.remove(userId);
-    controller?.close();
+    _chatStreamControllers.remove(userId)?.close();
   }
 
   @override
   Future<ChatModel?> getChatById(String chatId) async {
-    try {
-      return await _dbHelper.getChatById(chatId);
-    } catch (e) {
-      debugPrint('Error getting chat by ID: $e');
-      return null;
-    }
+    return await _dbHelper.getChatById(chatId);
   }
 
   @override
   Future<void> updateChatLastMessage(ChatModel chat) async {
-    try {
-      await _dbHelper.updateChatLastMessage(
-        chatId: chat.chatId,
-        lastMessage: chat.lastMessage,
-        lastMessageType: chat.lastMessageType,
-        lastMessageSender: chat.lastMessageSender,
-        lastMessageTime: chat.lastMessageTime,
-      );
-    } catch (e) {
-      debugPrint('Error updating chat last message: $e');
-      rethrow;
-    }
+    await _dbHelper.updateChatLastMessage(
+      chatId: chat.chatId,
+      lastMessage: chat.lastMessage,
+      lastMessageType: chat.lastMessageType,
+      lastMessageSender: chat.lastMessageSender,
+      lastMessageTime: chat.lastMessageTime,
+    );
   }
 
   @override
   Future<void> markChatAsRead(String chatId, String userId) async {
-    try {
-      // Mark in local database
-      await _dbHelper.markAllMessagesAsRead(chatId, userId);
-      
-      // Sync with server (don't wait)
-      _httpClient.post('/chats/$chatId/mark-read', body: {
-        'userId': userId,
-        'readAt': DateTimeHelper.toIso8601(DateTime.now()),
-      }).catchError((e) {
-        debugPrint('Failed to mark chat as read on server: $e');
-      });
-    } catch (e) {
-      debugPrint('Error marking chat as read: $e');
-      rethrow;
-    }
+    await _dbHelper.markChatAsRead(chatId, userId);
+    
+    // Sync with server
+    _httpClient.post('/chats/$chatId/mark-read', body: {
+      'userId': userId,
+      'readAt': DateTimeHelper.toIso8601(DateTime.now()),
+    }).catchError((e) => debugPrint('Failed to mark chat as read on server: $e'));
   }
 
   @override
   Future<void> toggleChatPin(String chatId, String userId) async {
-    try {
-      await _dbHelper.toggleChatPin(chatId, userId);
-      
-      // Sync with server
-      await _httpClient.post('/chats/$chatId/toggle-pin', body: {
-        'userId': userId,
-        'pinnedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error toggling chat pin: $e');
-      // Revert on error
-      await _dbHelper.toggleChatPin(chatId, userId);
-      rethrow;
-    }
+    await _dbHelper.toggleChatPin(chatId, userId);
   }
 
   @override
   Future<void> toggleChatArchive(String chatId, String userId) async {
-    try {
-      await _dbHelper.toggleChatArchive(chatId, userId);
-      
-      await _httpClient.post('/chats/$chatId/toggle-archive', body: {
-        'userId': userId,
-        'archivedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error toggling chat archive: $e');
-      await _dbHelper.toggleChatArchive(chatId, userId);
-      rethrow;
-    }
+    await _dbHelper.toggleChatArchive(chatId, userId);
   }
 
   @override
   Future<void> toggleChatMute(String chatId, String userId) async {
-    try {
-      await _dbHelper.toggleChatMute(chatId, userId);
-      
-      await _httpClient.post('/chats/$chatId/toggle-mute', body: {
-        'userId': userId,
-        'mutedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error toggling chat mute: $e');
-      await _dbHelper.toggleChatMute(chatId, userId);
-      rethrow;
-    }
-  }
-
-  @override
-  Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl) async {
-    try {
-      await _httpClient.post('/chats/$chatId/wallpaper', body: {
-        'userId': userId,
-        'wallpaperUrl': wallpaperUrl,
-        'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to set chat wallpaper: $e');
-    }
-  }
-
-  @override
-  Future<void> setChatFontSize(String chatId, String userId, double fontSize) async {
-    try {
-      await _httpClient.post('/chats/$chatId/font-size', body: {
-        'userId': userId,
-        'fontSize': fontSize,
-        'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to set chat font size: $e');
-    }
+    await _dbHelper.toggleChatMute(chatId, userId);
   }
 
   @override
   Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false}) async {
-    try {
-      await _dbHelper.deleteChat(chatId, userId);
-      
-      await _httpClient.delete('/chats/$chatId?userId=$userId&deleteForEveryone=$deleteForEveryone');
-    } catch (e) {
-      throw ChatRepositoryException('Failed to delete chat: $e');
-    }
+    await _dbHelper.deleteChat(chatId, userId);
+    
+    await _httpClient.delete('/chats/$chatId?userId=$userId&deleteForEveryone=$deleteForEveryone');
   }
 
   @override
   Future<void> clearChatHistory(String chatId, String userId) async {
-    try {
-      await _dbHelper.clearChatHistory(chatId);
-      
-      await _httpClient.post('/chats/$chatId/clear-history', body: {
-        'userId': userId,
-        'clearedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to clear chat history: $e');
-    }
+    await _dbHelper.clearChatHistory(chatId);
+    
+    await _httpClient.post('/chats/$chatId/clear-history', body: {
+      'userId': userId,
+      'clearedAt': DateTimeHelper.toIso8601(DateTime.now()),
+    });
   }
 
   // ========================================
-  // MESSAGE OPERATIONS (Offline-First)
+  // MESSAGE OPERATIONS - FIXED
   // ========================================
 
   @override
@@ -411,11 +265,12 @@ class OfflineFirstChatRepository implements ChatRepository {
       final localMessage = message.copyWith(
         messageId: messageId,
         status: MessageStatus.sending,
-        timestamp: DateTime.now(), // Use device time
+        timestamp: DateTime.now(),
       );
       
-      // 1. Save to local database FIRST (instant feedback)
+      // 1. Save to local database FIRST
       await _dbHelper.insertOrUpdateMessage(localMessage);
+      debugPrint('✅ Message saved to local DB: $messageId');
       
       // 2. Update chat last message
       await _dbHelper.updateChatLastMessage(
@@ -428,51 +283,42 @@ class OfflineFirstChatRepository implements ChatRepository {
       
       // 3. Send to server in background
       _sendMessageToServer(localMessage).then((_) async {
-        // Update status to sent on success
         await _dbHelper.updateMessageStatus(messageId, MessageStatus.sent);
+        debugPrint('✅ Message sent to server: $messageId');
       }).catchError((e) async {
-        // Update status to failed on error
-        debugPrint('Failed to send message to server: $e');
+        debugPrint('❌ Failed to send message to server: $e');
         await _dbHelper.updateMessageStatus(messageId, MessageStatus.failed);
       });
       
       return messageId;
     } catch (e) {
-      throw ChatRepositoryException('Failed to send message: $e');
+      debugPrint('❌ Error sending message: $e');
+      rethrow;
     }
   }
 
   Future<void> _sendMessageToServer(MessageModel message) async {
-    try {
-      final response = await _httpClient.post('/chats/${message.chatId}/messages', body: {
-        'messageId': message.messageId,
-        'chatId': message.chatId,
-        'senderId': message.senderId,
-        'content': message.content,
-        'type': message.type.name,
-        'status': message.status.name,
-        'timestamp': DateTimeHelper.toIso8601(message.timestamp),
-        'mediaUrl': message.mediaUrl,
-        'mediaMetadata': message.mediaMetadata,
-        'replyToMessageId': message.replyToMessageId,
-        'replyToContent': message.replyToContent,
-        'replyToSender': message.replyToSender,
-        'reactions': message.reactions,
-        'isEdited': message.isEdited,
-        'editedAt': message.editedAt != null ? DateTimeHelper.toIso8601(message.editedAt!) : null,
-        'isPinned': message.isPinned,
-        'readBy': message.readBy?.map((k, v) => MapEntry(k, DateTimeHelper.toIso8601(v))),
-        'deliveredTo': message.deliveredTo?.map((k, v) => MapEntry(k, DateTimeHelper.toIso8601(v))),
-      });
+    final response = await _httpClient.post('/chats/${message.chatId}/messages', body: {
+      'messageId': message.messageId,
+      'chatId': message.chatId,
+      'senderId': message.senderId,
+      'content': message.content,
+      'type': message.type.name,
+      'status': message.status.name,
+      'timestamp': DateTimeHelper.toIso8601(message.timestamp),
+      'mediaUrl': message.mediaUrl,
+      'mediaMetadata': message.mediaMetadata,
+      'replyToMessageId': message.replyToMessageId,
+      'replyToContent': message.replyToContent,
+      'replyToSender': message.replyToSender,
+      'reactions': message.reactions,
+      'isEdited': message.isEdited,
+      'editedAt': message.editedAt != null ? DateTimeHelper.toIso8601(message.editedAt!) : null,
+      'isPinned': message.isPinned,
+    });
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        await _dbHelper.markMessageAsSynced(message.messageId);
-      } else {
-        throw Exception('Server returned ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('Error sending message to server: $e');
-      rethrow;
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Server returned ${response.statusCode}');
     }
   }
 
@@ -549,17 +395,15 @@ class OfflineFirstChatRepository implements ChatRepository {
       mediaMetadata: {
         'isMomentReaction': true,
         'momentReaction': momentReaction.toMap(),
-        'thumbnailUrl': momentReaction.thumbnailUrl,
-        'momentId': momentReaction.momentId,
-        'authorName': momentReaction.authorName,
-        'authorImage': momentReaction.authorImage,
-        'mediaType': momentReaction.mediaType,
-        'momentContent': momentReaction.content,
       },
     );
 
     return await sendMessage(message);
   }
+
+  // ========================================
+  // MESSAGE STREAM - FIXED TO SYNC FROM SERVER
+  // ========================================
 
   @override
   Stream<List<MessageModel>> getMessagesStream(String chatId) {
@@ -577,7 +421,10 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   void _startMessageStream(String chatId) {
-    // Poll every 500ms for local changes (messages need faster updates)
+    // Immediately sync from server when stream starts
+    _syncMessagesFromServer(chatId);
+    
+    // Then poll local DB for updates
     Timer.periodic(const Duration(milliseconds: 500), (timer) async {
       final controller = _messageStreamControllers[chatId];
       
@@ -597,335 +444,128 @@ class OfflineFirstChatRepository implements ChatRepository {
         }
       }
     });
+    
+    // Sync from server every 10 seconds
+    Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (_messageStreamControllers[chatId] == null) {
+        timer.cancel();
+        return;
+      }
+      
+      await _syncMessagesFromServer(chatId);
+    });
   }
 
   void _stopMessageStream(String chatId) {
-    final controller = _messageStreamControllers.remove(chatId);
-    controller?.close();
+    _messageStreamControllers.remove(chatId)?.close();
+  }
+
+  // CRITICAL: This syncs messages from your PostgreSQL backend to local SQLite
+  Future<void> _syncMessagesFromServer(String chatId) async {
+    // Prevent concurrent syncs
+    if (_isSyncing[chatId] == true) return;
+    
+    _isSyncing[chatId] = true;
+    
+    try {
+      debugPrint('🔄 Syncing messages from server for chat $chatId');
+      
+      final response = await _httpClient.get('/chats/$chatId/messages?limit=100&sort=desc');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
+
+        debugPrint('📥 Received ${messagesData.length} messages from server');
+
+        for (final messageData in messagesData) {
+          try {
+            final message = MessageModel.fromMap(messageData as Map<String, dynamic>);
+            await _dbHelper.insertOrUpdateMessage(message);
+          } catch (e) {
+            debugPrint('❌ Error parsing message from server: $e');
+            debugPrint('   Message data: $messageData');
+          }
+        }
+        
+        _lastSyncTime[chatId] = DateTime.now();
+        debugPrint('✅ Successfully synced ${messagesData.length} messages to local DB');
+      } else {
+        debugPrint('❌ Server returned ${response.statusCode} for messages');
+      }
+    } catch (e) {
+      debugPrint('❌ Error syncing messages from server: $e');
+    } finally {
+      _isSyncing[chatId] = false;
+    }
+  }
+
+  @override
+  Future<void> syncMessages(String chatId) async {
+    await _syncMessagesFromServer(chatId);
   }
 
   @override
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status) async {
-    try {
-      await _dbHelper.updateMessageStatus(messageId, status);
-      
-      _httpClient.put('/chats/$chatId/messages/$messageId/status', body: {
-        'status': status.name,
-        'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      }).catchError((e) {
-        debugPrint('Failed to update message status on server: $e');
-      });
-    } catch (e) {
-      debugPrint('Error updating message status: $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<void> markMessageAsDelivered(String chatId, String messageId, String userId) async {
-    try {
-      await _httpClient.post('/chats/$chatId/messages/$messageId/delivered', body: {
-        'userId': userId,
-        'deliveredAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error marking message as delivered: $e');
-    }
-  }
-
-  @override
-  Future<void> markMessageAsRead(String chatId, String messageId, String userId) async {
-    try {
-      await _httpClient.post('/chats/$chatId/messages/$messageId/read', body: {
-        'userId': userId,
-        'readAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error marking message as read: $e');
-    }
+    await _dbHelper.updateMessageStatus(messageId, status);
+    
+    _httpClient.put('/chats/$chatId/messages/$messageId/status', body: {
+      'status': status.name,
+      'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
+    }).catchError((e) => debugPrint('Failed to update message status on server: $e'));
   }
 
   @override
   Future<void> editMessage(String chatId, String messageId, String newContent) async {
-    try {
-      await _dbHelper.editMessage(messageId, newContent);
-      
-      await _httpClient.put('/chats/$chatId/messages/$messageId', body: {
-        'content': newContent,
-        'isEdited': true,
-        'editedAt': DateTimeHelper.toIso8601(DateTime.now()),
-        'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to edit message: $e');
-    }
+    await _dbHelper.editMessage(messageId, newContent);
+    
+    await _httpClient.put('/chats/$chatId/messages/$messageId', body: {
+      'content': newContent,
+      'isEdited': true,
+      'editedAt': DateTimeHelper.toIso8601(DateTime.now()),
+    });
   }
 
   @override
   Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
-    try {
-      await _dbHelper.deleteMessage(messageId);
-      
-      await _httpClient.delete('/chats/$chatId/messages/$messageId?deleteForEveryone=$deleteForEveryone');
-    } catch (e) {
-      throw ChatRepositoryException('Failed to delete message: $e');
-    }
+    await _dbHelper.deleteMessage(messageId);
+    
+    await _httpClient.delete('/chats/$chatId/messages/$messageId?deleteForEveryone=$deleteForEveryone');
   }
 
   @override
   Future<void> pinMessage(String chatId, String messageId) async {
-    try {
-      await _dbHelper.togglePinMessage(messageId);
-      
-      await _httpClient.post('/chats/$chatId/messages/$messageId/pin', body: {
-        'pinnedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to pin message: $e');
-    }
+    await _dbHelper.togglePinMessage(messageId);
+    
+    await _httpClient.post('/chats/$chatId/messages/$messageId/pin', body: {
+      'pinnedAt': DateTimeHelper.toIso8601(DateTime.now()),
+    });
   }
 
   @override
   Future<void> unpinMessage(String chatId, String messageId) async {
-    try {
-      await _dbHelper.togglePinMessage(messageId);
-      
-      await _httpClient.delete('/chats/$chatId/messages/$messageId/pin');
-    } catch (e) {
-      throw ChatRepositoryException('Failed to unpin message: $e');
-    }
+    await _dbHelper.togglePinMessage(messageId);
+    
+    await _httpClient.delete('/chats/$chatId/messages/$messageId/pin');
   }
 
   @override
   Future<List<MessageModel>> searchMessages(String chatId, String query) async {
-    try {
-      return await _dbHelper.searchMessages(chatId, query);
-    } catch (e) {
-      throw ChatRepositoryException('Failed to search messages: $e');
-    }
+    return await _dbHelper.searchMessages(chatId, query);
   }
 
   @override
   Future<List<MessageModel>> getPinnedMessages(String chatId) async {
-    try {
-      return await _dbHelper.getPinnedMessages(chatId);
-    } catch (e) {
-      throw ChatRepositoryException('Failed to get pinned messages: $e');
-    }
+    return await _dbHelper.getPinnedMessages(chatId);
   }
 
   @override
-  Future<void> addMessageReaction(String chatId, String messageId, String userId, String emoji) async {
+  Future<void> syncAllData(String userId) async {
     try {
-      await _httpClient.post('/chats/$chatId/messages/$messageId/reactions', body: {
-        'userId': userId,
-        'emoji': emoji,
-        'reactedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to add message reaction: $e');
-    }
-  }
-
-  @override
-  Future<void> removeMessageReaction(String chatId, String messageId, String userId) async {
-    try {
-      await _httpClient.delete('/chats/$chatId/messages/$messageId/reactions/$userId');
-    } catch (e) {
-      throw ChatRepositoryException('Failed to remove message reaction: $e');
-    }
-  }
-
-  // ========================================
-  // MEDIA OPERATIONS
-  // ========================================
-
-  @override
-  Future<String> uploadMedia(File file, String fileName, String chatId) async {
-    try {
-      final fileSize = await file.length();
-      if (fileSize > 100 * 1024 * 1024) {
-        throw ChatRepositoryException('File size exceeds 100MB limit');
-      }
-
-      final response = await _httpClient.uploadFile(
-        '/upload',
-        file,
-        'file',
-        additionalFields: {
-          'type': 'chat_media',
-          'chatId': chatId,
-          'fileName': fileName,
-          'uploadedAt': DateTimeHelper.toIso8601(DateTime.now()),
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['url'] as String;
-      } else {
-        throw ChatRepositoryException('Failed to upload media: ${response.body}');
-      }
-    } catch (e) {
-      throw ChatRepositoryException('Failed to upload media: $e');
-    }
-  }
-
-  @override
-  Future<void> deleteMedia(String mediaUrl) async {
-    try {
-      await _httpClient.delete('/media?url=${Uri.encodeComponent(mediaUrl)}');
-    } catch (e) {
-      throw ChatRepositoryException('Failed to delete media: $e');
-    }
-  }
-
-  // ========================================
-  // USER PRESENCE & STATUS
-  // ========================================
-
-  @override
-  Future<void> updateUserPresence(String userId, bool isOnline) async {
-    try {
-      await _dbHelper.updateParticipantOnlineStatus(userId, isOnline);
-      
-      await _httpClient.post('/users/$userId/presence', body: {
-        'isOnline': isOnline,
-        'lastSeen': DateTimeHelper.toIso8601(DateTime.now()),
-        'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error updating user presence: $e');
-    }
-  }
-
-  @override
-  Future<Map<String, bool>> getUsersPresence(List<String> userIds) async {
-    try {
-      final response = await _httpClient.post('/users/presence/batch', body: {
-        'userIds': userIds,
-      });
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final presenceData = data['presence'] as Map<String, dynamic>? ?? {};
-
-        final result = <String, bool>{};
-        presenceData.forEach((userId, isOnline) {
-          result[userId] = isOnline as bool? ?? false;
-        });
-
-        return result;
-      }
-      return {};
-    } catch (e) {
-      debugPrint('Error getting users presence: $e');
-      return {};
-    }
-  }
-
-  @override
-  Future<void> updateUserTypingStatus(String chatId, String userId, bool isTyping) async {
-    try {
-      await _dbHelper.updateTypingStatus(
-        chatId: chatId,
-        userId: userId,
-        isTyping: isTyping,
-      );
-      
-      await _httpClient.post('/chats/$chatId/typing', body: {
-        'userId': userId,
-        'isTyping': isTyping,
-        'timestamp': DateTimeHelper.toIso8601(DateTime.now()),
-      });
-    } catch (e) {
-      debugPrint('Error updating typing status: $e');
-    }
-  }
-
-  @override
-  Future<Map<String, bool>> getChatTypingStatus(String chatId) async {
-    try {
-      final typingUsers = await _dbHelper.getTypingUsers(chatId);
-      final result = <String, bool>{};
-      for (final userId in typingUsers) {
-        result[userId] = true;
-      }
-      
-      final response = await _httpClient.get('/chats/$chatId/typing');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final typingData = data['typing'] as Map<String, dynamic>? ?? {};
-        
-        typingData.forEach((userId, isTyping) {
-          result[userId] = isTyping as bool? ?? false;
-        });
-      }
-      
-      return result;
-    } catch (e) {
-      debugPrint('Error getting chat typing status: $e');
-      return {};
-    }
-  }
-
-  // ========================================
-  // UTILITY METHODS
-  // ========================================
-
-  @override
-  Future<bool> chatHasMessages(String chatId) async {
-    try {
-      final messages = await _dbHelper.getChatMessages(chatId, limit: 1);
-      return messages.isNotEmpty;
-    } catch (e) {
-      debugPrint('Error checking chat messages: $e');
-      return false;
-    }
-  }
-
-  @override
-  Future<List<String>> getUserChats(String userId) async {
-    try {
-      final chats = await _dbHelper.getUserChats(userId);
-      return chats.map((chat) => chat.chatId).toList();
-    } catch (e) {
-      throw ChatRepositoryException('Failed to get user chats: $e');
-    }
-  }
-
-  @override
-  Future<int> getUnreadMessagesCount(String userId) async {
-    try {
-      return await _dbHelper.getTotalUnreadMessagesCount(userId);
-    } catch (e) {
-      debugPrint('Error getting unread messages count: $e');
-      return 0;
-    }
-  }
-
-  @override
-  Future<int> getChatUnreadCount(String chatId, String userId) async {
-    try {
-      return await _dbHelper.getUnreadMessagesCount(chatId, userId);
-    } catch (e) {
-      debugPrint('Error getting chat unread count: $e');
-      return 0;
-    }
-  }
-
-  // ========================================
-  // SYNC OPERATIONS
-  // ========================================
-
-  @override
-  Future<void> syncChats(String userId) async {
-    try {
+      // Sync chats
       final response = await _httpClient.get('/chats?userId=$userId');
 
       if (response.statusCode == 200) {
-        if (response.body.isEmpty) return;
-
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic> chatsData = data['chats'] ?? [];
 
@@ -933,64 +573,26 @@ class OfflineFirstChatRepository implements ChatRepository {
           try {
             final chat = ChatModel.fromMap(chatData as Map<String, dynamic>);
             await _dbHelper.insertOrUpdateChat(chat);
+            
+            // Sync messages for each chat
+            await _syncMessagesFromServer(chat.chatId);
           } catch (e) {
             debugPrint('Error parsing chat: $e');
           }
         }
       }
-    } catch (e) {
-      debugPrint('Error syncing chats from server: $e');
-    }
-  }
-
-  @override
-  Future<void> syncMessages(String chatId) async {
-    try {
-      final response = await _httpClient.get('/chats/$chatId/messages?limit=100&sort=desc');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final List<dynamic> messagesData = data['messages'] ?? [];
-
-        for (final messageData in messagesData) {
-          try {
-            final message = MessageModel.fromMap(messageData as Map<String, dynamic>);
-            await _dbHelper.insertOrUpdateMessage(message);
-          } catch (e) {
-            debugPrint('Error parsing message: $e');
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error syncing messages from server: $e');
-    }
-  }
-
-  @override
-  Future<void> syncAllData(String userId) async {
-    try {
-      await syncChats(userId);
       
-      final chats = await _dbHelper.getUserChats(userId);
-      
-      for (final chat in chats) {
-        await syncMessages(chat.chatId);
-      }
-      
-      debugPrint('All data synced successfully');
+      debugPrint('✅ All data synced successfully');
     } catch (e) {
-      debugPrint('Error syncing all data: $e');
-      rethrow;
+      debugPrint('❌ Error syncing all data: $e');
     }
   }
 
   // ========================================
-  // CLEANUP & DISPOSAL
+  // CLEANUP
   // ========================================
 
   void dispose() {
-    _syncTimer?.cancel();
-    
     for (final controller in _chatStreamControllers.values) {
       controller.close();
     }
@@ -1002,72 +604,6 @@ class OfflineFirstChatRepository implements ChatRepository {
     _messageStreamControllers.clear();
     
     debugPrint('Chat repository disposed');
-  }
-
-  Future<void> clearLocalCache() async {
-    try {
-      await _dbHelper.clearAllData();
-      debugPrint('Local cache cleared');
-    } catch (e) {
-      debugPrint('Error clearing local cache: $e');
-      rethrow;
-    }
-  }
-
-  Future<Map<String, int>> getLocalStatistics() async {
-    try {
-      return await _dbHelper.getDatabaseStatistics();
-    } catch (e) {
-      debugPrint('Error getting local statistics: $e');
-      return {};
-    }
-  }
-
-  Future<int> cleanupOldMessages({int daysOld = 365}) async {
-    try {
-      return await _dbHelper.deleteOldMessages(daysOld: daysOld);
-    } catch (e) {
-      debugPrint('Error cleaning up old messages: $e');
-      return 0;
-    }
-  }
-
-  Future<void> optimizeDatabase() async {
-    try {
-      await _dbHelper.vacuumDatabase();
-      debugPrint('Database optimized');
-    } catch (e) {
-      debugPrint('Error optimizing database: $e');
-      rethrow;
-    }
-  }
-
-  Future<int> getDatabaseSize() async {
-    try {
-      return await _dbHelper.getDatabaseSize();
-    } catch (e) {
-      debugPrint('Error getting database size: $e');
-      return 0;
-    }
-  }
-
-  Future<Map<String, dynamic>> exportChatData() async {
-    try {
-      return await _dbHelper.exportToJson();
-    } catch (e) {
-      debugPrint('Error exporting chat data: $e');
-      return {};
-    }
-  }
-
-  Future<void> importChatData(Map<String, dynamic> data) async {
-    try {
-      await _dbHelper.importFromJson(data);
-      debugPrint('Chat data imported successfully');
-    } catch (e) {
-      debugPrint('Error importing chat data: $e');
-      rethrow;
-    }
   }
 }
 
@@ -1086,73 +622,3 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   
   return repository;
 });
-
-// ========================================
-// EXCEPTION CLASSES
-// ========================================
-
-class ChatRepositoryException implements Exception {
-  final String message;
-  const ChatRepositoryException(this.message);
-
-  @override
-  String toString() => 'ChatRepositoryException: $message';
-}
-
-class ChatNotFoundException extends ChatRepositoryException {
-  const ChatNotFoundException(String chatId) : super('Chat not found: $chatId');
-}
-
-class MessageNotFoundException extends ChatRepositoryException {
-  const MessageNotFoundException(String messageId)
-      : super('Message not found: $messageId');
-}
-
-class UserNotInChatException extends ChatRepositoryException {
-  const UserNotInChatException(String userId, String chatId)
-      : super('User $userId not in chat $chatId');
-}
-
-class InsufficientPermissionsException extends ChatRepositoryException {
-  const InsufficientPermissionsException(String action)
-      : super('Insufficient permissions for: $action');
-}
-
-class MediaUploadException extends ChatRepositoryException {
-  const MediaUploadException(String reason)
-      : super('Media upload failed: $reason');
-}
-
-class NetworkException extends ChatRepositoryException {
-  const NetworkException(String message) : super('Network error: $message');
-}
-
-class RateLimitException extends ChatRepositoryException {
-  const RateLimitException()
-      : super('Rate limit exceeded. Please try again later.');
-}
-
-class InvalidMessageTypeException extends ChatRepositoryException {
-  const InvalidMessageTypeException(String type)
-      : super('Invalid message type: $type');
-}
-
-class FileSizeExceededException extends ChatRepositoryException {
-  final int maxSize;
-  final int actualSize;
-  const FileSizeExceededException(this.maxSize, this.actualSize)
-      : super('File size $actualSize exceeds maximum allowed size $maxSize');
-}
-
-class UnsupportedFileTypeException extends ChatRepositoryException {
-  const UnsupportedFileTypeException(String fileType)
-      : super('Unsupported file type: $fileType');
-}
-
-class SyncException extends ChatRepositoryException {
-  const SyncException(String message) : super('Sync error: $message');
-}
-
-class DatabaseException extends ChatRepositoryException {
-  const DatabaseException(String message) : super('Database error: $message');
-}

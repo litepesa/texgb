@@ -666,7 +666,7 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
-  Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds) async {
+  /*Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null || messageIds.isEmpty) return;
 
@@ -676,7 +676,7 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('❌ Error marking messages as delivered: $e');
     }
-  }
+  }*/
 
   // PUBLIC: Mark all messages as read (called from UI)
   Future<void> markAllMessagesAsRead(String chatId) async {
