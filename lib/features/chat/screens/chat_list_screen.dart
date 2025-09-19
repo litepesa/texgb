@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_list_screen.dart
-// FIXED: Proper unread counter display, timestamp formatting, and navigation
+// FIXED: Proper type handling for cached user data and null safety
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +7,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/database/chat_database_helper.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
+import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -704,6 +706,172 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     return name[0].toUpperCase();
   }
 
+  Future<List<ChatListItemModel>> _buildChatListItems(
+      List<ChatModel> chats, String currentUserId) async {
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    final chatItems = <ChatListItemModel>[];
+
+    for (final chat in chats) {
+      try {
+        final otherUserId = chat.getOtherParticipant(currentUserId);
+        
+        // Try to get contact info from cache
+        var contactData = await _getCachedUserDetails(otherUserId, chat.chatId);
+        
+        String contactName = 'Unknown User';
+        String contactImage = '';
+        String contactPhone = '';
+        bool isOnline = false;
+        DateTime? lastSeen;
+        
+        if (contactData != null) {
+          // contactData is a Map<String, dynamic>
+          contactName = contactData['name']?.toString() ?? 'Unknown User';
+          contactImage = contactData['profileImage']?.toString() ?? '';
+          contactPhone = contactData['phoneNumber']?.toString() ?? '';
+          
+          final lastSeenStr = contactData['lastSeen']?.toString();
+          if (lastSeenStr != null) {
+            isOnline = _isUserOnline(lastSeenStr);
+            lastSeen = _parseLastSeen(lastSeenStr);
+          }
+        } else {
+          // If not cached, fetch from server
+          try {
+            final userModel = await authNotifier.getUserById(otherUserId);
+            
+            if (userModel != null) {
+              contactName = userModel.name;
+              contactImage = userModel.profileImage;
+              contactPhone = userModel.phoneNumber;
+              isOnline = _isUserOnline(userModel.lastSeen);
+              lastSeen = _parseLastSeen(userModel.lastSeen);
+              
+              // Cache for future use
+              await _cacheUserDetails(chat.chatId, userModel);
+            }
+          } catch (e) {
+            debugPrint('Error fetching user $otherUserId: $e');
+          }
+          
+          // If still no data, try participant cache
+          if (contactName == 'Unknown User') {
+            final participants = await _dbHelper.getChatParticipants(chat.chatId);
+            final participant = participants.firstWhere(
+              (p) => p['userId'] == otherUserId,
+              orElse: () => <String, dynamic>{},
+            );
+            
+            if (participant.isNotEmpty) {
+              contactName = participant['userName']?.toString() ?? 'Unknown User';
+              contactImage = participant['userImage']?.toString() ?? '';
+              contactPhone = participant['phoneNumber']?.toString() ?? '';
+              isOnline = (participant['isOnline'] == 1);
+              
+              if (participant['lastSeen'] != null) {
+                try {
+                  lastSeen = DateTime.fromMillisecondsSinceEpoch(
+                    participant['lastSeen'] as int
+                  );
+                } catch (e) {
+                  debugPrint('Error parsing lastSeen: $e');
+                }
+              }
+            }
+          }
+        }
+        
+        // Always add a chat item, even with default values
+        chatItems.add(ChatListItemModel(
+          chat: chat,
+          contactName: contactName,
+          contactImage: contactImage,
+          contactPhone: contactPhone,
+          isOnline: isOnline,
+          lastSeen: lastSeen,
+        ));
+      } catch (e) {
+        debugPrint('❌ Error building chat item: $e');
+        
+        // Add a fallback chat item to prevent UI from breaking
+        chatItems.add(ChatListItemModel(
+          chat: chat,
+          contactName: 'Unknown User',
+          contactImage: '',
+          contactPhone: '',
+          isOnline: false,
+          lastSeen: null,
+        ));
+      }
+    }
+
+    // Sort by last message time (most recent first)
+    chatItems.sort((a, b) => b.chat.lastMessageTime.compareTo(a.chat.lastMessageTime));
+
+    return chatItems;
+  }
+
+  Future<dynamic> _getCachedUserDetails(String userId, String chatId) async {
+    try {
+      final participants = await _dbHelper.getChatParticipants(chatId);
+      final participant = participants.firstWhere(
+        (p) => p['userId'] == userId,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      if (participant.isNotEmpty) {
+        // Return a simple map that looks like user data
+        return {
+          'uid': userId,
+          'name': participant['userName'],
+          'profileImage': participant['userImage'] ?? '',
+          'phoneNumber': participant['phoneNumber'] ?? '',
+          'lastSeen': participant['lastSeen'] != null 
+              ? DateTime.fromMillisecondsSinceEpoch(participant['lastSeen']).toIso8601String()
+              : DateTime.now().toIso8601String(),
+        };
+      }
+    } catch (e) {
+      debugPrint('Error getting cached user details: $e');
+    }
+    return null;
+  }
+
+  Future<void> _cacheUserDetails(String chatId, dynamic user) async {
+    try {
+      await _dbHelper.insertOrUpdateParticipant(
+        chatId: chatId,
+        userId: user.uid,
+        userName: user.name,
+        userImage: user.profileImage,
+        phoneNumber: user.phoneNumber,
+        isOnline: _isUserOnline(user.lastSeen),
+        lastSeen: user.lastSeen,
+      );
+    } catch (e) {
+      debugPrint('Error caching user details: $e');
+    }
+  }
+
+  bool _isUserOnline(String lastSeenString) {
+    try {
+      final lastSeen = DateTime.parse(lastSeenString);
+      final now = DateTime.now();
+      final difference = now.difference(lastSeen);
+      return difference.inMinutes <= 5;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  DateTime? _parseLastSeen(String lastSeenString) {
+    try {
+      return DateTime.parse(lastSeenString);
+    } catch (e) {
+      return null;
+    }
+  }
+
   void _openChat(ChatListItemModel chatItem) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
@@ -1059,4 +1227,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       (route) => false,
     );
   }
+  
+  // Add missing _dbHelper reference
+  final _dbHelper = ChatDatabaseHelper();
 }

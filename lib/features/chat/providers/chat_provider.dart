@@ -1,5 +1,5 @@
 // lib/features/chat/providers/chat_provider.dart
-// FIXED: Proper lifecycle, unread counter, and state persistence
+// FIXED: Proper lifecycle, unread counter, and state persistence with correct type handling
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -28,7 +28,7 @@ class ChatListState {
   final bool isOnline;
   final bool isSyncing;
   final DateTime? lastSyncTime;
-  final int totalUnreadCount; // NEW: Total unread messages
+  final int totalUnreadCount;
 
   const ChatListState({
     this.isLoading = false,
@@ -258,50 +258,94 @@ class ChatList extends _$ChatList {
       try {
         final otherUserId = chat.getOtherParticipant(currentUserId);
         
-        // Try to get contact info from cache
-        var contact = await _getCachedUserDetails(otherUserId, chat.chatId);
+        String contactName = 'Unknown User';
+        String contactImage = '';
+        String contactPhone = '';
+        bool isOnline = false;
+        DateTime? lastSeen;
         
-        // If not cached, fetch from server
-        if (contact == null) {
-          contact = await authNotifier.getUserById(otherUserId);
+        // Try to get cached data first (returns Map<String, dynamic>)
+        var cachedData = await _getCachedUserDetails(otherUserId, chat.chatId);
+        
+        if (cachedData != null) {
+          // Extract from Map
+          contactName = cachedData['name']?.toString() ?? 'Unknown User';
+          contactImage = cachedData['profileImage']?.toString() ?? '';
+          contactPhone = cachedData['phoneNumber']?.toString() ?? '';
           
-          if (contact != null) {
-            await _cacheUserDetails(chat.chatId, contact);
+          final lastSeenStr = cachedData['lastSeen']?.toString();
+          if (lastSeenStr != null) {
+            isOnline = _isUserOnline(lastSeenStr);
+            lastSeen = _parseLastSeen(lastSeenStr);
           }
-        }
-        
-        if (contact != null) {
-          chatItems.add(ChatListItemModel(
-            chat: chat,
-            contactName: contact.name,
-            contactImage: contact.profileImage,
-            contactPhone: contact.phoneNumber,
-            isOnline: _isUserOnline(contact.lastSeen),
-            lastSeen: _parseLastSeen(contact.lastSeen),
-          ));
         } else {
-          // Fallback to cached participant info
-          final participants = await _dbHelper.getChatParticipants(chat.chatId);
-          final participant = participants.firstWhere(
-            (p) => p['userId'] == otherUserId,
-            orElse: () => <String, dynamic>{},
-          );
+          // Fetch from server (returns UserModel)
+          try {
+            final userModel = await authNotifier.getUserById(otherUserId);
+            
+            if (userModel != null) {
+              // Extract from UserModel
+              contactName = userModel.name;
+              contactImage = userModel.profileImage;
+              contactPhone = userModel.phoneNumber;
+              isOnline = _isUserOnline(userModel.lastSeen);
+              lastSeen = _parseLastSeen(userModel.lastSeen);
+              
+              // Cache for future use
+              await _cacheUserDetails(chat.chatId, userModel);
+            }
+          } catch (e) {
+            debugPrint('Error fetching user $otherUserId: $e');
+          }
           
-          if (participant.isNotEmpty) {
-            chatItems.add(ChatListItemModel(
-              chat: chat,
-              contactName: participant['userName'] ?? 'Unknown',
-              contactImage: participant['userImage'] ?? '',
-              contactPhone: participant['phoneNumber'] ?? '',
-              isOnline: participant['isOnline'] == 1,
-              lastSeen: participant['lastSeen'] != null 
-                  ? DateTime.fromMillisecondsSinceEpoch(participant['lastSeen'])
-                  : null,
-            ));
+          // If still no data, try participant cache
+          if (contactName == 'Unknown User') {
+            final participants = await _dbHelper.getChatParticipants(chat.chatId);
+            final participant = participants.firstWhere(
+              (p) => p['userId'] == otherUserId,
+              orElse: () => <String, dynamic>{},
+            );
+            
+            if (participant.isNotEmpty) {
+              contactName = participant['userName']?.toString() ?? 'Unknown User';
+              contactImage = participant['userImage']?.toString() ?? '';
+              contactPhone = participant['phoneNumber']?.toString() ?? '';
+              isOnline = (participant['isOnline'] == 1);
+              
+              if (participant['lastSeen'] != null) {
+                try {
+                  lastSeen = DateTime.fromMillisecondsSinceEpoch(
+                    participant['lastSeen'] as int
+                  );
+                } catch (e) {
+                  debugPrint('Error parsing lastSeen: $e');
+                }
+              }
+            }
           }
         }
+        
+        // Always add a chat item, even with default values
+        chatItems.add(ChatListItemModel(
+          chat: chat,
+          contactName: contactName,
+          contactImage: contactImage,
+          contactPhone: contactPhone,
+          isOnline: isOnline,
+          lastSeen: lastSeen,
+        ));
       } catch (e) {
-        debugPrint('❌ Error building chat item: $e');
+        debugPrint('❌ Error building chat item for chat ${chat.chatId}: $e');
+        
+        // Add a fallback chat item to prevent UI from breaking
+        chatItems.add(ChatListItemModel(
+          chat: chat,
+          contactName: 'Unknown User',
+          contactImage: '',
+          contactPhone: '',
+          isOnline: false,
+          lastSeen: null,
+        ));
       }
     }
 
@@ -311,7 +355,7 @@ class ChatList extends _$ChatList {
     return chatItems;
   }
 
-  Future<dynamic> _getCachedUserDetails(String userId, String chatId) async {
+  Future<Map<String, dynamic>?> _getCachedUserDetails(String userId, String chatId) async {
     try {
       final participants = await _dbHelper.getChatParticipants(chatId);
       final participant = participants.firstWhere(
@@ -339,6 +383,7 @@ class ChatList extends _$ChatList {
 
   Future<void> _cacheUserDetails(String chatId, dynamic user) async {
     try {
+      // user is a UserModel object
       await _dbHelper.insertOrUpdateParticipant(
         chatId: chatId,
         userId: user.uid,
