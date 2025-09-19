@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_screen.dart
-// FIXED: Proper mark as read, timestamp display, and lifecycle management
+// FIXED: Non-blocking mark as read, proper message loading, and error handling
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +13,7 @@ import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
+import 'package:textgb/features/chat/database/chat_database_helper.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -48,9 +49,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
     
-    // Mark messages as read when opening chat
+    // Debug and mark messages as read when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _markMessagesAsReadAndUpdateChat();
+      _debugMessageLoading();
+      _markMessagesAsReadNonBlocking();
     });
   }
 
@@ -60,8 +62,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     
-    // Mark as read one final time when leaving
-    _markMessagesAsReadAndUpdateChat();
+    // Mark as read one final time when leaving (non-blocking)
+    _markMessagesAsReadNonBlocking();
     
     super.dispose();
   }
@@ -69,26 +71,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _markMessagesAsReadAndUpdateChat();
+      _markMessagesAsReadNonBlocking();
     } else if (state == AppLifecycleState.paused) {
-      _markMessagesAsReadAndUpdateChat();
+      _markMessagesAsReadNonBlocking();
     }
   }
 
-  void _markMessagesAsReadAndUpdateChat() {
+  // DEBUG: Check if messages are in database
+  Future<void> _debugMessageLoading() async {
     try {
-      // Mark all messages as read
-      final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-      messageNotifier.markAllMessagesAsRead(widget.chatId);
+      debugPrint('🔍 DEBUG: Checking messages for chat ${widget.chatId}');
       
-      // Also mark in chat list
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      chatListNotifier.markChatAsRead(widget.chatId);
+      final dbHelper = ChatDatabaseHelper();
+      final messages = await dbHelper.getChatMessages(widget.chatId);
       
-      debugPrint('✅ Messages marked as read for chat ${widget.chatId}');
-    } catch (e) {
-      debugPrint('❌ Error marking messages as read: $e');
+      debugPrint('📊 DEBUG: Found ${messages.length} messages in local database');
+      
+      if (messages.isEmpty) {
+        debugPrint('⚠️ DEBUG: No messages in local DB - might be new chat or not synced');
+        
+        // Check if chat exists
+        final chat = await dbHelper.getChatById(widget.chatId);
+        if (chat == null) {
+          debugPrint('❌ DEBUG: Chat ${widget.chatId} does not exist in database');
+        } else {
+          debugPrint('✅ DEBUG: Chat exists but has no messages yet');
+          debugPrint('   Last message: ${chat.lastMessage}');
+        }
+      } else {
+        debugPrint('✅ DEBUG: Messages loaded successfully:');
+        for (var msg in messages.take(3)) {
+          debugPrint('   - ${msg.messageId}: ${msg.content.substring(0, msg.content.length > 30 ? 30 : msg.content.length)}... (${msg.type.name})');
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('❌ DEBUG: Error checking messages: $e');
+      debugPrint('Stack: $stack');
     }
+  }
+
+  // FIXED: Non-blocking mark as read
+  void _markMessagesAsReadNonBlocking() {
+    // Run in background without blocking UI
+    Future.microtask(() async {
+      try {
+        debugPrint('📖 Attempting to mark messages as read for chat ${widget.chatId}');
+        
+        // Mark all messages as read (don't await - run in background)
+        final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+        messageNotifier.markAllMessagesAsRead(widget.chatId).catchError((e) {
+          debugPrint('⚠️ Failed to mark messages as read (non-critical): $e');
+          // Don't throw - this is non-blocking
+        });
+        
+        // Also mark in chat list (don't await - run in background)
+        final chatListNotifier = ref.read(chatListProvider.notifier);
+        chatListNotifier.markChatAsRead(widget.chatId).catchError((e) {
+          debugPrint('⚠️ Failed to mark chat as read (non-critical): $e');
+          // Don't throw - this is non-blocking
+        });
+        
+        debugPrint('✅ Mark as read initiated (background)');
+      } catch (e) {
+        debugPrint('⚠️ Error in mark as read (ignoring): $e');
+        // Don't rethrow - this shouldn't block the UI
+      }
+    });
   }
 
   void _scrollListener() {
@@ -219,8 +267,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           return false;
         }
         
-        // Mark as read one final time
-        _markMessagesAsReadAndUpdateChat();
+        // Mark as read one final time (non-blocking)
+        _markMessagesAsReadNonBlocking();
         
         // Return true to indicate messages were sent/read
         Navigator.of(context).pop(true);
@@ -236,8 +284,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 Expanded(
                   child: messageState.when(
                     loading: () => _buildLoadingState(modernTheme),
-                    error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
-                    data: (state) => _buildMessagesList(state, currentUser),
+                    error: (error, stack) {
+                      debugPrint('❌ Message provider error: $error');
+                      return _buildErrorState(modernTheme, error.toString());
+                    },
+                    data: (state) {
+                      debugPrint('📬 Message state updated: ${state.messages.length} messages');
+                      return _buildMessagesList(state, currentUser);
+                    },
                   ),
                 ),
                 
@@ -289,7 +343,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       scrolledUnderElevation: 0,
       leading: IconButton(
         onPressed: () {
-          _markMessagesAsReadAndUpdateChat();
+          _markMessagesAsReadNonBlocking();
           Navigator.of(context).pop(true);
         },
         icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
@@ -386,8 +440,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   Widget _buildLoadingState(ModernThemeExtension modernTheme) {
+    debugPrint('🔄 Showing loading state');
     return Center(
-      child: CircularProgressIndicator(color: modernTheme.primaryColor),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: modernTheme.primaryColor),
+          const SizedBox(height: 16),
+          Text(
+            'Loading messages...',
+            style: TextStyle(color: modernTheme.textSecondaryColor),
+          ),
+        ],
+      ),
     );
   }
 
@@ -415,6 +480,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               textAlign: TextAlign.center,
             ),
           ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              error,
+              style: TextStyle(color: Colors.red[300], fontSize: 12),
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => ref.refresh(messageNotifierProvider(widget.chatId)),
@@ -433,7 +509,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   Widget _buildMessagesList(MessageState state, UserModel currentUser) {
+    debugPrint('📝 Building messages list: ${state.messages.length} messages');
+    
     if (state.messages.isEmpty) {
+      debugPrint('📭 No messages to display - showing empty state');
       return _buildEmptyState();
     }
 
