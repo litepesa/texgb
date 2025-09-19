@@ -237,8 +237,9 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   void _monitorConnectivity(String chatId) {
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
-      final isOnline = result != ConnectivityResult.none;
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
+      final connectivityResults = await Connectivity().checkConnectivity();
+      final isOnline = !connectivityResults.contains(ConnectivityResult.none);
       final currentState = state.valueOrNull;
       
       if (currentState != null) {
@@ -250,7 +251,7 @@ class MessageNotifier extends _$MessageNotifier {
           _retryFailedMessages(chatId);
         }
       }
-    } as void Function(List<ConnectivityResult> event)?);
+    });
   }
 
   Future<void> _syncMessages(String chatId) async {

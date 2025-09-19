@@ -155,8 +155,9 @@ class ChatList extends _$ChatList {
 
   void _monitorConnectivity() {
     // Monitor connectivity changes
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
-      final isOnline = result != ConnectivityResult.none;
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
+      final connectivityResults = await Connectivity().checkConnectivity();
+      final isOnline = !connectivityResults.contains(ConnectivityResult.none);
       final currentState = state.valueOrNull;
       
       if (currentState != null) {
@@ -170,7 +171,7 @@ class ChatList extends _$ChatList {
           }
         }
       }
-    } as void Function(List<ConnectivityResult> event)?);
+    });
   }
 
   Future<void> _syncChats(String userId) async {
