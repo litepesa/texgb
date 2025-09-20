@@ -1,5 +1,5 @@
 // lib/features/chat/repositories/chat_repository.dart
-// FIXED: Properly syncs messages from PostgreSQL backend to local SQLite
+// FIXED: Stable chat streams with proper change detection and reduced polling
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -67,7 +67,7 @@ abstract class ChatRepository {
 }
 
 // ========================================
-// FIXED OFFLINE-FIRST IMPLEMENTATION
+// FIXED IMPLEMENTATION WITH STABLE STREAMS
 // ========================================
 
 class OfflineFirstChatRepository implements ChatRepository {
@@ -75,13 +75,22 @@ class OfflineFirstChatRepository implements ChatRepository {
   final ChatDatabaseHelper _dbHelper;
   final Uuid _uuid;
   
-  // Stream controllers
+  // Stream controllers with change detection
   final Map<String, StreamController<List<ChatModel>>> _chatStreamControllers = {};
   final Map<String, StreamController<List<MessageModel>>> _messageStreamControllers = {};
   
   // Sync tracking
   final Map<String, bool> _isSyncing = {};
   final Map<String, DateTime> _lastSyncTime = {};
+  
+  // CRITICAL: Cache to prevent unnecessary UI updates
+  final Map<String, List<ChatModel>> _lastChatData = {};
+  final Map<String, List<MessageModel>> _lastMessageData = {};
+  
+  // Timers for controlled polling
+  final Map<String, Timer> _chatTimers = {};
+  final Map<String, Timer> _messageTimers = {};
+  final Map<String, Timer> _syncTimers = {};
   
   OfflineFirstChatRepository({
     HttpClientService? httpClient,
@@ -98,7 +107,343 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   // ========================================
-  // CHAT OPERATIONS
+  // FIXED CHAT STREAM WITH CHANGE DETECTION
+  // ========================================
+
+  @override
+  Stream<List<ChatModel>> getChatsStream(String userId) {
+    if (_chatStreamControllers.containsKey(userId)) {
+      return _chatStreamControllers[userId]!.stream;
+    }
+    
+    final controller = StreamController<List<ChatModel>>.broadcast(
+      onListen: () => _startChatStream(userId),
+      onCancel: () => _stopChatStream(userId),
+    );
+    
+    _chatStreamControllers[userId] = controller;
+    return controller.stream;
+  }
+
+  void _startChatStream(String userId) {
+    debugPrint('🎯 Starting chat stream for user: $userId');
+    
+    // Initial load
+    _loadAndEmitChats(userId);
+    
+    // FIXED: Poll every 3 seconds instead of every 1 second
+    // AND only emit if data actually changed
+    _chatTimers[userId] = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      final controller = _chatStreamControllers[userId];
+      
+      if (controller == null || controller.isClosed) {
+        timer.cancel();
+        _chatTimers.remove(userId);
+        return;
+      }
+      
+      await _loadAndEmitChats(userId);
+    });
+    
+    // Background sync every 2 minutes (reduced frequency)
+    _syncTimers[userId] = Timer.periodic(const Duration(minutes: 2), (timer) async {
+      if (_chatStreamControllers[userId] == null) {
+        timer.cancel();
+        _syncTimers.remove(userId);
+        return;
+      }
+      
+      // Only sync if not currently syncing
+      if (_isSyncing[userId] != true) {
+        await _syncChatsFromServer(userId);
+      }
+    });
+  }
+
+  // CRITICAL: Only emit if data actually changed
+  Future<void> _loadAndEmitChats(String userId) async {
+    try {
+      final chats = await _dbHelper.getUserChats(userId);
+      final controller = _chatStreamControllers[userId];
+      
+      if (controller == null || controller.isClosed) return;
+      
+      // CHANGE DETECTION: Compare with last emitted data
+      final lastChats = _lastChatData[userId];
+      
+      if (lastChats == null || !_areChatsEqual(lastChats, chats)) {
+        debugPrint('📊 Chat data changed - emitting ${chats.length} chats for $userId');
+        _lastChatData[userId] = List.from(chats); // Store copy
+        controller.add(chats);
+      } else {
+        // Data unchanged - don't emit
+        debugPrint('📊 Chat data unchanged - skipping emit for $userId');
+      }
+    } catch (e, stack) {
+      debugPrint('❌ Error loading chats for $userId: $e');
+      final controller = _chatStreamControllers[userId];
+      if (controller != null && !controller.isClosed) {
+        controller.addError(e, stack);
+      }
+    }
+  }
+
+  // Compare two chat lists to detect changes
+  bool _areChatsEqual(List<ChatModel> list1, List<ChatModel> list2) {
+    if (list1.length != list2.length) return false;
+    
+    for (int i = 0; i < list1.length; i++) {
+      final chat1 = list1[i];
+      final chat2 = list2[i];
+      
+      // Compare key fields that would affect UI
+      if (chat1.chatId != chat2.chatId ||
+          chat1.lastMessage != chat2.lastMessage ||
+          chat1.lastMessageTime != chat2.lastMessageTime ||
+          chat1.lastMessageSender != chat2.lastMessageSender ||
+          chat1.unreadCounts.toString() != chat2.unreadCounts.toString() ||
+          chat1.isPinned.toString() != chat2.isPinned.toString() ||
+          chat1.isArchived.toString() != chat2.isArchived.toString() ||
+          chat1.isMuted.toString() != chat2.isMuted.toString()) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  void _stopChatStream(String userId) {
+    debugPrint('🛑 Stopping chat stream for user: $userId');
+    
+    _chatTimers[userId]?.cancel();
+    _chatTimers.remove(userId);
+    
+    _syncTimers[userId]?.cancel();
+    _syncTimers.remove(userId);
+    
+    _chatStreamControllers.remove(userId)?.close();
+    _lastChatData.remove(userId);
+  }
+
+  // ========================================
+  // FIXED MESSAGE STREAM WITH CHANGE DETECTION
+  // ========================================
+
+  @override
+  Stream<List<MessageModel>> getMessagesStream(String chatId) {
+    if (_messageStreamControllers.containsKey(chatId)) {
+      return _messageStreamControllers[chatId]!.stream;
+    }
+    
+    final controller = StreamController<List<MessageModel>>.broadcast(
+      onListen: () => _startMessageStream(chatId),
+      onCancel: () => _stopMessageStream(chatId),
+    );
+    
+    _messageStreamControllers[chatId] = controller;
+    return controller.stream;
+  }
+
+  void _startMessageStream(String chatId) {
+    debugPrint('📬 Starting message stream for chat: $chatId');
+    
+    // Initial sync and load
+    _syncMessagesFromServer(chatId).then((_) {
+      _loadAndEmitMessages(chatId);
+    });
+    
+    // FIXED: Poll every 2 seconds instead of 500ms
+    // AND only emit if data actually changed
+    _messageTimers[chatId] = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      final controller = _messageStreamControllers[chatId];
+      
+      if (controller == null || controller.isClosed) {
+        timer.cancel();
+        _messageTimers.remove(chatId);
+        return;
+      }
+      
+      await _loadAndEmitMessages(chatId);
+    });
+    
+    // Background sync every 30 seconds
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
+      if (_messageStreamControllers[chatId] == null) {
+        timer.cancel();
+        return;
+      }
+      
+      if (_isSyncing[chatId] != true) {
+        await _syncMessagesFromServer(chatId);
+      }
+    });
+  }
+
+  // CRITICAL: Only emit if messages actually changed
+  Future<void> _loadAndEmitMessages(String chatId) async {
+    try {
+      final messages = await _dbHelper.getChatMessages(chatId);
+      final controller = _messageStreamControllers[chatId];
+      
+      if (controller == null || controller.isClosed) return;
+      
+      // CHANGE DETECTION: Compare with last emitted data
+      final lastMessages = _lastMessageData[chatId];
+      
+      if (lastMessages == null || !_areMessagesEqual(lastMessages, messages)) {
+        debugPrint('📬 Message data changed - emitting ${messages.length} messages for $chatId');
+        _lastMessageData[chatId] = List.from(messages); // Store copy
+        controller.add(messages);
+      } else {
+        // Data unchanged - don't emit
+        debugPrint('📬 Message data unchanged - skipping emit for $chatId');
+      }
+    } catch (e, stack) {
+      debugPrint('❌ Error loading messages for $chatId: $e');
+      final controller = _messageStreamControllers[chatId];
+      if (controller != null && !controller.isClosed) {
+        controller.addError(e, stack);
+      }
+    }
+  }
+
+  // Compare two message lists to detect changes
+  bool _areMessagesEqual(List<MessageModel> list1, List<MessageModel> list2) {
+    if (list1.length != list2.length) return false;
+    
+    for (int i = 0; i < list1.length; i++) {
+      final msg1 = list1[i];
+      final msg2 = list2[i];
+      
+      // Compare key fields that would affect UI
+      if (msg1.messageId != msg2.messageId ||
+          msg1.content != msg2.content ||
+          msg1.status != msg2.status ||
+          msg1.timestamp != msg2.timestamp ||
+          msg1.isEdited != msg2.isEdited ||
+          msg1.isPinned != msg2.isPinned) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  void _stopMessageStream(String chatId) {
+    debugPrint('🛑 Stopping message stream for chat: $chatId');
+    
+    _messageTimers[chatId]?.cancel();
+    _messageTimers.remove(chatId);
+    
+    _messageStreamControllers.remove(chatId)?.close();
+    _lastMessageData.remove(chatId);
+  }
+
+  // ========================================
+  // IMPROVED SYNC WITH CONFLICT RESOLUTION
+  // ========================================
+
+  Future<void> _syncChatsFromServer(String userId) async {
+    if (_isSyncing[userId] == true) {
+      debugPrint('⏳ Chat sync already in progress for user $userId');
+      return;
+    }
+    
+    _isSyncing[userId] = true;
+    
+    try {
+      debugPrint('🔄 Syncing chats from server for user $userId');
+      
+      final response = await _httpClient.get('/chats?userId=$userId');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> chatsData = data['chats'] ?? [];
+
+        debugPrint('📥 Received ${chatsData.length} chats from server');
+
+        // Batch update for better performance
+        final chatsToUpdate = <ChatModel>[];
+        
+        for (final chatData in chatsData) {
+          try {
+            final chat = ChatModel.fromMap(chatData as Map<String, dynamic>);
+            chatsToUpdate.add(chat);
+          } catch (e) {
+            debugPrint('❌ Error parsing chat from server: $e');
+          }
+        }
+        
+        // Batch insert all chats
+        if (chatsToUpdate.isNotEmpty) {
+          await _dbHelper.batchInsertChats(chatsToUpdate);
+        }
+        
+        _lastSyncTime[userId] = DateTime.now();
+        debugPrint('✅ Successfully synced ${chatsToUpdate.length} chats to local DB');
+        
+        // Trigger immediate refresh after sync
+        await _loadAndEmitChats(userId);
+      } else {
+        debugPrint('❌ Server returned ${response.statusCode} for chats');
+      }
+    } catch (e) {
+      debugPrint('❌ Error syncing chats from server: $e');
+    } finally {
+      _isSyncing[userId] = false;
+    }
+  }
+
+  Future<void> _syncMessagesFromServer(String chatId) async {
+    if (_isSyncing[chatId] == true) return;
+    
+    _isSyncing[chatId] = true;
+    
+    try {
+      debugPrint('🔄 Syncing messages from server for chat $chatId');
+      
+      final response = await _httpClient.get('/chats/$chatId/messages?limit=100&sort=desc');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
+
+        debugPrint('📥 Received ${messagesData.length} messages from server');
+
+        // Batch update for better performance
+        final messagesToUpdate = <MessageModel>[];
+        
+        for (final messageData in messagesData) {
+          try {
+            final message = MessageModel.fromMap(messageData as Map<String, dynamic>);
+            messagesToUpdate.add(message);
+          } catch (e) {
+            debugPrint('❌ Error parsing message from server: $e');
+          }
+        }
+        
+        // Batch insert all messages
+        if (messagesToUpdate.isNotEmpty) {
+          await _dbHelper.batchInsertMessages(messagesToUpdate);
+        }
+        
+        _lastSyncTime[chatId] = DateTime.now();
+        debugPrint('✅ Successfully synced ${messagesToUpdate.length} messages to local DB');
+        
+        // Trigger immediate refresh after sync
+        await _loadAndEmitMessages(chatId);
+      } else {
+        debugPrint('❌ Server returned ${response.statusCode} for messages');
+      }
+    } catch (e) {
+      debugPrint('❌ Error syncing messages from server: $e');
+    } finally {
+      _isSyncing[chatId] = false;
+    }
+  }
+
+  // ========================================
+  // REST OF THE IMPLEMENTATION (UNCHANGED)
   // ========================================
 
   @override
@@ -106,14 +451,12 @@ class OfflineFirstChatRepository implements ChatRepository {
     final chatId = generateChatId(currentUserId, otherUserId);
     
     try {
-      // Check local database first
       var chat = await _dbHelper.getChatById(chatId);
       
       if (chat != null) {
         return chatId;
       }
       
-      // Create new chat locally
       final newChat = ChatModel(
         chatId: chatId,
         participants: [currentUserId, otherUserId],
@@ -152,47 +495,6 @@ class OfflineFirstChatRepository implements ChatRepository {
     } catch (e) {
       debugPrint('Error creating chat on server: $e');
     }
-  }
-
-  @override
-  Stream<List<ChatModel>> getChatsStream(String userId) {
-    if (_chatStreamControllers.containsKey(userId)) {
-      return _chatStreamControllers[userId]!.stream;
-    }
-    
-    final controller = StreamController<List<ChatModel>>.broadcast(
-      onListen: () => _startChatStream(userId),
-      onCancel: () => _stopChatStream(userId),
-    );
-    
-    _chatStreamControllers[userId] = controller;
-    return controller.stream;
-  }
-
-  void _startChatStream(String userId) {
-    Timer.periodic(const Duration(seconds: 1), (timer) async {
-      final controller = _chatStreamControllers[userId];
-      
-      if (controller == null || controller.isClosed) {
-        timer.cancel();
-        return;
-      }
-      
-      try {
-        final chats = await _dbHelper.getUserChats(userId);
-        if (!controller.isClosed) {
-          controller.add(chats);
-        }
-      } catch (e) {
-        if (!controller.isClosed) {
-          controller.addError(e);
-        }
-      }
-    });
-  }
-
-  void _stopChatStream(String userId) {
-    _chatStreamControllers.remove(userId)?.close();
   }
 
   @override
@@ -255,7 +557,7 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   // ========================================
-  // MESSAGE OPERATIONS - FIXED
+  // MESSAGE OPERATIONS
   // ========================================
 
   @override
@@ -401,105 +703,6 @@ class OfflineFirstChatRepository implements ChatRepository {
     return await sendMessage(message);
   }
 
-  // ========================================
-  // MESSAGE STREAM - FIXED TO SYNC FROM SERVER
-  // ========================================
-
-  @override
-  Stream<List<MessageModel>> getMessagesStream(String chatId) {
-    if (_messageStreamControllers.containsKey(chatId)) {
-      return _messageStreamControllers[chatId]!.stream;
-    }
-    
-    final controller = StreamController<List<MessageModel>>.broadcast(
-      onListen: () => _startMessageStream(chatId),
-      onCancel: () => _stopMessageStream(chatId),
-    );
-    
-    _messageStreamControllers[chatId] = controller;
-    return controller.stream;
-  }
-
-  void _startMessageStream(String chatId) {
-    // Immediately sync from server when stream starts
-    _syncMessagesFromServer(chatId);
-    
-    // Then poll local DB for updates
-    Timer.periodic(const Duration(milliseconds: 500), (timer) async {
-      final controller = _messageStreamControllers[chatId];
-      
-      if (controller == null || controller.isClosed) {
-        timer.cancel();
-        return;
-      }
-      
-      try {
-        final messages = await _dbHelper.getChatMessages(chatId);
-        if (!controller.isClosed) {
-          controller.add(messages);
-        }
-      } catch (e) {
-        if (!controller.isClosed) {
-          controller.addError(e);
-        }
-      }
-    });
-    
-    // Sync from server every 10 seconds
-    Timer.periodic(const Duration(seconds: 10), (timer) async {
-      if (_messageStreamControllers[chatId] == null) {
-        timer.cancel();
-        return;
-      }
-      
-      await _syncMessagesFromServer(chatId);
-    });
-  }
-
-  void _stopMessageStream(String chatId) {
-    _messageStreamControllers.remove(chatId)?.close();
-  }
-
-  // CRITICAL: This syncs messages from your PostgreSQL backend to local SQLite
-  Future<void> _syncMessagesFromServer(String chatId) async {
-    // Prevent concurrent syncs
-    if (_isSyncing[chatId] == true) return;
-    
-    _isSyncing[chatId] = true;
-    
-    try {
-      debugPrint('🔄 Syncing messages from server for chat $chatId');
-      
-      final response = await _httpClient.get('/chats/$chatId/messages?limit=100&sort=desc');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final List<dynamic> messagesData = data['messages'] ?? [];
-
-        debugPrint('📥 Received ${messagesData.length} messages from server');
-
-        for (final messageData in messagesData) {
-          try {
-            final message = MessageModel.fromMap(messageData as Map<String, dynamic>);
-            await _dbHelper.insertOrUpdateMessage(message);
-          } catch (e) {
-            debugPrint('❌ Error parsing message from server: $e');
-            debugPrint('   Message data: $messageData');
-          }
-        }
-        
-        _lastSyncTime[chatId] = DateTime.now();
-        debugPrint('✅ Successfully synced ${messagesData.length} messages to local DB');
-      } else {
-        debugPrint('❌ Server returned ${response.statusCode} for messages');
-      }
-    } catch (e) {
-      debugPrint('❌ Error syncing messages from server: $e');
-    } finally {
-      _isSyncing[chatId] = false;
-    }
-  }
-
   @override
   Future<void> syncMessages(String chatId) async {
     await _syncMessagesFromServer(chatId);
@@ -562,24 +765,13 @@ class OfflineFirstChatRepository implements ChatRepository {
   @override
   Future<void> syncAllData(String userId) async {
     try {
-      // Sync chats
-      final response = await _httpClient.get('/chats?userId=$userId');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final List<dynamic> chatsData = data['chats'] ?? [];
-
-        for (final chatData in chatsData) {
-          try {
-            final chat = ChatModel.fromMap(chatData as Map<String, dynamic>);
-            await _dbHelper.insertOrUpdateChat(chat);
-            
-            // Sync messages for each chat
-            await _syncMessagesFromServer(chat.chatId);
-          } catch (e) {
-            debugPrint('Error parsing chat: $e');
-          }
-        }
+      await _syncChatsFromServer(userId);
+      
+      // Get all chats and sync their messages
+      final chats = await _dbHelper.getUserChats(userId);
+      
+      for (final chat in chats) {
+        await _syncMessagesFromServer(chat.chatId);
       }
       
       debugPrint('✅ All data synced successfully');
@@ -593,6 +785,23 @@ class OfflineFirstChatRepository implements ChatRepository {
   // ========================================
 
   void dispose() {
+    // Cancel all timers
+    for (final timer in _chatTimers.values) {
+      timer.cancel();
+    }
+    _chatTimers.clear();
+    
+    for (final timer in _messageTimers.values) {
+      timer.cancel();
+    }
+    _messageTimers.clear();
+    
+    for (final timer in _syncTimers.values) {
+      timer.cancel();
+    }
+    _syncTimers.clear();
+    
+    // Close all stream controllers
     for (final controller in _chatStreamControllers.values) {
       controller.close();
     }
@@ -602,6 +811,12 @@ class OfflineFirstChatRepository implements ChatRepository {
       controller.close();
     }
     _messageStreamControllers.clear();
+    
+    // Clear caches
+    _lastChatData.clear();
+    _lastMessageData.clear();
+    _isSyncing.clear();
+    _lastSyncTime.clear();
     
     debugPrint('Chat repository disposed');
   }
