@@ -1,7 +1,8 @@
 // lib/features/chat/providers/chat_provider.dart
-// FIXED: Simplified unread counter, removed complex readBy tracking, improved reliability
+// UPDATED: WebSocket-based real-time chat provider - removed complex polling and timers
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
@@ -10,13 +11,12 @@ import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/chat/database/chat_database_helper.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
 
 part 'chat_provider.g.dart';
 
 // ========================================
-// CHAT LIST STATE - SIMPLIFIED
+// SIMPLIFIED CHAT LIST STATE 
 // ========================================
 
 class ChatListState {
@@ -26,8 +26,6 @@ class ChatListState {
   final bool hasMore;
   final String searchQuery;
   final bool isOnline;
-  final bool isSyncing;
-  final DateTime? lastSyncTime;
   final int totalUnreadCount;
 
   const ChatListState({
@@ -37,8 +35,6 @@ class ChatListState {
     this.hasMore = true,
     this.searchQuery = '',
     this.isOnline = true,
-    this.isSyncing = false,
-    this.lastSyncTime,
     this.totalUnreadCount = 0,
   });
 
@@ -49,19 +45,16 @@ class ChatListState {
     bool? hasMore,
     String? searchQuery,
     bool? isOnline,
-    bool? isSyncing,
-    DateTime? lastSyncTime,
     int? totalUnreadCount,
+    bool clearError = false,
   }) {
     return ChatListState(
       isLoading: isLoading ?? this.isLoading,
       chats: chats ?? this.chats,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
       hasMore: hasMore ?? this.hasMore,
       searchQuery: searchQuery ?? this.searchQuery,
       isOnline: isOnline ?? this.isOnline,
-      isSyncing: isSyncing ?? this.isSyncing,
-      lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       totalUnreadCount: totalUnreadCount ?? this.totalUnreadCount,
     );
   }
@@ -88,18 +81,17 @@ class ChatListState {
 }
 
 // ========================================
-// CHAT LIST PROVIDER (SIMPLIFIED)
+// SIMPLIFIED WEBSOCKET CHAT LIST PROVIDER
 // ========================================
 
 @riverpod
 class ChatList extends _$ChatList {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
+  OfflineFirstChatRepository get _wsRepository => _repository as OfflineFirstChatRepository;
   ChatDatabaseHelper get _dbHelper => ChatDatabaseHelper();
   
   StreamSubscription<List<ChatModel>>? _chatSubscription;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  Timer? _unreadCountTimer;
-  Timer? _syncTimer;
+  StreamSubscription<bool>? _connectionSubscription;
   
   @override
   FutureOr<ChatListState> build() async {
@@ -107,9 +99,7 @@ class ChatList extends _$ChatList {
     ref.onDispose(() {
       debugPrint('🧹 ChatList provider disposed - cleaning up');
       _chatSubscription?.cancel();
-      _connectivitySubscription?.cancel();
-      _unreadCountTimer?.cancel();
-      _syncTimer?.cancel();
+      _connectionSubscription?.cancel();
     });
 
     final currentUser = ref.watch(currentUserProvider);
@@ -117,38 +107,55 @@ class ChatList extends _$ChatList {
       return const ChatListState(error: 'User not authenticated');
     }
 
-    // Check connectivity
-    final connectivityResult = await Connectivity().checkConnectivity();
-    final isOnline = !connectivityResult.contains(ConnectivityResult.none);
+    // Initialize WebSocket repository
+    await _initializeRepository(currentUser.uid);
 
-    // Subscribe to chats stream
-    _subscribeToChats(currentUser.uid);
-    
-    // Monitor connectivity
-    _monitorConnectivity(currentUser.uid);
-    
-    // Start unread count monitoring
-    _startUnreadCountMonitoring(currentUser.uid);
-    
-    // Start periodic sync
-    _startPeriodicSync(currentUser.uid);
-    
-    // Initial sync if online
-    if (isOnline) {
-      _syncChats(currentUser.uid);
-    }
+    // Set up real-time listeners
+    _setupRealtimeListeners(currentUser.uid);
     
     return ChatListState(
       isLoading: true,
-      isOnline: isOnline,
+      isOnline: _wsRepository.isConnected,
     );
   }
 
-  void _subscribeToChats(String userId) {
+  Future<void> _initializeRepository(String userId) async {
+    try {
+      // Get auth token - simplified approach using Firebase Auth directly
+      String? token;
+      
+      try {
+        final firebaseUser = FirebaseAuth.instance.currentUser;
+        if (firebaseUser != null) {
+          token = await firebaseUser.getIdToken();
+          debugPrint('✅ Got auth token from Firebase Auth');
+        } else {
+          throw Exception('No Firebase user found');
+        }
+      } catch (e) {
+        debugPrint('❌ Could not get auth token: $e');
+        throw Exception('Could not obtain authentication token');
+      }
+      
+      if (token != null) {
+        // Initialize WebSocket repository
+        await _wsRepository.initialize(userId, token);
+        debugPrint('✅ Repository initialized for user: $userId');
+      } else {
+        throw Exception('Could not obtain authentication token');
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to initialize repository: $e');
+      final currentState = state.valueOrNull ?? const ChatListState();
+      state = AsyncValue.data(currentState.copyWith(error: e.toString()));
+    }
+  }
+
+  void _setupRealtimeListeners(String userId) {
+    debugPrint('📡 Setting up real-time listeners for user: $userId');
+    
+    // Subscribe to WebSocket chat stream (replaces complex polling)
     _chatSubscription?.cancel();
-    
-    debugPrint('📡 Subscribing to chats stream for user: $userId');
-    
     _chatSubscription = _repository.getChatsStream(userId).listen(
       (chats) async {
         try {
@@ -160,6 +167,7 @@ class ChatList extends _$ChatList {
             chats: chatItems,
             isLoading: false,
             totalUnreadCount: totalUnread,
+            clearError: true,
           ));
           
           debugPrint('✅ Chat list updated: ${chats.length} chats, $totalUnread unread');
@@ -181,53 +189,14 @@ class ChatList extends _$ChatList {
         ));
       },
     );
-  }
 
-  void _monitorConnectivity(String userId) {
-    _connectivitySubscription?.cancel();
-    
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) async {
-      final isOnline = !results.contains(ConnectivityResult.none);
+    // Monitor WebSocket connection status
+    _connectionSubscription?.cancel();
+    _connectionSubscription = _wsRepository.connectionStream.listen((isConnected) {
       final currentState = state.valueOrNull;
-      
       if (currentState != null) {
-        state = AsyncValue.data(currentState.copyWith(isOnline: isOnline));
-        
-        // Sync when coming online
-        if (isOnline && !currentState.isOnline) {
-          debugPrint('🌐 Device came online - triggering sync');
-          _syncChats(userId);
-        }
-      }
-    });
-  }
-
-  void _startUnreadCountMonitoring(String userId) {
-    _unreadCountTimer?.cancel();
-    
-    // Update unread count every 3 seconds (simplified from complex logic)
-    _unreadCountTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      final currentState = state.valueOrNull;
-      if (currentState != null && currentState.chats.isNotEmpty) {
-        final totalUnread = _calculateTotalUnread(currentState.chats, userId);
-        
-        if (totalUnread != currentState.totalUnreadCount) {
-          state = AsyncValue.data(currentState.copyWith(
-            totalUnreadCount: totalUnread,
-          ));
-        }
-      }
-    });
-  }
-
-  void _startPeriodicSync(String userId) {
-    _syncTimer?.cancel();
-    
-    // Sync every 30 seconds in background
-    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
-      final currentState = state.valueOrNull;
-      if (currentState?.isOnline == true && currentState?.isSyncing != true) {
-        _syncChats(userId);
+        state = AsyncValue.data(currentState.copyWith(isOnline: isConnected));
+        debugPrint('🔌 Connection status changed: $isConnected');
       }
     });
   }
@@ -239,33 +208,6 @@ class ChatList extends _$ChatList {
       total += chatItem.chat.getUnreadCount(userId);
     }
     return total;
-  }
-
-  Future<void> _syncChats(String userId) async {
-    final currentState = state.valueOrNull;
-    if (currentState == null || currentState.isSyncing) return;
-    
-    try {
-      state = AsyncValue.data(currentState.copyWith(isSyncing: true));
-      
-      // Sync all data from server
-      await _repository.syncAllData(userId);
-      
-      final updatedState = state.valueOrNull ?? currentState;
-      state = AsyncValue.data(updatedState.copyWith(
-        isSyncing: false,
-        lastSyncTime: DateTime.now(),
-      ));
-      
-      debugPrint('✅ Chats synced successfully');
-    } catch (e) {
-      debugPrint('❌ Sync error: $e');
-      final updatedState = state.valueOrNull ?? currentState;
-      state = AsyncValue.data(updatedState.copyWith(
-        isSyncing: false,
-        error: 'Sync failed: $e',
-      ));
-    }
   }
 
   Future<List<ChatListItemModel>> _buildChatListItems(
@@ -401,7 +343,7 @@ class ChatList extends _$ChatList {
   }
 
   // ========================================
-  // PUBLIC METHODS - SIMPLIFIED
+  // PUBLIC METHODS - SIMPLIFIED (WebSocket-based)
   // ========================================
 
   void setSearchQuery(String query) {
@@ -454,42 +396,13 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // SIMPLIFIED: Just update the unread count to 0
+  // SIMPLIFIED: WebSocket handles real-time updates automatically
   Future<void> markChatAsRead(String chatId) async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
 
     try {
       await _repository.markChatAsRead(chatId, userId);
-      
-      // Update local state immediately
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final updatedChats = currentState.chats.map((chatItem) {
-          if (chatItem.chat.chatId == chatId) {
-            final updatedChat = chatItem.chat.copyWith(
-              unreadCounts: {...chatItem.chat.unreadCounts, userId: 0},
-            );
-            return ChatListItemModel(
-              chat: updatedChat,
-              contactName: chatItem.contactName,
-              contactImage: chatItem.contactImage,
-              contactPhone: chatItem.contactPhone,
-              isOnline: chatItem.isOnline,
-              lastSeen: chatItem.lastSeen,
-            );
-          }
-          return chatItem;
-        }).toList();
-        
-        final totalUnread = _calculateTotalUnread(updatedChats, userId);
-        
-        state = AsyncValue.data(currentState.copyWith(
-          chats: updatedChats,
-          totalUnreadCount: totalUnread,
-        ));
-      }
-      
       debugPrint('✅ Chat marked as read');
     } catch (e) {
       debugPrint('❌ Error marking chat as read: $e');
@@ -503,22 +416,6 @@ class ChatList extends _$ChatList {
 
     try {
       await _repository.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
-      
-      // Remove from local state
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final updatedChats = currentState.chats
-            .where((chatItem) => chatItem.chat.chatId != chatId)
-            .toList();
-        
-        final totalUnread = _calculateTotalUnread(updatedChats, userId);
-        
-        state = AsyncValue.data(currentState.copyWith(
-          chats: updatedChats,
-          totalUnreadCount: totalUnread,
-        ));
-      }
-      
       debugPrint('✅ Chat deleted');
     } catch (e) {
       debugPrint('❌ Error deleting chat: $e');
@@ -616,39 +513,16 @@ class ChatList extends _$ChatList {
     }
   }
 
+  // Manual sync (rarely needed with WebSocket)
   Future<void> syncChats() async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
 
-    await _syncChats(userId);
-  }
-
-  Future<void> syncAllData() async {
-    final userId = ref.read(currentUserIdProvider);
-    if (userId == null) return;
-
-    final currentState = state.valueOrNull;
-    if (currentState == null || currentState.isSyncing) return;
-
     try {
-      state = AsyncValue.data(currentState.copyWith(isSyncing: true));
-      
       await _repository.syncAllData(userId);
-      
-      final updatedState = state.valueOrNull ?? currentState;
-      state = AsyncValue.data(updatedState.copyWith(
-        isSyncing: false,
-        lastSyncTime: DateTime.now(),
-      ));
-      
-      debugPrint('✅ All data synced');
+      debugPrint('✅ Manual sync completed');
     } catch (e) {
-      debugPrint('❌ Sync all data error: $e');
-      final updatedState = state.valueOrNull ?? currentState;
-      state = AsyncValue.data(updatedState.copyWith(
-        isSyncing: false,
-        error: 'Sync failed: $e',
-      ));
+      debugPrint('❌ Manual sync failed: $e');
     }
   }
 
@@ -714,8 +588,7 @@ class ChatList extends _$ChatList {
         'mutedChats': 0,
         'onlineContacts': 0,
         'isOnline': false,
-        'isSyncing': false,
-        'lastSyncTime': null,
+        'connectionType': 'websocket',
       };
     }
 
@@ -734,8 +607,7 @@ class ChatList extends _$ChatList {
       'mutedChats': mutedChats,
       'onlineContacts': onlineContacts,
       'isOnline': currentState.isOnline,
-      'isSyncing': currentState.isSyncing,
-      'lastSyncTime': currentState.lastSyncTime,
+      'connectionType': 'websocket',
     };
   }
 
@@ -747,13 +619,18 @@ class ChatList extends _$ChatList {
     return currentState?.isOnline ?? false;
   }
   
-  bool get isSyncing {
-    final currentState = state.valueOrNull;
-    return currentState?.isSyncing ?? false;
-  }
-  
   int get totalUnreadCount {
     final currentState = state.valueOrNull;
     return currentState?.totalUnreadCount ?? 0;
+  }
+
+  bool get isConnected => _wsRepository.isConnected;
+
+  // Reconnection helper
+  Future<bool> reconnectIfNeeded() async {
+    if (!isConnected) {
+      return await _wsRepository.reconnect();
+    }
+    return isConnected;
   }
 }

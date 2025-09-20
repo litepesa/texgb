@@ -1,8 +1,9 @@
 // lib/features/chat/providers/message_provider.dart
-// FIXED: Simplified state management, removed complex readBy tracking, improved reliability
+// UPDATED: WebSocket-based real-time message provider - removed complex polling and state management
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -15,7 +16,7 @@ import 'dart:async';
 part 'message_provider.g.dart';
 
 // ========================================
-// MESSAGE STATE - SIMPLIFIED
+// SIMPLIFIED MESSAGE STATE 
 // ========================================
 
 class MessageState {
@@ -23,14 +24,12 @@ class MessageState {
   final List<MessageModel> messages;
   final String? error;
   final bool hasMore;
-  final String? replyToMessageId;
   final MessageModel? replyToMessage;
   final List<MessageModel> pinnedMessages;
   final Map<String, String> participantNames;
   final Map<String, String> participantImages;
   final bool isOnline;
-  final bool isSyncing;
-  final DateTime? lastSyncTime;
+  final Set<String> typingUsers;
   final int pendingMessagesCount;
   final int failedMessagesCount;
 
@@ -39,14 +38,12 @@ class MessageState {
     this.messages = const [],
     this.error,
     this.hasMore = true,
-    this.replyToMessageId,
     this.replyToMessage,
     this.pinnedMessages = const [],
     this.participantNames = const {},
     this.participantImages = const {},
     this.isOnline = true,
-    this.isSyncing = false,
-    this.lastSyncTime,
+    this.typingUsers = const {},
     this.pendingMessagesCount = 0,
     this.failedMessagesCount = 0,
   });
@@ -56,14 +53,12 @@ class MessageState {
     List<MessageModel>? messages,
     String? error,
     bool? hasMore,
-    String? replyToMessageId,
     MessageModel? replyToMessage,
     List<MessageModel>? pinnedMessages,
     Map<String, String>? participantNames,
     Map<String, String>? participantImages,
     bool? isOnline,
-    bool? isSyncing,
-    DateTime? lastSyncTime,
+    Set<String>? typingUsers,
     int? pendingMessagesCount,
     int? failedMessagesCount,
     bool clearReply = false,
@@ -74,14 +69,12 @@ class MessageState {
       messages: messages ?? this.messages,
       error: clearError ? null : (error ?? this.error),
       hasMore: hasMore ?? this.hasMore,
-      replyToMessageId: clearReply ? null : (replyToMessageId ?? this.replyToMessageId),
       replyToMessage: clearReply ? null : (replyToMessage ?? this.replyToMessage),
       pinnedMessages: pinnedMessages ?? this.pinnedMessages,
       participantNames: participantNames ?? this.participantNames,
       participantImages: participantImages ?? this.participantImages,
       isOnline: isOnline ?? this.isOnline,
-      isSyncing: isSyncing ?? this.isSyncing,
-      lastSyncTime: lastSyncTime ?? this.lastSyncTime,
+      typingUsers: typingUsers ?? this.typingUsers,
       pendingMessagesCount: pendingMessagesCount ?? this.pendingMessagesCount,
       failedMessagesCount: failedMessagesCount ?? this.failedMessagesCount,
     );
@@ -97,17 +90,20 @@ class MessageState {
 }
 
 // ========================================
-// MESSAGE PROVIDER - SIMPLIFIED
+// SIMPLIFIED WEBSOCKET MESSAGE PROVIDER
 // ========================================
 
 @riverpod
 class MessageNotifier extends _$MessageNotifier {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
+  OfflineFirstChatRepository get _wsRepository => _repository as OfflineFirstChatRepository;
   ChatDatabaseHelper get _dbHelper => ChatDatabaseHelper();
   static const Uuid _uuid = Uuid();
 
   StreamSubscription<List<MessageModel>>? _messageSubscription;
-  Timer? _syncTimer;
+  StreamSubscription<Map<String, dynamic>>? _typingSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
+  Timer? _typingTimer;
 
   @override
   FutureOr<MessageState> build(String chatId) async {
@@ -115,29 +111,26 @@ class MessageNotifier extends _$MessageNotifier {
     ref.onDispose(() {
       debugPrint('🧹 MessageNotifier disposed for chat $chatId');
       _messageSubscription?.cancel();
-      _syncTimer?.cancel();
+      _typingSubscription?.cancel();
+      _connectionSubscription?.cancel();
+      _typingTimer?.cancel();
     });
 
-    final currentUser = ref.watch(currentUserProvider);
-    if (currentUser == null) {
-      return const MessageState(error: 'User not authenticated');
-    }
-
-    // Load participant details
+    // Load participant details first
     await _loadParticipantDetails(chatId);
 
-    // Subscribe to messages stream
-    _subscribeToMessages(chatId);
+    // Load initial messages from database
+    await _loadInitialMessages(chatId);
+
+    // Set up real-time WebSocket listeners
+    _setupRealTimeListeners(chatId);
     
     // Load pinned messages
     await _loadPinnedMessages(chatId);
-    
-    // Start periodic sync
-    _startPeriodicSync(chatId);
-    
+
     return MessageState(
-      isLoading: true,
-      isOnline: true,
+      isLoading: false,
+      isOnline: _wsRepository.isConnected,
     );
   }
 
@@ -221,9 +214,34 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
-  void _subscribeToMessages(String chatId) {
+  Future<void> _loadInitialMessages(String chatId) async {
+    try {
+      final messages = await _dbHelper.getChatMessages(chatId);
+      
+      final currentState = state.valueOrNull ?? const MessageState();
+      final pendingCount = messages.where((m) => m.status == MessageStatus.sending).length;
+      final failedCount = messages.where((m) => m.status == MessageStatus.failed).length;
+      
+      state = AsyncValue.data(currentState.copyWith(
+        messages: messages,
+        isLoading: false,
+        pendingMessagesCount: pendingCount,
+        failedMessagesCount: failedCount,
+        isOnline: _wsRepository.isConnected,
+      ));
+
+      debugPrint('📨 Loaded ${messages.length} messages for chat $chatId');
+    } catch (e) {
+      debugPrint('❌ Error loading messages: $e');
+      state = AsyncValue.data(MessageState(error: e.toString()));
+    }
+  }
+
+  void _setupRealTimeListeners(String chatId) {
+    debugPrint('📡 Setting up real-time listeners for chat: $chatId');
+
+    // Real-time messages via WebSocket (replaces complex polling)
     _messageSubscription?.cancel();
-    
     _messageSubscription = _repository.getMessagesStream(chatId).listen(
       (messages) {
         final currentState = state.valueOrNull ?? const MessageState();
@@ -238,6 +256,8 @@ class MessageNotifier extends _$MessageNotifier {
           failedMessagesCount: failedCount,
           clearError: true,
         ));
+
+        debugPrint('📨 Messages updated via WebSocket: ${messages.length}');
       },
       onError: (error, stack) {
         debugPrint('❌ Message stream error: $error');
@@ -248,43 +268,45 @@ class MessageNotifier extends _$MessageNotifier {
         ));
       },
     );
-  }
 
-  void _startPeriodicSync(String chatId) {
-    _syncTimer?.cancel();
-    
-    // Sync messages every 15 seconds
-    _syncTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+    // Real-time typing indicators via WebSocket
+    _typingSubscription?.cancel();
+    _typingSubscription = _wsRepository.typingStream
+        .where((data) => data['chatId'] == chatId)
+        .listen(_handleTypingStatus);
+
+    // WebSocket connection status
+    _connectionSubscription?.cancel();
+    _connectionSubscription = _wsRepository.connectionStream.listen((isConnected) {
       final currentState = state.valueOrNull;
-      if (currentState?.isSyncing != true) {
-        await _syncMessages(chatId);
+      if (currentState != null) {
+        state = AsyncValue.data(currentState.copyWith(isOnline: isConnected));
+        debugPrint('🔌 Message provider connection status: $isConnected');
       }
     });
   }
 
-  Future<void> _syncMessages(String chatId) async {
+  void _handleTypingStatus(Map<String, dynamic> data) {
     final currentState = state.valueOrNull;
-    if (currentState?.isSyncing == true) return;
+    if (currentState == null) return;
 
-    try {
-      if (currentState != null) {
-        state = AsyncValue.data(currentState.copyWith(isSyncing: true));
-      }
+    final userId = data['userId'] as String;
+    final isTyping = data['isTyping'] as bool;
+    final currentUserId = ref.read(currentUserIdProvider);
 
-      await _repository.syncMessages(chatId);
+    // Don't show own typing status
+    if (userId == currentUserId) return;
 
-      final updatedState = state.valueOrNull ?? const MessageState();
-      state = AsyncValue.data(updatedState.copyWith(
-        isSyncing: false,
-        lastSyncTime: DateTime.now(),
-      ));
-    } catch (e) {
-      debugPrint('❌ Error syncing messages: $e');
-      final updatedState = state.valueOrNull ?? const MessageState();
-      state = AsyncValue.data(updatedState.copyWith(
-        isSyncing: false,
-      ));
+    final updatedTypingUsers = Set<String>.from(currentState.typingUsers);
+    
+    if (isTyping) {
+      updatedTypingUsers.add(userId);
+    } else {
+      updatedTypingUsers.remove(userId);
     }
+
+    state = AsyncValue.data(currentState.copyWith(typingUsers: updatedTypingUsers));
+    debugPrint('⌨️ Typing status updated: $userId -> $isTyping');
   }
 
   Future<void> _loadPinnedMessages(String chatId) async {
@@ -301,7 +323,7 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // ========================================
-  // MESSAGE SENDING - SIMPLIFIED
+  // MESSAGE SENDING - SIMPLIFIED WITH WEBSOCKET
   // ========================================
 
   Future<void> sendTextMessage(String chatId, String content) async {
@@ -319,18 +341,23 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.text,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        replyToMessageId: currentState.replyToMessageId,
+        replyToMessageId: currentState.replyToMessage?.messageId,
         replyToContent: currentState.replyToMessage?.getDisplayContent(),
         replyToSender: currentState.replyToMessage?.senderId,
       );
 
-      // Send via repository
+      // Optimistic update - add message immediately to UI
+      final updatedMessages = [message, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearReply: true,
+        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+      ));
+
+      // Send via WebSocket repository
       await _repository.sendMessage(message);
       
-      // Clear reply state
-      state = AsyncValue.data(currentState.copyWith(clearReply: true));
-      
-      debugPrint('✅ Text message sent');
+      debugPrint('✅ Text message sent via WebSocket');
     } catch (e) {
       debugPrint('❌ Error sending message: $e');
       
@@ -359,7 +386,7 @@ class MessageNotifier extends _$MessageNotifier {
 
       final fileName = '${_uuid.v4()}.jpg';
       
-      // Create temporary message
+      // Create temporary message with uploading status
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -376,10 +403,15 @@ class MessageNotifier extends _$MessageNotifier {
         },
       );
 
-      // Save temp message locally first
-      await _dbHelper.insertOrUpdateMessage(tempMessage);
-      
-      // Upload image
+      // Optimistic update
+      final currentState = state.valueOrNull ?? const MessageState();
+      final updatedMessages = [tempMessage, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+      ));
+
+      // Upload image using auth provider's file storage
       final authNotifier = ref.read(authenticationProvider.notifier);
       final imageUrl = await authNotifier.storeFileToStorage(
         file: imageFile,
@@ -397,10 +429,10 @@ class MessageNotifier extends _$MessageNotifier {
         },
       );
 
-      // Send via repository
+      // Send via WebSocket repository
       await _repository.sendMessage(finalMessage);
       
-      debugPrint('✅ Image message sent');
+      debugPrint('✅ Image message sent via WebSocket');
     } catch (e) {
       debugPrint('❌ Error sending image: $e');
       
@@ -443,8 +475,15 @@ class MessageNotifier extends _$MessageNotifier {
         },
       );
 
-      await _dbHelper.insertOrUpdateMessage(tempMessage);
-      
+      // Optimistic update
+      final currentState = state.valueOrNull ?? const MessageState();
+      final updatedMessages = [tempMessage, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+      ));
+
+      // Upload video
       final authNotifier = ref.read(authenticationProvider.notifier);
       final videoUrl = await authNotifier.storeFileToStorage(
         file: videoFile,
@@ -463,7 +502,7 @@ class MessageNotifier extends _$MessageNotifier {
 
       await _repository.sendMessage(finalMessage);
       
-      debugPrint('✅ Video message sent');
+      debugPrint('✅ Video message sent via WebSocket');
     } catch (e) {
       debugPrint('❌ Error sending video: $e');
       
@@ -503,8 +542,15 @@ class MessageNotifier extends _$MessageNotifier {
         },
       );
 
-      await _dbHelper.insertOrUpdateMessage(tempMessage);
-      
+      // Optimistic update
+      final currentState = state.valueOrNull ?? const MessageState();
+      final updatedMessages = [tempMessage, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+      ));
+
+      // Upload file
       final authNotifier = ref.read(authenticationProvider.notifier);
       final fileUrl = await authNotifier.storeFileToStorage(
         file: file,
@@ -522,7 +568,7 @@ class MessageNotifier extends _$MessageNotifier {
 
       await _repository.sendMessage(finalMessage);
       
-      debugPrint('✅ File message sent');
+      debugPrint('✅ File message sent via WebSocket');
     } catch (e) {
       debugPrint('❌ Error sending file: $e');
       
@@ -567,8 +613,15 @@ class MessageNotifier extends _$MessageNotifier {
         },
       );
 
-      await _dbHelper.insertOrUpdateMessage(tempMessage);
-      
+      // Optimistic update
+      final currentState = state.valueOrNull ?? const MessageState();
+      final updatedMessages = [tempMessage, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+      ));
+
+      // Upload audio
       final authNotifier = ref.read(authenticationProvider.notifier);
       final audioUrl = await authNotifier.storeFileToStorage(
         file: audioFile,
@@ -589,7 +642,7 @@ class MessageNotifier extends _$MessageNotifier {
 
       await _repository.sendMessage(finalMessage);
       
-      debugPrint('✅ Audio message sent');
+      debugPrint('✅ Audio message sent via WebSocket');
     } catch (e) {
       debugPrint('❌ Error sending audio: $e');
       
@@ -608,7 +661,6 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState != null) {
       state = AsyncValue.data(currentState.copyWith(
-        replyToMessageId: message.messageId,
         replyToMessage: message,
         clearError: true,
       ));
@@ -632,7 +684,7 @@ class MessageNotifier extends _$MessageNotifier {
 
     try {
       await _repository.editMessage(chatId, messageId, newContent.trim());
-      debugPrint('✅ Message edited');
+      debugPrint('✅ Message edited via WebSocket');
     } catch (e) {
       debugPrint('❌ Error editing message: $e');
       final currentState = state.valueOrNull ?? const MessageState();
@@ -645,7 +697,7 @@ class MessageNotifier extends _$MessageNotifier {
   Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
     try {
       await _repository.deleteMessage(chatId, messageId, deleteForEveryone);
-      debugPrint('✅ Message deleted');
+      debugPrint('✅ Message deleted via WebSocket');
     } catch (e) {
       debugPrint('❌ Error deleting message: $e');
       final currentState = state.valueOrNull ?? const MessageState();
@@ -672,7 +724,7 @@ class MessageNotifier extends _$MessageNotifier {
       }
       
       await _loadPinnedMessages(chatId);
-      debugPrint('✅ Message pin toggled');
+      debugPrint('✅ Message pin toggled via WebSocket');
     } catch (e) {
       debugPrint('❌ Error toggling pin: $e');
       final currentState = state.valueOrNull ?? const MessageState();
@@ -711,7 +763,7 @@ class MessageNotifier extends _$MessageNotifier {
       // Get the message
       final message = await _dbHelper.getMessageById(messageId);
       if (message != null) {
-        // Resend
+        // Resend via WebSocket
         await _repository.sendMessage(message);
         debugPrint('✅ Message retry successful');
       }
@@ -723,8 +775,43 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
+  // ========================================
+  // TYPING INDICATORS - WEBSOCKET BASED
+  // ========================================
+
+  Future<void> sendTypingStatus(bool isTyping) async {
+    await _wsRepository.sendTypingStatus(chatId, isTyping);
+    
+    // Auto-stop typing after 3 seconds
+    if (isTyping) {
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 3), () {
+        _wsRepository.sendTypingStatus(chatId, false);
+      });
+    }
+  }
+
+  // ========================================
+  // UTILITY METHODS
+  // ========================================
+
+  Future<void> markAsRead() async {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return;
+
+    await _repository.markChatAsRead(chatId, currentUserId);
+    
+    // Notify chat list to refresh
+    ref.invalidate(chatListProvider);
+  }
+
   Future<void> syncMessages(String chatId) async {
-    await _syncMessages(chatId);
+    try {
+      await _repository.syncMessages(chatId);
+      debugPrint('✅ Messages synced manually');
+    } catch (e) {
+      debugPrint('❌ Error syncing messages: $e');
+    }
   }
 
   // ========================================
@@ -760,4 +847,69 @@ class MessageNotifier extends _$MessageNotifier {
 
   String? get currentUserId => ref.read(currentUserIdProvider);
   bool get isAuthenticated => currentUserId != null;
+  bool get isConnected => _wsRepository.isConnected;
+  
+  Set<String> get typingUsers {
+    final currentState = state.valueOrNull;
+    return currentState?.typingUsers ?? {};
+  }
+
+  MessageModel? get replyToMessage {
+    final currentState = state.valueOrNull;
+    return currentState?.replyToMessage;
+  }
+
+  bool get isOnline {
+    final currentState = state.valueOrNull;
+    return currentState?.isOnline ?? false;
+  }
+
+  int get pendingMessagesCount {
+    final currentState = state.valueOrNull;
+    return currentState?.pendingMessagesCount ?? 0;
+  }
+
+  int get failedMessagesCount {
+    final currentState = state.valueOrNull;
+    return currentState?.failedMessagesCount ?? 0;
+  }
+
+  List<MessageModel> get pinnedMessages {
+    final currentState = state.valueOrNull;
+    return currentState?.pinnedMessages ?? [];
+  }
+
+  Map<String, dynamic> getMessageStatistics() {
+    final currentState = state.valueOrNull;
+    
+    if (currentState == null) {
+      return {
+        'totalMessages': 0,
+        'pendingMessages': 0,
+        'failedMessages': 0,
+        'pinnedMessages': 0,
+        'typingUsers': 0,
+        'isOnline': false,
+        'connectionType': 'websocket',
+      };
+    }
+
+    return {
+      'totalMessages': currentState.messages.length,
+      'pendingMessages': currentState.pendingMessagesCount,
+      'failedMessages': currentState.failedMessagesCount,
+      'pinnedMessages': currentState.pinnedMessages.length,
+      'typingUsers': currentState.typingUsers.length,
+      'isOnline': currentState.isOnline,
+      'connectionType': 'websocket',
+    };
+  }
+
+  // Reconnection helper
+  Future<bool> reconnectIfNeeded() async {
+    if (!isConnected) {
+      return await _wsRepository.reconnect();
+    }
+    return isConnected;
+  }
 }

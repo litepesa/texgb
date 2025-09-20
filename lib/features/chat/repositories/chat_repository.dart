@@ -1,9 +1,8 @@
 // lib/features/chat/repositories/chat_repository.dart
-// FIXED: Stable chat streams with proper change detection and reduced polling
-import 'dart:convert';
-import 'dart:io';
+// UPDATED: WebSocket-first chat repository - removed complex polling and streams
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
@@ -11,12 +10,13 @@ import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/database/chat_database_helper.dart';
+import 'package:textgb/features/chat/services/websocket_chat_service.dart';
 import 'package:textgb/shared/services/http_client.dart';
 import 'package:textgb/shared/utilities/datetime_helper.dart';
 import 'package:uuid/uuid.dart';
 
 // ========================================
-// ABSTRACT REPOSITORY INTERFACE
+// ABSTRACT REPOSITORY INTERFACE (unchanged)
 // ========================================
 
 abstract class ChatRepository {
@@ -67,38 +67,140 @@ abstract class ChatRepository {
 }
 
 // ========================================
-// FIXED IMPLEMENTATION WITH STABLE STREAMS
+// WEBSOCKET-FIRST IMPLEMENTATION
 // ========================================
 
 class OfflineFirstChatRepository implements ChatRepository {
-  final HttpClientService _httpClient;
+  final WebSocketChatService _wsService;
   final ChatDatabaseHelper _dbHelper;
-  final Uuid _uuid;
-  
-  // Stream controllers with change detection
-  final Map<String, StreamController<List<ChatModel>>> _chatStreamControllers = {};
-  final Map<String, StreamController<List<MessageModel>>> _messageStreamControllers = {};
-  
-  // Sync tracking
-  final Map<String, bool> _isSyncing = {};
-  final Map<String, DateTime> _lastSyncTime = {};
-  
-  // CRITICAL: Cache to prevent unnecessary UI updates
-  final Map<String, List<ChatModel>> _lastChatData = {};
-  final Map<String, List<MessageModel>> _lastMessageData = {};
-  
-  // Timers for controlled polling
-  final Map<String, Timer> _chatTimers = {};
-  final Map<String, Timer> _messageTimers = {};
-  final Map<String, Timer> _syncTimers = {};
-  
+  final HttpClientService _httpClient;
+  static const Uuid _uuid = Uuid();
+
+  // Simple state tracking
+  bool _isInitialized = false;
+  String? _currentUserId;
+
+  // Stream controllers for local state management
+  final StreamController<List<ChatModel>> _chatsController = 
+      StreamController<List<ChatModel>>.broadcast();
+  final Map<String, StreamController<List<MessageModel>>> _messageControllers = {};
+
   OfflineFirstChatRepository({
-    HttpClientService? httpClient,
+    WebSocketChatService? wsService,
     ChatDatabaseHelper? dbHelper,
-    Uuid? uuid,
-  })  : _httpClient = httpClient ?? HttpClientService(),
+    HttpClientService? httpClient,
+  })  : _wsService = wsService ?? WebSocketChatService(),
         _dbHelper = dbHelper ?? ChatDatabaseHelper(),
-        _uuid = uuid ?? const Uuid();
+        _httpClient = httpClient ?? HttpClientService();
+
+  // ========================================
+  // INITIALIZATION
+  // ========================================
+
+  /// Initialize the repository with user authentication
+  Future<bool> initialize(String userId, String authToken) async {
+    if (_isInitialized && _currentUserId == userId) {
+      return true;
+    }
+
+    try {
+      debugPrint('🔧 Initializing WebSocket chat repository for user: $userId');
+
+      // Connect to WebSocket
+      final connected = await _wsService.connect(userId, authToken);
+      
+      if (connected) {
+        _currentUserId = userId;
+        _isInitialized = true;
+        
+        // Load user's chats and join them
+        await _loadAndJoinUserChats(userId);
+        
+        // Set up WebSocket listeners
+        _setupWebSocketListeners();
+        
+        debugPrint('✅ WebSocket chat repository initialized successfully');
+        return true;
+      } else {
+        debugPrint('❌ Failed to connect to WebSocket');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error initializing chat repository: $e');
+      return false;
+    }
+  }
+
+  /// Load user's chats from database and join them on WebSocket
+  Future<void> _loadAndJoinUserChats(String userId) async {
+    try {
+      final chats = await _dbHelper.getUserChats(userId);
+      if (chats.isNotEmpty) {
+        final chatIds = chats.map((c) => c.chatId).toList();
+        await _wsService.joinChats(chatIds);
+        debugPrint('📱 Joined ${chatIds.length} existing chats on WebSocket');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading and joining chats: $e');
+    }
+  }
+
+  /// Set up WebSocket real-time listeners
+  void _setupWebSocketListeners() {
+    // Listen for new messages
+    _wsService.messageStream.listen((message) async {
+      await _dbHelper.insertOrUpdateMessage(message);
+      
+      // Update chat last message
+      await _dbHelper.updateChatLastMessage(
+        chatId: message.chatId,
+        lastMessage: message.getDisplayContent(),
+        lastMessageType: message.type,
+        lastMessageSender: message.senderId,
+        lastMessageTime: message.timestamp,
+      );
+
+      // Emit to message stream if controller exists
+      if (_messageControllers.containsKey(message.chatId)) {
+        final messages = await _dbHelper.getChatMessages(message.chatId);
+        _messageControllers[message.chatId]!.add(messages);
+      }
+
+      // Refresh chats stream
+      if (_currentUserId != null) {
+        final chats = await _dbHelper.getUserChats(_currentUserId!);
+        _chatsController.add(chats);
+      }
+    });
+
+    // Listen for chat updates
+    _wsService.chatUpdateStream.listen((chat) async {
+      await _dbHelper.insertOrUpdateChat(chat);
+      
+      // Refresh chats stream
+      if (_currentUserId != null) {
+        final chats = await _dbHelper.getUserChats(_currentUserId!);
+        _chatsController.add(chats);
+      }
+    });
+  }
+
+  /// Dispose and cleanup
+  void dispose() {
+    debugPrint('🧹 Disposing WebSocket chat repository');
+    _wsService.disconnect();
+    _chatsController.close();
+    for (final controller in _messageControllers.values) {
+      controller.close();
+    }
+    _messageControllers.clear();
+    _isInitialized = false;
+    _currentUserId = null;
+  }
+
+  // ========================================
+  // CHAT OPERATIONS
+  // ========================================
 
   @override
   String generateChatId(String userId1, String userId2) {
@@ -106,394 +208,66 @@ class OfflineFirstChatRepository implements ChatRepository {
     return '${sortedIds[0]}_${sortedIds[1]}';
   }
 
-  // ========================================
-  // FIXED CHAT STREAM WITH CHANGE DETECTION
-  // ========================================
-
-  @override
-  Stream<List<ChatModel>> getChatsStream(String userId) {
-    if (_chatStreamControllers.containsKey(userId)) {
-      return _chatStreamControllers[userId]!.stream;
-    }
-    
-    final controller = StreamController<List<ChatModel>>.broadcast(
-      onListen: () => _startChatStream(userId),
-      onCancel: () => _stopChatStream(userId),
-    );
-    
-    _chatStreamControllers[userId] = controller;
-    return controller.stream;
-  }
-
-  void _startChatStream(String userId) {
-    debugPrint('🎯 Starting chat stream for user: $userId');
-    
-    // Initial load
-    _loadAndEmitChats(userId);
-    
-    // FIXED: Poll every 3 seconds instead of every 1 second
-    // AND only emit if data actually changed
-    _chatTimers[userId] = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      final controller = _chatStreamControllers[userId];
-      
-      if (controller == null || controller.isClosed) {
-        timer.cancel();
-        _chatTimers.remove(userId);
-        return;
-      }
-      
-      await _loadAndEmitChats(userId);
-    });
-    
-    // Background sync every 2 minutes (reduced frequency)
-    _syncTimers[userId] = Timer.periodic(const Duration(minutes: 2), (timer) async {
-      if (_chatStreamControllers[userId] == null) {
-        timer.cancel();
-        _syncTimers.remove(userId);
-        return;
-      }
-      
-      // Only sync if not currently syncing
-      if (_isSyncing[userId] != true) {
-        await _syncChatsFromServer(userId);
-      }
-    });
-  }
-
-  // CRITICAL: Only emit if data actually changed
-  Future<void> _loadAndEmitChats(String userId) async {
-    try {
-      final chats = await _dbHelper.getUserChats(userId);
-      final controller = _chatStreamControllers[userId];
-      
-      if (controller == null || controller.isClosed) return;
-      
-      // CHANGE DETECTION: Compare with last emitted data
-      final lastChats = _lastChatData[userId];
-      
-      if (lastChats == null || !_areChatsEqual(lastChats, chats)) {
-        debugPrint('📊 Chat data changed - emitting ${chats.length} chats for $userId');
-        _lastChatData[userId] = List.from(chats); // Store copy
-        controller.add(chats);
-      } else {
-        // Data unchanged - don't emit
-        debugPrint('📊 Chat data unchanged - skipping emit for $userId');
-      }
-    } catch (e, stack) {
-      debugPrint('❌ Error loading chats for $userId: $e');
-      final controller = _chatStreamControllers[userId];
-      if (controller != null && !controller.isClosed) {
-        controller.addError(e, stack);
-      }
-    }
-  }
-
-  // Compare two chat lists to detect changes
-  bool _areChatsEqual(List<ChatModel> list1, List<ChatModel> list2) {
-    if (list1.length != list2.length) return false;
-    
-    for (int i = 0; i < list1.length; i++) {
-      final chat1 = list1[i];
-      final chat2 = list2[i];
-      
-      // Compare key fields that would affect UI
-      if (chat1.chatId != chat2.chatId ||
-          chat1.lastMessage != chat2.lastMessage ||
-          chat1.lastMessageTime != chat2.lastMessageTime ||
-          chat1.lastMessageSender != chat2.lastMessageSender ||
-          chat1.unreadCounts.toString() != chat2.unreadCounts.toString() ||
-          chat1.isPinned.toString() != chat2.isPinned.toString() ||
-          chat1.isArchived.toString() != chat2.isArchived.toString() ||
-          chat1.isMuted.toString() != chat2.isMuted.toString()) {
-        return false;
-      }
-    }
-    
-    return true;
-  }
-
-  void _stopChatStream(String userId) {
-    debugPrint('🛑 Stopping chat stream for user: $userId');
-    
-    _chatTimers[userId]?.cancel();
-    _chatTimers.remove(userId);
-    
-    _syncTimers[userId]?.cancel();
-    _syncTimers.remove(userId);
-    
-    _chatStreamControllers.remove(userId)?.close();
-    _lastChatData.remove(userId);
-  }
-
-  // ========================================
-  // FIXED MESSAGE STREAM WITH CHANGE DETECTION
-  // ========================================
-
-  @override
-  Stream<List<MessageModel>> getMessagesStream(String chatId) {
-    if (_messageStreamControllers.containsKey(chatId)) {
-      return _messageStreamControllers[chatId]!.stream;
-    }
-    
-    final controller = StreamController<List<MessageModel>>.broadcast(
-      onListen: () => _startMessageStream(chatId),
-      onCancel: () => _stopMessageStream(chatId),
-    );
-    
-    _messageStreamControllers[chatId] = controller;
-    return controller.stream;
-  }
-
-  void _startMessageStream(String chatId) {
-    debugPrint('📬 Starting message stream for chat: $chatId');
-    
-    // Initial sync and load
-    _syncMessagesFromServer(chatId).then((_) {
-      _loadAndEmitMessages(chatId);
-    });
-    
-    // FIXED: Poll every 2 seconds instead of 500ms
-    // AND only emit if data actually changed
-    _messageTimers[chatId] = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      final controller = _messageStreamControllers[chatId];
-      
-      if (controller == null || controller.isClosed) {
-        timer.cancel();
-        _messageTimers.remove(chatId);
-        return;
-      }
-      
-      await _loadAndEmitMessages(chatId);
-    });
-    
-    // Background sync every 30 seconds
-    Timer.periodic(const Duration(seconds: 30), (timer) async {
-      if (_messageStreamControllers[chatId] == null) {
-        timer.cancel();
-        return;
-      }
-      
-      if (_isSyncing[chatId] != true) {
-        await _syncMessagesFromServer(chatId);
-      }
-    });
-  }
-
-  // CRITICAL: Only emit if messages actually changed
-  Future<void> _loadAndEmitMessages(String chatId) async {
-    try {
-      final messages = await _dbHelper.getChatMessages(chatId);
-      final controller = _messageStreamControllers[chatId];
-      
-      if (controller == null || controller.isClosed) return;
-      
-      // CHANGE DETECTION: Compare with last emitted data
-      final lastMessages = _lastMessageData[chatId];
-      
-      if (lastMessages == null || !_areMessagesEqual(lastMessages, messages)) {
-        debugPrint('📬 Message data changed - emitting ${messages.length} messages for $chatId');
-        _lastMessageData[chatId] = List.from(messages); // Store copy
-        controller.add(messages);
-      } else {
-        // Data unchanged - don't emit
-        debugPrint('📬 Message data unchanged - skipping emit for $chatId');
-      }
-    } catch (e, stack) {
-      debugPrint('❌ Error loading messages for $chatId: $e');
-      final controller = _messageStreamControllers[chatId];
-      if (controller != null && !controller.isClosed) {
-        controller.addError(e, stack);
-      }
-    }
-  }
-
-  // Compare two message lists to detect changes
-  bool _areMessagesEqual(List<MessageModel> list1, List<MessageModel> list2) {
-    if (list1.length != list2.length) return false;
-    
-    for (int i = 0; i < list1.length; i++) {
-      final msg1 = list1[i];
-      final msg2 = list2[i];
-      
-      // Compare key fields that would affect UI
-      if (msg1.messageId != msg2.messageId ||
-          msg1.content != msg2.content ||
-          msg1.status != msg2.status ||
-          msg1.timestamp != msg2.timestamp ||
-          msg1.isEdited != msg2.isEdited ||
-          msg1.isPinned != msg2.isPinned) {
-        return false;
-      }
-    }
-    
-    return true;
-  }
-
-  void _stopMessageStream(String chatId) {
-    debugPrint('🛑 Stopping message stream for chat: $chatId');
-    
-    _messageTimers[chatId]?.cancel();
-    _messageTimers.remove(chatId);
-    
-    _messageStreamControllers.remove(chatId)?.close();
-    _lastMessageData.remove(chatId);
-  }
-
-  // ========================================
-  // IMPROVED SYNC WITH CONFLICT RESOLUTION
-  // ========================================
-
-  Future<void> _syncChatsFromServer(String userId) async {
-    if (_isSyncing[userId] == true) {
-      debugPrint('⏳ Chat sync already in progress for user $userId');
-      return;
-    }
-    
-    _isSyncing[userId] = true;
-    
-    try {
-      debugPrint('🔄 Syncing chats from server for user $userId');
-      
-      final response = await _httpClient.get('/chats?userId=$userId');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final List<dynamic> chatsData = data['chats'] ?? [];
-
-        debugPrint('📥 Received ${chatsData.length} chats from server');
-
-        // Batch update for better performance
-        final chatsToUpdate = <ChatModel>[];
-        
-        for (final chatData in chatsData) {
-          try {
-            final chat = ChatModel.fromMap(chatData as Map<String, dynamic>);
-            chatsToUpdate.add(chat);
-          } catch (e) {
-            debugPrint('❌ Error parsing chat from server: $e');
-          }
-        }
-        
-        // Batch insert all chats
-        if (chatsToUpdate.isNotEmpty) {
-          await _dbHelper.batchInsertChats(chatsToUpdate);
-        }
-        
-        _lastSyncTime[userId] = DateTime.now();
-        debugPrint('✅ Successfully synced ${chatsToUpdate.length} chats to local DB');
-        
-        // Trigger immediate refresh after sync
-        await _loadAndEmitChats(userId);
-      } else {
-        debugPrint('❌ Server returned ${response.statusCode} for chats');
-      }
-    } catch (e) {
-      debugPrint('❌ Error syncing chats from server: $e');
-    } finally {
-      _isSyncing[userId] = false;
-    }
-  }
-
-  Future<void> _syncMessagesFromServer(String chatId) async {
-    if (_isSyncing[chatId] == true) return;
-    
-    _isSyncing[chatId] = true;
-    
-    try {
-      debugPrint('🔄 Syncing messages from server for chat $chatId');
-      
-      final response = await _httpClient.get('/chats/$chatId/messages?limit=100&sort=desc');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final List<dynamic> messagesData = data['messages'] ?? [];
-
-        debugPrint('📥 Received ${messagesData.length} messages from server');
-
-        // Batch update for better performance
-        final messagesToUpdate = <MessageModel>[];
-        
-        for (final messageData in messagesData) {
-          try {
-            final message = MessageModel.fromMap(messageData as Map<String, dynamic>);
-            messagesToUpdate.add(message);
-          } catch (e) {
-            debugPrint('❌ Error parsing message from server: $e');
-          }
-        }
-        
-        // Batch insert all messages
-        if (messagesToUpdate.isNotEmpty) {
-          await _dbHelper.batchInsertMessages(messagesToUpdate);
-        }
-        
-        _lastSyncTime[chatId] = DateTime.now();
-        debugPrint('✅ Successfully synced ${messagesToUpdate.length} messages to local DB');
-        
-        // Trigger immediate refresh after sync
-        await _loadAndEmitMessages(chatId);
-      } else {
-        debugPrint('❌ Server returned ${response.statusCode} for messages');
-      }
-    } catch (e) {
-      debugPrint('❌ Error syncing messages from server: $e');
-    } finally {
-      _isSyncing[chatId] = false;
-    }
-  }
-
-  // ========================================
-  // REST OF THE IMPLEMENTATION (UNCHANGED)
-  // ========================================
-
   @override
   Future<String> createOrGetChat(String currentUserId, String otherUserId) async {
     final chatId = generateChatId(currentUserId, otherUserId);
     
     try {
+      // Check if chat exists locally
       var chat = await _dbHelper.getChatById(chatId);
       
-      if (chat != null) {
-        return chatId;
+      if (chat == null) {
+        // Create new chat
+        chat = ChatModel(
+          chatId: chatId,
+          participants: [currentUserId, otherUserId],
+          lastMessage: '',
+          lastMessageType: MessageEnum.text,
+          lastMessageSender: '',
+          lastMessageTime: DateTime.now(),
+          unreadCounts: {currentUserId: 0, otherUserId: 0},
+          isArchived: {currentUserId: false, otherUserId: false},
+          isPinned: {currentUserId: false, otherUserId: false},
+          isMuted: {currentUserId: false, otherUserId: false},
+          createdAt: DateTime.now(),
+        );
+
+        // Save locally
+        await _dbHelper.insertOrUpdateChat(chat);
+        
+        // Join on WebSocket
+        if (_wsService.isConnected) {
+          await _wsService.joinChats([chatId]);
+        }
+        
+        debugPrint('✅ Created new chat: $chatId');
+        
+        // Refresh chats stream
+        final chats = await _dbHelper.getUserChats(currentUserId);
+        _chatsController.add(chats);
       }
-      
-      final newChat = ChatModel(
-        chatId: chatId,
-        participants: [currentUserId, otherUserId],
-        lastMessage: '',
-        lastMessageType: MessageEnum.text,
-        lastMessageSender: '',
-        lastMessageTime: DateTime.now(),
-        unreadCounts: {currentUserId: 0, otherUserId: 0},
-        isArchived: {currentUserId: false, otherUserId: false},
-        isPinned: {currentUserId: false, otherUserId: false},
-        isMuted: {currentUserId: false, otherUserId: false},
-        createdAt: DateTime.now(),
-      );
-      
-      await _dbHelper.insertOrUpdateChat(newChat);
-      
-      // Create on server (don't wait)
-      _createChatOnServer(newChat).catchError((e) {
-        debugPrint('Failed to create chat on server: $e');
-      });
-      
+
       return chatId;
     } catch (e) {
-      debugPrint('Error creating/getting chat: $e');
+      debugPrint('❌ Error creating/getting chat: $e');
       rethrow;
     }
   }
 
-  Future<void> _createChatOnServer(ChatModel chat) async {
+  @override
+  Stream<List<ChatModel>> getChatsStream(String userId) {
+    // Load initial data and start stream
+    _loadInitialChats(userId);
+    return _chatsController.stream;
+  }
+
+  Future<void> _loadInitialChats(String userId) async {
     try {
-      await _httpClient.post('/chats', body: {
-        'chatId': chat.chatId,
-        'participants': chat.participants,
-        'createdAt': DateTimeHelper.toIso8601(chat.createdAt),
-      });
+      final chats = await _dbHelper.getUserChats(userId);
+      _chatsController.add(chats);
     } catch (e) {
-      debugPrint('Error creating chat on server: $e');
+      debugPrint('❌ Error loading initial chats: $e');
+      _chatsController.addError(e);
     }
   }
 
@@ -515,45 +289,117 @@ class OfflineFirstChatRepository implements ChatRepository {
 
   @override
   Future<void> markChatAsRead(String chatId, String userId) async {
-    await _dbHelper.markChatAsRead(chatId, userId);
-    
-    // Sync with server
-    _httpClient.post('/chats/$chatId/mark-read', body: {
-      'userId': userId,
-      'readAt': DateTimeHelper.toIso8601(DateTime.now()),
-    }).catchError((e) => debugPrint('Failed to mark chat as read on server: $e'));
+    try {
+      // Update locally
+      await _dbHelper.markChatAsRead(chatId, userId);
+      
+      // Sync with server (fire and forget)
+      _syncChatReadStatus(chatId, userId).catchError((e) {
+        debugPrint('❌ Failed to sync read status: $e');
+      });
+      
+      // Refresh chats stream
+      final chats = await _dbHelper.getUserChats(userId);
+      _chatsController.add(chats);
+      
+      debugPrint('✅ Marked chat as read: $chatId');
+    } catch (e) {
+      debugPrint('❌ Error marking chat as read: $e');
+      rethrow;
+    }
   }
 
   @override
   Future<void> toggleChatPin(String chatId, String userId) async {
-    await _dbHelper.toggleChatPin(chatId, userId);
+    try {
+      await _dbHelper.toggleChatPin(chatId, userId);
+      
+      // Refresh chats stream
+      final chats = await _dbHelper.getUserChats(userId);
+      _chatsController.add(chats);
+      
+      debugPrint('✅ Toggled chat pin: $chatId');
+    } catch (e) {
+      debugPrint('❌ Error toggling chat pin: $e');
+      rethrow;
+    }
   }
 
   @override
   Future<void> toggleChatArchive(String chatId, String userId) async {
-    await _dbHelper.toggleChatArchive(chatId, userId);
+    try {
+      await _dbHelper.toggleChatArchive(chatId, userId);
+      
+      // Refresh chats stream
+      final chats = await _dbHelper.getUserChats(userId);
+      _chatsController.add(chats);
+      
+      debugPrint('✅ Toggled chat archive: $chatId');
+    } catch (e) {
+      debugPrint('❌ Error toggling chat archive: $e');
+      rethrow;
+    }
   }
 
   @override
   Future<void> toggleChatMute(String chatId, String userId) async {
-    await _dbHelper.toggleChatMute(chatId, userId);
+    try {
+      await _dbHelper.toggleChatMute(chatId, userId);
+      
+      // Refresh chats stream
+      final chats = await _dbHelper.getUserChats(userId);
+      _chatsController.add(chats);
+      
+      debugPrint('✅ Toggled chat mute: $chatId');
+    } catch (e) {
+      debugPrint('❌ Error toggling chat mute: $e');
+      rethrow;
+    }
   }
 
   @override
   Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false}) async {
-    await _dbHelper.deleteChat(chatId, userId);
-    
-    await _httpClient.delete('/chats/$chatId?userId=$userId&deleteForEveryone=$deleteForEveryone');
+    try {
+      await _dbHelper.deleteChat(chatId, userId);
+      
+      // Leave WebSocket room
+      if (_wsService.isConnected) {
+        await _wsService.leaveChats([chatId]);
+      }
+      
+      // Close message controller if exists
+      if (_messageControllers.containsKey(chatId)) {
+        _messageControllers[chatId]!.close();
+        _messageControllers.remove(chatId);
+      }
+      
+      // Refresh chats stream
+      final chats = await _dbHelper.getUserChats(userId);
+      _chatsController.add(chats);
+      
+      debugPrint('✅ Deleted chat: $chatId');
+    } catch (e) {
+      debugPrint('❌ Error deleting chat: $e');
+      rethrow;
+    }
   }
 
   @override
   Future<void> clearChatHistory(String chatId, String userId) async {
-    await _dbHelper.clearChatHistory(chatId);
-    
-    await _httpClient.post('/chats/$chatId/clear-history', body: {
-      'userId': userId,
-      'clearedAt': DateTimeHelper.toIso8601(DateTime.now()),
-    });
+    try {
+      await _dbHelper.clearChatHistory(chatId);
+      
+      // Refresh message stream if exists
+      if (_messageControllers.containsKey(chatId)) {
+        final messages = await _dbHelper.getChatMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+      }
+      
+      debugPrint('✅ Cleared chat history: $chatId');
+    } catch (e) {
+      debugPrint('❌ Error clearing chat history: $e');
+      rethrow;
+    }
   }
 
   // ========================================
@@ -564,34 +410,40 @@ class OfflineFirstChatRepository implements ChatRepository {
   Future<String> sendMessage(MessageModel message) async {
     try {
       final messageId = message.messageId.isEmpty ? _uuid.v4() : message.messageId;
-      final localMessage = message.copyWith(
+      final finalMessage = message.copyWith(
         messageId: messageId,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
       );
+
+      // Save locally first (optimistic update)
+      await _dbHelper.insertOrUpdateMessage(finalMessage);
+
+      // Update message stream immediately
+      if (_messageControllers.containsKey(message.chatId)) {
+        final messages = await _dbHelper.getChatMessages(message.chatId);
+        _messageControllers[message.chatId]!.add(messages);
+      }
+
+      // Send via WebSocket
+      final success = await _wsService.sendMessage(finalMessage);
       
-      // 1. Save to local database FIRST
-      await _dbHelper.insertOrUpdateMessage(localMessage);
-      debugPrint('✅ Message saved to local DB: $messageId');
-      
-      // 2. Update chat last message
-      await _dbHelper.updateChatLastMessage(
-        chatId: message.chatId,
-        lastMessage: message.getDisplayContent(),
-        lastMessageType: message.type,
-        lastMessageSender: message.senderId,
-        lastMessageTime: localMessage.timestamp,
-      );
-      
-      // 3. Send to server in background
-      _sendMessageToServer(localMessage).then((_) async {
+      if (success) {
+        // Update status to sent
         await _dbHelper.updateMessageStatus(messageId, MessageStatus.sent);
-        debugPrint('✅ Message sent to server: $messageId');
-      }).catchError((e) async {
-        debugPrint('❌ Failed to send message to server: $e');
+        debugPrint('✅ Message sent successfully: $messageId');
+      } else {
+        // Mark as failed
         await _dbHelper.updateMessageStatus(messageId, MessageStatus.failed);
-      });
-      
+        debugPrint('❌ Message failed to send: $messageId');
+      }
+
+      // Update message stream with final status
+      if (_messageControllers.containsKey(message.chatId)) {
+        final messages = await _dbHelper.getChatMessages(message.chatId);
+        _messageControllers[message.chatId]!.add(messages);
+      }
+
       return messageId;
     } catch (e) {
       debugPrint('❌ Error sending message: $e');
@@ -599,29 +451,128 @@ class OfflineFirstChatRepository implements ChatRepository {
     }
   }
 
-  Future<void> _sendMessageToServer(MessageModel message) async {
-    final response = await _httpClient.post('/chats/${message.chatId}/messages', body: {
-      'messageId': message.messageId,
-      'chatId': message.chatId,
-      'senderId': message.senderId,
-      'content': message.content,
-      'type': message.type.name,
-      'status': message.status.name,
-      'timestamp': DateTimeHelper.toIso8601(message.timestamp),
-      'mediaUrl': message.mediaUrl,
-      'mediaMetadata': message.mediaMetadata,
-      'replyToMessageId': message.replyToMessageId,
-      'replyToContent': message.replyToContent,
-      'replyToSender': message.replyToSender,
-      'reactions': message.reactions,
-      'isEdited': message.isEdited,
-      'editedAt': message.editedAt != null ? DateTimeHelper.toIso8601(message.editedAt!) : null,
-      'isPinned': message.isPinned,
-    });
-
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Server returned ${response.statusCode}');
+  @override
+  Stream<List<MessageModel>> getMessagesStream(String chatId) {
+    // Create controller if doesn't exist
+    if (!_messageControllers.containsKey(chatId)) {
+      _messageControllers[chatId] = StreamController<List<MessageModel>>.broadcast();
     }
+
+    // Load initial messages
+    _loadInitialMessages(chatId);
+    
+    return _messageControllers[chatId]!.stream;
+  }
+
+  Future<void> _loadInitialMessages(String chatId) async {
+    try {
+      final messages = await _dbHelper.getChatMessages(chatId);
+      if (_messageControllers.containsKey(chatId)) {
+        _messageControllers[chatId]!.add(messages);
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading initial messages: $e');
+      if (_messageControllers.containsKey(chatId)) {
+        _messageControllers[chatId]!.addError(e);
+      }
+    }
+  }
+
+  @override
+  Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status) async {
+    try {
+      await _dbHelper.updateMessageStatus(messageId, status);
+      
+      // Update message stream
+      if (_messageControllers.containsKey(chatId)) {
+        final messages = await _dbHelper.getChatMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating message status: $e');
+    }
+  }
+
+  @override
+  Future<void> editMessage(String chatId, String messageId, String newContent) async {
+    try {
+      await _dbHelper.editMessage(messageId, newContent);
+      
+      // Update message stream
+      if (_messageControllers.containsKey(chatId)) {
+        final messages = await _dbHelper.getChatMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+      }
+      
+      debugPrint('✅ Message edited: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error editing message: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
+    try {
+      await _dbHelper.deleteMessage(messageId);
+      
+      // Update message stream
+      if (_messageControllers.containsKey(chatId)) {
+        final messages = await _dbHelper.getChatMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+      }
+      
+      debugPrint('✅ Message deleted: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> pinMessage(String chatId, String messageId) async {
+    try {
+      await _dbHelper.togglePinMessage(messageId);
+      
+      // Update message stream
+      if (_messageControllers.containsKey(chatId)) {
+        final messages = await _dbHelper.getChatMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+      }
+      
+      debugPrint('✅ Message pinned: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error pinning message: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> unpinMessage(String chatId, String messageId) async {
+    try {
+      await _dbHelper.togglePinMessage(messageId);
+      
+      // Update message stream
+      if (_messageControllers.containsKey(chatId)) {
+        final messages = await _dbHelper.getChatMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+      }
+      
+      debugPrint('✅ Message unpinned: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error unpinning message: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<MessageModel>> searchMessages(String chatId, String query) async {
+    return await _dbHelper.searchMessages(chatId, query);
+  }
+
+  @override
+  Future<List<MessageModel>> getPinnedMessages(String chatId) async {
+    return await _dbHelper.getPinnedMessages(chatId);
   }
 
   @override
@@ -703,75 +654,97 @@ class OfflineFirstChatRepository implements ChatRepository {
     return await sendMessage(message);
   }
 
+  // ========================================
+  // UTILITY METHODS
+  // ========================================
+
+  /// Check if WebSocket is connected
+  bool get isConnected => _wsService.isConnected;
+
+  /// Get current user ID
+  String? get currentUserId => _currentUserId;
+
+  /// Check if repository is initialized
+  bool get isInitialized => _isInitialized;
+
+  /// Send typing status
+  Future<void> sendTypingStatus(String chatId, bool isTyping) async {
+    if (_wsService.isConnected) {
+      await _wsService.sendTypingStatus(chatId, isTyping);
+    }
+  }
+
+  /// Get typing stream
+  Stream<Map<String, dynamic>> get typingStream => _wsService.typingStream;
+
+  /// Get user status stream
+  Stream<Map<String, dynamic>> get userStatusStream => _wsService.userStatusStream;
+
+  /// Get connection stream
+  Stream<bool> get connectionStream => _wsService.connectionStream;
+
+  // ========================================
+  // SYNC OPERATIONS (Fallback only)
+  // ========================================
+
   @override
   Future<void> syncMessages(String chatId) async {
-    await _syncMessagesFromServer(chatId);
-  }
+    // WebSocket handles real-time sync, but keep for fallback
+    try {
+      final response = await _httpClient.get('/chats/$chatId/messages?limit=50');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
 
-  @override
-  Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status) async {
-    await _dbHelper.updateMessageStatus(messageId, status);
-    
-    _httpClient.put('/chats/$chatId/messages/$messageId/status', body: {
-      'status': status.name,
-      'updatedAt': DateTimeHelper.toIso8601(DateTime.now()),
-    }).catchError((e) => debugPrint('Failed to update message status on server: $e'));
-  }
-
-  @override
-  Future<void> editMessage(String chatId, String messageId, String newContent) async {
-    await _dbHelper.editMessage(messageId, newContent);
-    
-    await _httpClient.put('/chats/$chatId/messages/$messageId', body: {
-      'content': newContent,
-      'isEdited': true,
-      'editedAt': DateTimeHelper.toIso8601(DateTime.now()),
-    });
-  }
-
-  @override
-  Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
-    await _dbHelper.deleteMessage(messageId);
-    
-    await _httpClient.delete('/chats/$chatId/messages/$messageId?deleteForEveryone=$deleteForEveryone');
-  }
-
-  @override
-  Future<void> pinMessage(String chatId, String messageId) async {
-    await _dbHelper.togglePinMessage(messageId);
-    
-    await _httpClient.post('/chats/$chatId/messages/$messageId/pin', body: {
-      'pinnedAt': DateTimeHelper.toIso8601(DateTime.now()),
-    });
-  }
-
-  @override
-  Future<void> unpinMessage(String chatId, String messageId) async {
-    await _dbHelper.togglePinMessage(messageId);
-    
-    await _httpClient.delete('/chats/$chatId/messages/$messageId/pin');
-  }
-
-  @override
-  Future<List<MessageModel>> searchMessages(String chatId, String query) async {
-    return await _dbHelper.searchMessages(chatId, query);
-  }
-
-  @override
-  Future<List<MessageModel>> getPinnedMessages(String chatId) async {
-    return await _dbHelper.getPinnedMessages(chatId);
+        for (final messageData in messagesData) {
+          try {
+            final message = MessageModel.fromMap(messageData as Map<String, dynamic>);
+            await _dbHelper.insertOrUpdateMessage(message);
+          } catch (e) {
+            debugPrint('❌ Error parsing message: $e');
+          }
+        }
+        
+        // Update message stream
+        if (_messageControllers.containsKey(chatId)) {
+          final messages = await _dbHelper.getChatMessages(chatId);
+          _messageControllers[chatId]!.add(messages);
+        }
+        
+        debugPrint('✅ Synced ${messagesData.length} messages for chat $chatId');
+      }
+    } catch (e) {
+      debugPrint('❌ Error syncing messages: $e');
+    }
   }
 
   @override
   Future<void> syncAllData(String userId) async {
     try {
-      await _syncChatsFromServer(userId);
+      debugPrint('🔄 Syncing all data (fallback)...');
       
-      // Get all chats and sync their messages
-      final chats = await _dbHelper.getUserChats(userId);
+      // Sync chats
+      final response = await _httpClient.get('/chats?userId=$userId');
       
-      for (final chat in chats) {
-        await _syncMessagesFromServer(chat.chatId);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> chatsData = data['chats'] ?? [];
+
+        for (final chatData in chatsData) {
+          try {
+            final chat = ChatModel.fromMap(chatData as Map<String, dynamic>);
+            await _dbHelper.insertOrUpdateChat(chat);
+          } catch (e) {
+            debugPrint('❌ Error parsing chat: $e');
+          }
+        }
+        
+        // Update chats stream
+        final chats = await _dbHelper.getUserChats(userId);
+        _chatsController.add(chats);
+        
+        debugPrint('✅ Synced ${chatsData.length} chats');
       }
       
       debugPrint('✅ All data synced successfully');
@@ -780,50 +753,31 @@ class OfflineFirstChatRepository implements ChatRepository {
     }
   }
 
-  // ========================================
-  // CLEANUP
-  // ========================================
+  /// Sync chat read status with server
+  Future<void> _syncChatReadStatus(String chatId, String userId) async {
+    try {
+      await _httpClient.post('/chats/$chatId/mark-read', body: {
+        'userId': userId,
+        'readAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('❌ Failed to sync read status with server: $e');
+    }
+  }
 
-  void dispose() {
-    // Cancel all timers
-    for (final timer in _chatTimers.values) {
-      timer.cancel();
+  /// Manually trigger reconnection
+  Future<bool> reconnect() async {
+    if (!_isInitialized || _currentUserId == null) {
+      debugPrint('❌ Cannot reconnect - not initialized');
+      return false;
     }
-    _chatTimers.clear();
-    
-    for (final timer in _messageTimers.values) {
-      timer.cancel();
-    }
-    _messageTimers.clear();
-    
-    for (final timer in _syncTimers.values) {
-      timer.cancel();
-    }
-    _syncTimers.clear();
-    
-    // Close all stream controllers
-    for (final controller in _chatStreamControllers.values) {
-      controller.close();
-    }
-    _chatStreamControllers.clear();
-    
-    for (final controller in _messageStreamControllers.values) {
-      controller.close();
-    }
-    _messageStreamControllers.clear();
-    
-    // Clear caches
-    _lastChatData.clear();
-    _lastMessageData.clear();
-    _isSyncing.clear();
-    _lastSyncTime.clear();
-    
-    debugPrint('Chat repository disposed');
+
+    return await _wsService.reconnect();
   }
 }
 
 // ========================================
-// REPOSITORY PROVIDER
+// REPOSITORY PROVIDER (updated)
 // ========================================
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
