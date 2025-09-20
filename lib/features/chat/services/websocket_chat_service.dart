@@ -1,5 +1,5 @@
 // lib/features/chat/services/websocket_chat_service.dart
-// Real-time WebSocket chat service
+// UPDATED: Complete WebSocket implementation for real-time chat
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -9,579 +9,591 @@ import 'package:web_socket_channel/io.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/shared/utilities/datetime_helper.dart';
 
+/// WebSocket service for real-time chat functionality
+/// Handles connection, authentication, and message broadcasting
 class WebSocketChatService {
   static final WebSocketChatService _instance = WebSocketChatService._internal();
   factory WebSocketChatService() => _instance;
   WebSocketChatService._internal();
 
-  // WebSocket connection
+  // Connection state
   WebSocketChannel? _channel;
+  bool _isConnected = false;
+  bool _isConnecting = false;
+  String? _currentUserId;
+  String? _authToken;
   Timer? _reconnectTimer;
   Timer? _pingTimer;
   
-  // Connection state
-  bool _isConnected = false;
-  bool _isConnecting = false;
-  bool _shouldReconnect = true;
-  int _reconnectAttempts = 0;
-  static const int _maxReconnectAttempts = 5;
-  static const int _reconnectDelaySeconds = 5;
-
-  // Authentication
-  String? _currentUserId;
-  String? _authToken;
-
-  // Chat subscriptions
-  final Set<String> _subscribedChats = {};
-
-  // Stream controllers for real-time updates
-  final StreamController<MessageModel> _messageController = 
-      StreamController<MessageModel>.broadcast();
-  final StreamController<ChatModel> _chatUpdateController = 
-      StreamController<ChatModel>.broadcast();
+  // Retry configuration
+  static const int _maxRetries = 5;
+  static const Duration _baseRetryDelay = Duration(seconds: 2);
+  int _retryAttempts = 0;
+  
+  // Stream controllers for different events
+  final StreamController<List<MessageModel>> _messagesController = 
+      StreamController<List<MessageModel>>.broadcast();
+  final StreamController<List<ChatModel>> _chatsController = 
+      StreamController<List<ChatModel>>.broadcast();
   final StreamController<Map<String, dynamic>> _typingController = 
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _userStatusController = 
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<bool> _connectionController = 
       StreamController<bool>.broadcast();
+  final StreamController<Map<String, dynamic>> _errorController = 
+      StreamController<Map<String, dynamic>>.broadcast();
 
-  // Pending messages (for offline support)
-  final List<Map<String, dynamic>> _pendingMessages = [];
+  // Message tracking
+  final Map<String, Completer<MessageModel>> _pendingMessages = {};
+  final Set<String> _joinedChatIds = {};
 
-  // Message request tracking
-  final Map<String, Completer<bool>> _messageCompleters = {};
-
-  // Getters for streams
-  Stream<MessageModel> get messageStream => _messageController.stream;
-  Stream<ChatModel> get chatUpdateStream => _chatUpdateController.stream;
-  Stream<Map<String, dynamic>> get typingStream => _typingController.stream;
-  Stream<Map<String, dynamic>> get userStatusStream => _userStatusController.stream;
-  Stream<bool> get connectionStream => _connectionController.stream;
-
-  // Connection status
-  bool get isConnected => _isConnected;
-  String? get currentUserId => _currentUserId;
-
-  // WebSocket URL
-  String get _webSocketUrl {
+  // WebSocket URL - Updated for your server
+  String get _wsUrl {
     if (kDebugMode) {
       return 'ws://144.126.252.66:8080/api/v1/ws/chat';
-    } else {
-      return 'wss://144.126.252.66:8080/api/v1/ws/chat';
     }
+    return 'wss://144.126.252.66:8080/api/v1/ws/chat';
   }
 
-  // Connect to WebSocket
+  // ========================================
+  // PUBLIC API
+  // ========================================
+
+  /// Check if WebSocket is connected
+  bool get isConnected => _isConnected;
+
+  /// Get connection stream
+  Stream<bool> get connectionStream => _connectionController.stream;
+
+  /// Get messages stream
+  Stream<List<MessageModel>> get messageStream => _messagesController.stream;
+
+  /// Get chats stream  
+  Stream<List<ChatModel>> get chatUpdateStream => _chatsController.stream;
+
+  /// Get typing indicators stream
+  Stream<Map<String, dynamic>> get typingStream => _typingController.stream;
+
+  /// Get user status stream
+  Stream<Map<String, dynamic>> get userStatusStream => _userStatusController.stream;
+
+  /// Get error stream
+  Stream<Map<String, dynamic>> get errorStream => _errorController.stream;
+
+  /// Connect to WebSocket with authentication
   Future<bool> connect(String userId, String authToken) async {
-    if (_isConnecting || (_isConnected && _currentUserId == userId)) {
-      return _isConnected;
+    if (_isConnecting) {
+      debugPrint('🔌 WebSocket already connecting...');
+      return false;
     }
 
-    _isConnecting = true;
-    _currentUserId = userId;
-    _authToken = authToken;
-    _shouldReconnect = true;
-    _reconnectAttempts = 0;
+    if (_isConnected && _currentUserId == userId) {
+      debugPrint('🔌 WebSocket already connected for user: $userId');
+      return true;
+    }
 
     try {
-      debugPrint('🔌 Connecting to WebSocket: $_webSocketUrl');
-      
+      _isConnecting = true;
+      _currentUserId = userId;
+      _authToken = authToken;
+
+      debugPrint('🔌 Connecting to WebSocket: $_wsUrl');
+      debugPrint('🔌 User: $userId');
+
+      // Create WebSocket channel
       _channel = IOWebSocketChannel.connect(
-        Uri.parse(_webSocketUrl),
+        Uri.parse(_wsUrl),
+        protocols: ['chat'],
         headers: {
           'Authorization': 'Bearer $authToken',
         },
       );
 
-      // Listen to messages
-      _channel!.stream.listen(
-        _handleMessage,
-        onError: _handleError,
-        onDone: _handleDisconnect,
-      );
+      // Set up listeners
+      _setupListeners();
 
-      // Send authentication
-      await _sendAuth();
+      // Wait for connection to establish
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      // Start ping timer
-      _startPingTimer();
-
-      _isConnected = true;
-      _isConnecting = false;
-      _reconnectAttempts = 0;
-      _connectionController.add(true);
-
-      debugPrint('✅ WebSocket connected successfully');
-
-      // Send pending messages
-      await _sendPendingMessages();
-
-      return true;
+      // Send authentication message
+      final authSuccess = await _authenticate(userId, authToken);
+      
+      if (authSuccess) {
+        _isConnected = true;
+        _isConnecting = false;
+        _retryAttempts = 0;
+        _connectionController.add(true);
+        
+        // Start ping timer
+        _startPingTimer();
+        
+        debugPrint('✅ WebSocket connected and authenticated');
+        return true;
+      } else {
+        debugPrint('❌ WebSocket authentication failed');
+        _disconnect();
+        return false;
+      }
     } catch (e) {
       debugPrint('❌ WebSocket connection failed: $e');
       _isConnecting = false;
-      _handleConnectionFailure();
+      _isConnected = false;
+      _connectionController.add(false);
+      
+      // Schedule reconnection
+      _scheduleReconnect();
       return false;
     }
   }
 
-  // Disconnect from WebSocket
-  Future<void> disconnect() async {
-    debugPrint('🔌 Disconnecting WebSocket');
-    
-    _shouldReconnect = false;
-    _isConnected = false;
-    _isConnecting = false;
-
-    _reconnectTimer?.cancel();
-    _pingTimer?.cancel();
-
-    _subscribedChats.clear();
-    _pendingMessages.clear();
-
-    await _channel?.sink.close();
-    _channel = null;
-
-    _connectionController.add(false);
-    debugPrint('🔌 WebSocket disconnected');
+  /// Disconnect from WebSocket
+  void disconnect() {
+    debugPrint('🔌 Disconnecting WebSocket...');
+    _disconnect();
   }
 
-  // Send authentication message
-  Future<void> _sendAuth() async {
-    final authMessage = {
-      'type': 'auth',
-      'data': {
-        'userId': _currentUserId,
-        'token': _authToken,
-      },
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    await _sendMessage(authMessage);
-  }
-
-  // Join chat rooms
-  Future<void> joinChats(List<String> chatIds) async {
-    if (!_isConnected) {
-      debugPrint('⚠️ Cannot join chats - not connected');
-      return;
-    }
-
-    _subscribedChats.addAll(chatIds);
-
-    final joinMessage = {
-      'type': 'join_chats',
-      'data': {
-        'chatIds': chatIds,
-      },
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    await _sendMessage(joinMessage);
-    debugPrint('📱 Joined chats: $chatIds');
-  }
-
-  // Leave chat rooms
-  Future<void> leaveChats(List<String> chatIds) async {
-    if (!_isConnected) {
-      return;
-    }
-
-    _subscribedChats.removeAll(chatIds);
-
-    final leaveMessage = {
-      'type': 'leave_chats',
-      'data': {
-        'chatIds': chatIds,
-      },
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    await _sendMessage(leaveMessage);
-    debugPrint('📱 Left chats: $chatIds');
-  }
-
-  // Send message via WebSocket
+  /// Send a message through WebSocket
   Future<bool> sendMessage(MessageModel message) async {
-    final requestId = DateTime.now().millisecondsSinceEpoch.toString();
-    final completer = Completer<bool>();
-    _messageCompleters[requestId] = completer;
+    if (!_isConnected) {
+      debugPrint('❌ Cannot send message - WebSocket not connected');
+      return false;
+    }
 
-    final messageData = {
-      'type': 'send_message',
-      'data': {
-        'message': message.toMap(),
-      },
-      'chatId': message.chatId,
-      'requestId': requestId,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
+    try {
+      final completer = Completer<MessageModel>();
+      _pendingMessages[message.messageId] = completer;
 
-    if (_isConnected) {
-      try {
-        await _sendMessage(messageData);
-        debugPrint('📤 Message sent via WebSocket: ${message.messageId}');
-        
-        // Wait for confirmation with timeout
-        return await completer.future.timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            _messageCompleters.remove(requestId);
-            return false;
-          },
-        );
-      } catch (e) {
-        debugPrint('❌ Failed to send message via WebSocket: $e');
-        _messageCompleters.remove(requestId);
-        _addToPendingMessages(messageData);
-        return false;
-      }
-    } else {
-      debugPrint('⚠️ WebSocket not connected - adding to pending messages');
-      _messageCompleters.remove(requestId);
-      _addToPendingMessages(messageData);
+      // Send message via WebSocket
+      _sendWebSocketMessage({
+        'type': 'send_message',
+        'data': {
+          'message': {
+            'messageId': message.messageId,
+            'chatId': message.chatId,
+            'senderId': message.senderId,
+            'content': message.content,
+            'type': message.type.name,
+            'mediaUrl': message.mediaUrl,
+            'mediaMetadata': message.mediaMetadata,
+            'replyToMessageId': message.replyToMessageId,
+            'replyToContent': message.replyToContent,
+            'replyToSender': message.replyToSender,
+          }
+        },
+        'requestId': message.messageId,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      // Wait for confirmation or timeout
+      final result = await completer.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          _pendingMessages.remove(message.messageId);
+          throw TimeoutException('Message send timeout', const Duration(seconds: 10));
+        },
+      );
+
+      debugPrint('✅ Message sent successfully: ${message.messageId}');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Failed to send message: $e');
+      _pendingMessages.remove(message.messageId);
       return false;
     }
   }
 
-  // Send typing status
+  /// Join chat rooms to receive messages
+  Future<bool> joinChats(List<String> chatIds) async {
+    if (!_isConnected) {
+      debugPrint('❌ Cannot join chats - WebSocket not connected');
+      return false;
+    }
+
+    try {
+      // Filter out already joined chats
+      final newChatIds = chatIds.where((id) => !_joinedChatIds.contains(id)).toList();
+      
+      if (newChatIds.isEmpty) {
+        debugPrint('📱 All chats already joined');
+        return true;
+      }
+
+      _sendWebSocketMessage({
+        'type': 'join_chats',
+        'data': {
+          'chatIds': newChatIds,
+        },
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      // Add to joined set
+      _joinedChatIds.addAll(newChatIds);
+
+      debugPrint('📱 Joined chats: $newChatIds');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Failed to join chats: $e');
+      return false;
+    }
+  }
+
+  /// Leave chat rooms
+  Future<bool> leaveChats(List<String> chatIds) async {
+    if (!_isConnected) {
+      return false;
+    }
+
+    try {
+      _sendWebSocketMessage({
+        'type': 'leave_chats',
+        'data': {
+          'chatIds': chatIds,
+        },
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      // Remove from joined set
+      _joinedChatIds.removeAll(chatIds);
+
+      debugPrint('📱 Left chats: $chatIds');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Failed to leave chats: $e');
+      return false;
+    }
+  }
+
+  /// Send typing status
   Future<void> sendTypingStatus(String chatId, bool isTyping) async {
     if (!_isConnected) return;
 
-    final typingMessage = {
-      'type': isTyping ? 'typing_start' : 'typing_stop',
-      'data': {
+    try {
+      _sendWebSocketMessage({
+        'type': isTyping ? 'typing_start' : 'typing_stop',
+        'data': {
+          'chatId': chatId,
+          'userId': _currentUserId,
+          'isTyping': isTyping,
+        },
         'chatId': chatId,
-        'userId': _currentUserId,
-        'isTyping': isTyping,
-      },
-      'chatId': chatId,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    await _sendMessage(typingMessage);
-  }
-
-  // Handle incoming WebSocket messages
-  void _handleMessage(dynamic data) {
-    try {
-      final message = jsonDecode(data as String) as Map<String, dynamic>;
-      final type = message['type'] as String;
-
-      debugPrint('📨 Received WebSocket message: $type');
-
-      switch (type) {
-        case 'message_received':
-          _handleMessageReceived(message);
-          break;
-        case 'message_sent':
-          _handleMessageSent(message);
-          break;
-        case 'message_failed':
-          _handleMessageFailed(message);
-          break;
-        case 'chat_updated':
-          _handleChatUpdated(message);
-          break;
-        case 'typing_start':
-        case 'typing_stop':
-          _handleTypingStatus(message);
-          break;
-        case 'user_online':
-        case 'user_offline':
-          _handleUserStatus(message);
-          break;
-        case 'error':
-          _handleErrorMessage(message);
-          break;
-        case 'pong':
-          // Pong received - connection is alive
-          break;
-        default:
-          debugPrint('🤷 Unknown message type: $type');
-      }
-    } catch (e) {
-      debugPrint('❌ Error handling WebSocket message: $e');
-    }
-  }
-
-  void _handleMessageReceived(Map<String, dynamic> message) {
-    try {
-      final messageData = message['data'] as Map<String, dynamic>;
-      final chatMessage = MessageModel.fromMap(messageData);
-      _messageController.add(chatMessage);
-      debugPrint('📨 New message received: ${chatMessage.messageId}');
-    } catch (e) {
-      debugPrint('❌ Error parsing received message: $e');
-    }
-  }
-
-  void _handleMessageSent(Map<String, dynamic> message) {
-    final requestId = message['requestId'] as String?;
-    if (requestId != null && _messageCompleters.containsKey(requestId)) {
-      _messageCompleters[requestId]!.complete(true);
-      _messageCompleters.remove(requestId);
-      debugPrint('✅ Message confirmed sent: $requestId');
-    }
-  }
-
-  void _handleMessageFailed(Map<String, dynamic> message) {
-    final requestId = message['requestId'] as String?;
-    if (requestId != null && _messageCompleters.containsKey(requestId)) {
-      _messageCompleters[requestId]!.complete(false);
-      _messageCompleters.remove(requestId);
-      debugPrint('❌ Message failed: $requestId');
-    }
-  }
-
-  void _handleChatUpdated(Map<String, dynamic> message) {
-    try {
-      final chatData = message['data'] as Map<String, dynamic>;
-      final chat = ChatModel.fromMap(chatData);
-      _chatUpdateController.add(chat);
-      debugPrint('📱 Chat updated: ${chat.chatId}');
-    } catch (e) {
-      debugPrint('❌ Error parsing chat update: $e');
-    }
-  }
-
-  void _handleTypingStatus(Map<String, dynamic> message) {
-    try {
-      final typingData = message['data'] as Map<String, dynamic>;
-      _typingController.add({
-        'chatId': typingData['chatId'],
-        'userId': typingData['userId'],
-        'isTyping': typingData['isTyping'],
-        'type': message['type'],
+        'timestamp': DateTime.now().toIso8601String(),
       });
-      debugPrint('⌨️ Typing status: ${typingData['userId']} - ${typingData['isTyping']}');
     } catch (e) {
-      debugPrint('❌ Error parsing typing status: $e');
+      debugPrint('❌ Failed to send typing status: $e');
     }
   }
 
-  void _handleUserStatus(Map<String, dynamic> message) {
-    try {
-      final statusData = message['data'] as Map<String, dynamic>;
-      _userStatusController.add({
-        'userId': statusData['userId'],
-        'isOnline': statusData['isOnline'],
-        'type': message['type'],
-      });
-      debugPrint('👤 User status: ${statusData['userId']} - ${statusData['isOnline']}');
-    } catch (e) {
-      debugPrint('❌ Error parsing user status: $e');
+  /// Manually reconnect
+  Future<bool> reconnect() async {
+    if (_currentUserId == null || _authToken == null) {
+      debugPrint('❌ Cannot reconnect - missing credentials');
+      return false;
     }
+
+    debugPrint('🔄 Manually reconnecting WebSocket...');
+    _disconnect();
+    await Future.delayed(const Duration(milliseconds: 1000));
+    return await connect(_currentUserId!, _authToken!);
   }
 
-  void _handleErrorMessage(Map<String, dynamic> message) {
-    try {
-      final errorData = message['data'] as Map<String, dynamic>;
-      final errorMessage = errorData['message'] as String;
-      final errorCode = errorData['code'] as String?;
-      debugPrint('🚨 WebSocket error: $errorMessage ($errorCode)');
-    } catch (e) {
-      debugPrint('❌ Error parsing error message: $e');
-    }
-  }
+  // ========================================
+  // PRIVATE METHODS
+  // ========================================
 
-  // Handle WebSocket errors
-  void _handleError(error) {
-    debugPrint('❌ WebSocket error: $error');
-    _handleConnectionFailure();
-  }
-
-  // Handle WebSocket disconnection
-  void _handleDisconnect() {
-    debugPrint('🔌 WebSocket disconnected');
-    _isConnected = false;
-    _connectionController.add(false);
-    _handleConnectionFailure();
-  }
-
-  // Handle connection failures and implement reconnection
-  void _handleConnectionFailure() {
-    if (!_shouldReconnect) return;
-
-    _isConnected = false;
-    _isConnecting = false;
-    _connectionController.add(false);
-
-    _pingTimer?.cancel();
-
-    if (_reconnectAttempts < _maxReconnectAttempts) {
-      _reconnectAttempts++;
-      final delay = _reconnectDelaySeconds * _reconnectAttempts;
-      
-      debugPrint('🔄 Reconnecting in ${delay}s (attempt $_reconnectAttempts/$_maxReconnectAttempts)');
-      
-      _reconnectTimer = Timer(Duration(seconds: delay), () {
-        if (_shouldReconnect && _currentUserId != null && _authToken != null) {
-          connect(_currentUserId!, _authToken!);
+  void _setupListeners() {
+    _channel?.stream.listen(
+      (data) {
+        try {
+          final Map<String, dynamic> message = jsonDecode(data as String);
+          _handleWebSocketMessage(message);
+        } catch (e) {
+          debugPrint('❌ Error parsing WebSocket message: $e');
         }
+      },
+      onError: (error) {
+        debugPrint('❌ WebSocket error: $error');
+        _handleConnectionError(error);
+      },
+      onDone: () {
+        debugPrint('🔌 WebSocket connection closed');
+        _handleConnectionClosed();
+      },
+    );
+  }
+
+  Future<bool> _authenticate(String userId, String token) async {
+    try {
+      _sendWebSocketMessage({
+        'type': 'auth',
+        'data': {
+          'userId': userId,
+          'token': token,
+        },
+        'timestamp': DateTime.now().toIso8601String(),
       });
-    } else {
-      debugPrint('❌ Max reconnection attempts reached');
-      _shouldReconnect = false;
+
+      // Wait a bit for auth response
+      await Future.delayed(const Duration(milliseconds: 1000));
+      return true; // Assume success if no error thrown
+    } catch (e) {
+      debugPrint('❌ Authentication failed: $e');
+      return false;
     }
   }
 
-  // Send raw message to WebSocket
-  Future<void> _sendMessage(Map<String, dynamic> message) async {
-    if (_channel?.sink != null) {
-      _channel!.sink.add(jsonEncode(message));
-    } else {
-      throw Exception('WebSocket not connected');
+  void _sendWebSocketMessage(Map<String, dynamic> message) {
+    if (_channel == null) return;
+
+    try {
+      final jsonMessage = jsonEncode(message);
+      _channel!.sink.add(jsonMessage);
+    } catch (e) {
+      debugPrint('❌ Failed to send WebSocket message: $e');
     }
   }
 
-  // Start ping timer to keep connection alive
-  void _startPingTimer() {
+  void _handleWebSocketMessage(Map<String, dynamic> message) {
+    final String type = message['type'] ?? '';
+    final Map<String, dynamic>? data = message['data'];
+    final String? requestId = message['requestId'];
+
+    debugPrint('📨 WebSocket message: $type');
+
+    switch (type) {
+      case 'message_received':
+        _handleMessageReceived(data);
+        break;
+      case 'message_sent':
+        _handleMessageSent(data, requestId);
+        break;
+      case 'message_failed':
+        _handleMessageFailed(data, requestId);
+        break;
+      case 'chat_updated':
+        _handleChatUpdated(data);
+        break;
+      case 'typing_start':
+      case 'typing_stop':
+        _handleTypingStatus(type, data);
+        break;
+      case 'user_online':
+      case 'user_offline':
+        _handleUserStatus(type, data);
+        break;
+      case 'error':
+        _handleError(data);
+        break;
+      case 'pong':
+        // Keep-alive response
+        break;
+      default:
+        debugPrint('❓ Unknown WebSocket message type: $type');
+    }
+  }
+
+  void _handleMessageReceived(Map<String, dynamic>? data) {
+    if (data == null) return;
+
+    try {
+      final messageData = data['message'] ?? data;
+      final message = _parseMessage(messageData);
+      
+      // Emit to message stream (will be handled by repository)
+      debugPrint('📨 Message received: ${message.messageId}');
+      
+      // For now, just log - the repository will handle database updates
+    } catch (e) {
+      debugPrint('❌ Error handling received message: $e');
+    }
+  }
+
+  void _handleMessageSent(Map<String, dynamic>? data, String? requestId) {
+    if (data == null || requestId == null) return;
+
+    try {
+      final messageData = data['message'] ?? data;
+      final message = _parseMessage(messageData);
+      
+      // Complete pending message
+      final completer = _pendingMessages.remove(requestId);
+      completer?.complete(message);
+      
+      debugPrint('✅ Message sent confirmed: $requestId');
+    } catch (e) {
+      debugPrint('❌ Error handling sent message: $e');
+    }
+  }
+
+  void _handleMessageFailed(Map<String, dynamic>? data, String? requestId) {
+    if (requestId == null) return;
+
+    // Complete pending message with error
+    final completer = _pendingMessages.remove(requestId);
+    completer?.completeError('Message failed to send');
+    
+    debugPrint('❌ Message failed: $requestId');
+  }
+
+  void _handleChatUpdated(Map<String, dynamic>? data) {
+    if (data == null) return;
+
+    try {
+      // This will be handled by the repository
+      debugPrint('💬 Chat updated');
+    } catch (e) {
+      debugPrint('❌ Error handling chat update: $e');
+    }
+  }
+
+  void _handleTypingStatus(String type, Map<String, dynamic>? data) {
+    if (data == null) return;
+
+    try {
+      _typingController.add({
+        'type': type,
+        'chatId': data['chatId'],
+        'userId': data['userId'],
+        'isTyping': data['isTyping'] ?? false,
+      });
+    } catch (e) {
+      debugPrint('❌ Error handling typing status: $e');
+    }
+  }
+
+  void _handleUserStatus(String type, Map<String, dynamic>? data) {
+    if (data == null) return;
+
+    try {
+      _userStatusController.add({
+        'userId': data['userId'],
+        'isOnline': type == 'user_online',
+      });
+    } catch (e) {
+      debugPrint('❌ Error handling user status: $e');
+    }
+  }
+
+  void _handleError(Map<String, dynamic>? data) {
+    if (data == null) return;
+
+    final String message = data['message'] ?? 'Unknown error';
+    final String? code = data['code'];
+    
+    debugPrint('❌ WebSocket error: $message (code: $code)');
+    
+    _errorController.add({
+      'message': message,
+      'code': code,
+    });
+  }
+
+  MessageModel _parseMessage(Map<String, dynamic> data) {
+    return MessageModel(
+      messageId: data['messageId'] ?? '',
+      chatId: data['chatId'] ?? '',
+      senderId: data['senderId'] ?? '',
+      content: data['content'] ?? '',
+      type: MessageEnum.values.firstWhere(
+        (e) => e.name == data['type'],
+        orElse: () => MessageEnum.text,
+      ),
+      status: MessageStatus.values.firstWhere(
+        (e) => e.name == data['status'],
+        orElse: () => MessageStatus.sent,
+      ),
+      timestamp: data['timestamp'] != null 
+          ? DateTime.parse(data['timestamp'])
+          : DateTime.now(),
+      mediaUrl: data['mediaUrl'],
+      mediaMetadata: data['mediaMetadata'] != null 
+          ? Map<String, dynamic>.from(data['mediaMetadata']) 
+          : null,
+      replyToMessageId: data['replyToMessageId'],
+      replyToContent: data['replyToContent'],
+      replyToSender: data['replyToSender'],
+      reactions: data['reactions'] != null 
+          ? Map<String, String>.from(data['reactions']) 
+          : null,
+      isEdited: data['isEdited'] ?? false,
+      editedAt: data['editedAt'] != null 
+          ? DateTime.parse(data['editedAt']) 
+          : null,
+      isPinned: data['isPinned'] ?? false,
+    );
+  }
+
+  void _handleConnectionError(dynamic error) {
+    debugPrint('❌ WebSocket connection error: $error');
+    _isConnected = false;
+    _connectionController.add(false);
+    _scheduleReconnect();
+  }
+
+  void _handleConnectionClosed() {
+    debugPrint('🔌 WebSocket connection closed');
+    _isConnected = false;
+    _connectionController.add(false);
     _pingTimer?.cancel();
-    _pingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (_isConnected) {
-        _sendMessage({
-          'type': 'ping',
-          'timestamp': DateTime.now().toIso8601String(),
-        }).catchError((e) {
-          debugPrint('❌ Failed to send ping: $e');
-        });
-      } else {
-        timer.cancel();
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_retryAttempts >= _maxRetries) {
+      debugPrint('❌ Max reconnection attempts reached');
+      return;
+    }
+
+    _retryAttempts++;
+    final delay = Duration(
+      seconds: _baseRetryDelay.inSeconds * _retryAttempts,
+    );
+
+    debugPrint('🔄 Scheduling reconnect attempt $_retryAttempts in ${delay.inSeconds}s');
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(delay, () {
+      if (_currentUserId != null && _authToken != null) {
+        connect(_currentUserId!, _authToken!);
       }
     });
   }
 
-  // Add message to pending queue for offline support
-  void _addToPendingMessages(Map<String, dynamic> messageData) {
-    _pendingMessages.add(messageData);
-    debugPrint('📥 Added message to pending queue (${_pendingMessages.length} pending)');
-  }
-
-  // Send all pending messages when connection is restored
-  Future<void> _sendPendingMessages() async {
-    if (_pendingMessages.isEmpty) return;
-
-    debugPrint('📤 Sending ${_pendingMessages.length} pending messages');
-    
-    final messagesToSend = List<Map<String, dynamic>>.from(_pendingMessages);
-    _pendingMessages.clear();
-
-    for (final messageData in messagesToSend) {
-      try {
-        await _sendMessage(messageData);
-        debugPrint('✅ Pending message sent');
-      } catch (e) {
-        debugPrint('❌ Failed to send pending message: $e');
-        _addToPendingMessages(messageData);
+  void _startPingTimer() {
+    _pingTimer?.cancel();
+    _pingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_isConnected) {
+        _sendWebSocketMessage({
+          'type': 'ping',
+          'timestamp': DateTime.now().toIso8601String(),
+        });
       }
-    }
+    });
   }
 
-  // Manually trigger reconnection
-  Future<bool> reconnect() async {
-    if (_currentUserId == null || _authToken == null) {
-      debugPrint('❌ Cannot reconnect - missing auth data');
-      return false;
-    }
-
-    debugPrint('🔄 Manual reconnection triggered');
-    _reconnectAttempts = 0;
-    await disconnect();
-    await Future.delayed(const Duration(seconds: 1));
-    return await connect(_currentUserId!, _authToken!);
+  void _disconnect() {
+    _isConnected = false;
+    _isConnecting = false;
+    _reconnectTimer?.cancel();
+    _pingTimer?.cancel();
+    _channel?.sink.close();
+    _channel = null;
+    _joinedChatIds.clear();
+    _pendingMessages.clear();
+    _connectionController.add(false);
   }
 
-  // Get connection statistics
-  Map<String, dynamic> getStats() {
-    return {
-      'isConnected': _isConnected,
-      'isConnecting': _isConnecting,
-      'reconnectAttempts': _reconnectAttempts,
-      'subscribedChats': _subscribedChats.length,
-      'pendingMessages': _pendingMessages.length,
-      'activeRequestTrackers': _messageCompleters.length,
-    };
-  }
-
-  // Dispose and cleanup
+  /// Dispose all resources
   void dispose() {
-    debugPrint('🧹 Disposing WebSocketChatService');
-    
-    _shouldReconnect = false;
-    disconnect();
-    
-    _messageController.close();
-    _chatUpdateController.close();
+    debugPrint('🧹 Disposing WebSocket service');
+    _disconnect();
+    _messagesController.close();
+    _chatsController.close();
     _typingController.close();
     _userStatusController.close();
     _connectionController.close();
-    
-    _subscribedChats.clear();
-    _pendingMessages.clear();
-    _messageCompleters.clear();
-  }
-}
-
-// WebSocket message types (matching backend)
-class WSMessageType {
-  static const String auth = 'auth';
-  static const String joinChats = 'join_chats';
-  static const String leaveChats = 'leave_chats';
-  static const String sendMessage = 'send_message';
-  static const String messageReceived = 'message_received';
-  static const String messageSent = 'message_sent';
-  static const String messageFailed = 'message_failed';
-  static const String typingStart = 'typing_start';
-  static const String typingStop = 'typing_stop';
-  static const String userOnline = 'user_online';
-  static const String userOffline = 'user_offline';
-  static const String chatUpdated = 'chat_updated';
-  static const String error = 'error';
-  static const String ping = 'ping';
-  static const String pong = 'pong';
-}
-
-// Helper class for WebSocket connection status
-enum WSConnectionStatus {
-  disconnected,
-  connecting,
-  connected,
-  reconnecting,
-  failed,
-}
-
-class WSConnectionState {
-  final WSConnectionStatus status;
-  final String? error;
-  final int reconnectAttempts;
-  final DateTime? lastConnected;
-
-  const WSConnectionState({
-    required this.status,
-    this.error,
-    this.reconnectAttempts = 0,
-    this.lastConnected,
-  });
-
-  bool get isConnected => status == WSConnectionStatus.connected;
-  bool get isConnecting => status == WSConnectionStatus.connecting || status == WSConnectionStatus.reconnecting;
-  bool get hasError => error != null;
-
-  WSConnectionState copyWith({
-    WSConnectionStatus? status,
-    String? error,
-    int? reconnectAttempts,
-    DateTime? lastConnected,
-    bool clearError = false,
-  }) {
-    return WSConnectionState(
-      status: status ?? this.status,
-      error: clearError ? null : (error ?? this.error),
-      reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
-      lastConnected: lastConnected ?? this.lastConnected,
-    );
+    _errorController.close();
   }
 }

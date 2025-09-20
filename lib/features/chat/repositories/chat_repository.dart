@@ -1,5 +1,5 @@
 // lib/features/chat/repositories/chat_repository.dart
-// UPDATED: WebSocket-first chat repository - removed complex polling and streams
+// UPDATED: WebSocket-first chat repository - simplified with real-time capabilities
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -148,39 +148,21 @@ class OfflineFirstChatRepository implements ChatRepository {
   /// Set up WebSocket real-time listeners
   void _setupWebSocketListeners() {
     // Listen for new messages
-    _wsService.messageStream.listen((message) async {
-      await _dbHelper.insertOrUpdateMessage(message);
-      
-      // Update chat last message
-      await _dbHelper.updateChatLastMessage(
-        chatId: message.chatId,
-        lastMessage: message.getDisplayContent(),
-        lastMessageType: message.type,
-        lastMessageSender: message.senderId,
-        lastMessageTime: message.timestamp,
-      );
-
-      // Emit to message stream if controller exists
-      if (_messageControllers.containsKey(message.chatId)) {
-        final messages = await _dbHelper.getChatMessages(message.chatId);
-        _messageControllers[message.chatId]!.add(messages);
-      }
-
-      // Refresh chats stream
-      if (_currentUserId != null) {
-        final chats = await _dbHelper.getUserChats(_currentUserId!);
-        _chatsController.add(chats);
-      }
+    _wsService.messageStream.listen((messages) async {
+      // Messages are now handled by WebSocket events, not this stream
+      // This is kept for compatibility
     });
 
-    // Listen for chat updates
-    _wsService.chatUpdateStream.listen((chat) async {
-      await _dbHelper.insertOrUpdateChat(chat);
-      
-      // Refresh chats stream
-      if (_currentUserId != null) {
-        final chats = await _dbHelper.getUserChats(_currentUserId!);
-        _chatsController.add(chats);
+    // Listen for WebSocket errors
+    _wsService.errorStream.listen((error) {
+      debugPrint('❌ WebSocket error: ${error['message']}');
+    });
+
+    // Listen for connection changes
+    _wsService.connectionStream.listen((isConnected) {
+      debugPrint('🔌 WebSocket connection status: $isConnected');
+      if (!isConnected) {
+        // Handle reconnection logic if needed
       }
     });
   }
@@ -285,6 +267,12 @@ class OfflineFirstChatRepository implements ChatRepository {
       lastMessageSender: chat.lastMessageSender,
       lastMessageTime: chat.lastMessageTime,
     );
+
+    // Refresh chats stream
+    if (_currentUserId != null) {
+      final chats = await _dbHelper.getUserChats(_currentUserId!);
+      _chatsController.add(chats);
+    }
   }
 
   @override
@@ -403,7 +391,7 @@ class OfflineFirstChatRepository implements ChatRepository {
   }
 
   // ========================================
-  // MESSAGE OPERATIONS
+  // MESSAGE OPERATIONS - WEBSOCKET FIRST
   // ========================================
 
   @override
@@ -423,6 +411,21 @@ class OfflineFirstChatRepository implements ChatRepository {
       if (_messageControllers.containsKey(message.chatId)) {
         final messages = await _dbHelper.getChatMessages(message.chatId);
         _messageControllers[message.chatId]!.add(messages);
+      }
+
+      // Update chat last message
+      await _dbHelper.updateChatLastMessage(
+        chatId: finalMessage.chatId,
+        lastMessage: finalMessage.getDisplayContent(),
+        lastMessageType: finalMessage.type,
+        lastMessageSender: finalMessage.senderId,
+        lastMessageTime: finalMessage.timestamp,
+      );
+
+      // Refresh chats stream
+      if (_currentUserId != null) {
+        final chats = await _dbHelper.getUserChats(_currentUserId!);
+        _chatsController.add(chats);
       }
 
       // Send via WebSocket

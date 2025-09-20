@@ -1,5 +1,5 @@
 // lib/features/chat/providers/chat_provider.dart
-// UPDATED: WebSocket-based real-time chat provider - removed complex polling and timers
+// UPDATED: Simplified WebSocket-based real-time chat provider
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,6 +27,7 @@ class ChatListState {
   final String searchQuery;
   final bool isOnline;
   final int totalUnreadCount;
+  final bool isSyncing;
 
   const ChatListState({
     this.isLoading = false,
@@ -36,6 +37,7 @@ class ChatListState {
     this.searchQuery = '',
     this.isOnline = true,
     this.totalUnreadCount = 0,
+    this.isSyncing = false,
   });
 
   ChatListState copyWith({
@@ -46,6 +48,7 @@ class ChatListState {
     String? searchQuery,
     bool? isOnline,
     int? totalUnreadCount,
+    bool? isSyncing,
     bool clearError = false,
   }) {
     return ChatListState(
@@ -56,6 +59,7 @@ class ChatListState {
       searchQuery: searchQuery ?? this.searchQuery,
       isOnline: isOnline ?? this.isOnline,
       totalUnreadCount: totalUnreadCount ?? this.totalUnreadCount,
+      isSyncing: isSyncing ?? this.isSyncing,
     );
   }
 
@@ -92,6 +96,7 @@ class ChatList extends _$ChatList {
   
   StreamSubscription<List<ChatModel>>? _chatSubscription;
   StreamSubscription<bool>? _connectionSubscription;
+  Timer? _syncTimer;
   
   @override
   FutureOr<ChatListState> build() async {
@@ -100,6 +105,7 @@ class ChatList extends _$ChatList {
       debugPrint('🧹 ChatList provider disposed - cleaning up');
       _chatSubscription?.cancel();
       _connectionSubscription?.cancel();
+      _syncTimer?.cancel();
     });
 
     final currentUser = ref.watch(currentUserProvider);
@@ -199,6 +205,23 @@ class ChatList extends _$ChatList {
         debugPrint('🔌 Connection status changed: $isConnected');
       }
     });
+
+    // Set up periodic sync timer (every 5 minutes as fallback)
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      if (_wsRepository.isConnected) {
+        _performBackgroundSync(userId);
+      }
+    });
+  }
+
+  Future<void> _performBackgroundSync(String userId) async {
+    try {
+      await _repository.syncAllData(userId);
+      debugPrint('✅ Background sync completed');
+    } catch (e) {
+      debugPrint('❌ Background sync failed: $e');
+    }
   }
 
   // SIMPLIFIED: Just count messages where sender != currentUser
@@ -518,11 +541,20 @@ class ChatList extends _$ChatList {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
 
+    final currentState = state.valueOrNull ?? const ChatListState();
+    state = AsyncValue.data(currentState.copyWith(isSyncing: true));
+
     try {
       await _repository.syncAllData(userId);
       debugPrint('✅ Manual sync completed');
+      
+      // Update state to remove syncing indicator
+      final newState = state.valueOrNull ?? const ChatListState();
+      state = AsyncValue.data(newState.copyWith(isSyncing: false));
     } catch (e) {
       debugPrint('❌ Manual sync failed: $e');
+      final newState = state.valueOrNull ?? const ChatListState();
+      state = AsyncValue.data(newState.copyWith(isSyncing: false));
     }
   }
 

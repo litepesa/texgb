@@ -1,5 +1,5 @@
 // lib/features/chat/providers/message_provider.dart
-// UPDATED: WebSocket-based real-time message provider - removed complex polling and state management
+// UPDATED: Complete WebSocket-based real-time message provider
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -911,5 +911,316 @@ class MessageNotifier extends _$MessageNotifier {
       return await _wsRepository.reconnect();
     }
     return isConnected;
+  }
+
+  // ========================================
+  // ADVANCED MESSAGE OPERATIONS
+  // ========================================
+
+  /// Forward a message to another chat
+  Future<void> forwardMessage(String messageId, String targetChatId) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      final originalMessage = await _dbHelper.getMessageById(messageId);
+      if (originalMessage == null) return;
+
+      final forwardedMessage = MessageModel(
+        messageId: _uuid.v4(),
+        chatId: targetChatId,
+        senderId: currentUser.uid,
+        content: originalMessage.content,
+        type: originalMessage.type,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: originalMessage.mediaUrl,
+        mediaMetadata: {
+          ...?originalMessage.mediaMetadata,
+          'isForwarded': true,
+          'originalSender': originalMessage.senderId,
+          'originalTimestamp': originalMessage.timestamp.toIso8601String(),
+        },
+      );
+
+      await _repository.sendMessage(forwardedMessage);
+      debugPrint('✅ Message forwarded via WebSocket');
+    } catch (e) {
+      debugPrint('❌ Error forwarding message: $e');
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to forward message',
+      ));
+    }
+  }
+
+  /// Add reaction to a message
+  Future<void> addReaction(String messageId, String emoji) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      final message = await _dbHelper.getMessageById(messageId);
+      if (message == null) return;
+
+      final updatedReactions = Map<String, String>.from(message.reactions ?? {});
+      updatedReactions[currentUser.uid] = emoji;
+
+      final updatedMessage = message.copyWith(reactions: updatedReactions);
+      await _dbHelper.insertOrUpdateMessage(updatedMessage);
+
+      // Update UI immediately
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((m) {
+          if (m.messageId == messageId) {
+            return updatedMessage;
+          }
+          return m;
+        }).toList();
+
+        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+      }
+
+      debugPrint('✅ Reaction added to message: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error adding reaction: $e');
+    }
+  }
+
+  /// Remove reaction from a message
+  Future<void> removeReaction(String messageId) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      final message = await _dbHelper.getMessageById(messageId);
+      if (message == null) return;
+
+      final updatedReactions = Map<String, String>.from(message.reactions ?? {});
+      updatedReactions.remove(currentUser.uid);
+
+      final updatedMessage = message.copyWith(
+        reactions: updatedReactions.isEmpty ? null : updatedReactions,
+      );
+      await _dbHelper.insertOrUpdateMessage(updatedMessage);
+
+      // Update UI immediately
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((m) {
+          if (m.messageId == messageId) {
+            return updatedMessage;
+          }
+          return m;
+        }).toList();
+
+        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+      }
+
+      debugPrint('✅ Reaction removed from message: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error removing reaction: $e');
+    }
+  }
+
+  /// Get messages by type (e.g., only images, videos, etc.)
+  List<MessageModel> getMessagesByType(MessageEnum type) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((message) => message.type == type).toList();
+  }
+
+  /// Get media messages (images, videos, files)
+  List<MessageModel> getMediaMessages() {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((message) => 
+      message.type == MessageEnum.image ||
+      message.type == MessageEnum.video ||
+      message.type == MessageEnum.file ||
+      message.type == MessageEnum.audio
+    ).toList();
+  }
+
+  /// Get unread messages count for current user
+  int getUnreadMessagesCount() {
+    final currentState = state.valueOrNull;
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentState == null || currentUserId == null) return 0;
+
+    return currentState.messages.where((message) => 
+      message.senderId != currentUserId && 
+      !(message.readBy?.containsKey(currentUserId) ?? false)
+    ).length;
+  }
+
+  /// Mark specific message as read
+  Future<void> markMessageAsRead(String messageId) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      final message = await _dbHelper.getMessageById(messageId);
+      if (message == null) return;
+
+      final updatedReadBy = Map<String, DateTime>.from(message.readBy ?? {});
+      updatedReadBy[currentUser.uid] = DateTime.now();
+
+      final updatedMessage = message.copyWith(readBy: updatedReadBy);
+      await _dbHelper.insertOrUpdateMessage(updatedMessage);
+
+      debugPrint('✅ Message marked as read: $messageId');
+    } catch (e) {
+      debugPrint('❌ Error marking message as read: $e');
+    }
+  }
+
+  /// Get typing users as formatted string
+  String getTypingUsersText() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentState.typingUsers.isEmpty) return '';
+
+    final typingNames = currentState.typingUsers
+        .map((userId) => currentState.getParticipantName(userId))
+        .toList();
+
+    if (typingNames.length == 1) {
+      return '${typingNames.first} is typing...';
+    } else if (typingNames.length == 2) {
+      return '${typingNames[0]} and ${typingNames[1]} are typing...';
+    } else {
+      return 'Several people are typing...';
+    }
+  }
+
+  /// Check if current user can edit a message
+  bool canEditMessage(MessageModel message) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return false;
+
+    // Only sender can edit
+    if (message.senderId != currentUserId) return false;
+
+    // Only text messages can be edited
+    if (message.type != MessageEnum.text) return false;
+
+    // Can't edit if already edited (optional restriction)
+    // if (message.isEdited) return false;
+
+    // Can't edit messages older than 24 hours
+    final now = DateTime.now();
+    final timeDifference = now.difference(message.timestamp);
+    if (timeDifference.inHours > 24) return false;
+
+    return true;
+  }
+
+  /// Check if current user can delete a message
+  bool canDeleteMessage(MessageModel message) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return false;
+
+    // Sender can always delete their own messages
+    if (message.senderId == currentUserId) return true;
+
+    // For now, only senders can delete messages
+    // In the future, you might add admin permissions here
+    return false;
+  }
+
+  /// Get message status icon
+  String getMessageStatusIcon(MessageModel message) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    
+    // Only show status for own messages
+    if (message.senderId != currentUserId) return '';
+
+    switch (message.status) {
+      case MessageStatus.sending:
+        return '⏳';
+      case MessageStatus.sent:
+        return '✓';
+      case MessageStatus.delivered:
+        return '✓✓';
+      case MessageStatus.read:
+        return '✓✓'; // Could use blue checkmarks
+      case MessageStatus.failed:
+        return '❌';
+    }
+  }
+
+  /// Export chat messages to text
+  String exportChatToText() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentState.messages.isEmpty) {
+      return 'No messages to export';
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln('Chat Export - ${DateTime.now().toString()}');
+    buffer.writeln('=' * 50);
+    buffer.writeln();
+
+    // Sort messages by timestamp (oldest first for export)
+    final sortedMessages = List<MessageModel>.from(currentState.messages)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    for (final message in sortedMessages) {
+      final senderName = currentState.getParticipantName(message.senderId);
+      final timestamp = message.timestamp.toString().substring(0, 19);
+      
+      buffer.writeln('[$timestamp] $senderName:');
+      
+      if (message.type == MessageEnum.text) {
+        buffer.writeln('  ${message.content}');
+      } else {
+        buffer.writeln('  [${message.type.name.toUpperCase()}] ${message.getDisplayContent()}');
+      }
+      
+      if (message.replyToContent != null) {
+        buffer.writeln('  (Reply to: ${message.replyToContent})');
+      }
+      
+      buffer.writeln();
+    }
+
+    return buffer.toString();
+  }
+
+  /// Clear all error states
+  void clearAllErrors() {
+    final currentState = state.valueOrNull;
+    if (currentState != null) {
+      state = AsyncValue.data(currentState.copyWith(clearError: true));
+    }
+  }
+
+  /// Force refresh messages from server
+  Future<void> forceRefreshMessages() async {
+    try {
+      await syncMessages(chatId);
+      await _loadInitialMessages(chatId);
+      debugPrint('✅ Messages force refreshed');
+    } catch (e) {
+      debugPrint('❌ Error force refreshing messages: $e');
+    }
+  }
+
+  /// Get detailed connection info
+  Map<String, dynamic> getConnectionInfo() {
+    return {
+      'isConnected': isConnected,
+      'isOnline': isOnline,
+      'connectionType': 'websocket',
+      'chatId': chatId,
+      'hasMessages': (state.valueOrNull?.messages.length ?? 0) > 0,
+      'typingUsers': typingUsers.length,
+      'pendingMessages': pendingMessagesCount,
+      'failedMessages': failedMessagesCount,
+      'lastUpdate': DateTime.now().toIso8601String(),
+    };
   }
 }
