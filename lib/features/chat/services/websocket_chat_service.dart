@@ -189,7 +189,7 @@ class WebSocketChatService {
 
       // Wait for confirmation or timeout
       final result = await completer.future.timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: 60),
         onTimeout: () {
           _pendingMessages.remove(message.messageId);
           throw TimeoutException('Message send timeout', const Duration(seconds: 10));
