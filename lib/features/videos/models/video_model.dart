@@ -545,7 +545,7 @@ class VideoModel {
   // 🔧 DEBUGGING: toString method
   @override
   String toString() {
-    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? caption.substring(0, 30)+"..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, user: $userName)';
+    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, user: $userName)';
   }
 
   // 🔧 DEBUGGING: Detailed debug string

@@ -294,7 +294,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     if (!_isScreenActive ||
         !_isAppInForeground ||
         _isNavigatingAway ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     if (_videos.isEmpty) return;
 
@@ -309,7 +311,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         !_isAppInForeground ||
         _isNavigatingAway ||
         _isManuallyPaused ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     debugPrint('SingleVideoScreen: Starting fresh playback');
 
@@ -513,7 +517,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         !_isScreenActive ||
         !_isAppInForeground ||
         _isNavigatingAway ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     debugPrint('Video controller ready, setting up fresh playback');
 
@@ -903,8 +909,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                             ),
                             child: Center(
                               child: Text(
-                                currentVideo?.userName.isNotEmpty == true
-                                    ? currentVideo!.userName[0].toUpperCase()
+                                currentVideo.userName.isNotEmpty == true
+                                    ? currentVideo.userName[0].toUpperCase()
                                     : 'U',
                                 style: const TextStyle(
                                   color: Colors.white,

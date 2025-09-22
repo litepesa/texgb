@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 
 class ProfileVerificationInfoWidget extends StatelessWidget {
-  const ProfileVerificationInfoWidget({Key? key}) : super(key: key);
+  const ProfileVerificationInfoWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

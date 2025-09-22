@@ -463,8 +463,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
           ),
 
-          //if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
-          //if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
+          if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
+          if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -825,7 +825,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  /*Widget _buildBottomContentOverlay() {
+  Widget _buildBottomContentOverlay() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
     final followedUsers = ref.watch(followedUsersProvider);
@@ -850,9 +850,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         ],
       ),
     );
-  }*/
+  }
 
-  /*Widget _buildUserNameWithVerification() {
+  Widget _buildUserNameWithVerification() {
     return Consumer(
       builder: (context, ref, child) {
         final videoUser = _getUserDataIfAvailable();
@@ -969,7 +969,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         );
       },
     );
-  }*/
+  }
 
   String _getRelativeTime() {
     final now = DateTime.now();
@@ -1093,7 +1093,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  /*Widget _buildTopLeftFollowButton() {
+  Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
 
@@ -1132,7 +1132,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         ),
       ),
     );
-  }*/
+  }
 
   String _formatCount(int count) {
     if (count < 1000) {

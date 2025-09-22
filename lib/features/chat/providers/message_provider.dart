@@ -1,51 +1,42 @@
 // lib/features/chat/providers/message_provider.dart
-// UPDATED: Complete WebSocket-based real-time message provider
+// Updated message provider using new authentication system and HTTP services
+// UPDATED: Removed all channel references, fully users-based system
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
-import 'package:textgb/features/chat/database/chat_database_helper.dart';
-import 'dart:async';
 
 part 'message_provider.g.dart';
 
-// ========================================
-// SIMPLIFIED MESSAGE STATE 
-// ========================================
-
+// Message State
 class MessageState {
   final bool isLoading;
   final List<MessageModel> messages;
   final String? error;
   final bool hasMore;
+  final String? replyToMessageId;
   final MessageModel? replyToMessage;
   final List<MessageModel> pinnedMessages;
-  final Map<String, String> participantNames;
-  final Map<String, String> participantImages;
-  final bool isOnline;
-  final Set<String> typingUsers;
-  final int pendingMessagesCount;
-  final int failedMessagesCount;
+  final bool isTyping;
+  final Map<String, String> participantNames; // userId -> userName
+  final Map<String, String> participantImages; // userId -> userImage
 
   const MessageState({
     this.isLoading = false,
     this.messages = const [],
     this.error,
     this.hasMore = true,
+    this.replyToMessageId,
     this.replyToMessage,
     this.pinnedMessages = const [],
+    this.isTyping = false,
     this.participantNames = const {},
     this.participantImages = const {},
-    this.isOnline = true,
-    this.typingUsers = const {},
-    this.pendingMessagesCount = 0,
-    this.failedMessagesCount = 0,
   });
 
   MessageState copyWith({
@@ -53,14 +44,12 @@ class MessageState {
     List<MessageModel>? messages,
     String? error,
     bool? hasMore,
+    String? replyToMessageId,
     MessageModel? replyToMessage,
     List<MessageModel>? pinnedMessages,
+    bool? isTyping,
     Map<String, String>? participantNames,
     Map<String, String>? participantImages,
-    bool? isOnline,
-    Set<String>? typingUsers,
-    int? pendingMessagesCount,
-    int? failedMessagesCount,
     bool clearReply = false,
     bool clearError = false,
   }) {
@@ -69,198 +58,99 @@ class MessageState {
       messages: messages ?? this.messages,
       error: clearError ? null : (error ?? this.error),
       hasMore: hasMore ?? this.hasMore,
+      replyToMessageId: clearReply ? null : (replyToMessageId ?? this.replyToMessageId),
       replyToMessage: clearReply ? null : (replyToMessage ?? this.replyToMessage),
       pinnedMessages: pinnedMessages ?? this.pinnedMessages,
+      isTyping: isTyping ?? this.isTyping,
       participantNames: participantNames ?? this.participantNames,
       participantImages: participantImages ?? this.participantImages,
-      isOnline: isOnline ?? this.isOnline,
-      typingUsers: typingUsers ?? this.typingUsers,
-      pendingMessagesCount: pendingMessagesCount ?? this.pendingMessagesCount,
-      failedMessagesCount: failedMessagesCount ?? this.failedMessagesCount,
     );
   }
 
+  // Helper method to get participant name
   String getParticipantName(String userId) {
     return participantNames[userId] ?? 'Unknown User';
   }
 
+  // Helper method to get participant image
   String getParticipantImage(String userId) {
     return participantImages[userId] ?? '';
   }
 }
 
-// ========================================
-// SIMPLIFIED WEBSOCKET MESSAGE PROVIDER
-// ========================================
-
 @riverpod
 class MessageNotifier extends _$MessageNotifier {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
-  OfflineFirstChatRepository get _wsRepository => _repository as OfflineFirstChatRepository;
-  ChatDatabaseHelper get _dbHelper => ChatDatabaseHelper();
   static const Uuid _uuid = Uuid();
-
-  StreamSubscription<List<MessageModel>>? _messageSubscription;
-  StreamSubscription<Map<String, dynamic>>? _typingSubscription;
-  StreamSubscription<bool>? _connectionSubscription;
-  Timer? _typingTimer;
 
   @override
   FutureOr<MessageState> build(String chatId) async {
-    // Cleanup on dispose
-    ref.onDispose(() {
-      debugPrint('🧹 MessageNotifier disposed for chat $chatId');
-      _messageSubscription?.cancel();
-      _typingSubscription?.cancel();
-      _connectionSubscription?.cancel();
-      _typingTimer?.cancel();
-    });
+    // Use new user-based auth system
+    final currentUser = ref.watch(currentUserProvider);
+    if (currentUser == null) {
+      return const MessageState(error: 'User not authenticated');
+    }
 
-    // Load participant details first
+    // Load participant details for the chat
     await _loadParticipantDetails(chatId);
 
-    // Load initial messages from database
-    await _loadInitialMessages(chatId);
-
-    // Set up real-time WebSocket listeners
-    _setupRealTimeListeners(chatId);
+    // Start listening to messages stream
+    _subscribeToMessages(chatId);
     
     // Load pinned messages
-    await _loadPinnedMessages(chatId);
-
-    return MessageState(
-      isLoading: false,
-      isOnline: _wsRepository.isConnected,
-    );
+    _loadPinnedMessages(chatId);
+    
+    return const MessageState(isLoading: true);
   }
 
   Future<void> _loadParticipantDetails(String chatId) async {
     try {
-      final participants = await _dbHelper.getChatParticipants(chatId);
+      // Get chat details to find participants
+      final chat = await _repository.getChatById(chatId);
+      if (chat == null) return;
+
+      final authNotifier = ref.read(authenticationProvider.notifier);
       final Map<String, String> participantNames = {};
       final Map<String, String> participantImages = {};
 
-      for (final participant in participants) {
-        participantNames[participant['userId']] = participant['userName'] ?? 'Unknown';
-        participantImages[participant['userId']] = participant['userImage'] ?? '';
-      }
-
-      if (participantNames.isNotEmpty) {
-        final currentState = state.valueOrNull ?? const MessageState();
-        state = AsyncValue.data(currentState.copyWith(
-          participantNames: participantNames,
-          participantImages: participantImages,
-        ));
-      }
-
-      // Try to fetch fresh data from server in background
-      _fetchParticipantDetails(chatId);
-    } catch (e) {
-      debugPrint('❌ Error loading participant details: $e');
-    }
-  }
-
-  void _fetchParticipantDetails(String chatId) {
-    Future.microtask(() async {
-      try {
-        final chat = await _repository.getChatById(chatId);
-        if (chat != null) {
-          final authNotifier = ref.read(authenticationProvider.notifier);
-          final Map<String, String> participantNames = {};
-          final Map<String, String> participantImages = {};
-          
-          for (final userId in chat.participants) {
-            try {
-              final user = await authNotifier.getUserById(userId);
-              if (user != null) {
-                participantNames[userId] = user.name;
-                participantImages[userId] = user.profileImage;
-                
-                await _dbHelper.insertOrUpdateParticipant(
-                  chatId: chatId,
-                  userId: userId,
-                  userName: user.name,
-                  userImage: user.profileImage,
-                  phoneNumber: user.phoneNumber,
-                  isOnline: _isUserOnline(user.lastSeen),
-                  lastSeen: user.lastSeen,
-                );
-              }
-            } catch (e) {
-              debugPrint('❌ Error loading participant $userId: $e');
-            }
+      // Load details for each participant
+      for (final userId in chat.participants) {
+        try {
+          final user = await authNotifier.getUserById(userId);
+          if (user != null) {
+            participantNames[userId] = user.name;
+            participantImages[userId] = user.profileImage;
           }
-
-          final updatedState = state.valueOrNull ?? const MessageState();
-          state = AsyncValue.data(updatedState.copyWith(
-            participantNames: {...updatedState.participantNames, ...participantNames},
-            participantImages: {...updatedState.participantImages, ...participantImages},
-          ));
+        } catch (e) {
+          debugPrint('Error loading participant details for $userId: $e');
+          participantNames[userId] = 'Unknown User';
+          participantImages[userId] = '';
         }
-      } catch (e) {
-        debugPrint('❌ Error fetching participant details: $e');
       }
-    });
-  }
 
-  bool _isUserOnline(String lastSeenString) {
-    try {
-      final lastSeen = DateTime.parse(lastSeenString);
-      final now = DateTime.now();
-      final difference = now.difference(lastSeen);
-      return difference.inMinutes <= 5;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<void> _loadInitialMessages(String chatId) async {
-    try {
-      final messages = await _dbHelper.getChatMessages(chatId);
-      
+      // Update state with participant details
       final currentState = state.valueOrNull ?? const MessageState();
-      final pendingCount = messages.where((m) => m.status == MessageStatus.sending).length;
-      final failedCount = messages.where((m) => m.status == MessageStatus.failed).length;
-      
       state = AsyncValue.data(currentState.copyWith(
-        messages: messages,
-        isLoading: false,
-        pendingMessagesCount: pendingCount,
-        failedMessagesCount: failedCount,
-        isOnline: _wsRepository.isConnected,
+        participantNames: participantNames,
+        participantImages: participantImages,
       ));
-
-      debugPrint('📨 Loaded ${messages.length} messages for chat $chatId');
     } catch (e) {
-      debugPrint('❌ Error loading messages: $e');
-      state = AsyncValue.data(MessageState(error: e.toString()));
+      debugPrint('Error loading participant details: $e');
     }
   }
 
-  void _setupRealTimeListeners(String chatId) {
-    debugPrint('📡 Setting up real-time listeners for chat: $chatId');
-
-    // Real-time messages via WebSocket (replaces complex polling)
-    _messageSubscription?.cancel();
-    _messageSubscription = _repository.getMessagesStream(chatId).listen(
+  void _subscribeToMessages(String chatId) {
+    _repository.getMessagesStream(chatId).listen(
       (messages) {
         final currentState = state.valueOrNull ?? const MessageState();
-        
-        final pendingCount = messages.where((m) => m.status == MessageStatus.sending).length;
-        final failedCount = messages.where((m) => m.status == MessageStatus.failed).length;
-        
         state = AsyncValue.data(currentState.copyWith(
           messages: messages,
           isLoading: false,
-          pendingMessagesCount: pendingCount,
-          failedMessagesCount: failedCount,
           clearError: true,
         ));
-
-        debugPrint('📨 Messages updated via WebSocket: ${messages.length}');
       },
-      onError: (error, stack) {
-        debugPrint('❌ Message stream error: $error');
+      onError: (error) {
+        debugPrint('Message stream error: $error');
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: error.toString(),
@@ -268,45 +158,6 @@ class MessageNotifier extends _$MessageNotifier {
         ));
       },
     );
-
-    // Real-time typing indicators via WebSocket
-    _typingSubscription?.cancel();
-    _typingSubscription = _wsRepository.typingStream
-        .where((data) => data['chatId'] == chatId)
-        .listen(_handleTypingStatus);
-
-    // WebSocket connection status
-    _connectionSubscription?.cancel();
-    _connectionSubscription = _wsRepository.connectionStream.listen((isConnected) {
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        state = AsyncValue.data(currentState.copyWith(isOnline: isConnected));
-        debugPrint('🔌 Message provider connection status: $isConnected');
-      }
-    });
-  }
-
-  void _handleTypingStatus(Map<String, dynamic> data) {
-    final currentState = state.valueOrNull;
-    if (currentState == null) return;
-
-    final userId = data['userId'] as String;
-    final isTyping = data['isTyping'] as bool;
-    final currentUserId = ref.read(currentUserIdProvider);
-
-    // Don't show own typing status
-    if (userId == currentUserId) return;
-
-    final updatedTypingUsers = Set<String>.from(currentState.typingUsers);
-    
-    if (isTyping) {
-      updatedTypingUsers.add(userId);
-    } else {
-      updatedTypingUsers.remove(userId);
-    }
-
-    state = AsyncValue.data(currentState.copyWith(typingUsers: updatedTypingUsers));
-    debugPrint('⌨️ Typing status updated: $userId -> $isTyping');
   }
 
   Future<void> _loadPinnedMessages(String chatId) async {
@@ -318,20 +169,46 @@ class MessageNotifier extends _$MessageNotifier {
         pinnedMessages: pinnedMessages,
       ));
     } catch (e) {
-      debugPrint('❌ Error loading pinned messages: $e');
+      debugPrint('Error loading pinned messages: $e');
     }
   }
 
-  // ========================================
-  // MESSAGE SENDING - SIMPLIFIED WITH WEBSOCKET
-  // ========================================
+  // Helper method to build reply metadata
+  Map<String, dynamic> _buildReplyMetadata(MessageModel? replyToMessage) {
+    if (replyToMessage == null) return {};
+    
+    final metadata = <String, dynamic>{};
+    
+    // Store reply type
+    metadata['replyToType'] = replyToMessage.type.name;
+    
+    // Store reply media URL if it's a media message
+    if (replyToMessage.hasMedia()) {
+      metadata['replyToMediaUrl'] = replyToMessage.mediaUrl;
+    }
+    
+    return metadata;
+  }
 
+  // Send text message
   Future<void> sendTextMessage(String chatId, String content) async {
+    // Use new user-based auth system
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || content.trim().isEmpty) return;
+    if (currentUser == null) {
+      debugPrint('Cannot send message: user not authenticated');
+      return;
+    }
+
+    if (content.trim().isEmpty) {
+      debugPrint('Cannot send empty message');
+      return;
+    }
 
     try {
       final currentState = state.valueOrNull ?? const MessageState();
+      
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
       
       final message = MessageModel(
         messageId: _uuid.v4(),
@@ -341,42 +218,67 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.text,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        replyToMessageId: currentState.replyToMessage?.messageId,
+        replyToMessageId: currentState.replyToMessageId,
         replyToContent: currentState.replyToMessage?.getDisplayContent(),
         replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: replyMetadata.isNotEmpty ? replyMetadata : null,
       );
 
-      // Optimistic update - add message immediately to UI
+      // Optimistically add message to local state
       final updatedMessages = [message, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
         clearReply: true,
-        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+        clearError: true,
       ));
 
-      // Send via WebSocket repository
+      // Send to server
       await _repository.sendMessage(message);
       
-      debugPrint('✅ Text message sent via WebSocket');
+      // Update message status to sent
+      await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
+      
     } catch (e) {
-      debugPrint('❌ Error sending message: $e');
+      debugPrint('Error sending message: $e');
       
       final currentState = state.valueOrNull;
       if (currentState != null) {
+        final updatedMessages = currentState.messages.map((msg) {
+          if (msg.status == MessageStatus.sending && msg.senderId == currentUser.uid) {
+            return msg.copyWith(status: MessageStatus.failed);
+          }
+          return msg;
+        }).toList();
+        
         state = AsyncValue.data(currentState.copyWith(
-          error: 'Failed to send message',
+          messages: updatedMessages,
+          error: 'Failed to send message: $e',
         ));
       }
     }
   }
 
+  // Send image message
   Future<void> sendImageMessage(String chatId, File imageFile, {String? caption}) async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || !imageFile.existsSync()) return;
+    if (currentUser == null) {
+      debugPrint('Cannot send image: user not authenticated');
+      return;
+    }
+
+    if (!imageFile.existsSync()) {
+      debugPrint('Image file does not exist');
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Image file not found',
+      ));
+      return;
+    }
 
     try {
+      // Check file size
       final fileSize = await imageFile.length();
-      if (fileSize > 50 * 1024 * 1024) {
+      if (fileSize > 50 * 1024 * 1024) { // 50MB limit
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'Image size exceeds 50MB limit',
@@ -385,8 +287,21 @@ class MessageNotifier extends _$MessageNotifier {
       }
 
       final fileName = '${_uuid.v4()}.jpg';
+      final currentState = state.valueOrNull ?? const MessageState();
       
-      // Create temporary message with uploading status
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
+      // Merge with image metadata
+      final imageMetadata = {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'mimeType': 'image/jpeg',
+        'isUploading': true,
+        ...replyMetadata,
+      };
+      
+      // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -395,61 +310,75 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.image,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        mediaMetadata: {
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'mimeType': 'image/jpeg',
-          'isUploading': true,
-        },
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: imageMetadata,
       );
 
-      // Optimistic update
-      final currentState = state.valueOrNull ?? const MessageState();
+      // Add to local state immediately
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
-        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+        clearReply: true,
+        clearError: true,
       ));
-
-      // Upload image using auth provider's file storage
+      
+      // Upload image via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final imageUrl = await authNotifier.storeFileToStorage(
         file: imageFile,
         reference: 'chat_media/$chatId/$fileName',
       );
       
-      // Create final message with URL
+      // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: imageUrl,
+        status: MessageStatus.sending,
         mediaMetadata: {
           'fileName': fileName,
           'fileSize': fileSize,
           'mimeType': 'image/jpeg',
           'isUploading': false,
+          ...replyMetadata,
         },
       );
 
-      // Send via WebSocket repository
+      // Send final message
       await _repository.sendMessage(finalMessage);
+      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
       
-      debugPrint('✅ Image message sent via WebSocket');
     } catch (e) {
-      debugPrint('❌ Error sending image: $e');
+      debugPrint('Error sending image: $e');
       
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to send image',
+        error: 'Failed to send image: $e',
       ));
     }
   }
 
+  // Send video message
   Future<void> sendVideoMessage(String chatId, File videoFile, {String? caption}) async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || !videoFile.existsSync()) return;
+    if (currentUser == null) {
+      debugPrint('Cannot send video: user not authenticated');
+      return;
+    }
+
+    if (!videoFile.existsSync()) {
+      debugPrint('Video file does not exist');
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Video file not found',
+      ));
+      return;
+    }
 
     try {
+      // Check file size
       final fileSize = await videoFile.length();
-      if (fileSize > 100 * 1024 * 1024) {
+      if (fileSize > 100 * 1024 * 1024) { // 100MB limit for videos
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'Video size exceeds 100MB limit',
@@ -458,7 +387,22 @@ class MessageNotifier extends _$MessageNotifier {
       }
 
       final fileName = '${_uuid.v4()}.mp4';
+      final currentState = state.valueOrNull ?? const MessageState();
       
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
+      // Merge with video metadata
+      final videoMetadata = {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'mimeType': 'video/mp4',
+        'isUploading': true,
+        'duration': 0, // Could be calculated if needed
+        ...replyMetadata,
+      };
+      
+      // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -467,59 +411,81 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.video,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        mediaMetadata: {
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'mimeType': 'video/mp4',
-          'isUploading': true,
-        },
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: videoMetadata,
       );
 
-      // Optimistic update
-      final currentState = state.valueOrNull ?? const MessageState();
+      // Add to local state immediately
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
-        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+        clearReply: true,
+        clearError: true,
       ));
-
-      // Upload video
+      
+      // Upload video via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final videoUrl = await authNotifier.storeFileToStorage(
         file: videoFile,
         reference: 'chat_media/$chatId/$fileName',
       );
       
+      // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: videoUrl,
+        status: MessageStatus.sending,
         mediaMetadata: {
           'fileName': fileName,
           'fileSize': fileSize,
           'mimeType': 'video/mp4',
           'isUploading': false,
+          'duration': 0,
+          ...replyMetadata,
         },
       );
 
+      // Send final message
       await _repository.sendMessage(finalMessage);
+      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
       
-      debugPrint('✅ Video message sent via WebSocket');
     } catch (e) {
-      debugPrint('❌ Error sending video: $e');
+      debugPrint('Error sending video: $e');
       
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to send video',
+        error: 'Failed to send video: $e',
       ));
     }
   }
 
+  // Send file message
   Future<void> sendFileMessage(String chatId, File file, String fileName) async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || !file.existsSync() || fileName.trim().isEmpty) return;
+    if (currentUser == null) {
+      debugPrint('Cannot send file: user not authenticated');
+      return;
+    }
+
+    if (!file.existsSync()) {
+      debugPrint('File does not exist');
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'File not found',
+      ));
+      return;
+    }
+
+    if (fileName.trim().isEmpty) {
+      debugPrint('File name cannot be empty');
+      return;
+    }
 
     try {
+      // Check file size
       final fileSize = await file.length();
-      if (fileSize > 50 * 1024 * 1024) {
+      if (fileSize > 50 * 1024 * 1024) { // 50MB limit
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'File size exceeds 50MB limit',
@@ -527,6 +493,20 @@ class MessageNotifier extends _$MessageNotifier {
         return;
       }
 
+      final currentState = state.valueOrNull ?? const MessageState();
+      
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
+      // Merge with file metadata
+      final fileMetadata = {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'isUploading': true,
+        ...replyMetadata,
+      };
+
+      // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -535,57 +515,74 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.file,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        mediaMetadata: {
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'isUploading': true,
-        },
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: fileMetadata,
       );
 
-      // Optimistic update
-      final currentState = state.valueOrNull ?? const MessageState();
+      // Add to local state immediately
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
-        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+        clearReply: true,
+        clearError: true,
       ));
-
-      // Upload file
+      
+      // Upload file via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final fileUrl = await authNotifier.storeFileToStorage(
         file: file,
         reference: 'chat_media/$chatId/$fileName',
       );
       
+      // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: fileUrl,
+        status: MessageStatus.sending,
         mediaMetadata: {
           'fileName': fileName,
           'fileSize': fileSize,
           'isUploading': false,
+          ...replyMetadata,
         },
       );
 
+      // Send final message
       await _repository.sendMessage(finalMessage);
+      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
       
-      debugPrint('✅ File message sent via WebSocket');
     } catch (e) {
-      debugPrint('❌ Error sending file: $e');
+      debugPrint('Error sending file: $e');
       
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to send file',
+        error: 'Failed to send file: $e',
       ));
     }
   }
 
+  // Send audio message (voice note)
   Future<void> sendAudioMessage(String chatId, File audioFile, {Duration? duration}) async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || !audioFile.existsSync()) return;
+    if (currentUser == null) {
+      debugPrint('Cannot send audio: user not authenticated');
+      return;
+    }
+
+    if (!audioFile.existsSync()) {
+      debugPrint('Audio file does not exist');
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Audio file not found',
+      ));
+      return;
+    }
 
     try {
+      // Check file size
       final fileSize = await audioFile.length();
-      if (fileSize > 25 * 1024 * 1024) {
+      if (fileSize > 25 * 1024 * 1024) { // 25MB limit for audio
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'Audio size exceeds 25MB limit',
@@ -594,7 +591,23 @@ class MessageNotifier extends _$MessageNotifier {
       }
 
       final fileName = '${_uuid.v4()}.m4a';
+      final currentState = state.valueOrNull ?? const MessageState();
       
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
+      // Merge with audio metadata
+      final audioMetadata = {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'mimeType': 'audio/m4a',
+        'isUploading': true,
+        'duration': duration?.inSeconds ?? 0,
+        'isVoiceNote': true,
+        ...replyMetadata,
+      };
+      
+      // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -603,68 +616,65 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.audio,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        mediaMetadata: {
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'mimeType': 'audio/m4a',
-          'duration': duration?.inSeconds ?? 0,
-          'isVoiceNote': true,
-          'isUploading': true,
-        },
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: audioMetadata,
       );
 
-      // Optimistic update
-      final currentState = state.valueOrNull ?? const MessageState();
+      // Add to local state immediately
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
-        pendingMessagesCount: currentState.pendingMessagesCount + 1,
+        clearReply: true,
+        clearError: true,
       ));
-
-      // Upload audio
+      
+      // Upload audio via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final audioUrl = await authNotifier.storeFileToStorage(
         file: audioFile,
         reference: 'chat_media/$chatId/$fileName',
       );
       
+      // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: audioUrl,
+        status: MessageStatus.sending,
         mediaMetadata: {
           'fileName': fileName,
           'fileSize': fileSize,
           'mimeType': 'audio/m4a',
+          'isUploading': false,
           'duration': duration?.inSeconds ?? 0,
           'isVoiceNote': true,
-          'isUploading': false,
+          ...replyMetadata,
         },
       );
 
+      // Send final message
       await _repository.sendMessage(finalMessage);
+      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
       
-      debugPrint('✅ Audio message sent via WebSocket');
     } catch (e) {
-      debugPrint('❌ Error sending audio: $e');
+      debugPrint('Error sending audio: $e');
       
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to send audio',
+        error: 'Failed to send audio: $e',
       ));
     }
   }
 
-  // ========================================
-  // MESSAGE OPERATIONS - SIMPLIFIED
-  // ========================================
-
+  // Reply to message
   void setReplyToMessage(MessageModel message) {
     final currentState = state.valueOrNull;
     if (currentState != null) {
       state = AsyncValue.data(currentState.copyWith(
+        replyToMessageId: message.messageId,
         replyToMessage: message,
         clearError: true,
       ));
-      debugPrint('📝 Reply set to message: ${message.messageId}');
     }
   }
 
@@ -675,43 +685,49 @@ class MessageNotifier extends _$MessageNotifier {
         clearReply: true,
         clearError: true,
       ));
-      debugPrint('❌ Reply cancelled');
     }
   }
 
+  // Edit message
   Future<void> editMessage(String chatId, String messageId, String newContent) async {
-    if (newContent.trim().isEmpty) return;
+    if (newContent.trim().isEmpty) {
+      debugPrint('Cannot edit message with empty content');
+      return;
+    }
 
     try {
       await _repository.editMessage(chatId, messageId, newContent.trim());
-      debugPrint('✅ Message edited via WebSocket');
     } catch (e) {
-      debugPrint('❌ Error editing message: $e');
+      debugPrint('Error editing message: $e');
+      
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to edit message',
+        error: 'Failed to edit message: $e',
       ));
     }
   }
 
+  // Delete message
   Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
     try {
       await _repository.deleteMessage(chatId, messageId, deleteForEveryone);
-      debugPrint('✅ Message deleted via WebSocket');
     } catch (e) {
-      debugPrint('❌ Error deleting message: $e');
+      debugPrint('Error deleting message: $e');
+      
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to delete message',
+        error: 'Failed to delete message: $e',
       ));
     }
   }
 
+  // Pin/Unpin message
   Future<void> togglePinMessage(String chatId, String messageId, bool isPinned) async {
     try {
       if (isPinned) {
         await _repository.unpinMessage(chatId, messageId);
       } else {
+        // Check if we've reached the pin limit
         final currentState = state.valueOrNull;
         if (currentState != null && currentState.pinnedMessages.length >= 10) {
           state = AsyncValue.data(currentState.copyWith(
@@ -723,28 +739,54 @@ class MessageNotifier extends _$MessageNotifier {
         await _repository.pinMessage(chatId, messageId);
       }
       
+      // Reload pinned messages
       await _loadPinnedMessages(chatId);
-      debugPrint('✅ Message pin toggled via WebSocket');
+      
     } catch (e) {
-      debugPrint('❌ Error toggling pin: $e');
+      debugPrint('Error toggling pin message: $e');
+      
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to ${isPinned ? 'unpin' : 'pin'} message',
+        error: 'Failed to ${isPinned ? 'unpin' : 'pin'} message: $e',
       ));
     }
   }
 
+  // Mark messages as delivered (not read - as per requirement)
+  Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null || messageIds.isEmpty) return;
+
+    try {
+      for (final messageId in messageIds) {
+        await _repository.markMessageAsDelivered(chatId, messageId, currentUser.uid);
+      }
+    } catch (e) {
+      debugPrint('Error marking messages as delivered: $e');
+    }
+  }
+
+  // Search messages
   Future<List<MessageModel>> searchMessages(String chatId, String query) async {
-    if (query.trim().isEmpty) return [];
+    if (query.trim().isEmpty) {
+      return [];
+    }
 
     try {
       return await _repository.searchMessages(chatId, query.trim());
     } catch (e) {
-      debugPrint('❌ Error searching messages: $e');
+      debugPrint('Error searching messages: $e');
+      
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to search messages: $e',
+      ));
+      
       return [];
     }
   }
 
+  // Clear error
   void clearError() {
     final currentState = state.valueOrNull;
     if (currentState != null) {
@@ -752,72 +794,399 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
+  // Retry failed message
   Future<void> retryFailedMessage(String chatId, String messageId) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    // Find the failed message
+    final messageIndex = currentState.messages.indexWhere((msg) => msg.messageId == messageId);
+    if (messageIndex == -1) return;
+
+    final failedMessage = currentState.messages[messageIndex];
+    if (failedMessage.status != MessageStatus.failed) return;
+
     try {
       // Update status to sending
-      await _dbHelper.updateMessageStatus(messageId, MessageStatus.sending);
+      final updatedMessages = List<MessageModel>.from(currentState.messages);
+      updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.sending);
       
-      // Get the message
-      final message = await _dbHelper.getMessageById(messageId);
-      if (message != null) {
-        // Resend via WebSocket
-        await _repository.sendMessage(message);
-        debugPrint('✅ Message retry successful');
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearError: true,
+      ));
+
+      // Retry sending
+      await _repository.sendMessage(failedMessage.copyWith(status: MessageStatus.sending));
+      await _repository.updateMessageStatus(chatId, messageId, MessageStatus.sent);
+      
+    } catch (e) {
+      debugPrint('Error retrying message: $e');
+      
+      final latestState = state.valueOrNull;
+      if (latestState != null) {
+        final updatedMessages = List<MessageModel>.from(latestState.messages);
+        if (messageIndex < updatedMessages.length) {
+          updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.failed);
+        }
+        
+        state = AsyncValue.data(latestState.copyWith(
+          messages: updatedMessages,
+          error: 'Failed to retry message: $e',
+        ));
       }
-    } catch (e) {
-      debugPrint('❌ Error retrying message: $e');
-      
-      // Revert to failed status
-      await _dbHelper.updateMessageStatus(messageId, MessageStatus.failed);
     }
   }
 
-  // ========================================
-  // TYPING INDICATORS - WEBSOCKET BASED
-  // ========================================
-
-  Future<void> sendTypingStatus(bool isTyping) async {
-    await _wsRepository.sendTypingStatus(chatId, isTyping);
-    
-    // Auto-stop typing after 3 seconds
-    if (isTyping) {
-      _typingTimer?.cancel();
-      _typingTimer = Timer(const Duration(seconds: 3), () {
-        _wsRepository.sendTypingStatus(chatId, false);
-      });
+  // Load more messages (pagination)
+  Future<void> loadMoreMessages(String chatId) async {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentState.isLoading || !currentState.hasMore) {
+      return;
     }
-  }
 
-  // ========================================
-  // UTILITY METHODS
-  // ========================================
-
-  Future<void> markAsRead() async {
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentUserId == null) return;
-
-    await _repository.markChatAsRead(chatId, currentUserId);
-    
-    // Notify chat list to refresh
-    ref.invalidate(chatListProvider);
-  }
-
-  Future<void> syncMessages(String chatId) async {
     try {
-      await _repository.syncMessages(chatId);
-      debugPrint('✅ Messages synced manually');
+      state = AsyncValue.data(currentState.copyWith(isLoading: true));
+      
+      // In a real implementation, you would load older messages here
+      // For now, we'll just mark as no more messages
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      state = AsyncValue.data(currentState.copyWith(
+        isLoading: false,
+        hasMore: false,
+      ));
+      
     } catch (e) {
-      debugPrint('❌ Error syncing messages: $e');
+      debugPrint('Error loading more messages: $e');
+      
+      state = AsyncValue.data(currentState.copyWith(
+        isLoading: false,
+        error: 'Failed to load more messages: $e',
+      ));
     }
   }
 
-  // ========================================
-  // GETTERS - SIMPLIFIED
-  // ========================================
+  // Get typing status (placeholder for future implementation)
+  void setTyping(String chatId, bool isTyping) {
+    final currentState = state.valueOrNull;
+    if (currentState != null) {
+      state = AsyncValue.data(currentState.copyWith(isTyping: isTyping));
+    }
+  }
 
+  // React to message (add emoji reaction)
+  Future<void> reactToMessage(String chatId, String messageId, String emoji) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      // Update local state immediately for better UX
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((msg) {
+          if (msg.messageId == messageId) {
+            final reactions = Map<String, String>.from(msg.reactions ?? {});
+            
+            // Toggle reaction - if user already reacted with this emoji, remove it
+            if (reactions[currentUser.uid] == emoji) {
+              reactions.remove(currentUser.uid);
+            } else {
+              reactions[currentUser.uid] = emoji;
+            }
+            
+            return msg.copyWith(reactions: reactions);
+          }
+          return msg;
+        }).toList();
+
+        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+      }
+
+      // TODO: Send reaction to server when implemented
+      // await _repository.addMessageReaction(chatId, messageId, currentUser.uid, emoji);
+      
+    } catch (e) {
+      debugPrint('Error reacting to message: $e');
+      
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to react to message: $e',
+      ));
+    }
+  }
+
+  // Forward message to another chat
+  Future<void> forwardMessage(MessageModel message, String toChatId) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      // Create new message with forwarded content
+      final forwardedMessage = MessageModel(
+        messageId: _uuid.v4(),
+        chatId: toChatId,
+        senderId: currentUser.uid,
+        content: message.content,
+        type: message.type,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: message.mediaUrl,
+        mediaMetadata: {
+          ...message.mediaMetadata ?? {},
+          'isForwarded': true,
+          'originalSender': getParticipantName(message.senderId),
+          'originalTimestamp': message.timestamp.toIso8601String(),
+        },
+      );
+
+      // Send forwarded message
+      await _repository.sendMessage(forwardedMessage);
+      await _repository.updateMessageStatus(toChatId, forwardedMessage.messageId, MessageStatus.sent);
+      
+    } catch (e) {
+      debugPrint('Error forwarding message: $e');
+      
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to forward message: $e',
+      ));
+    }
+  }
+
+  // Add message reaction
+  Future<void> addMessageReaction(String chatId, String messageId, String emoji) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      // Update local state immediately for better UX
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((msg) {
+          if (msg.messageId == messageId) {
+            final reactions = Map<String, String>.from(msg.reactions ?? {});
+            reactions[currentUser.uid] = emoji;
+            return msg.copyWith(reactions: reactions);
+          }
+          return msg;
+        }).toList();
+
+        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+      }
+
+      // TODO: Send reaction to server when implemented
+      // await _repository.addMessageReaction(chatId, messageId, currentUser.uid, emoji);
+      
+    } catch (e) {
+      debugPrint('Error adding message reaction: $e');
+    }
+  }
+
+  // Remove message reaction
+  Future<void> removeMessageReaction(String chatId, String messageId) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      // Update local state immediately for better UX
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((msg) {
+          if (msg.messageId == messageId) {
+            final reactions = Map<String, String>.from(msg.reactions ?? {});
+            reactions.remove(currentUser.uid);
+            return msg.copyWith(reactions: reactions);
+          }
+          return msg;
+        }).toList();
+
+        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+      }
+
+      // TODO: Send reaction removal to server when implemented
+      // await _repository.removeMessageReaction(chatId, messageId, currentUser.uid);
+      
+    } catch (e) {
+      debugPrint('Error removing message reaction: $e');
+    }
+  }
+
+  // Get messages by type
+  List<MessageModel> getMessagesByType(MessageEnum type) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((msg) => msg.type == type).toList();
+  }
+
+  // Get messages from specific user
+  List<MessageModel> getMessagesFromUser(String userId) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((msg) => msg.senderId == userId).toList();
+  }
+
+  // Get failed messages
+  List<MessageModel> getFailedMessages() {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((msg) => msg.status == MessageStatus.failed).toList();
+  }
+
+  // Retry all failed messages
+  Future<void> retryAllFailedMessages(String chatId) async {
+    final failedMessages = getFailedMessages();
+    if (failedMessages.isEmpty) return;
+
+    for (final message in failedMessages) {
+      await retryFailedMessage(chatId, message.messageId);
+    }
+  }
+
+  // Export messages as text
+  String exportMessagesAsText() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentState.messages.isEmpty) return '';
+
+    final buffer = StringBuffer();
+    final sortedMessages = List<MessageModel>.from(currentState.messages)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    for (final message in sortedMessages) {
+      final senderName = getParticipantName(message.senderId);
+      final timestamp = message.timestamp.toLocal().toString().split('.')[0];
+      
+      buffer.writeln('[$timestamp] $senderName: ${message.getDisplayContent()}');
+      
+      if (message.isReply() && message.replyToContent != null) {
+        buffer.writeln('  └─ Replied to: ${message.replyToContent}');
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  // Clear chat messages locally (not from server)
+  void clearLocalMessages() {
+    final currentState = state.valueOrNull;
+    if (currentState != null) {
+      state = AsyncValue.data(currentState.copyWith(
+        messages: [],
+        pinnedMessages: [],
+        clearReply: true,
+        clearError: true,
+      ));
+    }
+  }
+
+  // Get message count by status
+  Map<MessageStatus, int> getMessageCountByStatus() {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return {};
+
+    final counts = <MessageStatus, int>{};
+    for (final status in MessageStatus.values) {
+      counts[status] = currentState.messages.where((msg) => msg.status == status).length;
+    }
+    return counts;
+  }
+
+  // Check if message exists
+  bool messageExists(String messageId) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return false;
+
+    return currentState.messages.any((msg) => msg.messageId == messageId);
+  }
+
+  // Get message by ID
+  MessageModel? getMessageById(String messageId) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return null;
+
+    try {
+      return currentState.messages.firstWhere((msg) => msg.messageId == messageId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Update local message (for optimistic updates)
+  void updateLocalMessage(String messageId, MessageModel updatedMessage) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    final updatedMessages = currentState.messages.map((msg) {
+      if (msg.messageId == messageId) {
+        return updatedMessage;
+      }
+      return msg;
+    }).toList();
+
+    state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+  }
+
+  // Get message statistics
+  Map<String, dynamic> getMessageStatistics(String chatId) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) {
+      return {
+        'totalMessages': 0,
+        'textMessages': 0,
+        'imageMessages': 0,
+        'videoMessages': 0,
+        'audioMessages': 0,
+        'fileMessages': 0,
+        'pinnedMessages': 0,
+        'myMessages': 0,
+        'otherMessages': 0,
+      };
+    }
+
+    final currentUserId = ref.read(currentUserIdProvider);
+    final totalMessages = currentState.messages.length;
+    final textMessages = currentState.messages.where((msg) => msg.type == MessageEnum.text).length;
+    final imageMessages = currentState.messages.where((msg) => msg.type == MessageEnum.image).length;
+    final videoMessages = currentState.messages.where((msg) => msg.type == MessageEnum.video).length;
+    final audioMessages = currentState.messages.where((msg) => msg.type == MessageEnum.audio).length;
+    final fileMessages = currentState.messages.where((msg) => msg.type == MessageEnum.file).length;
+    final pinnedMessages = currentState.pinnedMessages.length;
+    final myMessages = currentUserId != null 
+        ? currentState.messages.where((msg) => msg.senderId == currentUserId).length 
+        : 0;
+    final otherMessages = totalMessages - myMessages;
+
+    return {
+      'totalMessages': totalMessages,
+      'textMessages': textMessages,
+      'imageMessages': imageMessages,
+      'videoMessages': videoMessages,
+      'audioMessages': audioMessages,
+      'fileMessages': fileMessages,
+      'pinnedMessages': pinnedMessages,
+      'myMessages': myMessages,
+      'otherMessages': otherMessages,
+    };
+  }
+
+  // Refresh participants data
+  Future<void> refreshParticipants(String chatId) async {
+    await _loadParticipantDetails(chatId);
+  }
+
+  // Get current user ID
+  String? get currentUserId => ref.read(currentUserIdProvider);
+
+  // Check if current user is authenticated
+  bool get isAuthenticated => currentUserId != null;
+
+  // Get participant info helpers
   String getParticipantName(String userId) {
     final currentState = state.valueOrNull;
     return currentState?.getParticipantName(userId) ?? 'Unknown User';
@@ -828,399 +1197,278 @@ class MessageNotifier extends _$MessageNotifier {
     return currentState?.getParticipantImage(userId) ?? '';
   }
 
-  List<MessageModel> getFailedMessages() {
-    final currentState = state.valueOrNull;
-    if (currentState == null) return [];
-
-    return currentState.messages.where((msg) => 
-        msg.status == MessageStatus.failed).toList();
-  }
-
-  Future<void> retryAllFailedMessages(String chatId) async {
-    final failedMessages = getFailedMessages();
-    if (failedMessages.isEmpty) return;
-
-    for (final message in failedMessages) {
-      await retryFailedMessage(chatId, message.messageId);
-    }
-  }
-
-  String? get currentUserId => ref.read(currentUserIdProvider);
-  bool get isAuthenticated => currentUserId != null;
-  bool get isConnected => _wsRepository.isConnected;
-  
-  Set<String> get typingUsers {
-    final currentState = state.valueOrNull;
-    return currentState?.typingUsers ?? {};
-  }
-
-  MessageModel? get replyToMessage {
-    final currentState = state.valueOrNull;
-    return currentState?.replyToMessage;
-  }
-
-  bool get isOnline {
-    final currentState = state.valueOrNull;
-    return currentState?.isOnline ?? false;
-  }
-
-  int get pendingMessagesCount {
-    final currentState = state.valueOrNull;
-    return currentState?.pendingMessagesCount ?? 0;
-  }
-
-  int get failedMessagesCount {
-    final currentState = state.valueOrNull;
-    return currentState?.failedMessagesCount ?? 0;
-  }
-
-  List<MessageModel> get pinnedMessages {
-    final currentState = state.valueOrNull;
-    return currentState?.pinnedMessages ?? [];
-  }
-
-  Map<String, dynamic> getMessageStatistics() {
-    final currentState = state.valueOrNull;
-    
-    if (currentState == null) {
-      return {
-        'totalMessages': 0,
-        'pendingMessages': 0,
-        'failedMessages': 0,
-        'pinnedMessages': 0,
-        'typingUsers': 0,
-        'isOnline': false,
-        'connectionType': 'websocket',
-      };
-    }
-
-    return {
-      'totalMessages': currentState.messages.length,
-      'pendingMessages': currentState.pendingMessagesCount,
-      'failedMessages': currentState.failedMessagesCount,
-      'pinnedMessages': currentState.pinnedMessages.length,
-      'typingUsers': currentState.typingUsers.length,
-      'isOnline': currentState.isOnline,
-      'connectionType': 'websocket',
-    };
-  }
-
-  // Reconnection helper
-  Future<bool> reconnectIfNeeded() async {
-    if (!isConnected) {
-      return await _wsRepository.reconnect();
-    }
-    return isConnected;
-  }
-
-  // ========================================
-  // ADVANCED MESSAGE OPERATIONS
-  // ========================================
-
-  /// Forward a message to another chat
-  Future<void> forwardMessage(String messageId, String targetChatId) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+  // Bulk message operations
+  Future<void> deleteMultipleMessages(String chatId, List<String> messageIds, bool deleteForEveryone) async {
+    if (messageIds.isEmpty) return;
 
     try {
-      final originalMessage = await _dbHelper.getMessageById(messageId);
-      if (originalMessage == null) return;
+      final futures = messageIds.map((messageId) => 
+          _repository.deleteMessage(chatId, messageId, deleteForEveryone));
 
-      final forwardedMessage = MessageModel(
-        messageId: _uuid.v4(),
-        chatId: targetChatId,
-        senderId: currentUser.uid,
-        content: originalMessage.content,
-        type: originalMessage.type,
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        mediaUrl: originalMessage.mediaUrl,
-        mediaMetadata: {
-          ...?originalMessage.mediaMetadata,
-          'isForwarded': true,
-          'originalSender': originalMessage.senderId,
-          'originalTimestamp': originalMessage.timestamp.toIso8601String(),
-        },
-      );
-
-      await _repository.sendMessage(forwardedMessage);
-      debugPrint('✅ Message forwarded via WebSocket');
+      await Future.wait(futures);
+      
     } catch (e) {
-      debugPrint('❌ Error forwarding message: $e');
+      debugPrint('Error deleting multiple messages: $e');
+      
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
-        error: 'Failed to forward message',
+        error: 'Failed to delete messages: $e',
       ));
     }
   }
 
-  /// Add reaction to a message
-  Future<void> addReaction(String messageId, String emoji) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+  // Get latest message
+  MessageModel? get latestMessage {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentState.messages.isEmpty) return null;
 
-    try {
-      final message = await _dbHelper.getMessageById(messageId);
-      if (message == null) return;
-
-      final updatedReactions = Map<String, String>.from(message.reactions ?? {});
-      updatedReactions[currentUser.uid] = emoji;
-
-      final updatedMessage = message.copyWith(reactions: updatedReactions);
-      await _dbHelper.insertOrUpdateMessage(updatedMessage);
-
-      // Update UI immediately
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final updatedMessages = currentState.messages.map((m) {
-          if (m.messageId == messageId) {
-            return updatedMessage;
-          }
-          return m;
-        }).toList();
-
-        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
-      }
-
-      debugPrint('✅ Reaction added to message: $messageId');
-    } catch (e) {
-      debugPrint('❌ Error adding reaction: $e');
-    }
+    return currentState.messages.first; // Messages are sorted by timestamp desc
   }
 
-  /// Remove reaction from a message
-  Future<void> removeReaction(String messageId) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+  // Check if chat has any media messages
+  bool get hasMediaMessages {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return false;
 
-    try {
-      final message = await _dbHelper.getMessageById(messageId);
-      if (message == null) return;
-
-      final updatedReactions = Map<String, String>.from(message.reactions ?? {});
-      updatedReactions.remove(currentUser.uid);
-
-      final updatedMessage = message.copyWith(
-        reactions: updatedReactions.isEmpty ? null : updatedReactions,
-      );
-      await _dbHelper.insertOrUpdateMessage(updatedMessage);
-
-      // Update UI immediately
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final updatedMessages = currentState.messages.map((m) {
-          if (m.messageId == messageId) {
-            return updatedMessage;
-          }
-          return m;
-        }).toList();
-
-        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
-      }
-
-      debugPrint('✅ Reaction removed from message: $messageId');
-    } catch (e) {
-      debugPrint('❌ Error removing reaction: $e');
-    }
+    return currentState.messages.any((msg) => 
+        msg.type == MessageEnum.image || 
+        msg.type == MessageEnum.video || 
+        msg.type == MessageEnum.audio || 
+        msg.type == MessageEnum.file);
   }
 
-  /// Get messages by type (e.g., only images, videos, etc.)
-  List<MessageModel> getMessagesByType(MessageEnum type) {
+  // Get media messages only
+  List<MessageModel> get mediaMessages {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((message) => message.type == type).toList();
+    return currentState.messages.where((msg) => 
+        msg.type == MessageEnum.image || 
+        msg.type == MessageEnum.video || 
+        msg.type == MessageEnum.audio || 
+        msg.type == MessageEnum.file).toList();
   }
 
-  /// Get media messages (images, videos, files)
-  List<MessageModel> getMediaMessages() {
+  // Get text messages only
+  List<MessageModel> get textMessages {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((message) => 
-      message.type == MessageEnum.image ||
-      message.type == MessageEnum.video ||
-      message.type == MessageEnum.file ||
-      message.type == MessageEnum.audio
-    ).toList();
+    return currentState.messages.where((msg) => msg.type == MessageEnum.text).toList();
   }
 
-  /// Get unread messages count for current user
+  // Get messages with reactions
+  List<MessageModel> get messagesWithReactions {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((msg) => msg.hasReactions()).toList();
+  }
+
+  // Get reply messages
+  List<MessageModel> get replyMessages {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((msg) => msg.isReply()).toList();
+  }
+
+  // Get unread messages count
   int getUnreadMessagesCount() {
     final currentState = state.valueOrNull;
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentState == null || currentUserId == null) return 0;
+    if (currentState == null) return 0;
 
-    return currentState.messages.where((message) => 
-      message.senderId != currentUserId && 
-      !(message.readBy?.containsKey(currentUserId) ?? false)
-    ).length;
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return 0;
+
+    return currentState.messages.where((msg) => 
+        msg.senderId != currentUserId && !msg.isReadBy(currentUserId)).length;
   }
 
-  /// Mark specific message as read
-  Future<void> markMessageAsRead(String messageId) async {
+  // Mark all messages as read
+  Future<void> markAllMessagesAsRead(String chatId) async {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return;
+
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    final unreadMessages = currentState.messages.where((msg) => 
+        msg.senderId != currentUserId && !msg.isReadBy(currentUserId)).toList();
+
+    if (unreadMessages.isEmpty) return;
+
+    try {
+      // Mark messages as delivered (since we don't have read functionality)
+      await markMessagesAsDelivered(chatId, unreadMessages.map((msg) => msg.messageId).toList());
+    } catch (e) {
+      debugPrint('Error marking all messages as read: $e');
+    }
+  }
+
+  // Get messages sent today
+  List<MessageModel> get todaysMessages {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    return currentState.messages.where((msg) => 
+        msg.timestamp.isAfter(startOfDay) && msg.timestamp.isBefore(endOfDay)).toList();
+  }
+
+  // Get messages sent this week
+  List<MessageModel> get thisWeeksMessages {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekMidnight = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+
+    return currentState.messages.where((msg) => 
+        msg.timestamp.isAfter(startOfWeekMidnight)).toList();
+  }
+
+  // Send location message
+  Future<void> sendLocationMessage(String chatId, double latitude, double longitude, {String? address}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
     try {
-      final message = await _dbHelper.getMessageById(messageId);
-      if (message == null) return;
+      final currentState = state.valueOrNull ?? const MessageState();
+      
+      final message = MessageModel(
+        messageId: _uuid.v4(),
+        chatId: chatId,
+        senderId: currentUser.uid,
+        content: address ?? 'Location',
+        type: MessageEnum.location,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaMetadata: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'address': address,
+        },
+      );
 
-      final updatedReadBy = Map<String, DateTime>.from(message.readBy ?? {});
-      updatedReadBy[currentUser.uid] = DateTime.now();
+      // Optimistically add message to local state
+      final updatedMessages = [message, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearError: true,
+      ));
 
-      final updatedMessage = message.copyWith(readBy: updatedReadBy);
-      await _dbHelper.insertOrUpdateMessage(updatedMessage);
-
-      debugPrint('✅ Message marked as read: $messageId');
+      // Send to server
+      await _repository.sendMessage(message);
+      await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
+      
     } catch (e) {
-      debugPrint('❌ Error marking message as read: $e');
-    }
-  }
-
-  /// Get typing users as formatted string
-  String getTypingUsersText() {
-    final currentState = state.valueOrNull;
-    if (currentState == null || currentState.typingUsers.isEmpty) return '';
-
-    final typingNames = currentState.typingUsers
-        .map((userId) => currentState.getParticipantName(userId))
-        .toList();
-
-    if (typingNames.length == 1) {
-      return '${typingNames.first} is typing...';
-    } else if (typingNames.length == 2) {
-      return '${typingNames[0]} and ${typingNames[1]} are typing...';
-    } else {
-      return 'Several people are typing...';
-    }
-  }
-
-  /// Check if current user can edit a message
-  bool canEditMessage(MessageModel message) {
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentUserId == null) return false;
-
-    // Only sender can edit
-    if (message.senderId != currentUserId) return false;
-
-    // Only text messages can be edited
-    if (message.type != MessageEnum.text) return false;
-
-    // Can't edit if already edited (optional restriction)
-    // if (message.isEdited) return false;
-
-    // Can't edit messages older than 24 hours
-    final now = DateTime.now();
-    final timeDifference = now.difference(message.timestamp);
-    if (timeDifference.inHours > 24) return false;
-
-    return true;
-  }
-
-  /// Check if current user can delete a message
-  bool canDeleteMessage(MessageModel message) {
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentUserId == null) return false;
-
-    // Sender can always delete their own messages
-    if (message.senderId == currentUserId) return true;
-
-    // For now, only senders can delete messages
-    // In the future, you might add admin permissions here
-    return false;
-  }
-
-  /// Get message status icon
-  String getMessageStatusIcon(MessageModel message) {
-    final currentUserId = ref.read(currentUserIdProvider);
-    
-    // Only show status for own messages
-    if (message.senderId != currentUserId) return '';
-
-    switch (message.status) {
-      case MessageStatus.sending:
-        return '⏳';
-      case MessageStatus.sent:
-        return '✓';
-      case MessageStatus.delivered:
-        return '✓✓';
-      case MessageStatus.read:
-        return '✓✓'; // Could use blue checkmarks
-      case MessageStatus.failed:
-        return '❌';
-    }
-  }
-
-  /// Export chat messages to text
-  String exportChatToText() {
-    final currentState = state.valueOrNull;
-    if (currentState == null || currentState.messages.isEmpty) {
-      return 'No messages to export';
-    }
-
-    final buffer = StringBuffer();
-    buffer.writeln('Chat Export - ${DateTime.now().toString()}');
-    buffer.writeln('=' * 50);
-    buffer.writeln();
-
-    // Sort messages by timestamp (oldest first for export)
-    final sortedMessages = List<MessageModel>.from(currentState.messages)
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-    for (final message in sortedMessages) {
-      final senderName = currentState.getParticipantName(message.senderId);
-      final timestamp = message.timestamp.toString().substring(0, 19);
+      debugPrint('Error sending location message: $e');
       
-      buffer.writeln('[$timestamp] $senderName:');
-      
-      if (message.type == MessageEnum.text) {
-        buffer.writeln('  ${message.content}');
-      } else {
-        buffer.writeln('  [${message.type.name.toUpperCase()}] ${message.getDisplayContent()}');
-      }
-      
-      if (message.replyToContent != null) {
-        buffer.writeln('  (Reply to: ${message.replyToContent})');
-      }
-      
-      buffer.writeln();
-    }
-
-    return buffer.toString();
-  }
-
-  /// Clear all error states
-  void clearAllErrors() {
-    final currentState = state.valueOrNull;
-    if (currentState != null) {
-      state = AsyncValue.data(currentState.copyWith(clearError: true));
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to send location: $e',
+      ));
     }
   }
 
-  /// Force refresh messages from server
-  Future<void> forceRefreshMessages() async {
+  // Send contact message
+  Future<void> sendContactMessage(String chatId, String contactName, String contactPhone) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
     try {
-      await syncMessages(chatId);
-      await _loadInitialMessages(chatId);
-      debugPrint('✅ Messages force refreshed');
+      final currentState = state.valueOrNull ?? const MessageState();
+      
+      final message = MessageModel(
+        messageId: _uuid.v4(),
+        chatId: chatId,
+        senderId: currentUser.uid,
+        content: contactName,
+        type: MessageEnum.contact,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaMetadata: {
+          'contactName': contactName,
+          'contactPhone': contactPhone,
+        },
+      );
+
+      // Optimistically add message to local state
+      final updatedMessages = [message, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearError: true,
+      ));
+
+      // Send to server
+      await _repository.sendMessage(message);
+      await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
+      
     } catch (e) {
-      debugPrint('❌ Error force refreshing messages: $e');
+      debugPrint('Error sending contact message: $e');
+      
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to send contact: $e',
+      ));
     }
   }
 
-  /// Get detailed connection info
-  Map<String, dynamic> getConnectionInfo() {
-    return {
-      'isConnected': isConnected,
-      'isOnline': isOnline,
-      'connectionType': 'websocket',
-      'chatId': chatId,
-      'hasMessages': (state.valueOrNull?.messages.length ?? 0) > 0,
-      'typingUsers': typingUsers.length,
-      'pendingMessages': pendingMessagesCount,
-      'failedMessages': failedMessagesCount,
-      'lastUpdate': DateTime.now().toIso8601String(),
-    };
+  // Check if user is currently typing
+  bool get isCurrentlyTyping {
+    final currentState = state.valueOrNull;
+    return currentState?.isTyping ?? false;
+  }
+
+  // Get sending messages count
+  int get sendingMessagesCount {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return 0;
+
+    return currentState.messages.where((msg) => msg.status == MessageStatus.sending).length;
+  }
+
+  // Get failed messages count
+  int get failedMessagesCount {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return 0;
+
+    return currentState.messages.where((msg) => msg.status == MessageStatus.failed).length;
+  }
+
+  // Check if there are any failed messages
+  bool get hasFailedMessages => failedMessagesCount > 0;
+
+  // Check if there are any sending messages
+  bool get hasSendingMessages => sendingMessagesCount > 0;
+
+  // Get message by timestamp
+  List<MessageModel> getMessagesByDateRange(DateTime start, DateTime end) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    return currentState.messages.where((msg) => 
+        msg.timestamp.isAfter(start) && msg.timestamp.isBefore(end)).toList();
+  }
+
+  // Get messages containing specific text
+  List<MessageModel> getMessagesContaining(String text) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    final searchText = text.toLowerCase();
+    return currentState.messages.where((msg) => 
+        msg.content.toLowerCase().contains(searchText)).toList();
+  }
+
+  // Dispose resources when provider is disposed
+  void dispose() {
+    // Clean up any subscriptions or resources
+    debugPrint('MessageNotifier disposed for chat');
   }
 }
