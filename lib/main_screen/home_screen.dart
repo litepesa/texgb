@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Updated Version with 4 tabs)
+// lib/main_screen/home_screen.dart (Updated Version with 3 tabs)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,16 +32,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   final List<String> _tabNames = [
-    'Inbox',     // Index 0 - Chats
-    'Wallet',    // Index 1 - Wallet
-    'Channels',  // Index 2 - Users List
-    'Profile'    // Index 3 - Profile
+    'Home',      // Index 0 - Videos Feed
+    'Inbox',     // Index 1 - Chats
+    'Profile'    // Index 2 - Profile
   ];
   
   final List<IconData> _tabIcons = [
+    Icons.home_rounded,                          // Home
     CupertinoIcons.bubble_left_bubble_right,     // Inbox
-    Icons.account_balance_wallet_outlined,       // Wallet
-    Icons.radio_button_checked_rounded,          // Channels
     Icons.person_2_outlined                      // Profile
   ];
 
@@ -118,7 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     // Special handling for Profile tab to prevent black bar
-    if (index == 3 && mounted) {
+    if (index == 2 && mounted) {
       // Force update system UI for Profile tab
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -126,13 +124,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           
           // Apply additional times for Profile tab specifically
           Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
           
           Future.delayed(const Duration(milliseconds: 200), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
@@ -169,7 +167,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 3) {
+      if (_currentIndex == 0) {
+        // Home/Videos Feed screen - Custom black theme
+        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+          statusBarColor: Colors.black,
+          statusBarIconBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.black,
+          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ));
+      } else if (_currentIndex == 2) {
         // Profile screen - special handling to prevent black bar
         final isDark = Theme.of(context).brightness == Brightness.dark;
         
@@ -185,7 +193,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         
         // Apply multiple times to ensure it sticks for Profile tab
         Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted && _currentIndex == 3) {
+          if (mounted && _currentIndex == 2) {
             SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
               statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -198,7 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         });
         
         Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted && _currentIndex == 3) {
+          if (mounted && _currentIndex == 2) {
             SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
               statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -210,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           }
         });
       } else {
-        // Other screens - use theme-appropriate colors
+        // Inbox screen - use theme-appropriate colors
         final isDark = Theme.of(context).brightness == Brightness.dark;
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -239,7 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     // Special handling for Profile tab
-    if (index == 3 && mounted) {
+    if (index == 2 && mounted) {
       // Force update system UI for Profile tab with multiple attempts
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -247,19 +255,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           
           // Apply additional times for Profile tab specifically
           Future.delayed(const Duration(milliseconds: 50), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
           
           Future.delayed(const Duration(milliseconds: 150), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
           
           Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
@@ -330,39 +338,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isProfileTab = _currentIndex == 3;
+    final isHomeTab = _currentIndex == 0;
+    final isProfileTab = _currentIndex == 2;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isProfileTab,
-      backgroundColor: modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isProfileTab || isHomeTab,
+      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
       
-      // Hide AppBar for profile tab
-      appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for home and profile tabs, show for inbox
+      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Inbox tab (index 0) - Direct ChatsTab
+          // Home tab (index 0) - Videos Feed with black theme
+          Container(
+            color: Colors.black,
+            child: VideosFeedScreen(key: _feedScreenKey),
+          ),
+          // Inbox tab (index 1) - Direct ChatsTab
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
-          // Wallet tab (index 1) - Direct WalletScreen
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const WalletScreen(),
-          ),
-          // Channels tab (index 2) - UsersListScreen
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const UsersListScreen(),
-          ),
-          // Profile tab (index 3) - MyProfileScreen
+          // Profile tab (index 2) - MyProfileScreen
           const MyProfileScreen(),
         ],
       ),
@@ -374,9 +378,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Independent FAB implementation matching the pattern from the first document
+  // Independent FAB implementation
   Widget? _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 0) {
+    if (_currentIndex == 1) {
       // Inbox tab - New chat FAB
       return FloatingActionButton(
         heroTag: "chat_fab",
@@ -386,39 +390,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onPressed: _navigateToContacts,
         child: const Icon(CupertinoIcons.bubble_left_bubble_right_fill),
       );
-    } else if (_currentIndex == 1) {
-      // Wallet tab - Wallet specific FAB
-      return FloatingActionButton(
-        heroTag: "wallet_fab",
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          // Wallet specific action - currently does nothing
-          HapticFeedback.lightImpact();
-        },
-        child: const Icon(Icons.account_balance_wallet),
-      );
-    } else if (_currentIndex == 2) {
-      // Channels tab - Create Post FAB
-      return FloatingActionButton(
-        heroTag: "channels_fab",
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: _navigateToCreatePost,
-        child: const Icon(Icons.camera_alt_rounded),
-      );
     }
     
-    // Profile tab (index 3) - No FAB
+    // Home tab (index 0) and Profile tab (index 2) - No FAB
     return null;
   }
 
-  // Bottom navigation with 4 tabs
+  // Bottom navigation with 3 tabs
   Widget _buildBottomNav(ModernThemeExtension modernTheme) {
-    Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
-    Color? borderColor = modernTheme.dividerColor ?? Colors.grey[300];
+    Color backgroundColor = _currentIndex == 0 ? Colors.black : (modernTheme.surfaceColor ?? Colors.grey[100]!);
+    Color? borderColor = _currentIndex == 0 ? Colors.grey[800] : (modernTheme.dividerColor ?? Colors.grey[300]);
     
     return Container(
       decoration: BoxDecoration(
@@ -437,7 +418,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(4, (index) {
+            children: List.generate(3, (index) {
               return _buildNavItem(
                 index,
                 modernTheme,
@@ -455,8 +436,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
-    // Inbox tab (index 0) - show unread count
-    if (index == 0) {
+    // Inbox tab (index 1) - show unread count
+    if (index == 1) {
       final chatUnreadCount = _getUnreadChatCount();
       
       return _buildNavItemWithBadge(
@@ -478,11 +459,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int unreadCount,
   ) {
     Color iconColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
-        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+        ? (_currentIndex == 0 ? Colors.white : (modernTheme.primaryColor ?? Colors.blue))
+        : (_currentIndex == 0 ? Colors.grey[400]! : (modernTheme.textSecondaryColor ?? Colors.grey[600]!));
     Color textColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
-        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+        ? (_currentIndex == 0 ? Colors.white : (modernTheme.primaryColor ?? Colors.blue))
+        : (_currentIndex == 0 ? Colors.grey[400]! : (modernTheme.textSecondaryColor ?? Colors.grey[600]!));
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -556,11 +537,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ModernThemeExtension modernTheme,
   ) {
     Color iconColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
-        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+        ? (_currentIndex == 0 ? Colors.white : (modernTheme.primaryColor ?? Colors.blue))
+        : (_currentIndex == 0 ? Colors.grey[400]! : (modernTheme.textSecondaryColor ?? Colors.grey[600]!));
     Color textColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
-        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+        ? (_currentIndex == 0 ? Colors.white : (modernTheme.primaryColor ?? Colors.blue))
+        : (_currentIndex == 0 ? Colors.grey[400]! : (modernTheme.textSecondaryColor ?? Colors.grey[600]!));
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -597,7 +578,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? Colors.blue;
 
-    // Always show the main WeiBao branding for all tabs with app bar
+    // Show the main WeiBao branding for inbox tab only
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,

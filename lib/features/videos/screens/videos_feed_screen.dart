@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with proper playback management)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with rounded edges and black status bar)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -69,6 +69,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Video controllers - ADD THESE MISSING PROPERTIES
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
+  
+  // Store original system UI for restoration
+  SystemUiOverlayStyle? _originalSystemUiStyle;
 
   @override
   bool get wantKeepAlive => true;
@@ -89,6 +92,23 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Store original system UI after dependencies are available
+    if (_originalSystemUiStyle == null) {
+      _storeOriginalSystemUI();
+    }
+  }
+
+  void _storeOriginalSystemUI() {
+    // Store the current system UI style before making changes
+    final brightness = Theme.of(context).brightness;
+    _originalSystemUiStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    );
   }
 
   @override
@@ -120,10 +140,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
 
-    // Setup system UI when actually becoming active and visible
-    if (mounted) {
-      _setupSystemUI();
-    }
+    // Setup system UI when becoming active
+    _setupSystemUI();
 
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
@@ -138,10 +156,27 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = false;
     _stopPlayback();
 
-    // Don't restore system UI here - let HomeScreen handle it
-    // The home screen will manage system UI for other tabs
+    // Restore original system UI when becoming inactive
+    _restoreOriginalSystemUI();
 
     WakelockPlus.disable();
+  }
+
+  void _restoreOriginalSystemUI() {
+    if (_originalSystemUiStyle != null) {
+      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else {
+      // Fallback: restore based on current theme
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
   }
 
   // New method to handle navigation away from feed
@@ -249,18 +284,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     // Controllers initialization if needed in the future
   }
 
-  // Only apply system UI when screen is actually active and visible
   void _setupSystemUI() {
-    // Only apply black system UI if this screen is currently active and visible
-    if (!mounted || !_isScreenActive) return;
-
-    debugPrint('VideosFeedScreen: Setting up system UI (black theme)');
-
-    // Set immersive black theme only when this screen is active
+    // Set both status bar and navigation bar to black for immersive TikTok-style experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black, // Changed from transparent to black
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.black, // Keep black for immersive experience
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
@@ -877,6 +906,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     _pageController.dispose();
 
+    // Restore original system UI on dispose
+    _restoreOriginalSystemUI();
+
     // Final wakelock disable
     WakelockPlus.disable();
 
@@ -887,10 +919,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Only setup system UI if this screen is actually active
-    if (_isScreenActive && mounted) {
-      _setupSystemUI();
-    }
+    // Setup system UI for current theme
+    _setupSystemUI();
 
     // Watch videos from the new authentication provider
     final videos = ref.watch(videosProvider);
@@ -900,27 +930,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     // Show loading screen during initial video loading
     if (_isFirstLoad && isLoading) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(
-                color: Colors.white,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Loading videos...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
+        body: SizedBox.shrink(),
       );
     }
 
@@ -928,12 +940,21 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       extendBodyBehindAppBar: true,
       extendBody: true,
       backgroundColor: Colors.black,
-      body: Container(
-        color: Colors.black, // Ensure black background
+      body: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
         child: Stack(
           children: [
-            // Main content area
-            _buildBody(videos),
+            // Main content - positioned to avoid covering status bar and system nav
+            Positioned(
+              top: systemTopPadding, // Start below status bar
+              left: 0,
+              right: 0,
+              bottom: systemBottomPadding, // Reserve space above system nav
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
+                child: _buildBody(videos),
+              ),
+            ),
 
             // Small video window when comments are open
             if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
@@ -941,7 +962,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             // Top navigation - simplified header matching moments feed style
             if (!_isCommentsSheetOpen) // Hide top bar when comments are open
               Positioned(
-                top: systemTopPadding,
+                top: systemTopPadding + 16, // Positioned below status bar with some padding
                 left: 0,
                 right: 0,
                 child: _buildSimplifiedHeader(),
@@ -1058,8 +1079,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom:
-          systemBottomPadding, // Closer to system nav for better screen utilization
+      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
       child: Column(
         children: [
           // DM button - Using VideoReactionWidget (moved after Share)
@@ -1077,7 +1097,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Like button
+          /*// Like button
           _buildRightMenuItem(
             child: Icon(
               currentVideo?.isLiked == true
@@ -1103,7 +1123,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             onTap: () => _showCommentsForCurrentVideo(currentVideo),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           /*// Download button (replaced star/bookmark)
           _buildRightMenuItem(
@@ -1190,7 +1210,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           const SizedBox(height: 10),*/
 
           // Profile avatar with red border - FIXED: Only show when user data is ready
-          _buildRightMenuItem(
+          /*_buildRightMenuItem(
             child: Container(
               width: 44,
               height: 44,
@@ -1275,7 +1295,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               ),
             ),
             onTap: () => _navigateToUserProfile(),
-          ),
+          ),*/
         ],
       ),
     );
