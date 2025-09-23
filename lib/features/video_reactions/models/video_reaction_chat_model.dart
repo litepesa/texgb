@@ -1,7 +1,7 @@
 // lib/features/video_reactions/models/video_reaction_chat_model.dart
 // NEW: Model for video reaction-based chat conversations
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/video_reactions/models/video_reaction_model.dart';
 
 class VideoReactionChatModel {
   final String chatId;

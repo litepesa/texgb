@@ -1,7 +1,7 @@
 // lib/features/video_reactions/models/video_reaction_message_model.dart
 // NEW: Specialized message model for video reaction chats
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/video_reactions/models/video_reaction_model.dart';
 
 class VideoReactionMessageModel {
   final String messageId;
@@ -22,6 +22,7 @@ class VideoReactionMessageModel {
   final bool isPinned;
   final Map<String, DateTime>? readBy;
   final Map<String, DateTime>? deliveredTo;
+  final String? fileName; // ADDED: File name for file messages
   
   // NEW: Video reaction specific fields
   final VideoReactionModel? videoReactionData; // For the original video reaction message
@@ -46,6 +47,7 @@ class VideoReactionMessageModel {
     this.isPinned = false,
     this.readBy,
     this.deliveredTo,
+    this.fileName, // ADDED: fileName parameter
     this.videoReactionData,
     this.isOriginalReaction = false,
   });
@@ -90,6 +92,7 @@ class VideoReactionMessageModel {
             (map['deliveredTo'] as Map).map((k, v) => 
               MapEntry(k.toString(), DateTime.parse(v)))) 
         : null,
+      fileName: map['fileName'], // ADDED: fileName mapping
       videoReactionData: map['videoReactionData'] != null
         ? VideoReactionModel.fromMap(map['videoReactionData'])
         : null,
@@ -117,6 +120,7 @@ class VideoReactionMessageModel {
       'isPinned': isPinned,
       'readBy': readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
       'deliveredTo': deliveredTo?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+      'fileName': fileName, // ADDED: fileName to map
       'videoReactionData': videoReactionData?.toMap(),
       'isOriginalReaction': isOriginalReaction,
     };
@@ -141,6 +145,7 @@ class VideoReactionMessageModel {
     bool? isPinned,
     Map<String, DateTime>? readBy,
     Map<String, DateTime>? deliveredTo,
+    String? fileName, // ADDED: fileName parameter
     VideoReactionModel? videoReactionData,
     bool? isOriginalReaction,
   }) {
@@ -163,6 +168,7 @@ class VideoReactionMessageModel {
       isPinned: isPinned ?? this.isPinned,
       readBy: readBy ?? this.readBy,
       deliveredTo: deliveredTo ?? this.deliveredTo,
+      fileName: fileName ?? this.fileName, // ADDED: fileName assignment
       videoReactionData: videoReactionData ?? this.videoReactionData,
       isOriginalReaction: isOriginalReaction ?? this.isOriginalReaction,
     );
@@ -211,7 +217,8 @@ class VideoReactionMessageModel {
       case MessageEnum.video:
         return content.isNotEmpty ? content : '📹 Video';
       case MessageEnum.file:
-        return '📎 ${mediaMetadata?['fileName'] ?? 'Document'}';
+        // UPDATED: Use fileName if available, otherwise fallback to mediaMetadata or content
+        return '📎 ${fileName ?? mediaMetadata?['fileName'] ?? content}';
       case MessageEnum.audio:
         return '🎤 Voice message';
       case MessageEnum.location:

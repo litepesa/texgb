@@ -401,6 +401,8 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
                     messageState.maybeWhen(
                       data: (state) => VideoReactionMessageInput(
                         onSendText: (text) => _handleSendText(text),
+                        onSendImage: (file) => _handleSendImage(file),
+                        onSendFile: (file, fileName) => _handleSendFile(file, fileName),
                         contactName: widget.contact.name,
                         replyToMessage: state.replyToMessage,
                         onCancelReply: () => _cancelReply(),
@@ -835,6 +837,18 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
   void _handleSendText(String text) {
     final messageNotifier = ref.read(videoReactionMessagesProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
+    _hasMessageBeenSent = true;
+  }
+
+  void _handleSendImage(File imageFile) {
+    final messageNotifier = ref.read(videoReactionMessagesProvider(widget.chatId).notifier);
+    messageNotifier.sendImageMessage(widget.chatId, imageFile);
+    _hasMessageBeenSent = true;
+  }
+
+  void _handleSendFile(File file, String fileName) {
+    final messageNotifier = ref.read(videoReactionMessagesProvider(widget.chatId).notifier);
+    messageNotifier.sendFileMessage(widget.chatId, file, fileName);
     _hasMessageBeenSent = true;
   }
 

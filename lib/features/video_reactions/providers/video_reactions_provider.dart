@@ -1,5 +1,6 @@
 // lib/features/video_reactions/providers/video_reactions_provider.dart
 // EXTRACTED: Standalone video reactions provider
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/enums/enums.dart';
@@ -574,6 +575,140 @@ class VideoReactionMessages extends _$VideoReactionMessages {
     }
   }
 
+  // Send image message
+  Future<void> sendImageMessage(String chatId, File imageFile) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      debugPrint('Cannot send image: user not authenticated');
+      return;
+    }
+
+    try {
+      final currentState = state.valueOrNull ?? const VideoReactionMessagesState();
+      
+      // Create optimistic message
+      final tempMessageId = '${_messageIdPrefix}${DateTime.now().millisecondsSinceEpoch}';
+      final message = VideoReactionMessageModel(
+        messageId: tempMessageId,
+        chatId: chatId,
+        senderId: currentUser.uid,
+        content: 'Image',
+        type: MessageEnum.image,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: imageFile.path, // Temporary local path
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+      );
+
+      // Optimistically add message to local state
+      final updatedMessages = [message, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearReply: true,
+        clearError: true,
+      ));
+
+      // Send to server
+      final messageId = await _repository.sendImageMessage(
+        chatId: chatId,
+        senderId: currentUser.uid,
+        imageFile: imageFile,
+        replyToMessageId: currentState.replyToMessageId,
+      );
+      
+      // Update message status to sent
+      await _repository.updateMessageStatus(chatId, messageId, MessageStatus.sent);
+      
+    } catch (e) {
+      debugPrint('Error sending image: $e');
+      
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((msg) {
+          if (msg.status == MessageStatus.sending && msg.senderId == currentUser.uid) {
+            return msg.copyWith(status: MessageStatus.failed);
+          }
+          return msg;
+        }).toList();
+        
+        state = AsyncValue.data(currentState.copyWith(
+          messages: updatedMessages,
+          error: 'Failed to send image: $e',
+        ));
+      }
+    }
+  }
+
+  // Send file message
+  Future<void> sendFileMessage(String chatId, File file, String fileName) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      debugPrint('Cannot send file: user not authenticated');
+      return;
+    }
+
+    try {
+      final currentState = state.valueOrNull ?? const VideoReactionMessagesState();
+      
+      // Create optimistic message
+      final tempMessageId = '${_messageIdPrefix}${DateTime.now().millisecondsSinceEpoch}';
+      final message = VideoReactionMessageModel(
+        messageId: tempMessageId,
+        chatId: chatId,
+        senderId: currentUser.uid,
+        content: fileName,
+        type: MessageEnum.file,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: file.path, // Temporary local path
+        fileName: fileName,
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+      );
+
+      // Optimistically add message to local state
+      final updatedMessages = [message, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearReply: true,
+        clearError: true,
+      ));
+
+      // Send to server
+      final messageId = await _repository.sendFileMessage(
+        chatId: chatId,
+        senderId: currentUser.uid,
+        file: file,
+        fileName: fileName,
+        replyToMessageId: currentState.replyToMessageId,
+      );
+      
+      // Update message status to sent
+      await _repository.updateMessageStatus(chatId, messageId, MessageStatus.sent);
+      
+    } catch (e) {
+      debugPrint('Error sending file: $e');
+      
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedMessages = currentState.messages.map((msg) {
+          if (msg.status == MessageStatus.sending && msg.senderId == currentUser.uid) {
+            return msg.copyWith(status: MessageStatus.failed);
+          }
+          return msg;
+        }).toList();
+        
+        state = AsyncValue.data(currentState.copyWith(
+          messages: updatedMessages,
+          error: 'Failed to send file: $e',
+        ));
+      }
+    }
+  }
+
   // Reply to message
   void setReplyToMessage(VideoReactionMessageModel message) {
     final currentState = state.valueOrNull;
@@ -725,13 +860,34 @@ class VideoReactionMessages extends _$VideoReactionMessages {
         clearError: true,
       ));
 
-      // Retry sending
-      final newMessageId = await _repository.sendTextMessage(
-        chatId: chatId,
-        senderId: currentUser.uid,
-        content: failedMessage.content,
-        replyToMessageId: failedMessage.replyToMessageId,
-      );
+      // Retry sending based on message type
+      String newMessageId;
+      if (failedMessage.type == MessageEnum.text) {
+        newMessageId = await _repository.sendTextMessage(
+          chatId: chatId,
+          senderId: currentUser.uid,
+          content: failedMessage.content,
+          replyToMessageId: failedMessage.replyToMessageId,
+        );
+      } else if (failedMessage.type == MessageEnum.image && failedMessage.mediaUrl != null) {
+        newMessageId = await _repository.sendImageMessage(
+          chatId: chatId,
+          senderId: currentUser.uid,
+          imageFile: File(failedMessage.mediaUrl!),
+          replyToMessageId: failedMessage.replyToMessageId,
+        );
+      } else if (failedMessage.type == MessageEnum.file && failedMessage.mediaUrl != null) {
+        newMessageId = await _repository.sendFileMessage(
+          chatId: chatId,
+          senderId: currentUser.uid,
+          file: File(failedMessage.mediaUrl!),
+          fileName: failedMessage.fileName ?? failedMessage.content,
+          replyToMessageId: failedMessage.replyToMessageId,
+        );
+      } else {
+        throw Exception('Unsupported message type for retry');
+      }
+      
       await _repository.updateMessageStatus(chatId, newMessageId, MessageStatus.sent);
       
     } catch (e) {

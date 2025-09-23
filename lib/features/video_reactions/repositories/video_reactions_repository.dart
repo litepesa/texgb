@@ -42,6 +42,21 @@ abstract class VideoReactionsRepository {
     required String content,
     String? replyToMessageId,
   });
+
+  Future<String> sendImageMessage({
+    required String chatId,
+    required String senderId,
+    required File imageFile,
+    String? replyToMessageId,
+  });
+  
+  Future<String> sendFileMessage({
+    required String chatId,
+    required String senderId,
+    required File file,
+    required String fileName,
+    String? replyToMessageId,
+  });
   
   Stream<List<VideoReactionMessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(
@@ -349,6 +364,97 @@ class HttpVideoReactionsRepository implements VideoReactionsRepository {
       }
     } catch (e) {
       throw VideoReactionsRepositoryException('Failed to send text message: $e');
+    }
+  }
+
+  @override
+  Future<String> sendImageMessage({
+    required String chatId,
+    required String senderId,
+    required File imageFile,
+    String? replyToMessageId,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+
+      // TODO: Upload image file to storage and get URL
+      // For now, using local path as placeholder
+      final imageUrl = imageFile.path;
+
+      final message = VideoReactionMessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: 'Image',
+        type: MessageEnum.image,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: imageUrl,
+        replyToMessageId: replyToMessageId,
+      );
+
+      final response = await _httpClient.post('/video-reactions/chats/$chatId/messages', body: message.toMap());
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Update chat last message
+        await _updateChatWithNewMessage(chatId, message);
+
+        return data['messageId'] ?? messageId;
+      } else {
+        throw VideoReactionsRepositoryException('Failed to send image message: ${response.body}');
+      }
+    } catch (e) {
+      throw VideoReactionsRepositoryException('Failed to send image message: $e');
+    }
+  }
+
+  @override
+  Future<String> sendFileMessage({
+    required String chatId,
+    required String senderId,
+    required File file,
+    required String fileName,
+    String? replyToMessageId,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+
+      // TODO: Upload file to storage and get URL
+      // For now, using local path as placeholder
+      final fileUrl = file.path;
+
+      final message = VideoReactionMessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: fileName,
+        type: MessageEnum.file,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: fileUrl,
+        mediaMetadata: {
+          'fileName': fileName,
+          'fileSize': await file.length(),
+        },
+        replyToMessageId: replyToMessageId,
+      );
+
+      final response = await _httpClient.post('/video-reactions/chats/$chatId/messages', body: message.toMap());
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Update chat last message
+        await _updateChatWithNewMessage(chatId, message);
+
+        return data['messageId'] ?? messageId;
+      } else {
+        throw VideoReactionsRepositoryException('Failed to send file message: ${response.body}');
+      }
+    } catch (e) {
+      throw VideoReactionsRepositoryException('Failed to send file message: $e');
     }
   }
 
