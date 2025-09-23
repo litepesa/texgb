@@ -1,8 +1,8 @@
 // lib/features/users/models/user_model.dart
-// EXTENDED: Added drama support while preserving video functionality + lastPostAt
+// CLEANED: Removed drama support, preserved video functionality + lastPostAt
 // FIXED: Backend field mapping compatibility
 
-// User preferences for both video and drama features
+// User preferences for video features
 class UserPreferences {
   final bool autoPlay;
   final bool receiveNotifications;
@@ -45,7 +45,7 @@ class UserPreferences {
 
 class UserModel {
   // ===============================
-  // EXISTING VIDEO FIELDS (preserved)
+  // VIDEO FIELDS
   // ===============================
   final String uid;
   final String phoneNumber;
@@ -67,19 +67,10 @@ class UserModel {
   final String lastSeen;
   final bool isActive;
   final bool isFeatured;
-  final String? lastPostAt; // UPDATED: Now a proper field instead of getter
-
-  // ===============================
-  // NEW DRAMA FIELDS (added)
-  // ===============================
-  final List<String> favoriteDramas;
-  final List<String> watchHistory;
-  final Map<String, int> dramaProgress;
-  final List<String> unlockedDramas;
+  final String? lastPostAt;
   final UserPreferences preferences;
 
   UserModel({
-    // Existing video fields
     required this.uid,
     required this.phoneNumber,
     required this.name,
@@ -100,12 +91,7 @@ class UserModel {
     required this.lastSeen,
     required this.isActive,
     required this.isFeatured,
-    this.lastPostAt, // UPDATED: Now a constructor parameter
-    // New drama fields with defaults
-    this.favoriteDramas = const [],
-    this.watchHistory = const [],
-    this.dramaProgress = const {},
-    this.unlockedDramas = const [],
+    this.lastPostAt,
     this.preferences = const UserPreferences(),
   });
 
@@ -133,12 +119,7 @@ class UserModel {
       lastSeen: _extractString(map['lastSeen'] ?? map['last_seen']) ?? '',
       isActive: _extractBool(map['isActive'] ?? map['is_active']) ?? true,
       isFeatured: _extractBool(map['isFeatured'] ?? map['is_featured']) ?? false,
-      lastPostAt: _extractString(map['lastPostAt'] ?? map['last_post_at']), // FIXED: Added proper mapping
-      // New drama field mappings (added)
-      favoriteDramas: _parseStringArray(map['favoriteDramas'] ?? map['favorite_dramas']),
-      watchHistory: _parseStringArray(map['watchHistory'] ?? map['watch_history']),
-      dramaProgress: _parseIntMap(map['dramaProgress'] ?? map['drama_progress']),
-      unlockedDramas: _parseStringArray(map['unlockedDramas'] ?? map['unlocked_dramas']),
+      lastPostAt: _extractString(map['lastPostAt'] ?? map['last_post_at']),
       preferences: UserPreferences.fromMap(
         (map['preferences'] as Map<String, dynamic>?) ?? <String, dynamic>{},
       ),
@@ -172,7 +153,7 @@ class UserModel {
     return null;
   }
 
-  // Helper method to safely parse string arrays (existing with improvements)
+  // Helper method to safely parse string arrays
   static List<String> _parseStringArray(dynamic value) {
     if (value == null) return [];
     
@@ -193,27 +174,7 @@ class UserModel {
     return [];
   }
 
-  // FIXED: Helper method to safely parse int maps (for drama progress)
-  static Map<String, int> _parseIntMap(dynamic value) {
-    if (value == null) return {};
-    
-    if (value is Map) {
-      final Map<String, int> result = {};
-      value.forEach((key, val) {
-        if (key != null && val != null) {
-          final intVal = _extractInt(val);
-          if (intVal != null) {
-            result[key.toString()] = intVal;
-          }
-        }
-      });
-      return result;
-    }
-    
-    return {};
-  }
-
-  // Create method for new users (PHONE-ONLY) - preserved with drama defaults
+  // Create method for new users (PHONE-ONLY)
   factory UserModel.create({
     required String uid,
     required String name,
@@ -243,20 +204,14 @@ class UserModel {
       lastSeen: now,
       isActive: true,
       isFeatured: false,
-      lastPostAt: null, // UPDATED: New users haven't posted yet
-      // Drama defaults for new users
-      favoriteDramas: [],
-      watchHistory: [],
-      dramaProgress: {},
-      unlockedDramas: [],
+      lastPostAt: null, // New users haven't posted yet
       preferences: const UserPreferences(),
     );
   }
 
-  // Updated toMap method with drama fields
+  // Updated toMap method
   Map<String, dynamic> toMap() {
     return {
-      // Existing video fields (preserved)
       'uid': uid,
       'name': name,
       'phoneNumber': phoneNumber,
@@ -275,17 +230,12 @@ class UserModel {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'lastSeen': lastSeen,
-      'lastPostAt': lastPostAt, // UPDATED: Added to serialization
-      // New drama fields (added)
-      'favoriteDramas': _formatArrayForPostgreSQL(favoriteDramas),
-      'watchHistory': _formatArrayForPostgreSQL(watchHistory),
-      'dramaProgress': dramaProgress,
-      'unlockedDramas': _formatArrayForPostgreSQL(unlockedDramas),
+      'lastPostAt': lastPostAt,
       'preferences': preferences.toMap(),
     };
   }
 
-  // Format arrays for PostgreSQL compatibility (existing)
+  // Format arrays for PostgreSQL compatibility
   static dynamic _formatArrayForPostgreSQL(List<String> array) {
     if (array.isEmpty) {
       return <String>[];
@@ -293,7 +243,7 @@ class UserModel {
     return array;
   }
 
-  // Updated copyWith method to include drama fields
+  // Updated copyWith method
   UserModel copyWith({
     String? uid,
     String? phoneNumber,
@@ -315,12 +265,7 @@ class UserModel {
     String? lastSeen,
     bool? isActive,
     bool? isFeatured,
-    String? lastPostAt, // UPDATED: Added to copyWith
-    // New drama fields
-    List<String>? favoriteDramas,
-    List<String>? watchHistory,
-    Map<String, int>? dramaProgress,
-    List<String>? unlockedDramas,
+    String? lastPostAt,
     UserPreferences? preferences,
   }) {
     return UserModel(
@@ -344,18 +289,13 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
-      lastPostAt: lastPostAt ?? this.lastPostAt, // UPDATED: Added to copyWith
-      // New drama fields
-      favoriteDramas: favoriteDramas ?? List<String>.from(this.favoriteDramas),
-      watchHistory: watchHistory ?? List<String>.from(this.watchHistory),
-      dramaProgress: dramaProgress ?? Map<String, int>.from(this.dramaProgress),
-      unlockedDramas: unlockedDramas ?? List<String>.from(this.unlockedDramas),
+      lastPostAt: lastPostAt ?? this.lastPostAt,
       preferences: preferences ?? this.preferences,
     );
   }
 
   // ===============================
-  // EXISTING VIDEO HELPER METHODS (preserved)
+  // VIDEO HELPER METHODS
   // ===============================
   String get id => uid; // Backward compatibility
 
@@ -373,28 +313,12 @@ class UserModel {
     return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';
   }
 
-  // ===============================
-  // NEW DRAMA HELPER METHODS (added)
-  // ===============================
-  
-  // Drama favorites
-  bool hasFavorited(String dramaId) => favoriteDramas.contains(dramaId);
-  
-  // Watch history (for episodes)
-  bool hasWatched(String episodeId) => watchHistory.contains(episodeId);
-  
-  // Drama unlock status
-  bool hasUnlocked(String dramaId) => unlockedDramas.contains(dramaId);
-  
-  // Drama progress (episode number)
-  int getDramaProgress(String dramaId) => dramaProgress[dramaId] ?? 0;
-
   // Timestamp helper methods
   DateTime get lastSeenDateTime => DateTime.parse(lastSeen);
   DateTime get createdAtDateTime => DateTime.parse(createdAt);
   DateTime get updatedAtDateTime => DateTime.parse(updatedAt);
   
-  // UPDATED: lastPostAt helper methods with null safety
+  // lastPostAt helper methods with null safety
   DateTime? get lastPostAtDateTime {
     if (lastPostAt == null || lastPostAt!.isEmpty) return null;
     try {
@@ -429,7 +353,7 @@ class UserModel {
   }
 
   // ===============================
-  // EXISTING DEBUG/VALIDATION METHODS (preserved)
+  // DEBUG/VALIDATION METHODS
   // ===============================
   Map<String, dynamic> toDebugMap() {
     return {
@@ -439,12 +363,6 @@ class UserModel {
         'tags_type': tags.runtimeType.toString(),
         'tags_formatted': _formatArrayForPostgreSQL(tags),
         'formatted_type': _formatArrayForPostgreSQL(tags).runtimeType.toString(),
-        // Drama debug info
-        'favoriteDramas_length': favoriteDramas.length,
-        'watchHistory_length': watchHistory.length,
-        'dramaProgress_length': dramaProgress.length,
-        'unlockedDramas_length': unlockedDramas.length,
-        // lastPostAt debug info
         'lastPostAt_value': lastPostAt,
         'hasPostedVideos': hasPostedVideos,
         'lastPostTimeAgo': lastPostTimeAgo,

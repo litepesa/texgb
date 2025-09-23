@@ -1,17 +1,13 @@
-// lib/main_screen/home_screen.dart (Updated Version with 4 tabs)
+// lib/main_screen/home_screen.dart (Updated Version with Video Reaction Chat System)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
-//import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/video_reactions/screens/video_reactions_list_screen.dart';
+import 'package:textgb/features/video_reactions/providers/video_reactions_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -29,25 +25,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Video progress tracking
-  final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
-  
   final List<String> _tabNames = [
-    'Inbox',     // Index 0 - Chats
-    'Wallet',    // Index 1 - Wallet
-    'Channels',  // Index 2 - Users List
-    'Profile'    // Index 3 - Profile
+    'Home',              // Index 0 - Users List (changed from Videos Feed)
+    'Notifications',    // Index 1 - Video Reaction Chats (changed from Chats)
+    'Profile'          // Index 2 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.bubble_left_bubble_right,     // Inbox
-    Icons.account_balance_wallet_outlined,       // Wallet
-    Icons.radio_button_checked_rounded,          // Channels
-    Icons.person_2_outlined                      // Profile
+    CupertinoIcons.qrcode_viewfinder,            // Home
+    CupertinoIcons.bubble_left_bubble_right,    // Inbox
+    CupertinoIcons.person                      // Profile
   ];
-
-  // Feed screen controller for lifecycle management
-  final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
 
   @override
   void initState() {
@@ -63,7 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    _videoProgressNotifier.dispose();
     super.dispose();
   }
 
@@ -102,16 +89,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
-    // Handle feed screen lifecycle
-    if (_currentIndex == 0) {
-      // Leaving feed screen
-      try {
-        _feedScreenKey.currentState?.onScreenBecameInactive();
-      } catch (e) {
-        debugPrint('Feed screen lifecycle error: $e');
-      }
-    }
-    
     if (mounted) {
       setState(() {
         _currentIndex = index;
@@ -119,7 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     // Special handling for Profile tab to prevent black bar
-    if (index == 3 && mounted) {
+    if (index == 2 && mounted) {
       // Force update system UI for Profile tab
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -127,13 +104,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           
           // Apply additional times for Profile tab specifically
           Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
           
           Future.delayed(const Duration(milliseconds: 200), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
@@ -170,7 +147,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 3) {
+      if (_currentIndex == 0) {
+        // Home/Users List screen - Use theme colors, unhide app bar
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ));
+      } else if (_currentIndex == 2) {
         // Profile screen - special handling to prevent black bar
         final isDark = Theme.of(context).brightness == Brightness.dark;
         
@@ -186,7 +174,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         
         // Apply multiple times to ensure it sticks for Profile tab
         Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted && _currentIndex == 3) {
+          if (mounted && _currentIndex == 2) {
             SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
               statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -199,7 +187,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         });
         
         Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted && _currentIndex == 3) {
+          if (mounted && _currentIndex == 2) {
             SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
               statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -211,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           }
         });
       } else {
-        // Other screens - use theme-appropriate colors
+        // Video Reaction Chats screen - use theme-appropriate colors
         final isDark = Theme.of(context).brightness == Brightness.dark;
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -240,7 +228,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     // Special handling for Profile tab
-    if (index == 3 && mounted) {
+    if (index == 2 && mounted) {
       // Force update system UI for Profile tab with multiple attempts
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -248,19 +236,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           
           // Apply additional times for Profile tab specifically
           Future.delayed(const Duration(milliseconds: 50), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
           
           Future.delayed(const Duration(milliseconds: 150), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
           
           Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted && _currentIndex == 3) {
+            if (mounted && _currentIndex == 2) {
               _updateSystemUI();
             }
           });
@@ -285,38 +273,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Navigate to contacts screen (for FAB)
-  void _navigateToContacts() async {
-    if (!mounted) return;
-    
-    HapticFeedback.lightImpact();
-    
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const ContactsScreen(),
-      ),
-    );
-  }
-
-  // Get real unread chat count from chat provider
-  int _getUnreadChatCount() {
+  // Get real unread video reaction chat count from video reactions provider
+  int _getUnreadVideoReactionChatCount() {
     try {
-      // Watch the chat provider and get unread count
-      final chatState = ref.watch(chatListProvider);
+      // Watch the video reaction chats provider and get unread count
+      final chatState = ref.watch(videoReactionChatsListProvider);
       return chatState.when(
         data: (state) {
           final currentUser = ref.read(currentUserProvider);
           if (currentUser == null) return 0;
           
           return state.chats.where((chatItem) => 
-              chatItem.chat.getUnreadCount(currentUser.uid) > 0).length;
+              chatItem.getUnreadCount(currentUser.uid) > 0).length;
         },
         loading: () => 0,
         error: (_, __) => 0,
       );
     } catch (e) {
-      debugPrint('Error getting unread chat count: $e');
+      debugPrint('Error getting unread video reaction chat count: $e');
       return 0;
     }
   }
@@ -331,15 +305,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isProfileTab = _currentIndex == 3;
+    final isHomeTab = _currentIndex == 0;
+    final isProfileTab = _currentIndex == 2;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isProfileTab,
+      extendBodyBehindAppBar: isProfileTab, // Only profile tab extends behind app bar now
       backgroundColor: modernTheme.backgroundColor,
       
-      // Hide AppBar for profile tab
+      // Show AppBar for home and video reaction chats tabs, hide for profile
       appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
@@ -347,23 +322,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Inbox tab (index 0) - Direct ChatsTab
+          // Home tab (index 0) - Users List (changed from Videos Feed)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const ChatsTab(),
-          ),
-          // Wallet tab (index 1) - Direct WalletScreen
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const RecommendedPostsScreen(),
-          ),
-          // Channels tab (index 2) - UsersListScreen
-          Container(
-            color: modernTheme.backgroundColor,
             child: const UsersListScreen(),
           ),
-          // Profile tab (index 3) - MyProfileScreen
+          // Notifications tab (index 1) - Video Reaction Chats (changed from regular chats)
+          Container(
+            color: modernTheme.surfaceColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const VideoReactionsListScreen(),
+          ),
+          // Profile tab (index 2) - MyProfileScreen
           const MyProfileScreen(),
         ],
       ),
@@ -371,39 +342,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       bottomNavigationBar: _buildBottomNav(modernTheme),
       
       // Independent FAB implementation
-      floatingActionButton: _buildFab(modernTheme),
+      //floatingActionButton: _buildFab(modernTheme),
     );
   }
 
-  // Independent FAB implementation matching the pattern from the first document
-  Widget? _buildFab(ModernThemeExtension modernTheme) {
+  // Independent FAB implementation
+  /*Widget? _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
-      // Inbox tab - New chat FAB
+      // Home tab - Create post FAB (changed from no FAB)
       return FloatingActionButton(
-        heroTag: "chat_fab",
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: _navigateToContacts,
-        child: const Icon(CupertinoIcons.bubble_left_bubble_right_fill),
-      );
-    } else if (_currentIndex == 1) {
-      // Wallet tab - Wallet specific FAB
-      return FloatingActionButton(
-        heroTag: "wallet_fab",
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          // Wallet specific action - currently does nothing
-          HapticFeedback.lightImpact();
-        },
-        child: const Icon(Icons.account_balance_wallet),
-      );
-    } else if (_currentIndex == 2) {
-      // Channels tab - Create Post FAB
-      return FloatingActionButton(
-        heroTag: "channels_fab",
+        heroTag: "create_post_fab",
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
@@ -412,11 +360,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // Profile tab (index 3) - No FAB
+    // Video reaction chats tab (index 1) and Profile tab (index 2) - No FAB
     return null;
-  }
+  }*/
 
-  // Bottom navigation with 4 tabs
+  // Bottom navigation with 3 tabs
   Widget _buildBottomNav(ModernThemeExtension modernTheme) {
     Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
     Color? borderColor = modernTheme.dividerColor ?? Colors.grey[300];
@@ -438,7 +386,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(4, (index) {
+            children: List.generate(3, (index) {
               return _buildNavItem(
                 index,
                 modernTheme,
@@ -456,9 +404,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
-    // Inbox tab (index 0) - show unread count
-    if (index == 0) {
-      final chatUnreadCount = _getUnreadChatCount();
+    // Video reaction chats tab (index 1) - show unread count
+    if (index == 1) {
+      final chatUnreadCount = _getUnreadVideoReactionChatCount();
       
       return _buildNavItemWithBadge(
         index, 
@@ -479,10 +427,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int unreadCount,
   ) {
     Color iconColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
+        ? (modernTheme.primaryColor ?? Colors.blue)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
     Color textColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
+        ? (modernTheme.primaryColor ?? Colors.blue)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
     return GestureDetector(
@@ -557,10 +505,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ModernThemeExtension modernTheme,
   ) {
     Color iconColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
+        ? (modernTheme.primaryColor ?? Colors.blue)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
     Color textColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue) 
+        ? (modernTheme.primaryColor ?? Colors.blue)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
     return GestureDetector(
@@ -598,7 +546,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? Colors.blue;
 
-    // Always show the main WeiBao branding for all tabs with app bar
+    // Show the main WeiBao branding for both home and video reaction chats tabs
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,

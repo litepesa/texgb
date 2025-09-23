@@ -9,14 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/chat/widgets/video_reaction_widget.dart';
+import 'package:textgb/features/video_reactions/widgets/video_reaction_action_widget.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
-//import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -1071,7 +1070,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       child: Column(
         children: [
           // DM button - Using VideoReactionWidget (moved after Share)
-          VideoReactionWidget(
+          VideoReactionActionWidget(
             video: currentVideo,
             onPause: _pauseForNavigation,
             onResume: _resumeFromNavigation,
@@ -1113,103 +1112,17 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          /*// Download button (replaced star/bookmark)
-          _buildRightMenuItem(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Show progress indicator if downloading
-                if (_downloadingVideos[currentVideo?.id] == true)
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      value: _downloadProgress[currentVideo?.id] ?? 0.0,
-                      color: Colors.white,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      strokeWidth: 2,
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.download,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-              ],
-            ),
-            label: _downloadingVideos[currentVideo?.id] == true
-                ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
-                : 'Save',
-            onTap: () => _downloadCurrentVideo(currentVideo),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Share button - UPDATED with share_plus functionality
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.arrowshape_turn_up_right,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: 'Share',
-            onTap: () async {
-              // Check if user is authenticated before allowing share
-              final canInteract = await _requireAuthentication('share videos');
-              if (canInteract) {
-                await _shareCurrentVideo(currentVideo);
-              }
-            },
-          ),
-
-          const SizedBox(height: 10),
-
-          // WhatsApp button - NEW
-          _buildRightMenuItem(
-            child: Lottie.asset(
-              'assets/lottie/chat_bubble.json',
-              width: 48,
-              height: 48,
-              fit: BoxFit.contain,
-            ),
-            onTap: () => _openWhatsApp(currentVideo),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Gift button - with exciting emoji
-          _buildRightMenuItem(
-            child: const Text(
-              '🎁',
-              style: TextStyle(
-                fontSize: 28,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                  ),
-                ],
-              ),
-            ),
-            onTap: () => _showVirtualGifts(currentVideo),
-          ),
-
-          const SizedBox(height: 10),*/
-
           // Profile avatar with red border - FIXED: Only show when user data is ready
           _buildRightMenuItem(
             child: Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                    8), // Rounded square instead of circle
+                borderRadius: BorderRadius.circular(22), // Rounded square instead of circle
                 border: Border.all(color: Colors.red, width: 2),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(
-                    6), // Slightly smaller radius for the image
+                borderRadius: BorderRadius.circular(22), // Slightly smaller radius for the image
                 child: currentVideo?.userImage.isNotEmpty == true
                     ? Image.network(
                         currentVideo!.userImage,
@@ -1223,7 +1136,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                             height: 44,
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                             child: const Center(
                               child: SizedBox(
@@ -1243,7 +1156,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                             height: 44,
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                             child: Center(
                               child: Text(
@@ -1265,7 +1178,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                         height: 44,
                         decoration: BoxDecoration(
                           color: Colors.grey.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         child: Center(
                           child: Text(

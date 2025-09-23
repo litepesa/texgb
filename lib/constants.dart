@@ -119,7 +119,8 @@ class Constants {
   static const String contactProfileScreen = '/contactProfileScreen';
 
   // Chat Routes
-  static const String chatScreen = '/chatScreen';
+  static const String videoReactionChatScreen = '/video-reaction-chat';
+  static const String videoReactionsListScreen = '/video-reactions-list';
   
 
 

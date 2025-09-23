@@ -1,4 +1,4 @@
-// lib/main.dart (Updated with missing routes)
+// lib/main.dart (Updated with video reaction chat screens)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,8 +13,9 @@ import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 
-// Chat screens
-import 'package:textgb/features/chat/screens/chat_screen.dart';
+// Video Reaction Chat screens (NEW - replacing old chat system)
+import 'package:textgb/features/video_reactions/screens/video_reaction_chat_screen.dart';
+import 'package:textgb/features/video_reactions/screens/video_reactions_list_screen.dart';
 
 // Contact screens
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -28,7 +29,7 @@ import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/videos/screens/single_video_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
-import 'package:textgb/features/videos/screens/my_post_screen.dart'; // Add this import
+import 'package:textgb/features/videos/screens/my_post_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -167,14 +168,15 @@ class AppRoot extends ConsumerWidget {
             return ContactProfileScreen(contact: args);
           },
 
-          // Chat routes
-          Constants.chatScreen: (context) {
+          // Video Reaction Chat routes (NEW - replacing old chat system)
+          Constants.videoReactionChatScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return ChatScreen(
+            return VideoReactionChatScreen(
               chatId: args['chatId'] as String,
               contact: args['contact'] as UserModel,
             );
           },
+          Constants.videoReactionsListScreen: (context) => const VideoReactionsListScreen(),
           
           // User/Profile routes with enhanced navigation support
           Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
@@ -265,12 +267,12 @@ class AppRoot extends ConsumerWidget {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
 
-            // Chat routes
-            case '/chat':
+            // Video Reaction Chat routes (NEW - replacing old chat system)
+            case '/video-reaction-chat':
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
                 return MaterialPageRoute(
-                  builder: (context) => ChatScreen(
+                  builder: (context) => VideoReactionChatScreen(
                     chatId: args['chatId'] as String,
                     contact: args['contact'] as UserModel,
                   ),
@@ -278,6 +280,12 @@ class AppRoot extends ConsumerWidget {
                 );
               }
               break;
+
+            case '/video-reactions-list':
+              return MaterialPageRoute(
+                builder: (context) => const VideoReactionsListScreen(),
+                settings: settings,
+              );
               
             case '/contact-profile':
               final contact = settings.arguments as UserModel?;
@@ -337,7 +345,7 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-// Helper class for navigation utilities (updated for TikTok-style system)
+// Helper class for navigation utilities (updated with video reaction chat system)
 class UserNavigationHelper {
   // Navigate to user profile
   static void navigateToUserProfile(
@@ -381,6 +389,27 @@ class UserNavigationHelper {
         Constants.userId: userId,
       },
     );
+  }
+
+  // Navigate to video reaction chat (NEW)
+  static void navigateToVideoReactionChat(
+    BuildContext context, {
+    required String chatId,
+    required UserModel contact,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.videoReactionChatScreen,
+      arguments: {
+        'chatId': chatId,
+        'contact': contact,
+      },
+    );
+  }
+
+  // Navigate to video reactions list (NEW)
+  static void navigateToVideoReactionsList(BuildContext context) {
+    Navigator.pushNamed(context, Constants.videoReactionsListScreen);
   }
 
   // Navigate to create post (requires authentication)

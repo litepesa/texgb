@@ -865,13 +865,11 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                    8), // Rounded square instead of circle
+                borderRadius: BorderRadius.circular(22), // Rounded square instead of circle
                 border: Border.all(color: Colors.red, width: 2),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(
-                    6), // Slightly smaller radius for the image
+                borderRadius: BorderRadius.circular(22), // Slightly smaller radius for the image
                 child: currentVideo?.userImage.isNotEmpty == true
                     ? Image.network(
                         currentVideo!.userImage,
@@ -885,7 +883,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                             height: 44,
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                             child: const Center(
                               child: SizedBox(
@@ -905,7 +903,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                             height: 44,
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                             child: Center(
                               child: Text(
@@ -927,7 +925,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                         height: 44,
                         decoration: BoxDecoration(
                           color: Colors.grey.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         child: Center(
                           child: Text(

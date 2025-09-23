@@ -1,5 +1,5 @@
 // lib/features/authentication/providers/authentication_provider.dart 
-// EXTENDED: Added drama support to video authentication provider
+// Video-focused authentication provider without drama functionality
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -22,7 +22,7 @@ enum AuthState {
   error
 }
 
-// State class for authentication (extended with drama support)
+// State class for authentication (video-focused)
 class AuthenticationState {
   final AuthState state;
   final bool isLoading;
@@ -31,7 +31,7 @@ class AuthenticationState {
   final String? phoneNumber;
   final String? error;
   
-  // Video-related state (preserved)
+  // Video-related state
   final List<VideoModel> videos;
   final List<String> likedVideos;
   final List<UserModel> users;
@@ -150,7 +150,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // EXISTING VIDEO AUTH METHODS (preserved)
+  // AUTHENTICATION METHODS
   // ===============================
 
   Future<bool> checkUserExists() async {
@@ -188,7 +188,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // ADDED: getUserProfile method for profile screen compatibility
   Future<UserModel?> getUserProfile() async {
     final userId = _repository.currentUserId;
     if (userId == null) return null;
@@ -390,182 +389,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // ===============================
-  // NEW DRAMA-RELATED METHODS (added)
-  // ===============================
-
-  // Drama favorites management
-  Future<void> addToFavorites({required String dramaId}) async {
-    final currentState = state.value;
-    if (currentState?.currentUser == null) return;
-    
-    try {
-      await _repository.addToFavorites(
-        userUid: currentState!.currentUser!.uid,
-        dramaId: dramaId,
-      );
-      
-      final updatedUser = currentState.currentUser!.copyWith(
-        favoriteDramas: [...currentState.currentUser!.favoriteDramas, dramaId],
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint('Error adding to favorites: ${e.message}');
-    }
-  }
-
-  Future<void> removeFromFavorites({required String dramaId}) async {
-    final currentState = state.value;
-    if (currentState?.currentUser == null) return;
-    
-    try {
-      await _repository.removeFromFavorites(
-        userUid: currentState!.currentUser!.uid,
-        dramaId: dramaId,
-      );
-      
-      final updatedFavorites = List<String>.from(currentState.currentUser!.favoriteDramas)
-        ..remove(dramaId);
-      final updatedUser = currentState.currentUser!.copyWith(
-        favoriteDramas: updatedFavorites,
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint('Error removing from favorites: ${e.message}');
-    }
-  }
-
-  // Watch history management
-  Future<void> addToWatchHistory({required String episodeId}) async {
-    final currentState = state.value;
-    if (currentState?.currentUser == null) return;
-    
-    // Avoid duplicates
-    if (currentState!.currentUser!.hasWatched(episodeId)) return;
-    
-    try {
-      await _repository.addToWatchHistory(
-        userUid: currentState.currentUser!.uid,
-        episodeId: episodeId,
-      );
-      
-      final updatedUser = currentState.currentUser!.copyWith(
-        watchHistory: [...currentState.currentUser!.watchHistory, episodeId],
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint('Error adding to watch history: ${e.message}');
-    }
-  }
-
-  // Drama progress tracking
-  Future<void> updateDramaProgress({required String dramaId, required int episodeNumber}) async {
-    final currentState = state.value;
-    if (currentState?.currentUser == null) return;
-    
-    try {
-      await _repository.updateDramaProgress(
-        userUid: currentState!.currentUser!.uid,
-        dramaId: dramaId,
-        episodeNumber: episodeNumber,
-      );
-      
-      final updatedProgress = Map<String, int>.from(currentState.currentUser!.dramaProgress);
-      updatedProgress[dramaId] = episodeNumber;
-      final updatedUser = currentState.currentUser!.copyWith(
-        dramaProgress: updatedProgress,
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint('Error updating drama progress: ${e.message}');
-    }
-  }
-
-  // Drama unlock management
-  Future<void> unlockDrama({required String dramaId}) async {
-    final currentState = state.value;
-    if (currentState?.currentUser == null) return;
-    
-    // Avoid duplicates
-    if (currentState!.currentUser!.hasUnlocked(dramaId)) return;
-    
-    try {
-      await _repository.unlockDrama(
-        userUid: currentState.currentUser!.uid,
-        dramaId: dramaId,
-      );
-      
-      final updatedUser = currentState.currentUser!.copyWith(
-        unlockedDramas: [...currentState.currentUser!.unlockedDramas, dramaId],
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint('Error unlocking drama: ${e.message}');
-    }
-  }
-
-  // User preferences management
-  Future<void> updatePreferences({required UserPreferences preferences}) async {
-    final currentState = state.value;
-    if (currentState?.currentUser == null) return;
-    
-    try {
-      await _repository.updatePreferences(
-        userUid: currentState!.currentUser!.uid,
-        preferences: preferences,
-      );
-      
-      final updatedUser = currentState.currentUser!.copyWith(
-        preferences: preferences,
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint('Error updating preferences: ${e.message}');
-    }
-  }
-
-  // Refresh user data (useful after drama operations)
-  Future<void> refreshCurrentUser() async {
-    final currentState = state.value;
-    if (currentState?.currentUser?.uid == null) return;
-
-    try {
-      final freshUserData = await _repository.getUserProfile(currentState!.currentUser!.uid);
-      
-      if (freshUserData != null) {
-        state = AsyncValue.data(currentState.copyWith(
-          currentUser: freshUserData,
-        ));
-        
-        await saveUserDataToSharedPreferences();
-      }
-    } catch (e) {
-      debugPrint('Error refreshing user data: $e');
-    }
-  }
-
-  // ===============================
-  // ALL EXISTING VIDEO METHODS (preserved)
-  // ===============================
-
   Future<void> signOut() async {
     state = AsyncValue.data(const AuthenticationState(
       state: AuthState.loading,
@@ -592,7 +415,10 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Video methods (all preserved)
+  // ===============================
+  // VIDEO METHODS
+  // ===============================
+
   Future<void> loadVideos() async {
     try {
       final videos = await _repository.getVideos();
@@ -846,7 +672,10 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // User/Social methods (all preserved)
+  // ===============================
+  // USER/SOCIAL METHODS
+  // ===============================
+
   Future<void> loadUsers() async {
     final currentUserId = _repository.currentUserId ?? '';
     
@@ -933,7 +762,10 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Comment methods (all preserved)
+  // ===============================
+  // COMMENT METHODS
+  // ===============================
+
   Future<void> addComment({
     required String videoId,
     required String content,
@@ -1027,7 +859,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // UTILITY METHODS (preserved and enhanced)
+  // UTILITY METHODS
   // ===============================
 
   Future<void> saveUserDataToSharedPreferences() async {
@@ -1057,7 +889,7 @@ class Authentication extends _$Authentication {
     ));
   }
 
-  // Helper getters for UI (preserved and enhanced)
+  // Helper getters for UI
   bool get isAuthenticated {
     final currentState = state.value;
     return currentState?.state == AuthState.authenticated && currentState?.isSuccessful == true;
@@ -1116,27 +948,6 @@ class Authentication extends _$Authentication {
   bool isUserFollowed(String userId) {
     final currentState = state.value;
     return currentState?.followedUsers.contains(userId) ?? false;
-  }
-
-  // NEW: Drama-related getters for UI convenience
-  bool isDramaFavorited(String dramaId) {
-    final user = currentUser;
-    return user?.hasFavorited(dramaId) ?? false;
-  }
-
-  bool hasWatchedEpisode(String episodeId) {
-    final user = currentUser;
-    return user?.hasWatched(episodeId) ?? false;
-  }
-
-  bool isDramaUnlocked(String dramaId) {
-    final user = currentUser;
-    return user?.hasUnlocked(dramaId) ?? false;
-  }
-
-  int getDramaProgress(String dramaId) {
-    final user = currentUser;
-    return user?.getDramaProgress(dramaId) ?? 0;
   }
 
   UserPreferences get userPreferences {

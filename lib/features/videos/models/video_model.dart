@@ -13,6 +13,7 @@ class VideoModel {
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
+  final double price; // NEW: Price field for business posts (matching ChannelVideoModel)
   
   // 🔧 CRITICAL FIX: Use correct field names that match backend database
   final int views;        // Backend: views_count -> Frontend: views
@@ -40,6 +41,7 @@ class VideoModel {
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.caption,
+    this.price = 0.0, // Default price is 0
     required this.views,
     required this.likes,
     required this.comments,
@@ -66,6 +68,7 @@ class VideoModel {
         videoUrl: _parseString(json['videoUrl'] ?? json['video_url']),
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url']),
         caption: _parseString(json['caption']),
+        price: _parsePrice(json['price']), // NEW: Parse price field
         
         // 🔧 CRITICAL FIX: Map backend field names to frontend names
         // Try multiple possible field name variations from your backend
@@ -121,6 +124,7 @@ class VideoModel {
         videoUrl: _parseString(json['videoUrl'] ?? json['video_url'] ?? ''),
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url'] ?? ''),
         caption: _parseString(json['caption'] ?? 'No caption'),
+        price: 0.0, // Default price
         views: 0,
         likes: 0,
         comments: 0,
@@ -153,6 +157,24 @@ class VideoModel {
     }
     if (value is int) return value == 1;
     return false;
+  }
+
+  // 🔧 NEW HELPER: Safely parse price fields
+  static double _parsePrice(dynamic value) {
+    if (value == null) return 0.0;
+    
+    if (value is double) return value < 0 ? 0.0 : value;
+    if (value is int) return value < 0 ? 0.0 : value.toDouble();
+    
+    if (value is String) {
+      if (value.trim().isEmpty) return 0.0;
+      
+      final parsed = double.tryParse(value.trim());
+      if (parsed != null) return parsed < 0 ? 0.0 : parsed;
+    }
+    
+    print('⚠️ Warning: Could not parse price value: $value (type: ${value.runtimeType})');
+    return 0.0;
   }
 
   // 🔧 HELPER: Safely parse count fields with enhanced error handling
@@ -305,6 +327,36 @@ class VideoModel {
     return DateTime.now().toIso8601String();
   }
 
+  // 🔧 NEW: Formatted price getter matching ChannelVideoModel
+  /// Formats the price for display
+  /// Rules: 
+  /// - Up to 999,999: "KES 999,999"
+  /// - 1,000,000+: "KES 1M", "KES 1.5M", etc.
+  /// - Default (0): "KES 0"
+  String get formattedPrice {
+    if (price == 0) {
+      return 'KES 0';
+    }
+    
+    if (price < 1000000) {
+      // Format with commas for thousands
+      return 'KES ${price.toInt().toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      )}';
+    } else {
+      // Format in millions
+      double millions = price / 1000000;
+      if (millions == millions.toInt()) {
+        // Whole number of millions
+        return 'KES ${millions.toInt()}M';
+      } else {
+        // Decimal millions (e.g., 1.5M)
+        return 'KES ${millions.toStringAsFixed(1)}M';
+      }
+    }
+  }
+
   // 🔧 ENHANCED: Helper methods for display formatting
   String get formattedViews => _formatCount(views);
   String get formattedLikes => _formatCount(likes);
@@ -394,6 +446,7 @@ class VideoModel {
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
       'caption': caption,
+      'price': price, // Include price in JSON
       'views': views,
       'likes': likes,
       'comments': comments,
@@ -419,6 +472,7 @@ class VideoModel {
     String? videoUrl,
     String? thumbnailUrl,
     String? caption,
+    double? price, // Add price to copyWith
     int? views,
     int? likes,
     int? comments,
@@ -441,6 +495,7 @@ class VideoModel {
       videoUrl: videoUrl ?? this.videoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       caption: caption ?? this.caption,
+      price: price ?? this.price, // Include price in copyWith
       views: views ?? this.views,
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
@@ -545,7 +600,7 @@ class VideoModel {
   // 🔧 DEBUGGING: toString method
   @override
   String toString() {
-    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, user: $userName)';
+    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, user: $userName)';
   }
 
   // 🔧 DEBUGGING: Detailed debug string
@@ -556,6 +611,7 @@ VideoModel {
   userId: $userId
   userName: $userName
   caption: $caption
+  price: $formattedPrice
   views: $views
   likes: $likes
   comments: $comments
@@ -605,6 +661,12 @@ extension VideoModelList on List<VideoModel> {
     return sorted;
   }
   
+  List<VideoModel> sortByPrice({bool descending = true}) {
+    final sorted = List<VideoModel>.from(this);
+    sorted.sort((a, b) => descending ? b.price.compareTo(a.price) : a.price.compareTo(b.price));
+    return sorted;
+  }
+  
   List<VideoModel> sortByEngagement({bool descending = true}) {
     final sorted = List<VideoModel>.from(this);
     sorted.sort((a, b) => descending 
@@ -629,6 +691,10 @@ extension VideoModelList on List<VideoModel> {
     return where((video) => video.hasTag(tag)).toList();
   }
   
+  List<VideoModel> filterByPriceRange(double minPrice, double maxPrice) {
+    return where((video) => video.price >= minPrice && video.price <= maxPrice).toList();
+  }
+  
   List<VideoModel> search(String query) {
     return where((video) => video.containsQuery(query)).toList();
   }
@@ -637,10 +703,16 @@ extension VideoModelList on List<VideoModel> {
   int get totalLikes => fold<int>(0, (sum, video) => sum + video.likes);
   int get totalComments => fold<int>(0, (sum, video) => sum + video.comments);
   int get totalShares => fold<int>(0, (sum, video) => sum + video.shares);
+  double get totalPrice => fold<double>(0.0, (sum, video) => sum + video.price);
   
   double get averageEngagementRate {
     if (isEmpty) return 0.0;
     final totalEngagement = fold<double>(0.0, (sum, video) => sum + video.engagementRate);
     return totalEngagement / length;
+  }
+  
+  double get averagePrice {
+    if (isEmpty) return 0.0;
+    return totalPrice / length;
   }
 }
