@@ -906,7 +906,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       Constants.videosFeedScreen,
       arguments: {
         'startVideoId': video.id,
-        'userId': video.userId, // Changed from channelId to userId
+        'userId': video.userId, 
       },
     );
   }
