@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/video_reactions/widgets/video_reaction_action_widget.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
@@ -69,8 +70,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
 
-  // Hardcoded WhatsApp link for testing
-  static const String _testWhatsAppLink = 'https://wa.me/message/4X3XKRUR3K55C1';
+  // Hardcoded WhatsApp number for testing (Kenya: 0718532315 = 254718532315)
+  static const String _testWhatsAppNumber = '254718532315';
 
   @override
   bool get wantKeepAlive => true;
@@ -478,7 +479,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       final encodedMessage = Uri.encodeComponent(message);
       
       // Create WhatsApp URL with pre-filled message
-      final whatsappUrl = '${_testWhatsAppLink}&text=$encodedMessage';
+      final whatsappUrl = 'https://wa.me/$_testWhatsAppNumber?text=$encodedMessage';
       final uri = Uri.parse(whatsappUrl);
 
       debugPrint('Opening WhatsApp with URL: $whatsappUrl');
