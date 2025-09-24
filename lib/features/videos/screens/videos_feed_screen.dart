@@ -1184,7 +1184,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                           child: Text(
                             currentVideo?.userName.isNotEmpty == true
                                 ? currentVideo!.userName[0].toUpperCase()
-                                : 'U',
+                                : 'H',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,

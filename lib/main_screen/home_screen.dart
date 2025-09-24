@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Updated Version with Video Reaction Chat System)
+// lib/main_screen/home_screen.dart (Updated Version with Wallet Screen)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,8 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
-import 'package:textgb/features/video_reactions/screens/video_reactions_list_screen.dart';
-import 'package:textgb/features/video_reactions/providers/video_reactions_provider.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -26,14 +25,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Home',              // Index 0 - Users List (changed from Videos Feed)
-    'Notifications',    // Index 1 - Video Reaction Chats (changed from Chats)
+    'Home',              // Index 0 - Users List
+    'Escrow',           // Index 1 - Wallet Screen (changed from Video Reactions)
     'Profile'          // Index 2 - Profile
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.qrcode_viewfinder,            // Home
-    CupertinoIcons.bubble_left_bubble_right,    // Inbox
+    Icons.account_balance_rounded,              // Wallet (changed from bubble icons)
     CupertinoIcons.person                      // Profile
   ];
 
@@ -199,7 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           }
         });
       } else {
-        // Video Reaction Chats screen - use theme-appropriate colors
+        // Wallet screen - use theme-appropriate colors
         final isDark = Theme.of(context).brightness == Brightness.dark;
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -273,28 +272,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Get real unread video reaction chat count from video reactions provider
-  int _getUnreadVideoReactionChatCount() {
-    try {
-      // Watch the video reaction chats provider and get unread count
-      final chatState = ref.watch(videoReactionChatsListProvider);
-      return chatState.when(
-        data: (state) {
-          final currentUser = ref.read(currentUserProvider);
-          if (currentUser == null) return 0;
-          
-          return state.chats.where((chatItem) => 
-              chatItem.getUnreadCount(currentUser.uid) > 0).length;
-        },
-        loading: () => 0,
-        error: (_, __) => 0,
-      );
-    } catch (e) {
-      debugPrint('Error getting unread video reaction chat count: $e');
-      return 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!mounted) {
@@ -314,7 +291,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       extendBodyBehindAppBar: isProfileTab, // Only profile tab extends behind app bar now
       backgroundColor: modernTheme.backgroundColor,
       
-      // Show AppBar for home and video reaction chats tabs, hide for profile
+      // Show AppBar for home and wallet tabs, hide for profile
       appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
@@ -322,17 +299,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Users List (changed from Videos Feed)
+          // Home tab (index 0) - Users List
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const UsersListScreen(),
           ),
-          // Notifications tab (index 1) - Video Reaction Chats (changed from regular chats)
+          // Wallet tab (index 1) - Wallet Screen (changed from Video Reactions)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const VideoReactionsListScreen(),
+            child: const WalletScreen(),
           ),
           // Profile tab (index 2) - MyProfileScreen
           const MyProfileScreen(),
@@ -360,7 +337,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // Video reaction chats tab (index 1) and Profile tab (index 2) - No FAB
+    // Wallet tab (index 1) and Profile tab (index 2) - No FAB
     return null;
   }*/
 
@@ -404,99 +381,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
-    // Video reaction chats tab (index 1) - show unread count
-    if (index == 1) {
-      final chatUnreadCount = _getUnreadVideoReactionChatCount();
-      
-      return _buildNavItemWithBadge(
-        index, 
-        isSelected, 
-        modernTheme,
-        chatUnreadCount
-      );
-    }
-    
-    // For other tabs, no badge needed
+    // All tabs use default nav item now (no special badge for wallet)
     return _buildDefaultNavItem(index, isSelected, modernTheme);
-  }
-
-  Widget _buildNavItemWithBadge(
-    int index,
-    bool isSelected,
-    ModernThemeExtension modernTheme,
-    int unreadCount,
-  ) {
-    Color iconColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue)
-        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-    Color textColor = isSelected 
-        ? (modernTheme.primaryColor ?? Colors.blue)
-        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-
-    return GestureDetector(
-      onTap: () => _onTabTapped(index),
-      behavior: HitTestBehavior.translucent,
-      child: Container(
-        // Expand the tap area while keeping the content centered
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  _tabIcons[index],
-                  color: iconColor,
-                  size: 24,
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor ?? Colors.blue,
-                        shape: unreadCount > 99 
-                            ? BoxShape.rectangle 
-                            : BoxShape.circle,
-                        borderRadius: unreadCount > 99 
-                            ? BorderRadius.circular(8) 
-                            : null,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Center(
-                        child: Text(
-                          unreadCount > 99 ? '99+' : unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            if (_tabNames[index].isNotEmpty)
-              Text(
-                _tabNames[index],
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildDefaultNavItem(
@@ -546,7 +432,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? Colors.blue;
 
-    // Show the main WeiBao branding for both home and video reaction chats tabs
+    // Show the main WeiBao branding for both home and wallet tabs
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,

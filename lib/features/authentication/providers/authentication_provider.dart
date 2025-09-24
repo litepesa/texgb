@@ -484,10 +484,11 @@ class Authentication extends _$Authentication {
     }
   }
 
+  // UPDATED: createVideo method with price parameter (replaces tags)
   Future<void> createVideo({
     required File videoFile,
     required String caption,
-    List<String>? tags,
+    double? price, // UPDATED: Price parameter replaces tags
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -518,6 +519,7 @@ class Authentication extends _$Authentication {
       
       const thumbnailUrl = '';
       
+      // UPDATED: Pass price parameter instead of tags to repository
       final videoData = await _repository.createVideo(
         userId: user.uid,
         userName: user.name,
@@ -525,7 +527,7 @@ class Authentication extends _$Authentication {
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         caption: caption,
-        tags: tags,
+        price: price ?? 0.0, // UPDATED: Use price instead of tags
       );
       
       List<VideoModel> updatedVideos = [
@@ -553,7 +555,7 @@ class Authentication extends _$Authentication {
   Future<void> createImagePost({
     required List<File> imageFiles,
     required String caption,
-    List<String>? tags,
+    double? price, // UPDATED: Price parameter replaces tags
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -583,13 +585,14 @@ class Authentication extends _$Authentication {
         imageUrls.add(imageUrl);
       }
       
+      // UPDATED: Pass price parameter instead of tags to repository
       final postData = await _repository.createImagePost(
         userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         imageUrls: imageUrls,
         caption: caption,
-        tags: tags,
+        price: price ?? 0.0, // UPDATED: Use price instead of tags
       );
       
       List<VideoModel> updatedVideos = [
