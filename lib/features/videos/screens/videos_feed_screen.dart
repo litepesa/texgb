@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/video_reactions/widgets/video_reaction_action_widget.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';

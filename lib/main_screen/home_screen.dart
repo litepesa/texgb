@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Updated Version with Wallet Screen)
+// lib/main_screen/home_screen.dart (Fixed Version - Remove Double Bottom Padding)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -284,7 +284,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 2;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
@@ -299,18 +298,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Users List
-          Container(
-            color: modernTheme.surfaceColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const UsersListScreen(),
-          ),
-          // Wallet tab (index 1) - Wallet Screen (changed from Video Reactions)
-          Container(
-            color: modernTheme.surfaceColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const WalletScreen(),
-          ),
+          // Home tab (index 0) - Users List - REMOVED bottom padding
+          const UsersListScreen(),
+          // Wallet tab (index 1) - Wallet Screen - REMOVED bottom padding
+          const WalletScreen(),
           // Profile tab (index 2) - MyProfileScreen
           const MyProfileScreen(),
         ],

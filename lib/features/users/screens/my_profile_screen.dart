@@ -1,4 +1,5 @@
 // lib/features/users/screens/my_profile_screen.dart
+// FIXED: Null-safe theme access with fallback values
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,21 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       maxNrOfCacheObjects: 100,
     ),
   );
+
+  // Helper method to get safe theme with fallback
+  ModernThemeExtension _getSafeTheme(BuildContext context) {
+    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
+  }
 
   @override
   void initState() {
@@ -247,7 +263,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final modernTheme = context.modernTheme;
+    final modernTheme = _getSafeTheme(context);
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
@@ -269,14 +285,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: modernTheme.primaryColor,
+            color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
             strokeWidth: 3,
           ),
           const SizedBox(height: 16),
           Text(
             'Loading your profile...',
             style: TextStyle(
-              color: modernTheme.textSecondaryColor,
+              color: modernTheme.textSecondaryColor ?? Colors.grey[600],
               fontSize: 16,
             ),
           ),
@@ -320,7 +336,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             Text(
               'Something went wrong',
               style: TextStyle(
-                color: modernTheme.textColor,
+                color: modernTheme.textColor ?? Colors.black,
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
@@ -329,7 +345,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             Text(
               _error!,
               style: TextStyle(
-                color: modernTheme.textSecondaryColor,
+                color: modernTheme.textSecondaryColor ?? Colors.grey[600],
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -338,7 +354,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ElevatedButton.icon(
               onPressed: _refreshUserData,
               style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
+                backgroundColor: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -368,7 +384,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
     return RefreshIndicator(
       onRefresh: _refreshUserData,
-      color: modernTheme.primaryColor,
+      color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
       backgroundColor: modernTheme.surfaceColor,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh even when content fits
@@ -391,7 +407,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  // Rest of the methods remain the same...
+  // Rest of the methods with safe theme access...
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -682,7 +698,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         child: Text(
                           'Edit Profile',
                           style: TextStyle(
-                            color: modernTheme.primaryColor,
+                            color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -763,16 +779,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: modernTheme.primaryColor!.withOpacity(0.3),
+                        color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                       ),
                     ),
                     child: Text(
                       '#$tag',
                       style: TextStyle(
-                        color: modernTheme.primaryColor,
+                        color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -797,14 +813,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       children: [
         Icon(
           icon,
-          color: modernTheme.primaryColor,
+          color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
           size: 24,
         ),
         const SizedBox(height: 8),
         Text(
           count,
           style: TextStyle(
-            color: modernTheme.textColor,
+            color: modernTheme.textColor ?? Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -813,7 +829,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         Text(
           label,
           style: TextStyle(
-            color: modernTheme.textSecondaryColor,
+            color: modernTheme.textSecondaryColor ?? Colors.grey[600],
             fontSize: 14,
           ),
         ),
@@ -834,11 +850,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: modernTheme.primaryColor,
+                  color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: modernTheme.primaryColor!.withOpacity(0.3),
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -876,11 +892,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: modernTheme.primaryColor,
+                  color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: modernTheme.primaryColor!.withOpacity(0.3),
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

@@ -36,7 +36,6 @@ dependencies:
   path_provider: ^2.1.5
   animate_do: ^3.3.9
   date_format: ^2.0.9
-  grouped_list: ^6.0.0
   video_player: ^2.9.5
   get: ^4.6.1
   git: ^2.3.2
@@ -75,13 +74,10 @@ dependencies:
   gal: ^2.3.1
   ffmpeg_kit_flutter_new: ^3.2.0
   share_plus: ^11.1.0
-  flutter_contacts: ^1.1.9+2
   swipe_to: ^1.0.6
   flutter_svg: ^2.2.0
   flutter_video_caching: ^0.2.0
-  sqflite: ^2.4.1
-  connectivity_plus: ^7.0.0
-  web_socket_channel: ^3.0.3
+
 
 
 

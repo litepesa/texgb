@@ -1,5 +1,5 @@
 // lib/features/authentication/providers/authentication_provider.dart 
-// Video-focused authentication provider without drama functionality
+// Video-focused authentication provider with instant auth recognition and caching
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -94,59 +94,195 @@ final authenticationRepositoryProvider = Provider<AuthenticationRepository>((ref
 class Authentication extends _$Authentication {
   AuthenticationRepository get _repository => ref.read(authenticationRepositoryProvider);
 
+  // Cache keys
+  static const String _userProfileCacheKey = 'cached_user_profile';
+  static const String _usersListCacheKey = 'cached_users_list';
+  static const String _lastSyncCacheKey = 'last_sync_timestamp';
+
   @override
   FutureOr<AuthenticationState> build() async {
-    final isFirebaseAuthenticated = await checkAuthenticationState();
+    // INSTANT AUTH CHECK: Check Firebase Auth immediately (synchronous)
+    final firebaseUser = _repository.currentUserId;
     
-    if (isFirebaseAuthenticated && _repository.currentUserId != null) {
-      final userExists = await checkUserExists();
+    if (firebaseUser != null) {
+      // User is authenticated in Firebase - try to load cached data
+      final cachedUser = await _loadCachedUserProfile();
+      final cachedUsers = await _loadCachedUsers();
       
-      if (userExists) {
-        final userProfile = await getUserDataFromBackend();
+      if (cachedUser != null) {
+        // Return authenticated state IMMEDIATELY with cached data
+        final immediateState = AuthenticationState(
+          state: AuthState.authenticated,
+          isSuccessful: true,
+          currentUser: cachedUser,
+          phoneNumber: _repository.currentUserPhoneNumber,
+          users: cachedUsers,
+        );
         
-        if (userProfile != null) {
-          await saveUserDataToSharedPreferences();
+        // Set state immediately for instant UI
+        state = AsyncValue.data(immediateState);
+        
+        // Start background refresh (non-blocking)
+        _refreshDataInBackground();
+        
+        return immediateState;
+      } else {
+        // Firebase authenticated but no cached profile - check backend
+        final userExists = await checkUserExists();
+        
+        if (userExists) {
+          final userProfile = await getUserDataFromBackend();
           
-          // Load all app data for authenticated user
-          await loadVideos();
-          await loadLikedVideos();
+          if (userProfile != null) {
+            await _saveCachedUserProfile(userProfile);
+            await loadUsers(); // Load users for home screen
+            await _saveCachedUsers(state.value?.users ?? []);
+            
+            return AuthenticationState(
+              state: AuthState.authenticated,
+              isSuccessful: true,
+              currentUser: userProfile,
+              phoneNumber: _repository.currentUserPhoneNumber,
+              users: state.value?.users ?? [],
+            );
+          }
+        } else {
+          // Authenticated but no backend profile
           await loadUsers();
-          await loadFollowedUsers();
           
           return AuthenticationState(
-            state: AuthState.authenticated,
-            isSuccessful: true,
-            currentUser: userProfile,
+            state: AuthState.partial,
+            isSuccessful: false,
             phoneNumber: _repository.currentUserPhoneNumber,
-            videos: state.value?.videos ?? [],
-            likedVideos: state.value?.likedVideos ?? [],
             users: state.value?.users ?? [],
-            followedUsers: state.value?.followedUsers ?? [],
           );
         }
-      } else {
-        await loadVideos();
-        await loadUsers();
-        
-        return AuthenticationState(
-          state: AuthState.partial,
-          isSuccessful: false,
-          phoneNumber: _repository.currentUserPhoneNumber,
-          videos: state.value?.videos ?? [],
-          users: state.value?.users ?? [],
-        );
       }
     }
     
-    // Load videos for guest browsing
-    await loadVideos();
-    await loadUsers();
+    // User not authenticated - load public data for guest browsing
+    await loadUsers(); // Still load users for home screen
     
     return AuthenticationState(
       state: AuthState.guest,
-      videos: state.value?.videos ?? [],
       users: state.value?.users ?? [],
     );
+  }
+
+  // ===============================
+  // CACHE MANAGEMENT METHODS
+  // ===============================
+
+  Future<UserModel?> _loadCachedUserProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString(_userProfileCacheKey);
+      
+      if (userJson != null && userJson.isNotEmpty) {
+        final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+        return UserModel.fromMap(userMap);
+      }
+    } catch (e) {
+      debugPrint('Error loading cached user profile: $e');
+    }
+    return null;
+  }
+
+  Future<void> _saveCachedUserProfile(UserModel user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userProfileCacheKey, jsonEncode(user.toMap()));
+      await prefs.setInt(_lastSyncCacheKey, DateTime.now().millisecondsSinceEpoch);
+      debugPrint('User profile cached successfully');
+    } catch (e) {
+      debugPrint('Error saving cached user profile: $e');
+    }
+  }
+
+  Future<List<UserModel>> _loadCachedUsers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final usersJson = prefs.getString(_usersListCacheKey);
+      
+      if (usersJson != null && usersJson.isNotEmpty) {
+        final List<dynamic> usersData = jsonDecode(usersJson);
+        return usersData
+            .map((userData) => UserModel.fromMap(userData as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error loading cached users: $e');
+    }
+    return [];
+  }
+
+  Future<void> _saveCachedUsers(List<UserModel> users) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final usersData = users.map((user) => user.toMap()).toList();
+      await prefs.setString(_usersListCacheKey, jsonEncode(usersData));
+      debugPrint('Users list cached successfully (${users.length} users)');
+    } catch (e) {
+      debugPrint('Error saving cached users: $e');
+    }
+  }
+
+  Future<void> _clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userProfileCacheKey);
+      await prefs.remove(_usersListCacheKey);
+      await prefs.remove(_lastSyncCacheKey);
+      debugPrint('Cache cleared successfully');
+    } catch (e) {
+      debugPrint('Error clearing cache: $e');
+    }
+  }
+
+  // Check if cache is fresh (optional optimization)
+  Future<bool> _isCacheFresh() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastSync = prefs.getInt(_lastSyncCacheKey) ?? 0;
+      final timeDiff = DateTime.now().millisecondsSinceEpoch - lastSync;
+      
+      // Cache valid for 1 hour (3600000 milliseconds)
+      return timeDiff < 3600000;
+    } catch (e) {
+      debugPrint('Error checking cache freshness: $e');
+      return false;
+    }
+  }
+
+  // Background refresh without blocking UI
+  Future<void> _refreshDataInBackground() async {
+    try {
+      debugPrint('Starting background data refresh...');
+      
+      // Refresh user profile
+      final freshUserProfile = await getUserProfile();
+      if (freshUserProfile != null) {
+        await _saveCachedUserProfile(freshUserProfile);
+        
+        // Update state with fresh profile
+        final currentState = state.value ?? const AuthenticationState();
+        state = AsyncValue.data(currentState.copyWith(
+          currentUser: freshUserProfile,
+        ));
+      }
+      
+      // Refresh users list
+      await loadUsers();
+      final currentState = state.value ?? const AuthenticationState();
+      if (currentState.users.isNotEmpty) {
+        await _saveCachedUsers(currentState.users);
+      }
+      
+      debugPrint('Background data refresh completed');
+    } catch (e) {
+      debugPrint('Background refresh failed (non-critical): $e');
+      // Don't update UI on background refresh failure
+    }
   }
 
   // ===============================
@@ -179,6 +315,9 @@ class Authentication extends _$Authentication {
           state: AuthState.authenticated,
           isSuccessful: true,
         ));
+        
+        // Cache the fresh user profile
+        await _saveCachedUserProfile(userModel);
       }
       
       return userModel;
@@ -272,45 +411,36 @@ class Authentication extends _$Authentication {
         final userModel = await getUserDataFromBackend();
         
         if (userModel != null) {
-          await saveUserDataToSharedPreferences();
-          await loadVideos();
-          await loadLikedVideos();
+          await _saveCachedUserProfile(userModel);
           await loadUsers();
-          await loadFollowedUsers();
+          await _saveCachedUsers(state.value?.users ?? []);
           
           state = AsyncValue.data(AuthenticationState(
             state: AuthState.authenticated,
             isSuccessful: true,
             currentUser: userModel,
             phoneNumber: _repository.currentUserPhoneNumber,
-            videos: state.value?.videos ?? [],
-            likedVideos: state.value?.likedVideos ?? [],
             users: state.value?.users ?? [],
-            followedUsers: state.value?.followedUsers ?? [],
           ));
         }
       } else {
-        await loadVideos();
         await loadUsers();
         
         state = AsyncValue.data(AuthenticationState(
           state: AuthState.partial,
           isSuccessful: false,
           phoneNumber: _repository.currentUserPhoneNumber,
-          videos: state.value?.videos ?? [],
           users: state.value?.users ?? [],
         ));
       }
     } on AuthRepositoryException catch (e) {
       debugPrint('Failed to handle post-OTP verification: ${e.message}');
-      await loadVideos();
       await loadUsers();
       
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.partial,
         isSuccessful: false,
         phoneNumber: _repository.currentUserPhoneNumber,
-        videos: state.value?.videos ?? [],
         users: state.value?.users ?? [],
       ));
     }
@@ -335,21 +465,17 @@ class Authentication extends _$Authentication {
         coverImage: coverImage,
       );
       
-      await saveUserDataToSharedPreferences();
-      await loadVideos();
-      await loadLikedVideos();
+      // Cache the new user profile
+      await _saveCachedUserProfile(createdUser);
       await loadUsers();
-      await loadFollowedUsers();
+      await _saveCachedUsers(state.value?.users ?? []);
       
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.authenticated,
         isSuccessful: true,
         currentUser: createdUser,
         phoneNumber: _repository.currentUserPhoneNumber,
-        videos: state.value?.videos ?? [],
-        likedVideos: state.value?.likedVideos ?? [],
         users: state.value?.users ?? [],
-        followedUsers: state.value?.followedUsers ?? [],
       ));
       
       onSuccess();
@@ -382,7 +508,8 @@ class Authentication extends _$Authentication {
         isLoading: false,
       ));
 
-      await saveUserDataToSharedPreferences();
+      // Cache the updated profile
+      await _saveCachedUserProfile(updatedUser);
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       throw e.message;
@@ -398,15 +525,17 @@ class Authentication extends _$Authentication {
     try {
       await _repository.signOut();
       
+      // Clear all cached data on sign out
+      await _clearCache();
+      
+      // Also clear SharedPreferences userModel (your existing logic)
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.remove('userModel');
       
-      await loadVideos();
-      await loadUsers();
+      await loadUsers(); // Load users for guest browsing
       
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.guest,
-        videos: state.value?.videos ?? [],
         users: state.value?.users ?? [],
       ));
     } on AuthRepositoryException catch (e) {
@@ -416,7 +545,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // VIDEO METHODS
+  // VIDEO METHODS (unchanged)
   // ===============================
 
   Future<void> loadVideos() async {
@@ -687,6 +816,11 @@ class Authentication extends _$Authentication {
       final currentState = state.value ?? const AuthenticationState();
       
       state = AsyncValue.data(currentState.copyWith(users: users));
+      
+      // Cache users list after loading
+      if (users.isNotEmpty) {
+        await _saveCachedUsers(users);
+      }
     } on AuthRepositoryException catch (e) {
       debugPrint('Error loading users: ${e.message}');
     }
@@ -728,6 +862,9 @@ class Authentication extends _$Authentication {
         followedUsers: followedUsers,
       ));
       
+      // Update cached users with new follow state
+      await _saveCachedUsers(updatedUsers);
+      
     } on AuthRepositoryException catch (e) {
       debugPrint('Error toggling follow: ${e.message}');
       await loadUsers();
@@ -766,7 +903,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // COMMENT METHODS
+  // COMMENT METHODS (unchanged)
   // ===============================
 
   Future<void> addComment({

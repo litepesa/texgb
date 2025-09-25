@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
-import 'package:textgb/features/chat/widgets/video_reaction_widget.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -24,6 +23,7 @@ import 'package:dio/dio.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SingleVideoScreen extends ConsumerStatefulWidget {
   final String videoId;
@@ -74,6 +74,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
+
+  // Hardcoded WhatsApp number for testing (Kenya: 0718532315 = 254718532315)
+  static const String _testWhatsAppNumber = '254718532315';
 
   @override
   bool get wantKeepAlive => true;
@@ -198,6 +201,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       case 'share videos':
       case 'share':
         return Icons.share;
+      case 'message on whatsapp':
+      case 'whatsapp':
+        return Icons.message;
       default:
         return Icons.video_call;
     }
@@ -384,7 +390,200 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     // The video item will handle the display logic based on isCommentsOpen state
   }
 
-  // Add this new method to build the small video window
+  // NEW METHOD: Handle WhatsApp messaging with video context (from VideosFeedScreen)
+  Future<void> _openWhatsAppWithVideo(VideoModel? video) async {
+    if (video == null) return;
+
+    // Check if user is authenticated before allowing WhatsApp messaging
+    final canInteract = await _checkUserAuthentication('message on whatsapp');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if user is trying to message their own video
+    if (video.userId == currentUser!.uid) {
+      _showCannotMessageOwnVideoMessage();
+      return;
+    }
+
+    try {
+      // Pause video before opening WhatsApp
+      _pauseForNavigation();
+
+      // Prepare message content with video context
+      String message = 'Hi! I saw your video';
+      
+      if (video.caption.isNotEmpty) {
+        // Add video caption for context (truncate if too long)
+        String caption = video.caption;
+        if (caption.length > 50) {
+          caption = '${caption.substring(0, 50)}...';
+        }
+        message += ' about "$caption"';
+      }
+      
+      message += ' and wanted to chat!';
+
+      // Encode the message for URL
+      final encodedMessage = Uri.encodeComponent(message);
+      
+      // Create WhatsApp URL with pre-filled message
+      final whatsappUrl = 'https://wa.me/$_testWhatsAppNumber?text=$encodedMessage';
+      final uri = Uri.parse(whatsappUrl);
+
+      debugPrint('Opening WhatsApp with URL: $whatsappUrl');
+
+      // Try to launch WhatsApp
+      if (await canLaunchUrl(uri)) {
+        final success = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+
+        if (success) {
+          _showSnackBar('Opening WhatsApp...');
+        } else {
+          throw Exception('Failed to launch WhatsApp');
+        }
+      } else {
+        // WhatsApp is not installed or URL is invalid
+        _showWhatsAppNotInstalledMessage();
+      }
+    } catch (e) {
+      debugPrint('Error opening WhatsApp: $e');
+      _showSnackBar('Failed to open WhatsApp');
+    } finally {
+      // Resume video after attempting to open WhatsApp
+      // Add delay to ensure user returns to the app
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          _resumeFromNavigation();
+        }
+      });
+    }
+  }
+
+  // Helper method to show WhatsApp not installed message
+  void _showWhatsAppNotInstalledMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Not Available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please install WhatsApp to send messages or check your internet connection.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show cannot message own video
+  void _showCannotMessageOwnVideoMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Message Yourself',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send a WhatsApp message to your own video.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Add this method to build the small video window
   Widget _buildSmallVideoWindow() {
     final systemTopPadding = MediaQuery.of(context).padding.top;
 
@@ -803,7 +1002,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     );
   }
 
-  // TikTok-style right side menu (matching original design exactly) with authentication requirements
+  // TikTok-style right side menu (UPDATED with WhatsApp integration)
   Widget _buildRightSideMenu() {
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     final currentVideo =
@@ -816,16 +1015,21 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       bottom: systemBottomPadding, // Position above system nav bar
       child: Column(
         children: [
-          // DM button - Using VideoReactionWidget (moved after Share)
-          VideoReactionWidget(
-            video: currentVideo,
-            onPause: _pauseForNavigation,
-            onResume: _resumeFromNavigation,
-            child: Lottie.asset(
-              'assets/lottie/chat_bubble.json',
-              width: 58,
-              height: 58,
-              fit: BoxFit.contain,
+          // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of VideoReactionWidget
+          GestureDetector(
+            onTap: () => _openWhatsAppWithVideo(currentVideo),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Lottie.asset(
+                    'assets/lottie/chat_bubble.json',
+                    width: 58,
+                    height: 58,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
             ),
           ),
 
