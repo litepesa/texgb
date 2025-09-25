@@ -1,14 +1,13 @@
-// lib/main_screen/home_screen.dart (Updated Version - Consistent AppBar Across All Tabs)
+// lib/main_screen/home_screen.dart (Fixed Version - Remove Double Bottom Padding)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-//import 'package:textgb/features/users/screens/users_list_screen.dart';
+import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -95,8 +94,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       });
     }
 
-    // Standard system UI update for all tabs
-    if (mounted) {
+    // Special handling for Profile tab to prevent black bar
+    if (index == 2 && mounted) {
+      // Force update system UI for Profile tab
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _updateSystemUI();
+          
+          // Apply additional times for Profile tab specifically
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _currentIndex == 2) {
+              _updateSystemUI();
+            }
+          });
+          
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (mounted && _currentIndex == 2) {
+              _updateSystemUI();
+            }
+          });
+        }
+      });
+    } else if (mounted) {
+      // Normal system UI update for other tabs
       _updateSystemUI();
     }
 
@@ -126,16 +146,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      // Consistent system UI for all tabs
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ));
+      if (_currentIndex == 0) {
+        // Home/Users List screen - Use theme colors, unhide app bar
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ));
+      } else if (_currentIndex == 2) {
+        // Profile screen - special handling to prevent black bar
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        
+        // Force transparent navigation bar for Profile tab
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: Colors.transparent, // Force transparent
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ));
+        
+        // Apply multiple times to ensure it sticks for Profile tab
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted && _currentIndex == 2) {
+            SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarContrastEnforced: false,
+            ));
+          }
+        });
+        
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _currentIndex == 2) {
+            SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarContrastEnforced: false,
+            ));
+          }
+        });
+      } else {
+        // Wallet screen - use theme-appropriate colors
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ));
+      }
     } catch (e) {
       debugPrint('System UI update error: $e');
     }
@@ -153,8 +226,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       });
     }
 
-    // Standard system UI update for all tabs
-    if (mounted) {
+    // Special handling for Profile tab
+    if (index == 2 && mounted) {
+      // Force update system UI for Profile tab with multiple attempts
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _updateSystemUI();
+          
+          // Apply additional times for Profile tab specifically
+          Future.delayed(const Duration(milliseconds: 50), () {
+            if (mounted && _currentIndex == 2) {
+              _updateSystemUI();
+            }
+          });
+          
+          Future.delayed(const Duration(milliseconds: 150), () {
+            if (mounted && _currentIndex == 2) {
+              _updateSystemUI();
+            }
+          });
+          
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted && _currentIndex == 2) {
+              _updateSystemUI();
+            }
+          });
+        }
+      });
+    } else if (mounted) {
+      // Normal system UI update for other tabs
       _updateSystemUI();
     }
   }
@@ -182,22 +282,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isHomeTab = _currentIndex == 0;
+    final isProfileTab = _currentIndex == 2;
 
     return Scaffold(
       extendBody: true,
+      extendBodyBehindAppBar: isProfileTab, // Only profile tab extends behind app bar now
       backgroundColor: modernTheme.backgroundColor,
       
-      // Show AppBar for all tabs consistently
-      appBar: _buildAppBar(modernTheme, isDarkMode),
+      // Show AppBar for home and wallet tabs, hide for profile
+      appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Users List
-          const DiscoverScreen(),
-          // Wallet tab (index 1) - Wallet Screen
+          // Home tab (index 0) - Users List - REMOVED bottom padding
+          const UsersListScreen(),
+          // Wallet tab (index 1) - Wallet Screen - REMOVED bottom padding
           const WalletScreen(),
           // Profile tab (index 2) - MyProfileScreen
           const MyProfileScreen(),
@@ -269,7 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
-    // All tabs use default nav item
+    // All tabs use default nav item now (no special badge for wallet)
     return _buildDefaultNavItem(index, isSelected, modernTheme);
   }
 
@@ -320,7 +423,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? Colors.blue;
 
-    // Show the main WeiBao branding for all tabs
+    // Show the main WeiBao branding for both home and wallet tabs
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,

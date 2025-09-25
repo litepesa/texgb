@@ -1,17 +1,13 @@
 // lib/features/users/screens/my_profile_screen.dart
-// FIXED: Null-safe theme access with fallback values
+// FOCUSED: Profile header only with core profile functions
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -27,20 +23,9 @@ class MyProfileScreen extends ConsumerStatefulWidget {
 class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _isRefreshing = false;
   UserModel? _user;
-  List<VideoModel> _userVideos = [];
   String? _error;
-  final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
   bool _isInitialized = false;
-
-  // Cache manager for video thumbnails
-  static final _thumbnailCacheManager = CacheManager(
-    Config(
-      'userVideoThumbnails',
-      stalePeriod: const Duration(days: 7),
-      maxNrOfCacheObjects: 100,
-    ),
-  );
 
   // Helper method to get safe theme with fallback
   ModernThemeExtension _getSafeTheme(BuildContext context) {
@@ -65,7 +50,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     });
   }
 
-  // NEW: Initialize screen with cached data first
+  // Initialize screen with cached data first
   void _initializeScreen() {
     final currentUser = ref.read(currentUserProvider);
     final isAuthenticated = ref.read(isAuthenticatedProvider);
@@ -79,25 +64,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     }
 
     // Use cached data immediately
-    final videos = ref.read(videosProvider);
-    final userVideos = videos
-        .where((video) => video.userId == currentUser.uid)
-        .take(1)
-        .toList();
-
     setState(() {
       _user = currentUser;
-      _userVideos = userVideos;
       _isInitialized = true;
     });
-
-    // Generate thumbnail for cached video if available
-    if (_userVideos.isNotEmpty) {
-      _generateVideoThumbnail();
-    }
   }
 
-  // UPDATED: Only called by pull-to-refresh
+  // Refresh user data
   Future<void> _refreshUserData() async {
     if (_isRefreshing) return;
 
@@ -135,25 +108,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      // Get user's videos (limited to recent 1 for profile preview)
-      await authNotifier.loadVideos();
-      await authNotifier.loadUserVideos(freshUserProfile.uid);
-
-      final videos = ref.read(videosProvider);
-      final userVideos = videos
-          .where((video) => video.userId == freshUserProfile.uid)
-          .take(1)
-          .toList();
-
       if (mounted) {
         setState(() {
           _user = freshUserProfile;
-          _userVideos = userVideos;
           _isRefreshing = false;
         });
-
-        // Generate thumbnail only for the single post
-        _generateVideoThumbnail();
       }
     } catch (e) {
       debugPrint('Error refreshing user data: $e');
@@ -162,51 +121,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _error = e.toString();
           _isRefreshing = false;
         });
-      }
-    }
-  }
-
-  // Generate thumbnail only for single post
-  Future<void> _generateVideoThumbnail() async {
-    if (_userVideos.isEmpty) return;
-    
-    final video = _userVideos.first;
-    if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
-      try {
-        final cacheKey = 'thumb_${video.id}';
-        final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
-
-        if (fileInfo != null && fileInfo.file.existsSync()) {
-          if (mounted) {
-            setState(() {
-              _videoThumbnails[video.id] = fileInfo.file.path;
-            });
-          }
-        } else {
-          final thumbnailPath = await VideoThumbnail.thumbnailFile(
-            video: video.videoUrl,
-            thumbnailPath: (await getTemporaryDirectory()).path,
-            imageFormat: ImageFormat.JPEG,
-            maxHeight: 400,
-            quality: 85,
-          );
-
-          if (thumbnailPath != null && mounted) {
-            final thumbnailFile = File(thumbnailPath);
-            if (thumbnailFile.existsSync()) {
-              await _thumbnailCacheManager.putFile(
-                cacheKey,
-                thumbnailFile.readAsBytesSync(),
-              );
-            }
-
-            setState(() {
-              _videoThumbnails[video.id] = thumbnailPath;
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint('Error generating thumbnail for video ${video.id}: $e');
       }
     }
   }
@@ -221,25 +135,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     ).then((_) => _refreshUserData()); // Refresh after edit
   }
 
-  void _openVideoDetails(VideoModel video) {
-    Navigator.pushNamed(
-      context,
-      Constants.myPostScreen,
-      arguments: {
-        Constants.videoId: video.id,
-        Constants.videoModel: video,
-      },
-    ).then((_) => _refreshUserData()); // Refresh when coming back
-  }
-
-  void _navigateToManagePosts() {
-    Navigator.pushNamed(
-      context,
-      Constants.managePostsScreen,
-    ).then((_) => _refreshUserData()); // Refresh when coming back
-  }
-
-  // ENHANCED: Profile creation callback with cache clearing
+  // Profile creation callback with cache clearing
   void _onProfileCreated() async {
     debugPrint('Profile created, refreshing data...');
 
@@ -247,9 +143,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
       await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
-
-    // Clear thumbnail cache
-    await _thumbnailCacheManager.emptyCache();
 
     // Force refresh authentication state to get latest user data
     final authNotifier = ref.read(authenticationProvider.notifier);
@@ -387,27 +280,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
       backgroundColor: modernTheme.surfaceColor,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh even when content fits
+        physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh
         child: Column(
           children: [
-            // Profile Header
+            // Profile Header - Main focus
             _buildProfileHeader(modernTheme),
-
-            // Profile Info Card
-            _buildProfileInfoCard(modernTheme),
-
-            // Quick Actions Section
-            _buildQuickActionsSection(modernTheme),
-
-            // Bottom padding for navigation
-            const SizedBox(height: 80),
+            
+            // Add some bottom spacing
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  // Rest of the methods with safe theme access...
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -713,229 +599,5 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Color(0xFFFE2C55).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stats Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                _user!.videosCount.toString(),
-                'Posts',
-                Icons.video_library,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.followers.toString(),
-                'Followers',
-                Icons.people,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.following.toString(),
-                'Following',
-                Icons.person_add,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.likesCount.toString(),
-                'Likes',
-                Icons.favorite,
-                modernTheme,
-              ),
-            ],
-          ),
-
-          // Tags
-          if (_user!.tags.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 32,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _user!.tags.length,
-                itemBuilder: (context, index) {
-                  final tag = _user!.tags[index];
-                  return Container(
-                    margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Text(
-                      '#$tag',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(
-    String count,
-    String label,
-    IconData icon,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-          size: 24,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          count,
-          style: TextStyle(
-            color: modernTheme.textColor ?? Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor ?? Colors.grey[600],
-            fontSize: 14,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          // Manage Posts Button - Primary Action
-          Expanded(
-            flex: 2,
-            child: GestureDetector(
-              onTap: _navigateToManagePosts,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.dashboard,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Manage Posts',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Post Button
-          Expanded(
-            child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, Constants.createPostScreen),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'Post',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method for time ago formatting
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 30) {
-      final months = (difference.inDays / 30).floor();
-      return '$months month${months == 1 ? '' : 's'} ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-    } else {
-      return 'Just now';
-    }
   }
 }
