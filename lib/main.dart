@@ -22,6 +22,7 @@ import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/videos/screens/my_post_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
+import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -148,6 +149,7 @@ class AppRoot extends ConsumerWidget {
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
+          Constants.discoverScreen: (context) => const DiscoverScreen(),
 
           
           // User/Profile routes with enhanced navigation support

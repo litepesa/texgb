@@ -1,6 +1,42 @@
 // lib/features/users/models/user_model.dart
-// CLEANED: Removed drama support, preserved video functionality + lastPostAt
-// FIXED: Backend field mapping compatibility
+
+// User role enum
+enum UserRole {
+  admin('admin'),
+  host('host'), 
+  guest('guest');
+
+  const UserRole(this.value);
+  final String value;
+
+  // Factory method to create UserRole from string
+  static UserRole fromString(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'admin':
+        return UserRole.admin;
+      case 'host':
+        return UserRole.host;
+      case 'guest':
+      default:
+        return UserRole.guest;
+    }
+  }
+
+  // Check if user can post content
+  bool get canPost => this == UserRole.admin || this == UserRole.host;
+
+  // Display name for UI
+  String get displayName {
+    switch (this) {
+      case UserRole.admin:
+        return 'Admin';
+      case UserRole.host:
+        return 'Host';
+      case UserRole.guest:
+        return 'Guest';
+    }
+  }
+}
 
 // User preferences for video features
 class UserPreferences {
@@ -49,6 +85,7 @@ class UserModel {
   // ===============================
   final String uid;
   final String phoneNumber;
+  final String? whatsappNumber; // NEW: WhatsApp contact number (format: 254123456789)
   final String name;
   final String bio;
   final String profileImage;
@@ -58,6 +95,7 @@ class UserModel {
   final int videosCount;
   final int likesCount;
   final bool isVerified;
+  final UserRole role; // NEW: User role (Admin, Host, Guest)
   final List<String> tags;
   final List<String> followerUIDs;
   final List<String> followingUIDs;
@@ -73,6 +111,7 @@ class UserModel {
   UserModel({
     required this.uid,
     required this.phoneNumber,
+    this.whatsappNumber,
     required this.name,
     required this.bio,
     required this.profileImage,
@@ -82,6 +121,7 @@ class UserModel {
     required this.videosCount,
     required this.likesCount,
     required this.isVerified,
+    this.role = UserRole.guest, // Default to guest
     required this.tags,
     required this.followerUIDs,
     required this.followingUIDs,
@@ -101,6 +141,7 @@ class UserModel {
       // FIXED: Handle both camelCase and snake_case field names from backend
       uid: _extractString(map['uid'] ?? map['id']) ?? '',
       phoneNumber: _extractString(map['phoneNumber'] ?? map['phone_number']) ?? '',
+      whatsappNumber: _extractWhatsAppNumber(map['whatsappNumber'] ?? map['whatsapp_number']),
       name: _extractString(map['name']) ?? '',
       bio: _extractString(map['bio']) ?? '',
       profileImage: _extractString(map['profileImage'] ?? map['profile_image']) ?? '',
@@ -110,6 +151,7 @@ class UserModel {
       videosCount: _extractInt(map['videosCount'] ?? map['videos_count']) ?? 0,
       likesCount: _extractInt(map['likesCount'] ?? map['likes_count']) ?? 0,
       isVerified: _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
+      role: UserRole.fromString(map['role'] ?? map['userRole'] ?? map['user_role']),
       tags: _parseStringArray(map['tags']),
       followerUIDs: _parseStringArray(map['followerUIDs'] ?? map['follower_uids'] ?? map['follower_UIDs']),
       followingUIDs: _parseStringArray(map['followingUIDs'] ?? map['following_uids'] ?? map['following_UIDs']),
@@ -153,6 +195,34 @@ class UserModel {
     return null;
   }
 
+  // NEW: Helper method to extract and validate WhatsApp number
+  static String? _extractWhatsAppNumber(dynamic value) {
+    if (value == null) return null;
+    
+    String? numberStr = _extractString(value);
+    if (numberStr == null || numberStr.isEmpty) return null;
+    
+    // Remove any non-digit characters
+    String cleanedNumber = numberStr.replaceAll(RegExp(r'\D'), '');
+    
+    // Validate Kenyan format (254 followed by 9 digits)
+    if (cleanedNumber.length == 12 && cleanedNumber.startsWith('254')) {
+      return cleanedNumber;
+    }
+    
+    // If it starts with 0 and has 10 digits, convert to international format
+    if (cleanedNumber.length == 10 && cleanedNumber.startsWith('0')) {
+      return '254${cleanedNumber.substring(1)}';
+    }
+    
+    // If it has 9 digits, assume it's missing the country code
+    if (cleanedNumber.length == 9) {
+      return '254$cleanedNumber';
+    }
+    
+    return null; // Invalid format
+  }
+
   // Helper method to safely parse string arrays
   static List<String> _parseStringArray(dynamic value) {
     if (value == null) return [];
@@ -179,13 +249,16 @@ class UserModel {
     required String uid,
     required String name,
     required String phoneNumber,
+    String? whatsappNumber,
     required String profileImage,
     required String bio,
+    UserRole role = UserRole.guest, // Default to guest
   }) {
     final now = DateTime.now().toUtc().toIso8601String();
     return UserModel(
       uid: uid,
       phoneNumber: phoneNumber,
+      whatsappNumber: whatsappNumber,
       name: name,
       bio: bio,
       profileImage: profileImage,
@@ -195,6 +268,7 @@ class UserModel {
       videosCount: 0,
       likesCount: 0,
       isVerified: false,
+      role: role,
       tags: [],
       followerUIDs: [],
       followingUIDs: [],
@@ -215,10 +289,12 @@ class UserModel {
       'uid': uid,
       'name': name,
       'phoneNumber': phoneNumber,
+      'whatsappNumber': whatsappNumber,
       'profileImage': profileImage,
       'coverImage': coverImage,
       'bio': bio,
-      'userType': 'user',
+      'userType': 'user', // Keep for backward compatibility
+      'role': role.value, // NEW: User role for PostgreSQL
       'followersCount': followers,
       'followingCount': following,
       'videosCount': videosCount,
@@ -247,6 +323,7 @@ class UserModel {
   UserModel copyWith({
     String? uid,
     String? phoneNumber,
+    String? whatsappNumber,
     String? name,
     String? bio,
     String? profileImage,
@@ -256,6 +333,7 @@ class UserModel {
     int? videosCount,
     int? likesCount,
     bool? isVerified,
+    UserRole? role,
     List<String>? tags,
     List<String>? followerUIDs,
     List<String>? followingUIDs,
@@ -271,6 +349,7 @@ class UserModel {
     return UserModel(
       uid: uid ?? this.uid,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      whatsappNumber: whatsappNumber ?? this.whatsappNumber,
       name: name ?? this.name,
       bio: bio ?? this.bio,
       profileImage: profileImage ?? this.profileImage,
@@ -280,6 +359,7 @@ class UserModel {
       videosCount: videosCount ?? this.videosCount,
       likesCount: likesCount ?? this.likesCount,
       isVerified: isVerified ?? this.isVerified,
+      role: role ?? this.role,
       tags: tags ?? this.tags,
       followerUIDs: followerUIDs ?? this.followerUIDs,
       followingUIDs: followingUIDs ?? this.followingUIDs,
@@ -299,6 +379,27 @@ class UserModel {
   // ===============================
   String get id => uid; // Backward compatibility
 
+  // NEW: Role-based helper methods
+  bool get canPost => role.canPost;
+  bool get isAdmin => role == UserRole.admin;
+  bool get isHost => role == UserRole.host;
+  bool get isGuest => role == UserRole.guest;
+  String get roleDisplayName => role.displayName;
+
+  // NEW: WhatsApp helper methods
+  bool get hasWhatsApp => whatsappNumber != null && whatsappNumber!.isNotEmpty;
+  
+  String? get whatsappLink {
+    if (!hasWhatsApp) return null;
+    return 'https://wa.me/$whatsappNumber';
+  }
+  
+  String? get whatsappLinkWithMessage {
+    if (!hasWhatsApp) return null;
+    String message = Uri.encodeComponent('Hi $name! I found your profile on the app.');
+    return 'https://wa.me/$whatsappNumber?text=$message';
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -310,7 +411,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';
+    return 'UserModel(uid: $uid, name: $name, role: ${role.value}, phoneNumber: $phoneNumber)';
   }
 
   // Timestamp helper methods
@@ -366,6 +467,15 @@ class UserModel {
         'lastPostAt_value': lastPostAt,
         'hasPostedVideos': hasPostedVideos,
         'lastPostTimeAgo': lastPostTimeAgo,
+        'role_info': {
+          'role_value': role.value,
+          'role_display': role.displayName,
+          'can_post': canPost,
+        },
+        'whatsapp_info': {
+          'has_whatsapp': hasWhatsApp,
+          'whatsapp_link': whatsappLink,
+        },
       },
     };
   }
@@ -378,6 +488,13 @@ class UserModel {
     if (phoneNumber.isEmpty) errors.add('Phone number cannot be empty');
     if (name.length > 50) errors.add('Name cannot exceed 50 characters');
     if (bio.length > 160) errors.add('Bio cannot exceed 160 characters');
+    
+    // Validate WhatsApp number format if provided
+    if (whatsappNumber != null && whatsappNumber!.isNotEmpty) {
+      if (!RegExp(r'^254\d{9}$').hasMatch(whatsappNumber!)) {
+        errors.add('WhatsApp number must be in format 254XXXXXXXXX');
+      }
+    }
     
     return errors;
   }

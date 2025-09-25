@@ -182,6 +182,8 @@ class Constants {
   static const String landingScreen = '/landing';
   static const String loginScreen = '/login';
   static const String otpScreen = '/otp';
+
+  static const String discoverScreen = '/discover';
   
   // Main App Routes
   static const String homeScreen = '/home';

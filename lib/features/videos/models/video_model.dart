@@ -1,6 +1,7 @@
 // ===============================
 // lib/features/videos/models/video_model.dart
 // Complete Video Model for PostgreSQL Backend (100% Compatible)
+// Enhanced with Verified Field
 // ===============================
 
 import 'dart:convert';
@@ -24,6 +25,7 @@ class VideoModel {
   final List<String> tags;
   final bool isActive;
   final bool isFeatured;
+  final bool isVerified;  // 🆕 NEW: Verified status from database
   final bool isMultipleImages;
   final List<String> imageUrls;
   final String createdAt; // RFC3339 string format from PostgreSQL
@@ -49,6 +51,7 @@ class VideoModel {
     required this.tags,
     required this.isActive,
     required this.isFeatured,
+    this.isVerified = false, // 🆕 Default verified status is false
     required this.isMultipleImages,
     required this.imageUrls,
     required this.createdAt,
@@ -104,6 +107,7 @@ class VideoModel {
         tags: _parseStringList(json['tags']),
         isActive: _parseBool(json['isActive'] ?? json['is_active'] ?? true),
         isFeatured: _parseBool(json['isFeatured'] ?? json['is_featured'] ?? false),
+        isVerified: _parseBool(json['isVerified'] ?? json['is_verified'] ?? false), // 🆕 Parse verified status
         isMultipleImages: _parseBool(json['isMultipleImages'] ?? json['is_multiple_images'] ?? false),
         imageUrls: _parseStringList(json['imageUrls'] ?? json['image_urls']),
         createdAt: _parseTimestamp(json['createdAt'] ?? json['created_at']),
@@ -132,6 +136,7 @@ class VideoModel {
         tags: [],
         isActive: true,
         isFeatured: false,
+        isVerified: false, // 🆕 Default verified status
         isMultipleImages: false,
         imageUrls: [],
         createdAt: DateTime.now().toIso8601String(),
@@ -383,10 +388,29 @@ class VideoModel {
     return '${engagementRate.toStringAsFixed(1)}%';
   }
 
+  // 🆕 NEW: Verification status helpers
+  /// Returns true if the video is verified
+  bool get isVerifiedContent => isVerified;
+  
+  /// Returns verification status text for display
+  String get verificationStatus => isVerified ? 'Verified' : 'Unverified';
+  
+  /// Returns verification badge emoji/symbol
+  String get verificationBadge => isVerified ? '✓' : '';
+  
+  /// Returns verification badge with text
+  String get verificationBadgeText => isVerified ? '✓ Verified' : '';
+
   // 🔧 NEW: Content type helpers
   bool get isVideoContent => !isMultipleImages && videoUrl.isNotEmpty;
   bool get isImageContent => isMultipleImages && imageUrls.isNotEmpty;
   bool get hasValidContent => isVideoContent || isImageContent;
+
+  /// Returns true if this is premium content (verified and has a price)
+  bool get isPremiumContent => isVerified && price > 0;
+  
+  /// Returns true if this is verified free content
+  bool get isVerifiedFreeContent => isVerified && price == 0;
 
   String get displayUrl {
     if (isImageContent && imageUrls.isNotEmpty) {
@@ -401,6 +425,15 @@ class VideoModel {
   int get mediaCount {
     if (isImageContent) return imageUrls.length;
     return 1; // Single video
+  }
+
+  /// Returns content quality tier based on verification, featured status, and engagement
+  String get contentTier {
+    if (isVerified && isFeatured) return 'Premium+';
+    if (isVerified) return 'Premium';
+    if (isFeatured) return 'Featured';
+    if (engagementRate > 5.0) return 'Popular';
+    return 'Standard';
   }
 
   // 🔧 NEW: Time helpers
@@ -454,6 +487,7 @@ class VideoModel {
       'tags': tags,
       'isActive': isActive,
       'isFeatured': isFeatured,
+      'isVerified': isVerified, // 🆕 Include verification status in JSON
       'isMultipleImages': isMultipleImages,
       'imageUrls': imageUrls,
       'createdAt': createdAt,
@@ -480,6 +514,7 @@ class VideoModel {
     List<String>? tags,
     bool? isActive,
     bool? isFeatured,
+    bool? isVerified, // 🆕 Add verification status to copyWith
     bool? isMultipleImages,
     List<String>? imageUrls,
     String? createdAt,
@@ -503,6 +538,7 @@ class VideoModel {
       tags: tags ?? this.tags,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      isVerified: isVerified ?? this.isVerified, // 🆕 Include verification in copyWith
       isMultipleImages: isMultipleImages ?? this.isMultipleImages,
       imageUrls: imageUrls ?? this.imageUrls,
       createdAt: createdAt ?? this.createdAt,
@@ -533,6 +569,22 @@ class VideoModel {
     return copyWith(
       isLiked: !isLiked,
       likes: isLiked ? likes - 1 : likes + 1,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Toggle verification status
+  VideoModel toggleVerification() {
+    return copyWith(
+      isVerified: !isVerified,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Set verification status
+  VideoModel setVerified(bool verified) {
+    return copyWith(
+      isVerified: verified,
       updatedAt: DateTime.now().toIso8601String(),
     );
   }
@@ -600,7 +652,7 @@ class VideoModel {
   // 🔧 DEBUGGING: toString method
   @override
   String toString() {
-    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, user: $userName)';
+    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, verified: $isVerified, user: $userName)';
   }
 
   // 🔧 DEBUGGING: Detailed debug string
@@ -619,6 +671,7 @@ VideoModel {
   tags: $tags
   isActive: $isActive
   isFeatured: $isFeatured
+  isVerified: $isVerified ✓
   isMultipleImages: $isMultipleImages
   imageUrls: $imageUrls
   videoUrl: $videoUrl
@@ -628,6 +681,8 @@ VideoModel {
   isLiked: $isLiked
   isFollowing: $isFollowing
   engagementRate: ${engagementRate.toStringAsFixed(2)}%
+  contentTier: $contentTier
+  verificationStatus: $verificationStatus
   isValid: $isValid
 }''';
   }
@@ -646,6 +701,10 @@ VideoModel {
 extension VideoModelList on List<VideoModel> {
   List<VideoModel> get activeVideos => where((video) => video.isActive).toList();
   List<VideoModel> get featuredVideos => where((video) => video.isFeatured).toList();
+  List<VideoModel> get verifiedVideos => where((video) => video.isVerified).toList(); // 🆕 Get verified videos
+  List<VideoModel> get unverifiedVideos => where((video) => !video.isVerified).toList(); // 🆕 Get unverified videos
+  List<VideoModel> get premiumVideos => where((video) => video.isPremiumContent).toList(); // 🆕 Get premium videos
+  List<VideoModel> get verifiedFreeVideos => where((video) => video.isVerifiedFreeContent).toList(); // 🆕 Get verified free videos
   List<VideoModel> get imageVideos => where((video) => video.isImageContent).toList();
   List<VideoModel> get videoContent => where((video) => video.isVideoContent).toList();
   
@@ -682,6 +741,38 @@ extension VideoModelList on List<VideoModel> {
         : a.createdAtDateTime.compareTo(b.createdAtDateTime));
     return sorted;
   }
+
+  // 🆕 NEW: Sort by verification status (verified first)
+  List<VideoModel> sortByVerification({bool verifiedFirst = true}) {
+    final sorted = List<VideoModel>.from(this);
+    sorted.sort((a, b) {
+      if (verifiedFirst) {
+        // Verified videos first
+        if (a.isVerified && !b.isVerified) return -1;
+        if (!a.isVerified && b.isVerified) return 1;
+        return 0; // Same verification status
+      } else {
+        // Unverified videos first
+        if (!a.isVerified && b.isVerified) return -1;
+        if (a.isVerified && !b.isVerified) return 1;
+        return 0; // Same verification status
+      }
+    });
+    return sorted;
+  }
+
+  // 🆕 NEW: Sort by content tier
+  List<VideoModel> sortByContentTier() {
+    final sorted = List<VideoModel>.from(this);
+    final tierOrder = {'Premium+': 0, 'Premium': 1, 'Featured': 2, 'Popular': 3, 'Standard': 4};
+    
+    sorted.sort((a, b) {
+      final aTier = tierOrder[a.contentTier] ?? 5;
+      final bTier = tierOrder[b.contentTier] ?? 5;
+      return aTier.compareTo(bTier);
+    });
+    return sorted;
+  }
   
   List<VideoModel> filterByUser(String userId) {
     return where((video) => video.userId == userId).toList();
@@ -694,6 +785,22 @@ extension VideoModelList on List<VideoModel> {
   List<VideoModel> filterByPriceRange(double minPrice, double maxPrice) {
     return where((video) => video.price >= minPrice && video.price <= maxPrice).toList();
   }
+
+  // 🆕 NEW: Filter by verification status
+  List<VideoModel> filterByVerification(bool isVerified) {
+    return where((video) => video.isVerified == isVerified).toList();
+  }
+
+  // 🆕 NEW: Filter by content tier
+  List<VideoModel> filterByContentTier(String tier) {
+    return where((video) => video.contentTier == tier).toList();
+  }
+
+  // 🆕 NEW: Filter premium content (verified + priced)
+  List<VideoModel> get premiumContent => where((video) => video.isPremiumContent).toList();
+
+  // 🆕 NEW: Filter free verified content
+  List<VideoModel> get freeVerifiedContent => where((video) => video.isVerifiedFreeContent).toList();
   
   List<VideoModel> search(String query) {
     return where((video) => video.containsQuery(query)).toList();
@@ -704,7 +811,32 @@ extension VideoModelList on List<VideoModel> {
   int get totalComments => fold<int>(0, (sum, video) => sum + video.comments);
   int get totalShares => fold<int>(0, (sum, video) => sum + video.shares);
   double get totalPrice => fold<double>(0.0, (sum, video) => sum + video.price);
-  
+
+  // 🆕 NEW: Verification statistics
+  int get verifiedCount => where((video) => video.isVerified).length;
+  int get unverifiedCount => where((video) => !video.isVerified).length;
+  double get verificationPercentage {
+    if (isEmpty) return 0.0;
+    return (verifiedCount / length) * 100;
+  }
+
+  // 🆕 NEW: Content tier statistics
+  Map<String, int> get contentTierBreakdown {
+    final breakdown = <String, int>{};
+    for (final video in this) {
+      final tier = video.contentTier;
+      breakdown[tier] = (breakdown[tier] ?? 0) + 1;
+    }
+    return breakdown;
+  }
+
+  // 🆕 NEW: Premium content statistics
+  int get premiumContentCount => where((video) => video.isPremiumContent).length;
+  double get premiumContentPercentage {
+    if (isEmpty) return 0.0;
+    return (premiumContentCount / length) * 100;
+  }
+
   double get averageEngagementRate {
     if (isEmpty) return 0.0;
     final totalEngagement = fold<double>(0.0, (sum, video) => sum + video.engagementRate);
@@ -714,5 +846,53 @@ extension VideoModelList on List<VideoModel> {
   double get averagePrice {
     if (isEmpty) return 0.0;
     return totalPrice / length;
+  }
+
+  // 🆕 NEW: Average engagement rate for verified vs unverified content
+  double get verifiedAverageEngagement {
+    final verified = verifiedVideos;
+    if (verified.isEmpty) return 0.0;
+    final totalEngagement = verified.fold<double>(0.0, (sum, video) => sum + video.engagementRate);
+    return totalEngagement / verified.length;
+  }
+
+  double get unverifiedAverageEngagement {
+    final unverified = unverifiedVideos;
+    if (unverified.isEmpty) return 0.0;
+    final totalEngagement = unverified.fold<double>(0.0, (sum, video) => sum + video.engagementRate);
+    return totalEngagement / unverified.length;
+  }
+
+  // 🆕 NEW: Top performers by category
+  List<VideoModel> get topVerifiedVideos => verifiedVideos.sortByEngagement().take(10).toList();
+  List<VideoModel> get topPremiumVideos => premiumVideos.sortByEngagement().take(10).toList();
+  
+  // 🆕 NEW: Content quality score
+  double get overallQualityScore {
+    if (isEmpty) return 0.0;
+    
+    double score = 0.0;
+    for (final video in this) {
+      double videoScore = 0.0;
+      
+      // Base engagement score (0-40 points)
+      videoScore += (video.engagementRate * 4).clamp(0.0, 40.0);
+      
+      // Verification bonus (0-20 points)
+      if (video.isVerified) videoScore += 20;
+      
+      // Featured bonus (0-15 points)
+      if (video.isFeatured) videoScore += 15;
+      
+      // Premium content bonus (0-10 points)
+      if (video.isPremiumContent) videoScore += 10;
+      
+      // Activity bonus (0-15 points)
+      if (video.isActive) videoScore += 15;
+      
+      score += videoScore;
+    }
+    
+    return score / length; // Average quality score per video (0-100)
   }
 }

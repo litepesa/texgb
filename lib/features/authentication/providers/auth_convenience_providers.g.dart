@@ -6,7 +6,7 @@ part of 'auth_convenience_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$currentUserHash() => r'529ed623bf348fec13ef995c4a9323a13ee1f34c';
+String _$currentUserHash() => r'9fe48b5c7c981b041c10ec03620a3569e1ea328e';
 
 /// See also [currentUser].
 @ProviderFor(currentUser)
@@ -22,7 +22,7 @@ final currentUserProvider = AutoDisposeProvider<UserModel?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CurrentUserRef = AutoDisposeProviderRef<UserModel?>;
-String _$isAuthenticatedHash() => r'5f08675841f2eaef89a02ee2dc1779a354d4c2a9';
+String _$isAuthenticatedHash() => r'26e01c267d69e672ac8ec3fe4bd65ae68c385de6';
 
 /// See also [isAuthenticated].
 @ProviderFor(isAuthenticated)
@@ -39,7 +39,7 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
-String _$isGuestHash() => r'8a15d7c28100122778dbe3ef182ee73cff785163';
+String _$isGuestHash() => r'cb5db5b177f8e99d64a2953ce565c70efa9b2537';
 
 /// See also [isGuest].
 @ProviderFor(isGuest)
@@ -55,7 +55,7 @@ final isGuestProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsGuestRef = AutoDisposeProviderRef<bool>;
-String _$isAuthLoadingHash() => r'1ad130b592bcdfe841cbc04ac68187f53391e982';
+String _$isAuthLoadingHash() => r'0e20e2a02e43e83135cc09ba0863bbc54ba2fa90';
 
 /// See also [isAuthLoading].
 @ProviderFor(isAuthLoading)
@@ -72,7 +72,7 @@ final isAuthLoadingProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAuthLoadingRef = AutoDisposeProviderRef<bool>;
-String _$isUploadingHash() => r'4403576869f06be200f4e212d09d4f76a8443f65';
+String _$isUploadingHash() => r'c6b589f32b0935ab4c4edff9b1dcadd59b5f1dc4';
 
 /// See also [isUploading].
 @ProviderFor(isUploading)
@@ -88,7 +88,7 @@ final isUploadingProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsUploadingRef = AutoDisposeProviderRef<bool>;
-String _$uploadProgressHash() => r'4f655e72970a6ec5f16fadd00d02521e9fb77336';
+String _$uploadProgressHash() => r'ec7f4378c401e65d5ce5f5ee77379c4f1825c56a';
 
 /// See also [uploadProgress].
 @ProviderFor(uploadProgress)
@@ -105,7 +105,7 @@ final uploadProgressProvider = AutoDisposeProvider<double>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef UploadProgressRef = AutoDisposeProviderRef<double>;
-String _$currentUserIdHash() => r'8ba9ddf26b5730be5a103e18e938c8c55df38562';
+String _$currentUserIdHash() => r'66b9e27760180e2bcc7b9bf5951c1dc56872d11b';
 
 /// See also [currentUserId].
 @ProviderFor(currentUserId)
@@ -123,7 +123,7 @@ final currentUserIdProvider = AutoDisposeProvider<String?>.internal(
 // ignore: unused_element
 typedef CurrentUserIdRef = AutoDisposeProviderRef<String?>;
 String _$currentPhoneNumberHash() =>
-    r'7d5c3d148e21adfb182e06e5746b4365f38be0f9';
+    r'1d4f471252cb85ef44a5348d7ac58514dcd7f4fb';
 
 /// See also [currentPhoneNumber].
 @ProviderFor(currentPhoneNumber)
@@ -140,7 +140,7 @@ final currentPhoneNumberProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CurrentPhoneNumberRef = AutoDisposeProviderRef<String?>;
-String _$videosHash() => r'4388f94b9c08eeee24a65ac306978b4ec09b26d7';
+String _$videosHash() => r'68c65e599ae60304ff3efecf659cbfc2d068f070';
 
 /// See also [videos].
 @ProviderFor(videos)
@@ -156,7 +156,7 @@ final videosProvider = AutoDisposeProvider<List<VideoModel>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef VideosRef = AutoDisposeProviderRef<List<VideoModel>>;
-String _$usersHash() => r'daa3a6192b43347c334ed5225cd23ffd3b2f33ac';
+String _$usersHash() => r'347cb457fff55a09b087d3edba9f4d0faa8ca2ce';
 
 /// See also [users].
 @ProviderFor(users)
@@ -172,7 +172,7 @@ final usersProvider = AutoDisposeProvider<List<UserModel>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef UsersRef = AutoDisposeProviderRef<List<UserModel>>;
-String _$likedVideosHash() => r'339c7246661a64013a1d4e5032ad480903f00c44';
+String _$likedVideosHash() => r'a78615342b14154b15eb455de00bbde8a01725be';
 
 /// See also [likedVideos].
 @ProviderFor(likedVideos)
@@ -188,7 +188,7 @@ final likedVideosProvider = AutoDisposeProvider<List<String>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef LikedVideosRef = AutoDisposeProviderRef<List<String>>;
-String _$followedUsersHash() => r'0f53ff834044f21e6746ea100e8787f1fae52fa4';
+String _$followedUsersHash() => r'd8a37fefd528ac31729d96dd096c11a6ea5f1bb1';
 
 /// See also [followedUsers].
 @ProviderFor(followedUsers)
@@ -486,7 +486,7 @@ class _IsUserFollowedProviderElement extends AutoDisposeProviderElement<bool>
   String get userId => (origin as IsUserFollowedProvider).userId;
 }
 
-String _$authStateHash() => r'44f547cd5a7093e6a8a2a36825413e511e3ca087';
+String _$authStateHash() => r'7c8e6c2b335da7a0778bcabe8d53bf1de4bfafd6';
 
 /// See also [authState].
 @ProviderFor(authState)
@@ -502,7 +502,7 @@ final authStateProvider = AutoDisposeProvider<AuthState>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthStateRef = AutoDisposeProviderRef<AuthState>;
-String _$authErrorHash() => r'3fa9259264e746a5fd8132b3e504d7c269abd06b';
+String _$authErrorHash() => r'0362323894cac7b52ed1d01c3be442f428e87d1f';
 
 /// See also [authError].
 @ProviderFor(authError)
@@ -518,94 +518,5 @@ final authErrorProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthErrorRef = AutoDisposeProviderRef<String?>;
-String _$isAppInitializingHash() => r'382ebd6068a208a2dd59d4d9c8fe23c886326683';
-
-/// See also [isAppInitializing].
-@ProviderFor(isAppInitializing)
-final isAppInitializingProvider = AutoDisposeProvider<bool>.internal(
-  isAppInitializing,
-  name: r'isAppInitializingProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$isAppInitializingHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef IsAppInitializingRef = AutoDisposeProviderRef<bool>;
-String _$authenticationStateOrNullHash() =>
-    r'fcbb213bfd208dd2aa3d1ebc9a4654ab3b72f970';
-
-/// See also [authenticationStateOrNull].
-@ProviderFor(authenticationStateOrNull)
-final authenticationStateOrNullProvider =
-    AutoDisposeProvider<AuthenticationState?>.internal(
-  authenticationStateOrNull,
-  name: r'authenticationStateOrNullProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$authenticationStateOrNullHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef AuthenticationStateOrNullRef
-    = AutoDisposeProviderRef<AuthenticationState?>;
-String _$hasCachedDataHash() => r'b4cc8bdce0900048738c8a50908da1fdcbb4512b';
-
-/// See also [hasCachedData].
-@ProviderFor(hasCachedData)
-final hasCachedDataProvider = AutoDisposeProvider<bool>.internal(
-  hasCachedData,
-  name: r'hasCachedDataProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$hasCachedDataHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef HasCachedDataRef = AutoDisposeProviderRef<bool>;
-String _$safeAuthStateHash() => r'53363eccbb789fc8b82e9f5070ef8600ee2bba7f';
-
-/// See also [safeAuthState].
-@ProviderFor(safeAuthState)
-final safeAuthStateProvider = AutoDisposeProvider<AuthState>.internal(
-  safeAuthState,
-  name: r'safeAuthStateProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$safeAuthStateHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef SafeAuthStateRef = AutoDisposeProviderRef<AuthState>;
-String _$needsProfileCreationHash() =>
-    r'ecb4f2592261eb74fec0d4cc2e372c82a66e7d55';
-
-/// See also [needsProfileCreation].
-@ProviderFor(needsProfileCreation)
-final needsProfileCreationProvider = AutoDisposeProvider<bool>.internal(
-  needsProfileCreation,
-  name: r'needsProfileCreationProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$needsProfileCreationHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef NeedsProfileCreationRef = AutoDisposeProviderRef<bool>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
