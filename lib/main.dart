@@ -335,26 +335,6 @@ class UserNavigationHelper {
     );
   }
 
-  // Navigate to video reaction chat (NEW)
-  static void navigateToVideoReactionChat(
-    BuildContext context, {
-    required String chatId,
-    required UserModel contact,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.videoReactionChatScreen,
-      arguments: {
-        'chatId': chatId,
-        'contact': contact,
-      },
-    );
-  }
-
-  // Navigate to video reactions list (NEW)
-  static void navigateToVideoReactionsList(BuildContext context) {
-    Navigator.pushNamed(context, Constants.videoReactionsListScreen);
-  }
 
   // Navigate to create post (requires authentication)
   static void navigateToCreatePost(BuildContext context) {
