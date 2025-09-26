@@ -1,5 +1,5 @@
 // lib/features/users/screens/my_profile_screen.dart
-// FOCUSED: Profile header only with core profile functions
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,12 +20,19 @@ class MyProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
+    with AutomaticKeepAliveClientMixin {
+  
+  // CRITICAL FIX: Keep state alive to prevent blank screen issues
+  @override
+  bool get wantKeepAlive => true;
+  
   bool _isRefreshing = false;
   UserModel? _user;
   String? _error;
   bool _hasNoProfile = false;
   bool _isInitialized = false;
+  bool _isDisposed = false;
 
   // Helper method to get safe theme with fallback
   ModernThemeExtension _getSafeTheme(BuildContext context) {
@@ -45,34 +52,117 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('MyProfileScreen: initState called');
+    
+    // CRITICAL FIX: Immediate initialization without waiting for post-frame callback
+    _initializeScreenImmediate();
+    
+    // Also schedule a post-frame callback as backup
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeScreen();
+      if (!_isDisposed && mounted) {
+        _initializeScreen();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    debugPrint('MyProfileScreen: dispose called');
+    super.dispose();
+  }
+
+  // CRITICAL FIX: Immediate initialization to prevent blank screen
+  void _initializeScreenImmediate() {
+    if (_isDisposed || !mounted) return;
+    
+    try {
+      debugPrint('MyProfileScreen: Immediate initialization started');
+      
+      final currentUser = ref.read(currentUserProvider);
+      final isAuthenticated = ref.read(isAuthenticatedProvider);
+      final authState = ref.read(authStateProvider);
+
+      debugPrint('MyProfileScreen: Auth state: $authState, User: ${currentUser?.name}, Authenticated: $isAuthenticated');
+
+      if (!isAuthenticated || currentUser == null) {
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _hasNoProfile = true;
+            _isInitialized = true;
+            _user = null;
+            _error = null;
+          });
+        }
+        debugPrint('MyProfileScreen: User not authenticated, showing login required');
+        return;
+      }
+
+      // Use cached data immediately
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _user = currentUser;
+          _isInitialized = true;
+          _hasNoProfile = false;
+          _error = null;
+        });
+      }
+      
+      debugPrint('MyProfileScreen: Immediate initialization completed with user: ${currentUser.name}');
+    } catch (e) {
+      debugPrint('MyProfileScreen: Error in immediate initialization: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _error = e.toString();
+          _isInitialized = true;
+        });
+      }
+    }
   }
 
   // Initialize screen with cached data first
   void _initializeScreen() {
-    final currentUser = ref.read(currentUserProvider);
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (_isDisposed || !mounted) return;
+    
+    try {
+      debugPrint('MyProfileScreen: Post-frame initialization started');
+      
+      final currentUser = ref.read(currentUserProvider);
+      final isAuthenticated = ref.read(isAuthenticatedProvider);
 
-    if (!isAuthenticated || currentUser == null) {
-      setState(() {
-        _hasNoProfile = true;
-        _isInitialized = true;
-      });
-      return;
+      if (!isAuthenticated || currentUser == null) {
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _hasNoProfile = true;
+            _isInitialized = true;
+          });
+        }
+        return;
+      }
+
+      // Use cached data immediately if not already set
+      if (_user == null && mounted && !_isDisposed) {
+        setState(() {
+          _user = currentUser;
+          _isInitialized = true;
+        });
+      }
+      
+      debugPrint('MyProfileScreen: Post-frame initialization completed');
+    } catch (e) {
+      debugPrint('MyProfileScreen: Error in post-frame initialization: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _error = e.toString();
+          _isInitialized = true;
+        });
+      }
     }
-
-    // Use cached data immediately
-    setState(() {
-      _user = currentUser;
-      _isInitialized = true;
-    });
   }
 
   // Refresh user data
   Future<void> _refreshUserData() async {
-    if (_isRefreshing) return;
+    if (_isRefreshing || _isDisposed || !mounted) return;
 
     setState(() {
       _isRefreshing = true;
@@ -85,7 +175,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       final isAuthenticated = ref.read(isAuthenticatedProvider);
 
       if (!isAuthenticated || currentUser == null) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() {
             _hasNoProfile = true;
             _isRefreshing = false;
@@ -99,7 +189,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       final freshUserProfile = await authNotifier.getUserProfile();
 
       if (freshUserProfile == null) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() {
             _hasNoProfile = true;
             _isRefreshing = false;
@@ -108,7 +198,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _user = freshUserProfile;
           _isRefreshing = false;
@@ -116,7 +206,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       }
     } catch (e) {
       debugPrint('Error refreshing user data: $e');
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _error = e.toString();
           _isRefreshing = false;
@@ -126,17 +216,23 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
 
   void _editProfile() {
-    if (_user == null) return;
+    if (_user == null || _isDisposed) return;
 
     Navigator.pushNamed(
       context,
       Constants.editProfileScreen,
       arguments: _user,
-    ).then((_) => _refreshUserData()); // Refresh after edit
+    ).then((_) {
+      if (mounted && !_isDisposed) {
+        _refreshUserData();
+      }
+    });
   }
 
   // Profile creation callback with cache clearing
   void _onProfileCreated() async {
+    if (_isDisposed) return;
+    
     debugPrint('Profile created, refreshing data...');
 
     // Clear any cached network images
@@ -149,13 +245,24 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     await authNotifier.loadUserDataFromSharedPreferences();
 
     // Reload the screen data after profile creation
-    await _refreshUserData();
+    if (mounted && !_isDisposed) {
+      await _refreshUserData();
+    }
 
     debugPrint('Profile data refreshed');
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
+    // CRITICAL FIX: Prevent build during disposal
+    if (_isDisposed) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
     final modernTheme = _getSafeTheme(context);
 
     return Scaffold(
@@ -280,7 +387,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
       backgroundColor: modernTheme.surfaceColor,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
             // Profile Header - Main focus
