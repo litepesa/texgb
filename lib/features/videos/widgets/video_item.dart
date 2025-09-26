@@ -384,7 +384,17 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
+  void _handleFollowToggle() async {
+    final canInteract = await _requireAuthentication('follow users');
+    if (!canInteract) return;
 
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    authNotifier.followUser(widget.video.userId);
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   void _toggleCaptionExpansion() {
     setState(() {
@@ -454,6 +464,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ),
 
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
+          if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -833,12 +844,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         children: [
           _buildUserNameWithVerification(),
           const SizedBox(height: 6),
-          if (widget.video.caption.isNotEmpty) ...[
-            _buildSmartCaption(),
-            const SizedBox(height: 8),
-          ],
-          // UPDATED: Replace timestamp with price display
-          _buildPriceDisplay(),
+          _buildSmartCaption(),
+          const SizedBox(height: 8),
+          _buildTimestampDisplay(),
         ],
       ),
     );
@@ -963,65 +971,92 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // NEW: Price display matching the exact format from channel_video_item.dart
-  Widget _buildPriceDisplay() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF4CAF50), // Green start
-            Color(0xFF2E7D32), // Darker green end
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  String _getRelativeTime() {
+    final now = DateTime.now();
+    final videoTime = _parseVideoTimestamp();
+    final difference = now.difference(videoTime);
+
+    if (difference.inSeconds < 30) {
+      return 'Just now';
+    } else if (difference.inSeconds < 60) {
+      return 'Less than a minute ago';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return hours == 1 ? '1 hour ago' : '$hours hours ago';
+    } else if (difference.inDays < 7) {
+      final days = difference.inDays;
+      return days == 1 ? 'Yesterday' : '$days days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return months == 1 ? '1 month ago' : '$months months ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return years == 1 ? '1 year ago' : '$years years ago';
+    }
+  }
+
+  String _getFormattedDateTime() {
+    final videoTime = _parseVideoTimestamp();
+    final now = DateTime.now();
+    final difference = now.difference(videoTime);
+
+    if (difference.inDays == 0) {
+      return 'Today ${_formatTime(videoTime)}';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday ${_formatTime(videoTime)}';
+    } else if (difference.inDays < 7) {
+      return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
+    } else {
+      return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour == 0
+        ? 12
+        : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  String _formatDayOfWeek(DateTime dateTime) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dateTime.weekday % 7];
+  }
+
+  String _formatDate(DateTime dateTime) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[dateTime.month - 1]} ${dateTime.day}';
+  }
+
+  Widget _buildTimestampDisplay() {
+    final timestampStyle = TextStyle(
+      color: Colors.white.withOpacity(0.7),
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Price icon
-          const Icon(
-            Icons.local_offer,
-            color: Colors.white,
-            size: 16,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                blurRadius: 2,
-              ),
-            ],
-          ),
-          const SizedBox(width: 6),
-          // Price text using video.formattedPrice (assuming VideoModel has this property)
-          Text(
-            widget.video.formattedPrice, // Use real price from model
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
+    );
+
+    return Text(
+      _getRelativeTime(),
+      style: timestampStyle,
     );
   }
 
@@ -1058,7 +1093,46 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
+  Widget _buildTopLeftFollowButton() {
+    final videoUser = _getUserDataIfAvailable();
+    final currentUser = ref.watch(currentUserProvider);
 
+    if (videoUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isOwner =
+        currentUser != null && currentUser.uid == widget.video.userId;
+    if (isOwner) return const SizedBox.shrink();
+
+    final followedUsers = ref.watch(followedUsersProvider);
+    final isFollowing = followedUsers.contains(widget.video.userId);
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 16,
+      left: 16,
+      child: AnimatedScale(
+        scale: isFollowing ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: AnimatedOpacity(
+          opacity: isFollowing ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          child: GestureDetector(
+            onTap: _handleFollowToggle,
+            child: const Text(
+              'Follow',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   String _formatCount(int count) {
     if (count < 1000) {

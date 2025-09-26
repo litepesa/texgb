@@ -1206,7 +1206,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       child: Column(
         children: [
           // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of video reactions
-          GestureDetector(
+          /*GestureDetector(
             onTap: () => _openWhatsAppWithVideo(currentVideo),
             child: Column(
               children: [
@@ -1223,7 +1223,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Like button
           _buildRightMenuItem(
@@ -1249,6 +1249,58 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
             label: _formatCount(currentVideo?.comments ?? 0),
             onTap: () => _showCommentsForCurrentVideo(currentVideo),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Download button (replaced star/bookmark)
+          _buildRightMenuItem(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Show progress indicator if downloading
+                if (_downloadingVideos[currentVideo?.id] == true)
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      value: _downloadProgress[currentVideo?.id] ?? 0.0,
+                      color: Colors.white,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.download,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+              ],
+            ),
+            label: _downloadingVideos[currentVideo?.id] == true
+                ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
+                : 'Save',
+            onTap: () => _downloadCurrentVideo(currentVideo),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Gift button - with exciting emoji
+          _buildRightMenuItem(
+            child: const Text(
+              '🎁',
+              style: TextStyle(
+                fontSize: 28,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+            onTap: () => _showVirtualGifts(currentVideo),
           ),
 
           const SizedBox(height: 10),

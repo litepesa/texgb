@@ -1,5 +1,5 @@
 // lib/features/users/screens/users_list_screen.dart
-// FIXED: Null-safe theme access with fallback values
+// UPDATED: Replaced verification system with live streaming system
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +26,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   bool _isLoadingInitial = false;
   String? _error;
   
-  final List<String> categories = ['All', 'Following', 'Verified'];
+  final List<String> categories = ['All', 'Following', 'Live'];
 
   @override
   void initState() {
@@ -137,9 +137,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
             .where((user) => followedUsers.contains(user.id))
             .toList();
         break;
-      case 'Verified':
+      case 'Live':
         filteredList = users
-            .where((user) => user.isVerified)
+            .where((user) => user.isLive) // UPDATED: Filter by live status instead of verification
             .toList();
         break;
       default: // 'All'
@@ -157,9 +157,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     
     // Sort by latest activity - most recent first
     filteredList.sort((a, b) {
-      // Verified users always come first
-      if (a.isVerified && !b.isVerified) return -1;
-      if (!a.isVerified && b.isVerified) return 1;
+      // Live users always come first
+      if (a.isLive && !b.isLive) return -1;
+      if (!a.isLive && b.isLive) return 1;
       
       // Then sort by last activity
       final aLastPost = a.lastPostAtDateTime;
@@ -489,8 +489,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     switch (category) {
       case 'Following':
         return Icons.favorite;
-      case 'Verified':
-        return Icons.verified;
+      case 'Live':
+        return Icons.live_tv; // UPDATED: Live icon instead of verified
       default:
         return Icons.people;
     }
@@ -805,8 +805,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     switch (_selectedCategory) {
       case 'Following':
         return Icons.favorite_outline;
-      case 'Verified':
-        return Icons.verified_outlined;
+      case 'Live':
+        return Icons.live_tv_outlined; // UPDATED: Live icon
       default:
         return Icons.people_outline;
     }
@@ -816,8 +816,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     switch (_selectedCategory) {
       case 'Following':
         return 'No Followed Users';
-      case 'Verified':
-        return 'No Verified Users';
+      case 'Live':
+        return 'No Live Users'; // UPDATED: Live users instead of verified
       default:
         return 'No Users Available';
     }
@@ -827,8 +827,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     switch (_selectedCategory) {
       case 'Following':
         return 'Start following users to see them here';
-      case 'Featured':
-        return 'Featured creators will appear here when available';
+      case 'Live':
+        return 'Live creators will appear here when streaming'; // UPDATED: Live subtitle
       default:
         return 'Users will appear here when they join WeiBao';
     }
@@ -839,6 +839,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     final isFollowing = followedUsers.contains(user.id);
     final theme = _getSafeTheme(context);
 
+    // UPDATED: All users now use premium styling (previously only verified users)
+    // Live users get even more special treatment with different colors
+    final isLive = user.isLive;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -846,16 +850,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
         color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: user.isVerified 
-            ? Colors.blue.withOpacity(0.3)
-            : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-          width: user.isVerified ? 1.5 : 1,
+          color: isLive 
+            ? Colors.red.withOpacity(0.4) // UPDATED: Red border for live users
+            : Colors.blue.withOpacity(0.3), // UPDATED: All users get blue border (previously only verified)
+          width: isLive ? 2 : 1.5, // UPDATED: Thicker border for live users
         ),
         boxShadow: [
           BoxShadow(
-            color: user.isVerified 
-              ? Colors.blue.withOpacity(0.12)
-              : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            color: isLive 
+              ? Colors.red.withOpacity(0.15) // UPDATED: Red shadow for live users
+              : Colors.blue.withOpacity(0.12), // UPDATED: All users get blue shadow
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: -4,
@@ -875,20 +879,25 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(12),
-            decoration: user.isVerified ? BoxDecoration(
+            decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Colors.blue.withOpacity(0.05),
-                  Colors.transparent,
-                ],
+                colors: isLive 
+                  ? [
+                      Colors.red.withOpacity(0.08), // UPDATED: Red gradient for live users
+                      Colors.transparent,
+                    ]
+                  : [
+                      Colors.blue.withOpacity(0.05), // UPDATED: All users get blue gradient
+                      Colors.transparent,
+                    ],
               ),
-            ) : null,
+            ),
             child: Row(
               children: [
-                // Enhanced User Avatar
+                // Enhanced User Avatar - REMOVED verified icon from all users
                 Stack(
                   children: [
                     AnimatedContainer(
@@ -898,16 +907,14 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: user.isVerified ? LinearGradient(
-                          colors: [Colors.blue.shade300, Colors.indigo.shade400],
-                        ) : null,
-                        border: !user.isVerified ? Border.all(
-                          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
-                          width: 1,
-                        ) : null,
+                        gradient: LinearGradient(
+                          colors: isLive 
+                            ? [Colors.red.shade300, Colors.red.shade600] // UPDATED: Red gradient for live users
+                            : [Colors.blue.shade300, Colors.indigo.shade400], // UPDATED: All users get gradient
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: (user.isVerified ? Colors.blue : (theme.primaryColor ?? const Color(0xFFFE2C55)))
+                            color: (isLive ? Colors.red : Colors.blue)
                                 .withOpacity(0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -970,27 +977,28 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       ),
                     ),
                     
-                    // Verified indicator on avatar
-                    if (user.isVerified)
+                    // UPDATED: Live indicator on avatar (replaces verified icon)
+                    if (isLive)
                       Positioned(
                         top: -2,
                         right: -2,
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.blue,
+                            color: Colors.red,
                             shape: BoxShape.circle,
                             border: Border.all(color: theme.surfaceColor ?? Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withOpacity(0.3),
-                                blurRadius: 4,
+                                color: Colors.red.withOpacity(0.4),
+                                blurRadius: 6,
                                 offset: const Offset(0, 1),
+                                spreadRadius: 1,
                               ),
                             ],
                           ),
                           child: const Icon(
-                            Icons.verified_rounded,
+                            Icons.circle,
                             color: Colors.white,
                             size: 10,
                           ),
@@ -1007,17 +1015,49 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // User name without verified badge (more space for longer names)
-                      Text(
-                        user.name,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: theme.textColor ?? Colors.black,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      // User name - now shows live status inline if live
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user.name,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: theme.textColor ?? Colors.black,
+                                letterSpacing: -0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isLive) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       
                       const SizedBox(height: 4),
@@ -1051,95 +1091,46 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       
                       const SizedBox(height: 4),
                       
-                      // Both verification status AND activity status
-                      Row(
-                        children: [
-                          // Verification status badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: user.isVerified ? Colors.blue : (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: user.isVerified ? [
-                                BoxShadow(
-                                  color: Colors.blue.withOpacity(0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ] : null,
-                              border: !user.isVerified ? Border.all(
-                                color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
-                                width: 1,
-                              ) : null,
+                      // UPDATED: Only show activity status (removed verification status completely)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isLive 
+                            ? Colors.red.withOpacity(0.1) // UPDATED: Red background for live users
+                            : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isLive ? Icons.circle : Icons.schedule_rounded,
+                              size: 10,
+                              color: isLive 
+                                ? Colors.red 
+                                : theme.primaryColor ?? const Color(0xFFFE2C55),
                             ),
-                            child: user.isVerified 
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.verified_rounded,
-                                      color: Colors.white,
-                                      size: 10,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'Verified',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  'Unverified',
-                                  style: TextStyle(
-                                    color: theme.textSecondaryColor ?? Colors.grey[600],
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.2,
-                                  ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                isLive 
+                                  ? 'Live now' // UPDATED: Special text for live users
+                                  : user.lastPostAt != null 
+                                    ? 'Active ${user.lastPostTimeAgo}'
+                                    : 'No posts',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isLive 
+                                    ? Colors.red 
+                                    : theme.primaryColor ?? const Color(0xFFFE2C55),
+                                  fontWeight: FontWeight.w600,
                                 ),
-                          ),
-                          
-                          const SizedBox(width: 8),
-                          
-                          // Activity status
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(6),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.schedule_rounded,
-                                  size: 10,
-                                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                                ),
-                                const SizedBox(width: 3),
-                                Flexible(
-                                  child: Text(
-                                    user.lastPostAt != null 
-                                      ? 'Active ${user.lastPostTimeAgo}'
-                                      : 'No posts',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -1292,7 +1283,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   }
 }
 
-// Search Delegate for User Search
+// Search Delegate for User Search - UPDATED to reflect live system
 class UserSearchDelegate extends SearchDelegate<UserModel?> {
   final WidgetRef ref;
 
@@ -1483,6 +1474,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
               final user = filteredUsers[index];
               final followedUsers = ref.watch(followedUsersProvider);
               final isFollowing = followedUsers.contains(user.id);
+              final isLive = user.isLive; // UPDATED: Check live status instead of verification
               
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -1491,11 +1483,15 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   color: theme.surfaceColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                    color: isLive 
+                      ? Colors.red.withOpacity(0.3) // UPDATED: Red border for live users
+                      : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: isLive 
+                        ? Colors.red.withOpacity(0.1) // UPDATED: Red shadow for live users
+                        : Colors.black.withOpacity(0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1520,7 +1516,9 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                            color: isLive 
+                              ? Colors.red.withOpacity(0.3) // UPDATED: Red border for live users
+                              : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
                           ),
                         ),
                         child: ClipRRect(
@@ -1587,12 +1585,23 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (user.isVerified) ...[
+                                if (isLive) ...[
                                   const SizedBox(width: 6),
-                                  const Icon(
-                                    Icons.verified,
-                                    color: Colors.blue,
-                                    size: 16,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: const Text(
+                                      'LIVE',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ],

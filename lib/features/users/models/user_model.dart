@@ -95,6 +95,7 @@ class UserModel {
   final int videosCount;
   final int likesCount;
   final bool isVerified;
+  final bool isLive; // NEW: Live streaming status
   final UserRole role; // NEW: User role (Admin, Host, Guest)
   final List<String> tags;
   final List<String> followerUIDs;
@@ -121,6 +122,7 @@ class UserModel {
     required this.videosCount,
     required this.likesCount,
     required this.isVerified,
+    this.isLive = false, // Default to not live
     this.role = UserRole.guest, // Default to guest
     required this.tags,
     required this.followerUIDs,
@@ -151,6 +153,7 @@ class UserModel {
       videosCount: _extractInt(map['videosCount'] ?? map['videos_count']) ?? 0,
       likesCount: _extractInt(map['likesCount'] ?? map['likes_count']) ?? 0,
       isVerified: _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
+      isLive: _extractBool(map['isLive'] ?? map['is_live']) ?? false, // NEW: Live status
       role: UserRole.fromString(map['role'] ?? map['userRole'] ?? map['user_role']),
       tags: _parseStringArray(map['tags']),
       followerUIDs: _parseStringArray(map['followerUIDs'] ?? map['follower_uids'] ?? map['follower_UIDs']),
@@ -253,6 +256,7 @@ class UserModel {
     required String profileImage,
     required String bio,
     UserRole role = UserRole.guest, // Default to guest
+    bool isLive = false, // Default to not live
   }) {
     final now = DateTime.now().toUtc().toIso8601String();
     return UserModel(
@@ -268,6 +272,7 @@ class UserModel {
       videosCount: 0,
       likesCount: 0,
       isVerified: false,
+      isLive: isLive, // NEW: Live status for new users
       role: role,
       tags: [],
       followerUIDs: [],
@@ -300,6 +305,7 @@ class UserModel {
       'videosCount': videosCount,
       'likesCount': likesCount,
       'isVerified': isVerified,
+      'isLive': isLive, // NEW: Live status
       'isActive': isActive,
       'isFeatured': isFeatured,
       'tags': _formatArrayForPostgreSQL(tags),
@@ -333,6 +339,7 @@ class UserModel {
     int? videosCount,
     int? likesCount,
     bool? isVerified,
+    bool? isLive, // NEW: Live status parameter
     UserRole? role,
     List<String>? tags,
     List<String>? followerUIDs,
@@ -359,6 +366,7 @@ class UserModel {
       videosCount: videosCount ?? this.videosCount,
       likesCount: likesCount ?? this.likesCount,
       isVerified: isVerified ?? this.isVerified,
+      isLive: isLive ?? this.isLive, // NEW: Live status in copyWith
       role: role ?? this.role,
       tags: tags ?? this.tags,
       followerUIDs: followerUIDs ?? this.followerUIDs,
@@ -386,6 +394,10 @@ class UserModel {
   bool get isGuest => role == UserRole.guest;
   String get roleDisplayName => role.displayName;
 
+  // NEW: Live streaming helper methods
+  bool get canGoLive => role.canPost; // Only admins and hosts can go live
+  String get liveStatusText => isLive ? 'Live Now' : 'Offline';
+  
   // NEW: WhatsApp helper methods
   bool get hasWhatsApp => whatsappNumber != null && whatsappNumber!.isNotEmpty;
   
@@ -411,7 +423,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, role: ${role.value}, phoneNumber: $phoneNumber)';
+    return 'UserModel(uid: $uid, name: $name, role: ${role.value}, phoneNumber: $phoneNumber, isLive: $isLive)';
   }
 
   // Timestamp helper methods
@@ -471,6 +483,12 @@ class UserModel {
           'role_value': role.value,
           'role_display': role.displayName,
           'can_post': canPost,
+          'can_go_live': canGoLive, // NEW: Live capability debug info
+        },
+        'live_info': {
+          'is_live': isLive,
+          'live_status_text': liveStatusText,
+          'can_go_live': canGoLive,
         },
         'whatsapp_info': {
           'has_whatsapp': hasWhatsApp,
@@ -494,6 +512,11 @@ class UserModel {
       if (!RegExp(r'^254\d{9}$').hasMatch(whatsappNumber!)) {
         errors.add('WhatsApp number must be in format 254XXXXXXXXX');
       }
+    }
+    
+    // NEW: Validate live status based on role
+    if (isLive && !canGoLive) {
+      errors.add('Only admins and hosts can go live');
     }
     
     return errors;
