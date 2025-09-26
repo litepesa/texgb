@@ -17,68 +17,107 @@ class WalletScreen extends ConsumerStatefulWidget {
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _balanceVisible = true;
 
+  // Helper method to get safe theme with fallback
+  ModernThemeExtension _getSafeTheme(BuildContext context) {
+    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final modernTheme = context.modernTheme;
+    final theme = _getSafeTheme(context);
     final walletState = ref.watch(walletProvider);
 
     return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
+      backgroundColor: theme.surfaceColor,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
             await ref.read(walletProvider.notifier).refresh();
           },
+          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+          backgroundColor: theme.surfaceColor,
           child: walletState.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(),
+            loading: () => Center(
+              child: CircularProgressIndicator(
+                color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                strokeWidth: 3,
+              ),
             ),
-            error: (error, stackTrace) => _buildErrorState(error.toString(), modernTheme),
-            data: (state) => _buildWalletContent(state, modernTheme),
+            error: (error, stackTrace) => _buildErrorState(error.toString(), theme),
+            data: (state) => _buildWalletContent(state, theme),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildErrorState(String error, ModernThemeExtension modernTheme) {
+  Widget _buildErrorState(String error, ModernThemeExtension theme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Unable to load wallet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: modernTheme.textColor,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: modernTheme.textSecondaryColor,
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.red.shade600,
+                size: 64,
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            Text(
+              'Unable to load wallet',
+              style: TextStyle(
+                color: theme.textColor ?? Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              error,
+              style: TextStyle(
+                color: theme.textSecondaryColor ?? Colors.grey[600],
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
               onPressed: () => ref.read(walletProvider.notifier).refresh(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
+                backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
               ),
-              child: const Text('Retry'),
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),
@@ -86,7 +125,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildWalletContent(WalletState walletState, ModernThemeExtension modernTheme) {
+  Widget _buildWalletContent(WalletState walletState, ModernThemeExtension theme) {
     final wallet = walletState.wallet;
     final transactions = walletState.transactions;
 
@@ -102,19 +141,31 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             padding: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Colors.amber.shade600,
-                  Colors.orange.shade500,
-                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1B5E20), // Dark green
+                  const Color(0xFF2E7D32), // Medium green
+                  const Color(0xFF1976D2), // Blue accent
+                ],
               ),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF4CAF50).withOpacity(0.3),
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.amber.withOpacity(0.3),
-                  blurRadius: 15,
+                  color: const Color(0xFF4CAF50).withOpacity(0.3),
+                  blurRadius: 20,
                   offset: const Offset(0, 8),
+                  spreadRadius: -4,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                  spreadRadius: -2,
                 ),
               ],
             ),
@@ -127,7 +178,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     const Row(
                       children: [
                         Icon(
-                          Icons.stars,
+                          Icons.account_balance_wallet_rounded,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -161,7 +212,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Icon(
-                      Icons.stars,
+                      Icons.account_balance_wallet_rounded,
                       color: Colors.white,
                       size: 28,
                     ),
@@ -214,7 +265,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     Text(
                       wallet?.hasBalance == true 
                         ? 'Ready to send amazing gifts'
-                        : 'Buy coins to send gifts to friends',
+                        : 'Buy coins to send virtual gifts',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 14,
@@ -238,7 +289,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   subtitle: 'Get coins for gifts',
                   color: Colors.green,
                   onTap: () => CoinPackagesWidget.show(context),
-                  modernTheme: modernTheme,
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 12),
@@ -248,8 +299,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   title: 'History',
                   subtitle: 'View transactions',
                   color: Colors.blue,
-                  onTap: () => _showTransactionHistory(context, transactions, modernTheme),
-                  modernTheme: modernTheme,
+                  onTap: () => _showTransactionHistory(context, transactions, theme),
+                  theme: theme,
                 ),
               ),
             ],
@@ -262,7 +313,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             Text(
               'Recent Transactions',
               style: TextStyle(
-                color: modernTheme.textColor,
+                color: theme.textColor ?? Colors.black,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -270,32 +321,50 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: modernTheme.backgroundColor,
+                color: theme.surfaceColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: modernTheme.dividerColor!.withOpacity(0.3),
+                  color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                  width: 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
               child: Column(
                 children: [
                   ...transactions.take(5).map((transaction) => 
-                    _buildTransactionItem(transaction, modernTheme)),
+                    _buildTransactionItem(transaction, theme)),
                   if (transactions.length > 5)
-                    InkWell(
-                      onTap: () => _showTransactionHistory(context, transactions, modernTheme),
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(16),
-                        bottomRight: Radius.circular(16),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          'View All Transactions',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontWeight: FontWeight.w600,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _showTransactionHistory(context, transactions, theme),
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(16),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'View All Transactions',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -309,18 +378,33 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: modernTheme.backgroundColor,
+                color: theme.surfaceColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: modernTheme.dividerColor!.withOpacity(0.3),
+                  color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                  width: 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
               child: Column(
                 children: [
                   Icon(
                     Icons.card_giftcard_outlined,
                     size: 48,
-                    color: modernTheme.textSecondaryColor,
+                    color: theme.textTertiaryColor ?? Colors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -328,7 +412,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: modernTheme.textColor,
+                      color: theme.textColor ?? Colors.black,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -337,7 +421,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: modernTheme.textSecondaryColor,
+                      color: theme.textSecondaryColor ?? Colors.grey[600],
                     ),
                   ),
                 ],
@@ -352,28 +436,45 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.blue.shade50,
-                  Colors.blue.shade100,
-                ],
-              ),
+              color: theme.surfaceColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.blue.withOpacity(0.3),
+                color: Colors.blue.withOpacity(0.2),
+                width: 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                  spreadRadius: -4,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                  spreadRadius: -2,
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.blue[700],
-                      size: 24,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.info_outline,
+                        color: Colors.blue[700],
+                        size: 20,
+                      ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Text(
                       'About Coins',
                       style: TextStyle(
@@ -388,7 +489,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 Text(
                   '• Use coins to send creators virtual gifts\n'
                   '• Some coin purchases are processed manually by admin. Updated within 10 minutes\n'
-                  '• Choose from 3 coin packages: 99, 495, or 990 coins',
+                  '• Choose from 3 coin packages: 100, 500, or 1000 coins',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.blue[700],
@@ -411,57 +512,77 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     required String subtitle,
     required Color color,
     required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
+    required ModernThemeExtension theme,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: modernTheme.backgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: modernTheme.dividerColor!.withOpacity(0.3),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.surfaceColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+                spreadRadius: -4,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+                spreadRadius: -2,
+              ),
+            ],
           ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  color: theme.textColor ?? Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: theme.textSecondaryColor ?? Colors.grey[600],
+                  fontSize: 12,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension modernTheme) {
+  Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension theme) {
     final isCredit = transaction.isCredit;
     
     IconData icon;
@@ -490,7 +611,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: modernTheme.dividerColor!.withOpacity(0.1),
+            color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.1),
           ),
         ),
       ),
@@ -518,7 +639,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: modernTheme.textColor,
+                    color: theme.textColor ?? Colors.black,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -526,7 +647,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   transaction.description,
                   style: TextStyle(
                     fontSize: 12,
-                    color: modernTheme.textSecondaryColor,
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -534,7 +655,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   _formatTransactionDate(transaction.createdAt),
                   style: TextStyle(
                     fontSize: 11,
-                    color: modernTheme.textSecondaryColor,
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ),
               ],
@@ -557,7 +678,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   'KES ${transaction.paidAmount!.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 11,
-                    color: modernTheme.textSecondaryColor,
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ),
               ],
@@ -568,7 +689,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension modernTheme) {
+  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension theme) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -576,8 +697,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.8,
         decoration: BoxDecoration(
-          color: modernTheme.backgroundColor,
+          color: theme.surfaceColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+              spreadRadius: 2,
+            ),
+          ],
         ),
         child: Column(
           children: [
@@ -586,7 +715,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: theme.textTertiaryColor ?? Colors.grey[400],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -600,14 +729,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: modernTheme.textColor,
+                      color: theme.textColor ?? Colors.black,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.close,
-                      color: modernTheme.textSecondaryColor,
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                          size: 20,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -622,14 +764,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           Icon(
                             Icons.card_giftcard_outlined,
                             size: 64,
-                            color: modernTheme.textSecondaryColor,
+                            color: theme.textTertiaryColor ?? Colors.grey[400],
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'No transactions yet',
                             style: TextStyle(
                               fontSize: 16,
-                              color: modernTheme.textSecondaryColor,
+                              color: theme.textSecondaryColor ?? Colors.grey[600],
                             ),
                           ),
                         ],
@@ -640,7 +782,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       itemCount: transactions.length,
                       itemBuilder: (context, index) {
                         final transaction = transactions[index];
-                        return _buildTransactionItem(transaction, modernTheme);
+                        return _buildTransactionItem(transaction, theme);
                       },
                     ),
             ),
@@ -655,9 +797,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       ref.read(walletProvider.notifier).loadMoreTransactions();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: modernTheme.primaryColor,
+                      backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
                     ),
                     child: const Text('Load More'),
                   ),
