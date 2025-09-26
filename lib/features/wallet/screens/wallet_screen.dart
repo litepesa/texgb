@@ -34,25 +34,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   static const String _walletCacheTimestampKey = 'wallet_cache_timestamp';
   static const Duration _cacheValidityDuration = Duration(minutes: 15);
 
-  // Escrow-focused color scheme - professional and trustworthy
-  static const _escrowPrimary = Color(0xFF1E88E5); // Professional blue
-  static const _escrowSecondary = Color(0xFF42A5F5); // Lighter blue
-  static const _escrowAccent = Color(0xFF90CAF9); // Light accent blue
-  static const _escrowSuccess = Color(0xFF4CAF50); // Trust green
-  static const _escrowWarning = Color(0xFFFF9800); // Alert orange
-  static const _escrowError = Color(0xFFE53935); // Error red
-  static const _escrowPending = Color(0xFFFFB74D); // Pending amber
-  static const _escrowReleased = Color(0xFF66BB6A); // Released green
-  static const _escrowHeld = Color(0xFF5C6BC0); // Held purple
-  static const _escrowCardBg = Color(0xFF263238); // Dark card background
-  static const _escrowCardBgLight = Color(0xFF37474F); // Lighter card background
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
+  }
+
+  // Helper method to get safe theme with fallback
+  ModernThemeExtension _getSafeTheme(BuildContext context) {
+    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
   }
 
   Future<bool> get _hasCachedData async {
@@ -231,38 +233,38 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final modernTheme = context.modernTheme;
+    final theme = _getSafeTheme(context);
 
     return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
+      backgroundColor: theme.surfaceColor,
       body: SafeArea(
         child: !_isInitialized
-            ? _buildInitialLoadingView(modernTheme)
+            ? _buildInitialLoadingView(theme)
             : _error != null
-                ? _buildErrorState(_error!, modernTheme)
+                ? _buildErrorState(_error!, theme)
                 : RefreshIndicator(
                     onRefresh: _refreshWallet,
-                    color: _escrowPrimary,
-                    child: _buildEscrowWalletContent(_cachedWallet, _cachedTransactions, modernTheme),
+                    color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                    child: _buildEscrowWalletContent(_cachedWallet, _cachedTransactions, theme),
                   ),
       ),
     );
   }
 
-  Widget _buildInitialLoadingView(ModernThemeExtension modernTheme) {
+  Widget _buildInitialLoadingView(ModernThemeExtension theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: _escrowPrimary,
+            color: theme.primaryColor ?? const Color(0xFFFE2C55),
             strokeWidth: 3,
           ),
           const SizedBox(height: 16),
           Text(
             _isLoadingInitial ? 'Loading escrow wallet...' : 'Initializing...',
             style: TextStyle(
-              color: modernTheme.textSecondaryColor,
+              color: theme.textSecondaryColor ?? Colors.grey[600],
               fontSize: 16,
             ),
           ),
@@ -271,7 +273,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildErrorState(String error, ModernThemeExtension modernTheme) {
+  Widget _buildErrorState(String error, ModernThemeExtension theme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -279,55 +281,54 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: _escrowError.withOpacity(0.2),
+                color: Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.error_outline,
-                size: 48,
-                color: _escrowError,
+                color: Colors.red.shade600,
+                size: 64,
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Unable to load escrow wallet',
               style: TextStyle(
+                color: theme.textColor ?? Colors.black,
                 fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: _escrowPrimary,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               error,
-              textAlign: TextAlign.center,
               style: TextStyle(
+                color: theme.textSecondaryColor ?? Colors.grey[600],
                 fontSize: 14,
-                color: modernTheme.textSecondaryColor,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _loadInitialData(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _escrowPrimary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            ElevatedButton.icon(
+              onPressed: () => _loadInitialData(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
                 ),
-                child: const Text(
-                  'Try Again',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 4,
+              ),
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(fontSize: 16),
               ),
             ),
           ],
@@ -336,7 +337,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEscrowWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension modernTheme) {
+  Widget _buildEscrowWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 100),
@@ -346,27 +347,30 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Container(
             margin: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_escrowPrimary, Color(0xFF1976D2)],
+              gradient: LinearGradient(
+                colors: [
+                  theme.primaryColor ?? const Color(0xFFFE2C55),
+                  (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.8),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: _escrowPrimary.withOpacity(0.3),
+                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: _buildEscrowBalanceCard(wallet, modernTheme),
+            child: _buildEscrowBalanceCard(wallet, theme),
           ),
 
           // Escrow Actions Grid
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildEscrowActionsGrid(),
+            child: _buildEscrowActionsGrid(theme),
           ),
 
           const SizedBox(height: 24),
@@ -374,7 +378,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           // Escrow Statistics
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildEscrowStatsSection(wallet),
+            child: _buildEscrowStatsSection(wallet, theme),
           ),
 
           const SizedBox(height: 24),
@@ -382,7 +386,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           // Active Escrows Section
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildActiveEscrowsSection(),
+            child: _buildActiveEscrowsSection(theme),
           ),
 
           const SizedBox(height: 24),
@@ -390,7 +394,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           // Recent Escrow Transactions
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildEscrowTransactionsSection(transactions, modernTheme),
+            child: _buildEscrowTransactionsSection(transactions, theme),
           ),
 
           const SizedBox(height: 24),
@@ -399,7 +403,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEscrowBalanceCard(WalletModel? wallet, ModernThemeExtension modernTheme) {
+  Widget _buildEscrowBalanceCard(WalletModel? wallet, ModernThemeExtension theme) {
     return Padding(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -523,33 +527,40 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEscrowActionsGrid() {
+  Widget _buildEscrowActionsGrid(ModernThemeExtension theme) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _escrowCardBg,
+        color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _escrowAccent.withOpacity(0.3),
+          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: _escrowPrimary.withOpacity(0.1),
-            blurRadius: 10,
+            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            blurRadius: 20,
             offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Escrow Actions',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: _escrowPrimary,
+              color: theme.textColor ?? Colors.black,
             ),
           ),
           const SizedBox(height: 20),
@@ -560,8 +571,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.add_card,
                   title: 'Add Funds',
                   subtitle: 'Top up wallet',
-                  color: _escrowSuccess,
+                  color: Colors.green,
                   onTap: () => EscrowFundingWidget.show(context),
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 16),
@@ -570,8 +582,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.lock,
                   title: 'Create Escrow',
                   subtitle: 'Secure payment',
-                  color: _escrowHeld,
+                  color: Colors.blue,
                   onTap: () => _showComingSoonDialog('Create Escrow'),
+                  theme: theme,
                 ),
               ),
             ],
@@ -584,8 +597,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.lock_open,
                   title: 'Release Funds',
                   subtitle: 'Complete order',
-                  color: _escrowReleased,
+                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
                   onTap: () => _showComingSoonDialog('Release Funds'),
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 16),
@@ -594,8 +608,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.report_problem,
                   title: 'Dispute',
                   subtitle: 'Report issue',
-                  color: _escrowWarning,
+                  color: Colors.orange,
                   onTap: () => _showComingSoonDialog('Dispute Resolution'),
+                  theme: theme,
                 ),
               ),
             ],
@@ -611,30 +626,38 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     required String subtitle,
     required Color color,
     required VoidCallback onTap,
+    required ModernThemeExtension theme,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _escrowCardBgLight,
+          color: theme.surfaceColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: color.withOpacity(0.3),
             width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color,
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
-                color: Colors.white,
+                color: color,
                 size: 24,
               ),
             ),
@@ -651,7 +674,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             Text(
               subtitle,
               style: TextStyle(
-                color: color.withOpacity(0.7),
+                color: theme.textSecondaryColor ?? Colors.grey[600],
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -662,26 +685,40 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEscrowStatsSection(WalletModel? wallet) {
+  Widget _buildEscrowStatsSection(WalletModel? wallet, ModernThemeExtension theme) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _escrowCardBg,
+        color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _escrowAccent.withOpacity(0.3),
+          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Escrow Overview',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: _escrowPrimary,
+              color: theme.textColor ?? Colors.black,
             ),
           ),
           const SizedBox(height: 16),
@@ -692,7 +729,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.account_balance_wallet,
                   title: 'Available Balance',
                   value: '${wallet?.coinsBalance ?? 0} KES',
-                  color: _escrowSuccess,
+                  color: Colors.green,
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 16),
@@ -701,7 +739,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.lock,
                   title: 'Funds in Escrow',
                   value: '0 KES', // Dummy value
-                  color: _escrowHeld,
+                  color: Colors.blue,
+                  theme: theme,
                 ),
               ),
             ],
@@ -714,7 +753,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.pending_actions,
                   title: 'Pending Releases',
                   value: '0', // Dummy value
-                  color: _escrowPending,
+                  color: Colors.orange,
+                  theme: theme,
                 ),
               ),
               const SizedBox(width: 16),
@@ -723,7 +763,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.check_circle,
                   title: 'Completed Escrows',
                   value: '0', // Dummy value
-                  color: _escrowReleased,
+                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                  theme: theme,
                 ),
               ),
             ],
@@ -738,24 +779,32 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     required String title,
     required String value,
     required Color color,
+    required ModernThemeExtension theme,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _escrowCardBgLight,
+        color: (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withOpacity(0.2),
           width: 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 24,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 18,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -763,7 +812,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: color.withOpacity(0.7),
+              color: theme.textSecondaryColor ?? Colors.grey[600],
             ),
           ),
           const SizedBox(height: 4),
@@ -780,15 +829,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildActiveEscrowsSection() {
+  Widget _buildActiveEscrowsSection(ModernThemeExtension theme) {
     return Container(
       decoration: BoxDecoration(
-        color: _escrowCardBg,
+        color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _escrowAccent.withOpacity(0.3),
+          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -798,35 +861,35 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Active Escrows',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: _escrowPrimary,
+                    color: theme.textColor ?? Colors.black,
                   ),
                 ),
                 GestureDetector(
                   onTap: () => _showComingSoonDialog('View All Escrows'),
-                  child: const Text(
+                  child: Text(
                     'View All',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: _escrowSecondary,
+                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          _buildEmptyActiveEscrows(),
+          _buildEmptyActiveEscrows(theme),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyActiveEscrows() {
+  Widget _buildEmptyActiveEscrows(ModernThemeExtension theme) {
     return Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
@@ -834,31 +897,31 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: _escrowAccent.withOpacity(0.2),
+              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.security,
               size: 40,
-              color: _escrowAccent,
+              color: theme.primaryColor ?? const Color(0xFFFE2C55),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No Active Escrows',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: _escrowPrimary,
+              color: theme.textColor ?? Colors.black,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Your secure transactions will appear here',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: _escrowSecondary,
+              color: theme.textSecondaryColor ?? Colors.grey[600],
             ),
           ),
           const SizedBox(height: 20),
@@ -867,7 +930,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             child: ElevatedButton(
               onPressed: () => _showComingSoonDialog('Create Your First Escrow'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _escrowPrimary,
+                backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -888,15 +951,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEscrowTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension modernTheme) {
+  Widget _buildEscrowTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return Container(
       decoration: BoxDecoration(
-        color: _escrowCardBg,
+        color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _escrowAccent.withOpacity(0.3),
+          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -906,23 +983,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Escrow Transactions',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: _escrowPrimary,
+                    color: theme.textColor ?? Colors.black,
                   ),
                 ),
                 if (transactions.isNotEmpty)
                   GestureDetector(
-                    onTap: () => _showTransactionHistory(context, transactions, modernTheme),
-                    child: const Text(
+                    onTap: () => _showTransactionHistory(context, transactions, theme),
+                    child: Text(
                       'View All',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: _escrowSecondary,
+                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
                       ),
                     ),
                   ),
@@ -930,18 +1007,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
           if (transactions.isEmpty)
-            _buildEmptyEscrowTransactions()
+            _buildEmptyEscrowTransactions(theme)
           else
             Column(
               children: transactions.take(4).map((transaction) => 
-                _buildEscrowTransactionItem(transaction)).toList(),
+                _buildEscrowTransactionItem(transaction, theme)).toList(),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyEscrowTransactions() {
+  Widget _buildEmptyEscrowTransactions(ModernThemeExtension theme) {
     return Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
@@ -949,31 +1026,31 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: _escrowAccent.withOpacity(0.2),
+              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.receipt_long,
               size: 40,
-              color: _escrowAccent,
+              color: theme.primaryColor ?? const Color(0xFFFE2C55),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No Escrow Transactions',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: _escrowPrimary,
+              color: theme.textColor ?? Colors.black,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Your escrow transaction history will appear here',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: _escrowSecondary,
+              color: theme.textSecondaryColor ?? Colors.grey[600],
             ),
           ),
         ],
@@ -981,7 +1058,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEscrowTransactionItem(WalletTransaction transaction) {
+  Widget _buildEscrowTransactionItem(WalletTransaction transaction, ModernThemeExtension theme) {
     final isCredit = transaction.isCredit;
     
     IconData icon;
@@ -990,27 +1067,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     switch (transaction.type) {
       case 'escrow_created':
         icon = Icons.lock;
-        iconColor = _escrowHeld;
+        iconColor = Colors.blue;
         break;
       case 'escrow_released':
         icon = Icons.lock_open;
-        iconColor = _escrowReleased;
+        iconColor = theme.primaryColor ?? const Color(0xFFFE2C55);
         break;
       case 'escrow_refunded':
         icon = Icons.refresh;
-        iconColor = _escrowWarning;
+        iconColor = Colors.orange;
         break;
       case 'coin_purchase':
         icon = Icons.add_circle_outline;
-        iconColor = _escrowSuccess;
+        iconColor = Colors.green;
         break;
       case 'dispute_created':
         icon = Icons.report_problem;
-        iconColor = _escrowError;
+        iconColor = Colors.red;
         break;
       default:
         icon = Icons.swap_horiz;
-        iconColor = _escrowSecondary;
+        iconColor = theme.primaryColor ?? const Color(0xFFFE2C55);
     }
 
     return Container(
@@ -1018,7 +1095,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: _escrowAccent.withOpacity(0.2),
+            color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
           ),
         ),
       ),
@@ -1027,7 +1104,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _escrowCardBgLight,
+              color: iconColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: iconColor.withOpacity(0.3),
@@ -1047,10 +1124,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               children: [
                 Text(
                   transaction.displayTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: _escrowPrimary,
+                    color: theme.textColor ?? Colors.black,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1058,7 +1135,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   transaction.description,
                   style: TextStyle(
                     fontSize: 14,
-                    color: _escrowSecondary.withOpacity(0.8),
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1066,7 +1143,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   _formatTransactionDate(transaction.createdAt),
                   style: TextStyle(
                     fontSize: 12,
-                    color: _escrowSecondary.withOpacity(0.6),
+                    color: theme.textTertiaryColor ?? Colors.grey[400],
                   ),
                 ),
               ],
@@ -1080,16 +1157,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: isCredit ? _escrowSuccess : _escrowError,
+                  color: isCredit ? Colors.green : Colors.red,
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'KES',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: _escrowSecondary,
+                  color: theme.textSecondaryColor ?? Colors.grey[600],
                 ),
               ),
             ],
@@ -1099,16 +1176,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension modernTheme) {
+  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension theme) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.8,
-        decoration: const BoxDecoration(
-          color: _escrowCardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: theme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -1117,7 +1194,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: _escrowAccent.withOpacity(0.3),
+                color: theme.textTertiaryColor ?? Colors.grey[400],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1126,19 +1203,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Escrow Transaction History',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: _escrowPrimary,
+                      color: theme.textColor ?? Colors.black,
                     ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close,
-                      color: _escrowSecondary,
+                      color: theme.textSecondaryColor ?? Colors.grey[600],
                     ),
                   ),
                 ],
@@ -1146,13 +1223,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
             Expanded(
               child: transactions.isEmpty
-                  ? _buildEmptyEscrowTransactions()
+                  ? _buildEmptyEscrowTransactions(theme)
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: transactions.length,
                       itemBuilder: (context, index) {
                         final transaction = transactions[index];
-                        return _buildEscrowTransactionItem(transaction);
+                        return _buildEscrowTransactionItem(transaction, theme);
                       },
                     ),
             ),
@@ -1184,7 +1261,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _escrowPrimary,
+                      backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -1210,89 +1287,92 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   void _showComingSoonDialog(String feature) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _escrowCardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _escrowPrimary.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+      builder: (context) {
+        final theme = _getSafeTheme(context);
+        return AlertDialog(
+          backgroundColor: theme.surfaceColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.construction,
+                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                  size: 20,
+                ),
               ),
-              child: const Icon(
-                Icons.construction,
-                color: _escrowPrimary,
-                size: 20,
+              const SizedBox(width: 12),
+              Text(
+                'Coming Soon',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: theme.textColor ?? Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Coming Soon',
-              style: TextStyle(
-                fontSize: 18,
-                color: _escrowPrimary,
-                fontWeight: FontWeight.w600,
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$feature is currently under development.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: theme.textSecondaryColor ?? Colors.grey[600],
+                ),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$feature is currently under development.',
-              style: const TextStyle(
-                fontSize: 16,
-                color: _escrowSecondary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _escrowPrimary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: _escrowPrimary,
-                    size: 16,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This feature will be available in a future update. Stay tuned!',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _escrowPrimary,
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This feature will be available in a future update. Stay tuned!',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Got it',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Got it',
-              style: TextStyle(
-                color: _escrowSuccess,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
