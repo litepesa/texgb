@@ -58,7 +58,7 @@ abstract class AuthenticationRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String caption,
-    double? price,
+    List<String>? tags,
   });
   Future<VideoModel> createImagePost({
     required String userId,
@@ -66,7 +66,7 @@ abstract class AuthenticationRepository {
     required String userImage,
     required List<String> imageUrls,
     required String caption,
-    double? price,
+    List<String>? tags,
   });
   Future<void> deleteVideo(String videoId, String userId);
   Future<void> likeVideo(String videoId, String userId);
@@ -195,7 +195,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<UserModel?> syncUserWithBackend(String uid) async {
     try {
-      debugPrint('📄 Syncing user with backend: $uid');
+      debugPrint('🔄 Syncing user with backend: $uid');
       
       // First check if user exists in backend
       final userExists = await checkUserExists(uid);
@@ -527,7 +527,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String caption,
-    double? price,
+    List<String>? tags,
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -539,18 +539,17 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'caption': caption,
-        'price': price ?? 0.0,
         'likesCount': 0,
         'commentsCount': 0,
         'viewsCount': 0,
         'sharesCount': 0,
-        'tags': <String>[],
+        'tags': tags ?? [],
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'isActive': true,
         'isFeatured': false,
         'isMultipleImages': false,
-        'imageUrls': <String>[],
+        'imageUrls': [],
       };
 
       final response = await _httpClient.post('/videos', body: videoData);
@@ -574,7 +573,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required String userImage,
     required List<String> imageUrls,
     required String caption,
-    double? price,
+    List<String>? tags,
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -586,12 +585,11 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': '',
         'thumbnailUrl': imageUrls.isNotEmpty ? imageUrls.first : '',
         'caption': caption,
-        'price': price ?? 0.0,
         'likesCount': 0,
         'commentsCount': 0,
         'viewsCount': 0,
         'sharesCount': 0,
-        'tags': <String>[],
+        'tags': tags ?? [],
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'isActive': true,
