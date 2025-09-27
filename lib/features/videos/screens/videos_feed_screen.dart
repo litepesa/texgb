@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with WhatsApp integration)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with improved navigation)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -65,7 +65,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   final Map<String, double> _downloadProgress =
       {}; // Track download progress for each video
 
-  // Video controllers - ADD THESE MISSING PROPERTIES
+  // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
 
@@ -80,7 +80,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    _setupCacheCleanup(); // ADD THIS
+    _setupCacheCleanup();
     // Use post-frame callback to avoid provider modification during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVideos();
@@ -175,14 +175,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // ADD THIS METHOD - Missing from original
   void _setupCacheCleanup() {
     _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
       // Cache cleanup logic can be added here if needed
     });
   }
 
-  // ADD THIS METHOD - Missing intelligent preloading
   void _startIntelligentPreloading() {
     if (!_isScreenActive ||
         !_isAppInForeground ||
@@ -225,7 +223,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       }
     }
 
-    _startIntelligentPreloading(); // ADD THIS
+    _startIntelligentPreloading();
     WakelockPlus.enable();
   }
 
@@ -289,7 +287,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
         // If a specific video ID was provided, jump to it
         if (widget.startVideoId != null) {
-          _jumpToVideo(widget.startVideoId!);
+          // Ensure we have videos loaded before jumping
+          final videos = ref.read(videosProvider);
+          if (videos.isNotEmpty) {
+            debugPrint('VideosFeedScreen: Videos loaded, jumping to ${widget.startVideoId}');
+            _jumpToVideo(widget.startVideoId!);
+          } else {
+            debugPrint('VideosFeedScreen: No videos loaded, cannot jump to specific video');
+          }
         } else {
           // Start intelligent preloading for the first video
           _startIntelligentPreloading();
@@ -298,7 +303,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // Add this method to jump to a specific video
+  // IMPROVED: Add this method to jump to a specific video with better reliability
   void _jumpToVideo(String videoId) {
     final videos = ref.read(videosProvider);
     final videoIndex = videos.indexWhere((video) => video.id == videoId);
@@ -306,21 +311,57 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (videoIndex != -1) {
       debugPrint('VideosFeedScreen: Jumping to video at index $videoIndex');
 
-      // Use a delay to ensure the PageView is ready and videos are loaded
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && _pageController.hasClients) {
+      // Set the current index immediately to prevent wrong video from playing
+      _currentVideoIndex = videoIndex;
+
+      // Method 1: Try immediate jump if PageController is ready
+      if (_pageController.hasClients && mounted) {
+        try {
           _pageController.jumpToPage(videoIndex);
-
-          // Update the current video index
-          setState(() {
-            _currentVideoIndex = videoIndex;
-          });
-
+          debugPrint('VideosFeedScreen: Immediate jump successful to index $videoIndex');
+          
+          // Update state to reflect the change
+          if (mounted) {
+            setState(() {
+              _currentVideoIndex = videoIndex;
+              _isManuallyPaused = false; // Reset pause state for new video
+            });
+          }
+          
           // Start intelligent preloading for the target video
           _startIntelligentPreloading();
+          return;
+        } catch (e) {
+          debugPrint('VideosFeedScreen: Immediate jump failed: $e');
+        }
+      }
 
-          debugPrint(
-              'VideosFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
+      // Method 2: Use post-frame callback for reliable navigation
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        
+        // Double-check PageController is ready
+        if (_pageController.hasClients) {
+          try {
+            _pageController.jumpToPage(videoIndex);
+            debugPrint('VideosFeedScreen: Post-frame jump successful to index $videoIndex');
+            
+            // Update state after successful jump
+            if (mounted) {
+              setState(() {
+                _currentVideoIndex = videoIndex;
+                _isManuallyPaused = false;
+              });
+            }
+            
+            _startIntelligentPreloading();
+          } catch (e) {
+            debugPrint('VideosFeedScreen: Post-frame jump failed: $e');
+            _fallbackJump(videoIndex);
+          }
+        } else {
+          debugPrint('VideosFeedScreen: PageController not ready, using fallback');
+          _fallbackJump(videoIndex);
         }
       });
     } else {
@@ -328,7 +369,40 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // UPDATE THIS METHOD - Add proper controller handling like SingleVideoScreen
+  // Add this fallback method for delayed navigation
+  void _fallbackJump(int targetIndex) {
+    // Use a timer as fallback for when PageController isn't immediately ready
+    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      if (_pageController.hasClients) {
+        timer.cancel();
+        
+        try {
+          _pageController.jumpToPage(targetIndex);
+          debugPrint('VideosFeedScreen: Fallback jump successful to index $targetIndex');
+          
+          if (mounted) {
+            setState(() {
+              _currentVideoIndex = targetIndex;
+              _isManuallyPaused = false;
+            });
+          }
+          
+          _startIntelligentPreloading();
+        } catch (e) {
+          debugPrint('VideosFeedScreen: Fallback jump failed: $e');
+        }
+      } else if (timer.tick > 50) { // Stop trying after 5 seconds
+        timer.cancel();
+        debugPrint('VideosFeedScreen: Giving up on jump after timeout');
+      }
+    });
+  }
+
   void _onVideoControllerReady(VideoPlayerController controller) {
     if (!mounted ||
         !_isScreenActive ||
@@ -403,7 +477,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isNavigatingAway &&
         !_isManuallyPaused &&
         !_isCommentsSheetOpen) {
-      _startIntelligentPreloading(); // ADD THIS
+      _startIntelligentPreloading();
       WakelockPlus.enable();
     }
 
@@ -1012,10 +1086,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     WidgetsBinding.instance.removeObserver(this);
 
-    // STOP ALL PLAYBACK AND DISABLE WAKELOCK - ADD THIS
+    // STOP ALL PLAYBACK AND DISABLE WAKELOCK
     _stopPlayback();
     
-    // CLEANUP CACHE TIMER - ADD THIS
+    // CLEANUP CACHE TIMER
     _cacheCleanupTimer?.cancel();
 
     _pageController.dispose();
@@ -1191,7 +1265,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // TikTok-style right side menu - UPDATED WITH WHATSAPP INTEGRATION
+  // TikTok-style right side menu
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length
@@ -1205,26 +1279,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           systemBottomPadding, // Closer to system nav for better screen utilization
       child: Column(
         children: [
-          // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of video reactions
-          /*GestureDetector(
-            onTap: () => _openWhatsAppWithVideo(currentVideo),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  child: Lottie.asset(
-                    'assets/lottie/chat_bubble.json',
-                    width: 58,
-                    height: 58,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),*/
-
           // Like button
           _buildRightMenuItem(
             child: Icon(
@@ -1305,7 +1359,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Profile avatar with red border - FIXED: Only show when user data is ready
+          // Profile avatar with red border
           _buildRightMenuItem(
             child: Container(
               width: 44,

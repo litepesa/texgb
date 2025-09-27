@@ -1,6 +1,7 @@
 // ===============================
 // lib/features/videos/models/video_model.dart
 // Complete Video Model for PostgreSQL Backend (100% Compatible)
+// Enhanced with Verified Field
 // ===============================
 
 import 'dart:convert';
@@ -13,6 +14,7 @@ class VideoModel {
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
+  final double price; // NEW: Price field for business posts (matching ChannelVideoModel)
   
   // 🔧 CRITICAL FIX: Use correct field names that match backend database
   final int views;        // Backend: views_count -> Frontend: views
@@ -23,6 +25,7 @@ class VideoModel {
   final List<String> tags;
   final bool isActive;
   final bool isFeatured;
+  final bool isVerified;  // 🆕 NEW: Verified status from database
   final bool isMultipleImages;
   final List<String> imageUrls;
   final String createdAt; // RFC3339 string format from PostgreSQL
@@ -40,6 +43,7 @@ class VideoModel {
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.caption,
+    this.price = 0.0, // Default price is 0
     required this.views,
     required this.likes,
     required this.comments,
@@ -47,6 +51,7 @@ class VideoModel {
     required this.tags,
     required this.isActive,
     required this.isFeatured,
+    this.isVerified = false, // 🆕 Default verified status is false
     required this.isMultipleImages,
     required this.imageUrls,
     required this.createdAt,
@@ -66,6 +71,7 @@ class VideoModel {
         videoUrl: _parseString(json['videoUrl'] ?? json['video_url']),
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url']),
         caption: _parseString(json['caption']),
+        price: _parsePrice(json['price']), // NEW: Parse price field
         
         // 🔧 CRITICAL FIX: Map backend field names to frontend names
         // Try multiple possible field name variations from your backend
@@ -101,6 +107,7 @@ class VideoModel {
         tags: _parseStringList(json['tags']),
         isActive: _parseBool(json['isActive'] ?? json['is_active'] ?? true),
         isFeatured: _parseBool(json['isFeatured'] ?? json['is_featured'] ?? false),
+        isVerified: _parseBool(json['isVerified'] ?? json['is_verified'] ?? false), // 🆕 Parse verified status
         isMultipleImages: _parseBool(json['isMultipleImages'] ?? json['is_multiple_images'] ?? false),
         imageUrls: _parseStringList(json['imageUrls'] ?? json['image_urls']),
         createdAt: _parseTimestamp(json['createdAt'] ?? json['created_at']),
@@ -121,6 +128,7 @@ class VideoModel {
         videoUrl: _parseString(json['videoUrl'] ?? json['video_url'] ?? ''),
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url'] ?? ''),
         caption: _parseString(json['caption'] ?? 'No caption'),
+        price: 0.0, // Default price
         views: 0,
         likes: 0,
         comments: 0,
@@ -128,6 +136,7 @@ class VideoModel {
         tags: [],
         isActive: true,
         isFeatured: false,
+        isVerified: false, // 🆕 Default verified status
         isMultipleImages: false,
         imageUrls: [],
         createdAt: DateTime.now().toIso8601String(),
@@ -153,6 +162,24 @@ class VideoModel {
     }
     if (value is int) return value == 1;
     return false;
+  }
+
+  // 🔧 NEW HELPER: Safely parse price fields
+  static double _parsePrice(dynamic value) {
+    if (value == null) return 0.0;
+    
+    if (value is double) return value < 0 ? 0.0 : value;
+    if (value is int) return value < 0 ? 0.0 : value.toDouble();
+    
+    if (value is String) {
+      if (value.trim().isEmpty) return 0.0;
+      
+      final parsed = double.tryParse(value.trim());
+      if (parsed != null) return parsed < 0 ? 0.0 : parsed;
+    }
+    
+    print('⚠️ Warning: Could not parse price value: $value (type: ${value.runtimeType})');
+    return 0.0;
   }
 
   // 🔧 HELPER: Safely parse count fields with enhanced error handling
@@ -305,6 +332,36 @@ class VideoModel {
     return DateTime.now().toIso8601String();
   }
 
+  // 🔧 NEW: Formatted price getter matching ChannelVideoModel
+  /// Formats the price for display
+  /// Rules: 
+  /// - Up to 999,999: "KES 999,999"
+  /// - 1,000,000+: "KES 1M", "KES 1.5M", etc.
+  /// - Default (0): "KES 0"
+  String get formattedPrice {
+    if (price == 0) {
+      return 'KES 0';
+    }
+    
+    if (price < 1000000) {
+      // Format with commas for thousands
+      return 'KES ${price.toInt().toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      )}';
+    } else {
+      // Format in millions
+      double millions = price / 1000000;
+      if (millions == millions.toInt()) {
+        // Whole number of millions
+        return 'KES ${millions.toInt()}M';
+      } else {
+        // Decimal millions (e.g., 1.5M)
+        return 'KES ${millions.toStringAsFixed(1)}M';
+      }
+    }
+  }
+
   // 🔧 ENHANCED: Helper methods for display formatting
   String get formattedViews => _formatCount(views);
   String get formattedLikes => _formatCount(likes);
@@ -331,10 +388,29 @@ class VideoModel {
     return '${engagementRate.toStringAsFixed(1)}%';
   }
 
+  // 🆕 NEW: Verification status helpers
+  /// Returns true if the video is verified
+  bool get isVerifiedContent => isVerified;
+  
+  /// Returns verification status text for display
+  String get verificationStatus => isVerified ? 'Verified' : 'Unverified';
+  
+  /// Returns verification badge emoji/symbol
+  String get verificationBadge => isVerified ? '✓' : '';
+  
+  /// Returns verification badge with text
+  String get verificationBadgeText => isVerified ? '✓ Verified' : '';
+
   // 🔧 NEW: Content type helpers
   bool get isVideoContent => !isMultipleImages && videoUrl.isNotEmpty;
   bool get isImageContent => isMultipleImages && imageUrls.isNotEmpty;
   bool get hasValidContent => isVideoContent || isImageContent;
+
+  /// Returns true if this is premium content (verified and has a price)
+  bool get isPremiumContent => isVerified && price > 0;
+  
+  /// Returns true if this is verified free content
+  bool get isVerifiedFreeContent => isVerified && price == 0;
 
   String get displayUrl {
     if (isImageContent && imageUrls.isNotEmpty) {
@@ -349,6 +425,15 @@ class VideoModel {
   int get mediaCount {
     if (isImageContent) return imageUrls.length;
     return 1; // Single video
+  }
+
+  /// Returns content quality tier based on verification, featured status, and engagement
+  String get contentTier {
+    if (isVerified && isFeatured) return 'Premium+';
+    if (isVerified) return 'Premium';
+    if (isFeatured) return 'Featured';
+    if (engagementRate > 5.0) return 'Popular';
+    return 'Standard';
   }
 
   // 🔧 NEW: Time helpers
@@ -394,6 +479,7 @@ class VideoModel {
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
       'caption': caption,
+      'price': price, // Include price in JSON
       'views': views,
       'likes': likes,
       'comments': comments,
@@ -401,6 +487,7 @@ class VideoModel {
       'tags': tags,
       'isActive': isActive,
       'isFeatured': isFeatured,
+      'isVerified': isVerified, // 🆕 Include verification status in JSON
       'isMultipleImages': isMultipleImages,
       'imageUrls': imageUrls,
       'createdAt': createdAt,
@@ -419,6 +506,7 @@ class VideoModel {
     String? videoUrl,
     String? thumbnailUrl,
     String? caption,
+    double? price, // Add price to copyWith
     int? views,
     int? likes,
     int? comments,
@@ -426,6 +514,7 @@ class VideoModel {
     List<String>? tags,
     bool? isActive,
     bool? isFeatured,
+    bool? isVerified, // 🆕 Add verification status to copyWith
     bool? isMultipleImages,
     List<String>? imageUrls,
     String? createdAt,
@@ -441,6 +530,7 @@ class VideoModel {
       videoUrl: videoUrl ?? this.videoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       caption: caption ?? this.caption,
+      price: price ?? this.price, // Include price in copyWith
       views: views ?? this.views,
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
@@ -448,6 +538,7 @@ class VideoModel {
       tags: tags ?? this.tags,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      isVerified: isVerified ?? this.isVerified, // 🆕 Include verification in copyWith
       isMultipleImages: isMultipleImages ?? this.isMultipleImages,
       imageUrls: imageUrls ?? this.imageUrls,
       createdAt: createdAt ?? this.createdAt,
@@ -478,6 +569,22 @@ class VideoModel {
     return copyWith(
       isLiked: !isLiked,
       likes: isLiked ? likes - 1 : likes + 1,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Toggle verification status
+  VideoModel toggleVerification() {
+    return copyWith(
+      isVerified: !isVerified,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Set verification status
+  VideoModel setVerified(bool verified) {
+    return copyWith(
+      isVerified: verified,
       updatedAt: DateTime.now().toIso8601String(),
     );
   }
@@ -545,7 +652,7 @@ class VideoModel {
   // 🔧 DEBUGGING: toString method
   @override
   String toString() {
-    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? caption.substring(0, 30)+"..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, user: $userName)';
+    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, verified: $isVerified, user: $userName)';
   }
 
   // 🔧 DEBUGGING: Detailed debug string
@@ -556,6 +663,7 @@ VideoModel {
   userId: $userId
   userName: $userName
   caption: $caption
+  price: $formattedPrice
   views: $views
   likes: $likes
   comments: $comments
@@ -563,6 +671,7 @@ VideoModel {
   tags: $tags
   isActive: $isActive
   isFeatured: $isFeatured
+  isVerified: $isVerified ✓
   isMultipleImages: $isMultipleImages
   imageUrls: $imageUrls
   videoUrl: $videoUrl
@@ -572,6 +681,8 @@ VideoModel {
   isLiked: $isLiked
   isFollowing: $isFollowing
   engagementRate: ${engagementRate.toStringAsFixed(2)}%
+  contentTier: $contentTier
+  verificationStatus: $verificationStatus
   isValid: $isValid
 }''';
   }
@@ -590,6 +701,10 @@ VideoModel {
 extension VideoModelList on List<VideoModel> {
   List<VideoModel> get activeVideos => where((video) => video.isActive).toList();
   List<VideoModel> get featuredVideos => where((video) => video.isFeatured).toList();
+  List<VideoModel> get verifiedVideos => where((video) => video.isVerified).toList(); // 🆕 Get verified videos
+  List<VideoModel> get unverifiedVideos => where((video) => !video.isVerified).toList(); // 🆕 Get unverified videos
+  List<VideoModel> get premiumVideos => where((video) => video.isPremiumContent).toList(); // 🆕 Get premium videos
+  List<VideoModel> get verifiedFreeVideos => where((video) => video.isVerifiedFreeContent).toList(); // 🆕 Get verified free videos
   List<VideoModel> get imageVideos => where((video) => video.isImageContent).toList();
   List<VideoModel> get videoContent => where((video) => video.isVideoContent).toList();
   
@@ -602,6 +717,12 @@ extension VideoModelList on List<VideoModel> {
   List<VideoModel> sortByLikes({bool descending = true}) {
     final sorted = List<VideoModel>.from(this);
     sorted.sort((a, b) => descending ? b.likes.compareTo(a.likes) : a.likes.compareTo(b.likes));
+    return sorted;
+  }
+  
+  List<VideoModel> sortByPrice({bool descending = true}) {
+    final sorted = List<VideoModel>.from(this);
+    sorted.sort((a, b) => descending ? b.price.compareTo(a.price) : a.price.compareTo(b.price));
     return sorted;
   }
   
@@ -620,6 +741,38 @@ extension VideoModelList on List<VideoModel> {
         : a.createdAtDateTime.compareTo(b.createdAtDateTime));
     return sorted;
   }
+
+  // 🆕 NEW: Sort by verification status (verified first)
+  List<VideoModel> sortByVerification({bool verifiedFirst = true}) {
+    final sorted = List<VideoModel>.from(this);
+    sorted.sort((a, b) {
+      if (verifiedFirst) {
+        // Verified videos first
+        if (a.isVerified && !b.isVerified) return -1;
+        if (!a.isVerified && b.isVerified) return 1;
+        return 0; // Same verification status
+      } else {
+        // Unverified videos first
+        if (!a.isVerified && b.isVerified) return -1;
+        if (a.isVerified && !b.isVerified) return 1;
+        return 0; // Same verification status
+      }
+    });
+    return sorted;
+  }
+
+  // 🆕 NEW: Sort by content tier
+  List<VideoModel> sortByContentTier() {
+    final sorted = List<VideoModel>.from(this);
+    final tierOrder = {'Premium+': 0, 'Premium': 1, 'Featured': 2, 'Popular': 3, 'Standard': 4};
+    
+    sorted.sort((a, b) {
+      final aTier = tierOrder[a.contentTier] ?? 5;
+      final bTier = tierOrder[b.contentTier] ?? 5;
+      return aTier.compareTo(bTier);
+    });
+    return sorted;
+  }
   
   List<VideoModel> filterByUser(String userId) {
     return where((video) => video.userId == userId).toList();
@@ -629,6 +782,26 @@ extension VideoModelList on List<VideoModel> {
     return where((video) => video.hasTag(tag)).toList();
   }
   
+  List<VideoModel> filterByPriceRange(double minPrice, double maxPrice) {
+    return where((video) => video.price >= minPrice && video.price <= maxPrice).toList();
+  }
+
+  // 🆕 NEW: Filter by verification status
+  List<VideoModel> filterByVerification(bool isVerified) {
+    return where((video) => video.isVerified == isVerified).toList();
+  }
+
+  // 🆕 NEW: Filter by content tier
+  List<VideoModel> filterByContentTier(String tier) {
+    return where((video) => video.contentTier == tier).toList();
+  }
+
+  // 🆕 NEW: Filter premium content (verified + priced)
+  List<VideoModel> get premiumContent => where((video) => video.isPremiumContent).toList();
+
+  // 🆕 NEW: Filter free verified content
+  List<VideoModel> get freeVerifiedContent => where((video) => video.isVerifiedFreeContent).toList();
+  
   List<VideoModel> search(String query) {
     return where((video) => video.containsQuery(query)).toList();
   }
@@ -637,10 +810,89 @@ extension VideoModelList on List<VideoModel> {
   int get totalLikes => fold<int>(0, (sum, video) => sum + video.likes);
   int get totalComments => fold<int>(0, (sum, video) => sum + video.comments);
   int get totalShares => fold<int>(0, (sum, video) => sum + video.shares);
-  
+  double get totalPrice => fold<double>(0.0, (sum, video) => sum + video.price);
+
+  // 🆕 NEW: Verification statistics
+  int get verifiedCount => where((video) => video.isVerified).length;
+  int get unverifiedCount => where((video) => !video.isVerified).length;
+  double get verificationPercentage {
+    if (isEmpty) return 0.0;
+    return (verifiedCount / length) * 100;
+  }
+
+  // 🆕 NEW: Content tier statistics
+  Map<String, int> get contentTierBreakdown {
+    final breakdown = <String, int>{};
+    for (final video in this) {
+      final tier = video.contentTier;
+      breakdown[tier] = (breakdown[tier] ?? 0) + 1;
+    }
+    return breakdown;
+  }
+
+  // 🆕 NEW: Premium content statistics
+  int get premiumContentCount => where((video) => video.isPremiumContent).length;
+  double get premiumContentPercentage {
+    if (isEmpty) return 0.0;
+    return (premiumContentCount / length) * 100;
+  }
+
   double get averageEngagementRate {
     if (isEmpty) return 0.0;
     final totalEngagement = fold<double>(0.0, (sum, video) => sum + video.engagementRate);
     return totalEngagement / length;
+  }
+  
+  double get averagePrice {
+    if (isEmpty) return 0.0;
+    return totalPrice / length;
+  }
+
+  // 🆕 NEW: Average engagement rate for verified vs unverified content
+  double get verifiedAverageEngagement {
+    final verified = verifiedVideos;
+    if (verified.isEmpty) return 0.0;
+    final totalEngagement = verified.fold<double>(0.0, (sum, video) => sum + video.engagementRate);
+    return totalEngagement / verified.length;
+  }
+
+  double get unverifiedAverageEngagement {
+    final unverified = unverifiedVideos;
+    if (unverified.isEmpty) return 0.0;
+    final totalEngagement = unverified.fold<double>(0.0, (sum, video) => sum + video.engagementRate);
+    return totalEngagement / unverified.length;
+  }
+
+  // 🆕 NEW: Top performers by category
+  List<VideoModel> get topVerifiedVideos => verifiedVideos.sortByEngagement().take(10).toList();
+  List<VideoModel> get topPremiumVideos => premiumVideos.sortByEngagement().take(10).toList();
+  
+  // 🆕 NEW: Content quality score
+  double get overallQualityScore {
+    if (isEmpty) return 0.0;
+    
+    double score = 0.0;
+    for (final video in this) {
+      double videoScore = 0.0;
+      
+      // Base engagement score (0-40 points)
+      videoScore += (video.engagementRate * 4).clamp(0.0, 40.0);
+      
+      // Verification bonus (0-20 points)
+      if (video.isVerified) videoScore += 20;
+      
+      // Featured bonus (0-15 points)
+      if (video.isFeatured) videoScore += 15;
+      
+      // Premium content bonus (0-10 points)
+      if (video.isPremiumContent) videoScore += 10;
+      
+      // Activity bonus (0-15 points)
+      if (video.isActive) videoScore += 15;
+      
+      score += videoScore;
+    }
+    
+    return score / length; // Average quality score per video (0-100)
   }
 }

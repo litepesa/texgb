@@ -1,4 +1,4 @@
-// lib/main.dart (Updated with video reaction chat screens)
+// lib/main.dart (Updated with Featured Videos Screen route)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,7 @@ import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
+import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -47,11 +48,11 @@ void main() async {
   // Apply initial transparent system UI overlays
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.light,
     systemNavigationBarDividerColor: Colors.transparent,
     systemNavigationBarContrastEnforced: false,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarIconBrightness: Brightness.light,
   ));
   
   runApp(
@@ -165,6 +166,10 @@ class AppRoot extends ConsumerWidget {
           Constants.createPostScreen: (context) => const CreatePostScreen(),
           Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           Constants.managePostsScreen: (context) => const ManagePostsScreen(),
+          
+          // NEW: Featured Videos Screen Route
+          Constants.featuredVideosScreen: (context) => const FeaturedVideosScreen(),
+          
           Constants.singleVideoScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments;
             if (args is String) {
@@ -289,7 +294,7 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-// Helper class for navigation utilities (updated with video reaction chat system)
+// Helper class for navigation utilities (updated with Featured Videos)
 class UserNavigationHelper {
   // Navigate to user profile
   static void navigateToUserProfile(
@@ -334,7 +339,6 @@ class UserNavigationHelper {
       },
     );
   }
-
 
   // Navigate to create post (requires authentication)
   static void navigateToCreatePost(BuildContext context) {
@@ -399,6 +403,11 @@ class UserNavigationHelper {
   // Navigate to recommended posts
   static void navigateToRecommendedPosts(BuildContext context) {
     Navigator.pushNamed(context, Constants.recommendedPostsScreen);
+  }
+
+  // NEW: Navigate to featured videos
+  static void navigateToFeaturedVideos(BuildContext context) {
+    Navigator.pushNamed(context, Constants.featuredVideosScreen);
   }
 
   // Helper method to check if user needs to authenticate for an action
