@@ -14,7 +14,7 @@ class VideoModel {
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
-  final double price; // NEW: Price field for business posts (matching ChannelVideoModel)
+  final double price; // NEW: Price field for business posts 
   
   // 🔧 CRITICAL FIX: Use correct field names that match backend database
   final int views;        // Backend: views_count -> Frontend: views

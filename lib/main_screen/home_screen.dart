@@ -216,7 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             TextSpan(
-              text: "BnB",
+              text: "BED",
               style: TextStyle(
                 color: const Color(0xFFFE2C55),
                 fontWeight: FontWeight.w700,

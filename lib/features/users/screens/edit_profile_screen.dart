@@ -1,6 +1,8 @@
 // lib/features/users/screens/edit_profile_screen.dart
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -32,7 +34,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   
   late TextEditingController _nameController;
   late TextEditingController _aboutController;
-  late TextEditingController _tagsController;
+  late TextEditingController _whatsappController;
   
   UserModel? get currentUser => widget.user ?? ref.read(currentUserProvider);
   
@@ -43,15 +45,62 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     // Initialize controllers with existing data
     _nameController = TextEditingController(text: currentUser?.name ?? '');
     _aboutController = TextEditingController(text: currentUser?.bio ?? '');
-    _tagsController = TextEditingController(text: currentUser?.tags.join(', ') ?? '');
+    // Format WhatsApp number for display (remove 254 prefix if present)
+    String whatsappDisplay = '';
+    if (currentUser?.whatsappNumber != null && currentUser!.whatsappNumber!.isNotEmpty) {
+      final whatsapp = currentUser!.whatsappNumber!;
+      if (whatsapp.startsWith('254') && whatsapp.length == 12) {
+        whatsappDisplay = '0${whatsapp.substring(3)}';
+      } else {
+        whatsappDisplay = whatsapp;
+      }
+    }
+    _whatsappController = TextEditingController(text: whatsappDisplay);
   }
   
   @override
   void dispose() {
     _nameController.dispose();
     _aboutController.dispose();
-    _tagsController.dispose();
+    _whatsappController.dispose();
     super.dispose();
+  }
+
+  // Validate and format WhatsApp number to 254XXXXXXXXX format
+  String? _validateAndFormatWhatsApp(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // Optional field
+    }
+    
+    String cleaned = value.replaceAll(RegExp(r'\D'), '');
+    
+    // If starts with 0 and has 10 digits (0712345678), convert to international format
+    if (cleaned.length == 10 && cleaned.startsWith('0')) {
+      String withoutZero = cleaned.substring(1); // Remove leading 0
+      // Validate it's a valid Kenyan mobile number (7XX, 1XX)
+      if (withoutZero.startsWith('7') || withoutZero.startsWith('1')) {
+        return '254$withoutZero';
+      }
+    }
+    
+    // If has 9 digits (712345678), assume missing country code
+    if (cleaned.length == 9) {
+      // Validate it's a valid Kenyan mobile number (7XX, 1XX)
+      if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+        return '254$cleaned';
+      }
+    }
+    
+    // If already in international format (254712345678)
+    if (cleaned.length == 12 && cleaned.startsWith('254')) {
+      String localPart = cleaned.substring(3);
+      // Validate the local part is valid Kenyan mobile (7XX, 1XX)
+      if (localPart.startsWith('7') || localPart.startsWith('1')) {
+        return cleaned;
+      }
+    }
+    
+    return null; // Invalid format
   }
 
   // Pick profile image
@@ -271,22 +320,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         return;
       }
       
-      // Parse tags from comma-separated string
-      List<String> tags = [];
-      if (_tagsController.text.isNotEmpty) {
-        tags = _tagsController.text
-            .split(',')
-            .map((tag) => tag.trim())
-            .where((tag) => tag.isNotEmpty)
-            .take(Constants.maxTagsCount)
-            .toList();
+      // Validate and format WhatsApp number to ensure 254XXXXXXXXX format
+      String? formattedWhatsApp;
+      if (_whatsappController.text.trim().isNotEmpty) {
+        formattedWhatsApp = _validateAndFormatWhatsApp(_whatsappController.text.trim());
+        if (formattedWhatsApp == null) {
+          showSnackBar(context, 'Please enter a valid Kenyan mobile number (e.g., 0712345678 or 0112345678)');
+          return;
+        }
       }
       
       // Create updated user model
       final updatedUser = currentUser!.copyWith(
         name: _nameController.text.trim(),
         bio: _aboutController.text.trim(),
-        tags: tags,
+        whatsappNumber: formattedWhatsApp,
       );
       
       try {
@@ -571,11 +619,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               
               const SizedBox(height: 16),
               
-              // Tags field
+              // WhatsApp number field
               TextFormField(
-                controller: _tagsController,
+                controller: _whatsappController,
                 decoration: InputDecoration(
-                  labelText: 'Tags (Optional)',
+                  labelText: 'WhatsApp Number (Optional)',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
@@ -587,29 +635,53 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     borderSide: BorderSide(color: modernTheme.primaryColor!),
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  errorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.red),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.red),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   filled: true,
                   fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                  hintText: 'e.g. music, comedy, lifestyle',
+                  hintText: 'e.g. 0712345678 or 0112345678',
                   hintStyle: TextStyle(
                     color: modernTheme.textSecondaryColor?.withOpacity(0.5),
                   ),
-                  helperText: 'Separate tags with commas (max ${Constants.maxTagsCount})',
+                  helperText: 'Your WhatsApp number for direct contact (254XXXXXXXXX format)',
                   helperStyle: TextStyle(
                     color: modernTheme.textSecondaryColor?.withOpacity(0.7),
                     fontSize: 12,
                   ),
+                  prefixIcon: Icon(
+                    Icons.phone,
+                    color: modernTheme.primaryColor,
+                  ),
+                  suffixIcon: _whatsappController.text.isNotEmpty
+                      ? Icon(
+                          CupertinoIcons.bubble_left,
+                          color: Colors.green,
+                        )
+                      : null,
                 ),
                 style: TextStyle(color: modernTheme.textColor),
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10), // Limit to 10 digits for local format
+                ],
                 enabled: !isLoading,
                 validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    final tags = value.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
-                    if (tags.length > Constants.maxTagsCount) {
-                      return 'Maximum ${Constants.maxTagsCount} tags allowed';
+                  if (value != null && value.trim().isNotEmpty) {
+                    final formatted = _validateAndFormatWhatsApp(value.trim());
+                    if (formatted == null) {
+                      return 'Enter a valid Kenyan mobile number (0712345678 or 0112345678)';
                     }
                   }
                   return null;
                 },
+                onChanged: (value) => setState(() {}), // Update suffix icon
               ),
               
               const SizedBox(height: 32),

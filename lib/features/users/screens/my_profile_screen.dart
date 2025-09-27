@@ -1,10 +1,11 @@
 // lib/features/users/screens/my_profile_screen.dart
 
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -21,11 +22,15 @@ class MyProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
-    with AutomaticKeepAliveClientMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   
   // CRITICAL FIX: Keep state alive to prevent blank screen issues
   @override
   bool get wantKeepAlive => true;
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
   
   bool _isRefreshing = false;
   UserModel? _user;
@@ -34,25 +39,26 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   bool _isInitialized = false;
   bool _isDisposed = false;
 
-  // Helper method to get safe theme with fallback
-  ModernThemeExtension _getSafeTheme(BuildContext context) {
-    return Theme.of(context).extension<ModernThemeExtension>() ?? 
-        ModernThemeExtension(
-          primaryColor: const Color(0xFFFE2C55),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
-          dividerColor: Theme.of(context).dividerColor,
-          textTertiaryColor: Colors.grey[400],
-          surfaceVariantColor: Colors.grey[100],
-        );
-  }
-
   @override
   void initState() {
     super.initState();
     debugPrint('MyProfileScreen: initState called');
+    
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutBack,
+    ));
     
     // CRITICAL FIX: Immediate initialization without waiting for post-frame callback
     _initializeScreenImmediate();
@@ -61,6 +67,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isDisposed && mounted) {
         _initializeScreen();
+        _animationController.forward();
       }
     });
   }
@@ -68,6 +75,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   @override
   void dispose() {
     _isDisposed = true;
+    _animationController.dispose();
     debugPrint('MyProfileScreen: dispose called');
     super.dispose();
   }
@@ -229,29 +237,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     });
   }
 
-  // Profile creation callback with cache clearing
-  void _onProfileCreated() async {
-    if (_isDisposed) return;
-    
-    debugPrint('Profile created, refreshing data...');
-
-    // Clear any cached network images
-    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
-      await CachedNetworkImage.evictFromCache(_user!.profileImage);
-    }
-
-    // Force refresh authentication state to get latest user data
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    await authNotifier.loadUserDataFromSharedPreferences();
-
-    // Reload the screen data after profile creation
-    if (mounted && !_isDisposed) {
-      await _refreshUserData();
-    }
-
-    debugPrint('Profile data refreshed');
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
@@ -263,447 +248,623 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       );
     }
     
-    final modernTheme = _getSafeTheme(context);
+    final modernTheme = Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
 
-    return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      body: !_isInitialized
-          ? _buildLoadingView(modernTheme)
-          : _hasNoProfile
-              ? _buildProfileRequiredView(modernTheme)
-              : _error != null
-                  ? _buildErrorView(modernTheme)
-                  : _buildProfileView(modernTheme),
-    );
-  }
-
-  Widget _buildLoadingView(ModernThemeExtension modernTheme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-            strokeWidth: 3,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading your profile...',
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor ?? Colors.grey[600],
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileRequiredView(ModernThemeExtension modernTheme) {
-    return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
-      body: const LoginRequiredWidget(
-        title: 'Sign In Required',
-        subtitle: 'Please sign in to view your profile and manage your content.',
-        actionText: 'Sign In',
-        icon: Icons.person,
-      ),
-    );
-  }
-
-  Widget _buildErrorView(ModernThemeExtension modernTheme) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline,
-                color: Colors.red.shade600,
-                size: 64,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Something went wrong',
-              style: TextStyle(
-                color: modernTheme.textColor ?? Colors.black,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor ?? Colors.grey[600],
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _refreshUserData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
-              ),
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Try Again',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileView(ModernThemeExtension modernTheme) {
-    if (_user == null) {
-      return const Center(child: Text('Profile not found'));
+    if (!_isInitialized) {
+      return Scaffold(
+        backgroundColor: modernTheme.surfaceColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
-    return RefreshIndicator(
-      onRefresh: _refreshUserData,
-      color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+    if (_hasNoProfile) {
+      return Scaffold(
+        backgroundColor: modernTheme.backgroundColor,
+        body: const LoginRequiredWidget(
+          title: 'Sign In Required',
+          subtitle: 'Please sign in to view your profile and manage your content.',
+          actionText: 'Sign In',
+          icon: Icons.person,
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: modernTheme.surfaceColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade600),
+              const SizedBox(height: 16),
+              Text('Something went wrong', style: TextStyle(fontSize: 18, color: modernTheme.textColor)),
+              const SizedBox(height: 8),
+              Text(_error!, style: TextStyle(color: modernTheme.textSecondaryColor)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _refreshUserData,
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final user = _user;
+    if (user == null) {
+      return Scaffold(
+        backgroundColor: modernTheme.surfaceColor,
+        body: const Center(child: Text('Profile not found')),
+      );
+    }
+
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 64;
+
+    return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            // Profile Header - Main focus
-            _buildProfileHeader(modernTheme),
-            
-            // Add some bottom spacing
-            const SizedBox(height: 40),
-          ],
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: RefreshIndicator(
+          onRefresh: _refreshUserData,
+          color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+          backgroundColor: modernTheme.surfaceColor,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                SizedBox(height: MediaQuery.of(context).padding.top + 20),
+                
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: _buildFloatingProfileCard(user, modernTheme),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                _buildThemeSettingsTile(modernTheme),
+                
+                const SizedBox(height: 16),
+                
+                _buildEditProfileTile(modernTheme),
+                
+                SizedBox(height: bottomPadding),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
-
-  Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
+  
+  Widget _buildFloatingProfileCard(UserModel user, ModernThemeExtension modernTheme) {
     return Container(
-      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFE2C55),
-            Color(0xFFFE2C55).withOpacity(0.8),
-            Color(0xFFFE2C55).withOpacity(0.6),
+            const Color(0xFFFE2C55),
+            const Color(0xFFFE2C55).withOpacity(0.9),
+            const Color(0xFFFE2C55).withOpacity(0.7),
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ),
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFE2C55).withOpacity(0.4),
+            blurRadius: 25,
+            offset: const Offset(0, 15),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 145,
+              height: 145,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.1),
+                    blurRadius: 5,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: _buildImageContent(user),
+              ),
+            ),
+            const SizedBox(height: 32),
+            
+            Text(
+              user.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                height: 1.1,
+                shadows: [
+                  Shadow(
+                    color: Colors.black38,
+                    offset: Offset(0, 3),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // User role display with exact same styling as drama app
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getRoleIcon(user.role),
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _getRoleDisplayText(user.role),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),            
           ],
         ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
       ),
-      child: Column(
-        children: [
-          // Add safe area padding at the top
-          SizedBox(height: MediaQuery.of(context).padding.top),
+    );
+  }
 
-          // App bar with theme switcher
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Left side - placeholder for symmetry
-                const SizedBox(width: 40),
+  // Helper methods for role display
+  IconData _getRoleIcon(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return Icons.admin_panel_settings;
+      case UserRole.host:
+        return CupertinoIcons.star_circle_fill;
+      case UserRole.guest:
+      default:
+        return Icons.person;
+    }
+  }
 
-                // Center - Profile title
-                const Text(
-                  'Profile',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+  String _getRoleDisplayText(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'Administrator';
+      case UserRole.host:
+        return 'AirBnB Host';
+      case UserRole.guest:
+      default:
+        return 'Guest';
+    }
+  }
 
-                // Right side - Theme switcher
-                GestureDetector(
-                  onTap: () => showThemeSelector(context),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.brightness_6,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
+  Widget _buildImageContent(UserModel user) {
+    if (user.profileImage.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: user.profileImage,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.white.withOpacity(0.2),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: Colors.white.withOpacity(0.8),
+              strokeWidth: 2,
             ),
           ),
+        ),
+        errorWidget: (context, url, error) {
+          debugPrint('Profile image load error for $url: $error');
+          return Container(
+            color: Colors.white.withOpacity(0.2),
+            child: const Icon(Icons.person, size: 55, color: Colors.white),
+          );
+        },
+        memCacheWidth: 145,
+        memCacheHeight: 145,
+        maxWidthDiskCache: 290,
+        maxHeightDiskCache: 290,
+        httpHeaders: const {
+          'User-Agent': 'WeiBao-App/1.0',
+        },
+        cacheKey: user.profileImage,
+      );
+    }
+    
+    return Container(
+      color: Colors.white.withOpacity(0.2),
+      child: const Icon(Icons.person, size: 55, color: Colors.white),
+    );
+  }
 
-          // Profile Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            child: Column(
+
+  
+  Widget _buildThemeSettingsTile(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            showThemeSelector(context);
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                // Profile Image with enhanced R2 handling
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow effect
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.3),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
+                // Enhanced Icon Container
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                      width: 1,
                     ),
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: _user!.profileImage.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: _user!.profileImage,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, error, stackTrace) {
-                                  debugPrint('Failed to load profile image: ${_user!.profileImage}');
-                                  debugPrint('Error: $error');
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.white,
-                                    ),
-                                  );
-                                },
-                                memCacheWidth: 110,
-                                memCacheHeight: 110,
-                                maxWidthDiskCache: 220,
-                                maxHeightDiskCache: 220,
-                                httpHeaders: const {
-                                  'User-Agent': 'WeiBao-App/1.0',
-                                },
-                                cacheKey: _user!.profileImage,
-                                imageBuilder: (context, imageProvider) {
-                                  debugPrint('Profile image loaded successfully: ${_user!.profileImage}');
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      image: DecorationImage(
-                                        image: imageProvider,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              )
-                            : Container(
-                                color: Colors.grey[300],
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // User name
-                Text(
-                  _user!.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black26,
-                        offset: Offset(0, 2),
-                        blurRadius: 4,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-
-                // User bio
-                if (_user!.bio.isNotEmpty)
-                  Text(
-                    _user!.bio,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                      shape: BoxShape.circle,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    child: Icon(
+                      Icons.brightness_6_rounded,
+                      color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                      size: 22,
+                    ),
                   ),
-                const SizedBox(height: 20),
-
-                // Action buttons row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Verification status button
-                    GestureDetector(
-                      onTap: () => VerificationInfoWidget.show(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Enhanced Text Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Theme Settings',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: modernTheme.textColor ?? Colors.black,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      Text(
+                        'Customize your app appearance',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Theme indicator chip
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          gradient: _user!.isVerified
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1565C0),
-                                    Color(0xFF0D47A1),
-                                    Color(0xFF0A1E3D),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1976D2),
-                                    Color(0xFF1565C0),
-                                    Color(0xFF0D47A1),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _user!.isVerified
-                                  ? const Color(0xFF1565C0).withOpacity(0.4)
-                                  : const Color(0xFF1976D2).withOpacity(0.4),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _user!.isVerified
-                                  ? Icons.verified_rounded
-                                  : Icons.star_rounded,
-                              color: Colors.white,
-                              size: 20,
+                              Icons.palette_rounded,
+                              size: 10,
+                              color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 3),
                             Text(
-                              _user!.isVerified ? 'Verified' : 'Get Verified',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
+                              'Personalize',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(width: 8),
+                
+                // Enhanced Arrow Button
+                Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-
-                    const SizedBox(width: 16),
-
-                    // Edit Profile Button
-                    GestureDetector(
-                      onTap: _editProfile,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'Edit Profile',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                      size: 12,
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditProfileTile(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _editProfile();
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Enhanced Icon Container
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.edit_rounded,
+                      color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                      size: 22,
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Enhanced Text Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: modernTheme.textColor ?? Colors.black,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      Text(
+                        'Update your profile information',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Edit indicator chip
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person_outline_rounded,
+                              size: 10,
+                              color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Customize',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(width: 8),
+                
+                // Enhanced Arrow Button
+                Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (modernTheme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: modernTheme.primaryColor ?? const Color(0xFFFE2C55),
+                      size: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
