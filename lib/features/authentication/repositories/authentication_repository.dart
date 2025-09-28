@@ -1,16 +1,17 @@
 // lib/features/authentication/repositories/authentication_repository.dart
-// COMPLETE VERSION: Firebase Auth + R2 Storage + Video Support + Video Updates
+// COMPLETE VERSION: Firebase Auth + R2 Storage + Video Support + Video Updates + SEARCH SUPPORT
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/comments/models/comment_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/videos/models/search_models.dart';
 import '../../../features/users/models/user_model.dart';
 import '../../../constants.dart';
 import '../../../shared/services/http_client.dart';
 
-// Abstract repository interface (Firebase Auth + Go Backend via HTTP)
+// Abstract repository interface (Firebase Auth + Go Backend via HTTP + Search)
 abstract class AuthenticationRepository {
   // Firebase Authentication only (NO storage)
   Future<bool> checkAuthenticationState();
@@ -97,6 +98,22 @@ abstract class AuthenticationRepository {
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
 
+  // 🆕 NEW: SEARCH OPERATIONS
+  Future<VideoSearchResponse> searchVideos({
+    required String query,
+    SearchFilters? filters,
+    String mode = 'combined',
+    int limit = 20,
+    int offset = 0,
+  });
+  Future<List<String>> getSearchSuggestions({
+    required String query,
+    int limit = 5,
+  });
+  Future<List<SearchSuggestion>> getPopularSearchTerms({
+    int limit = 10,
+  });
+
   // File operations (R2 via Go backend ONLY)
   Future<String> storeFileToStorage({
     required File file, 
@@ -109,7 +126,7 @@ abstract class AuthenticationRepository {
   String? get currentUserPhoneNumber;
 }
 
-// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend (Video Support)
+// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend (Video Support + Search)
 class FirebaseAuthenticationRepository implements AuthenticationRepository {
   final FirebaseAuth _auth;
   final HttpClientService _httpClient;
@@ -738,6 +755,140 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
+  // 🆕 NEW: SEARCH OPERATIONS
+  // ===============================
+
+  @override
+  Future<VideoSearchResponse> searchVideos({
+    required String query,
+    SearchFilters? filters,
+    String mode = 'combined',
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      debugPrint('🔍 Searching videos: "$query" (mode: $mode)');
+      
+      // Build query parameters
+      final queryParams = <String, String>{
+        'q': query,
+        'mode': mode,
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      };
+
+      // Add filter parameters if provided
+      if (filters != null) {
+        final filterParams = filters.toQueryParams();
+        filterParams.forEach((key, value) {
+          if (value != null) {
+            queryParams[key] = value.toString();
+          }
+        });
+      }
+
+      // Build URL with query parameters
+      final uri = Uri.parse('/videos/search').replace(queryParameters: queryParams);
+      debugPrint('🌐 Search URL: ${uri.toString()}');
+
+      final response = await _httpClient.get(uri.toString());
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('✅ Search successful: ${responseData['total']} results in ${responseData['timeTaken']}ms');
+        
+        // Parse the search response
+        final searchResponse = VideoSearchResponse.fromJson(responseData);
+        
+        // Add filters to the response (since backend doesn't return them)
+        return VideoSearchResponse(
+          results: searchResponse.results,
+          total: searchResponse.total,
+          query: searchResponse.query,
+          searchMode: searchResponse.searchMode,
+          timeTaken: searchResponse.timeTaken,
+          suggestions: searchResponse.suggestions,
+          page: searchResponse.page,
+          hasMore: searchResponse.hasMore,
+          filters: filters ?? const SearchFilters(),
+        );
+      } else {
+        debugPrint('❌ Search failed: ${response.statusCode} - ${response.body}');
+        throw AuthRepositoryException('Failed to search videos: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Search error: $e');
+      throw AuthRepositoryException('Failed to search videos: $e');
+    }
+  }
+
+  @override
+  Future<List<String>> getSearchSuggestions({
+    required String query,
+    int limit = 5,
+  }) async {
+    try {
+      debugPrint('💡 Getting search suggestions for: "$query"');
+      
+      final response = await _httpClient.get('/videos/search/suggestions?q=${Uri.encodeComponent(query)}&limit=$limit');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> suggestionsData = responseData['suggestions'] ?? [];
+        
+        final suggestions = suggestionsData.map((s) => s.toString()).toList();
+        debugPrint('✅ Got ${suggestions.length} suggestions');
+        return suggestions;
+      } else {
+        debugPrint('❌ Failed to get suggestions: ${response.statusCode} - ${response.body}');
+        throw AuthRepositoryException('Failed to get search suggestions: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Suggestions error: $e');
+      throw AuthRepositoryException('Failed to get search suggestions: $e');
+    }
+  }
+
+  @override
+  Future<List<SearchSuggestion>> getPopularSearchTerms({
+    int limit = 10,
+  }) async {
+    try {
+      debugPrint('📈 Getting popular search terms (limit: $limit)');
+      
+      final response = await _httpClient.get('/videos/search/popular?limit=$limit');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> termsData = responseData['terms'] ?? [];
+        
+        final suggestions = termsData.map((termData) {
+          if (termData is String) {
+            // Simple string format
+            return SearchSuggestion.trending(termData, 0);
+          } else if (termData is Map<String, dynamic>) {
+            // Object format with frequency
+            final term = termData['term'] as String? ?? '';
+            final frequency = termData['frequency'] as int? ?? 0;
+            return SearchSuggestion.trending(term, frequency);
+          } else {
+            return SearchSuggestion.trending(termData.toString(), 0);
+          }
+        }).toList();
+        
+        debugPrint('✅ Got ${suggestions.length} popular terms');
+        return suggestions;
+      } else {
+        debugPrint('❌ Failed to get popular terms: ${response.statusCode} - ${response.body}');
+        throw AuthRepositoryException('Failed to get popular search terms: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Popular terms error: $e');
+      throw AuthRepositoryException('Failed to get popular search terms: $e');
+    }
+  }
+
+  // ===============================
   // COMMENT OPERATIONS
   // ===============================
 
@@ -941,6 +1092,138 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
 
   // Listen to user changes
   Stream<User?> get userChanges => _auth.userChanges();
+
+  // ===============================
+  // 🆕 NEW: SEARCH UTILITY METHODS
+  // ===============================
+
+  /// Performs a quick search with basic filters
+  Future<List<VideoModel>> quickSearch({
+    required String query,
+    int limit = 10,
+  }) async {
+    try {
+      final searchResponse = await searchVideos(
+        query: query,
+        mode: 'combined',
+        limit: limit,
+        filters: const SearchFilters(sortBy: 'relevance'),
+      );
+      
+      return searchResponse.results.map((result) => result.video).toList();
+    } catch (e) {
+      debugPrint('Quick search failed: $e');
+      return [];
+    }
+  }
+
+  /// Search videos by user
+  Future<List<VideoModel>> searchVideosByUser({
+    required String query,
+    required String userId,
+    int limit = 20,
+  }) async {
+    try {
+      final searchResponse = await searchVideos(
+        query: query,
+        filters: SearchFilters(userId: userId),
+        limit: limit,
+      );
+      
+      return searchResponse.results.map((result) => result.video).toList();
+    } catch (e) {
+      debugPrint('Search videos by user failed: $e');
+      return [];
+    }
+  }
+
+  /// Search verified videos only
+  Future<List<VideoModel>> searchVerifiedVideos({
+    required String query,
+    int limit = 20,
+  }) async {
+    try {
+      final searchResponse = await searchVideos(
+        query: query,
+        filters: const SearchFilters(isVerified: true),
+        limit: limit,
+      );
+      
+      return searchResponse.results.map((result) => result.video).toList();
+    } catch (e) {
+      debugPrint('Search verified videos failed: $e');
+      return [];
+    }
+  }
+
+  /// Search premium content (verified + has price)
+  Future<List<VideoModel>> searchPremiumContent({
+    required String query,
+    int limit = 20,
+  }) async {
+    try {
+      final searchResponse = await searchVideos(
+        query: query,
+        filters: const SearchFilters(
+          isVerified: true,
+          hasPrice: true,
+        ),
+        limit: limit,
+      );
+      
+      return searchResponse.results.map((result) => result.video).toList();
+    } catch (e) {
+      debugPrint('Search premium content failed: $e');
+      return [];
+    }
+  }
+
+  /// Search free content only
+  Future<List<VideoModel>> searchFreeContent({
+    required String query,
+    int limit = 20,
+  }) async {
+    try {
+      final searchResponse = await searchVideos(
+        query: query,
+        filters: const SearchFilters(hasPrice: false),
+        limit: limit,
+      );
+      
+      return searchResponse.results.map((result) => result.video).toList();
+    } catch (e) {
+      debugPrint('Search free content failed: $e');
+      return [];
+    }
+  }
+
+  /// Get search suggestions with caching
+  Future<List<String>> getCachedSearchSuggestions({
+    required String query,
+    int limit = 5,
+  }) async {
+    if (query.length < 2) return [];
+    
+    try {
+      return await getSearchSuggestions(query: query, limit: limit);
+    } catch (e) {
+      debugPrint('Cached search suggestions failed: $e');
+      return [];
+    }
+  }
+
+  /// Validate search query
+  bool isValidSearchQuery(String query) {
+    final trimmed = query.trim();
+    return trimmed.isNotEmpty && 
+           trimmed.length >= Constants.minSearchQueryLength &&
+           trimmed.length <= Constants.maxSearchQueryLength;
+  }
+
+  /// Clean search query for API
+  String cleanSearchQuery(String query) {
+    return query.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
 }
 
 // Exception class for repository errors
