@@ -98,10 +98,10 @@ class _SearchResultsGridState extends ConsumerState<SearchResultsGrid> {
                       final result = widget.results[index];
                       
                       return SearchResultCard(
-                        result: result,
+                        searchResult: result,
                         onTap: () => _onResultTap(result),
-                        showRelevanceScore: false, // Can be enabled for debugging
-                        animationDelay: Duration(milliseconds: index * 50),
+                        showRelevance: false, // Can be enabled for debugging
+                        showMatchType: true,
                       );
                     },
                     childCount: widget.results.length,
@@ -455,225 +455,14 @@ class _SearchResultsListState extends ConsumerState<SearchResultsList> {
         }
         
         final result = widget.results[index];
-        return _buildListItem(result, index);
+        return CompactSearchResultCard(
+          searchResult: result,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            widget.onVideoTap(result.video.id);
+          },
+        );
       },
-    );
-  }
-
-  Widget _buildListItem(VideoSearchResult result, int index) {
-    final video = result.video;
-    
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        widget.onVideoTap(video.id);
-      },
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[800]!, width: 1),
-        ),
-        child: Row(
-          children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-              ),
-              child: AspectRatio(
-                aspectRatio: 9 / 16,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Image
-                    Image.network(
-                      video.displayUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[800],
-                          child: Icon(
-                            video.isImageContent ? Icons.image : Icons.play_arrow,
-                            color: Colors.grey[400],
-                            size: 32,
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey[800],
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.grey[400],
-                                strokeWidth: 2,
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    
-                    // Video duration or image count overlay
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          video.isImageContent 
-                              ? '${video.mediaCount} photos'
-                              : 'Video',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Caption
-                    Text(
-                      result.displayCaption,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
-                    const Spacer(),
-                    
-                    // Creator info
-                    Row(
-                      children: [
-                        // Avatar
-                        CircleAvatar(
-                          radius: 12,
-                          backgroundImage: video.userImage.isNotEmpty
-                              ? NetworkImage(video.userImage)
-                              : null,
-                          backgroundColor: Colors.grey[700],
-                          child: video.userImage.isEmpty
-                              ? Text(
-                                  video.userName.isNotEmpty ? video.userName[0].toUpperCase() : 'U',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        
-                        const SizedBox(width: 8),
-                        
-                        // Username
-                        Expanded(
-                          child: Text(
-                            result.displayUsername,
-                            style: TextStyle(
-                              color: Colors.grey[300],
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // Stats
-                    Row(
-                      children: [
-                        Icon(
-                          CupertinoIcons.heart,
-                          color: Colors.grey[400],
-                          size: 12,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          video.formattedLikes,
-                          style: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 11,
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 12),
-                        
-                        Icon(
-                          CupertinoIcons.eye,
-                          color: Colors.grey[400],
-                          size: 12,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          video.formattedViews,
-                          style: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 11,
-                          ),
-                        ),
-                        
-                        const Spacer(),
-                        
-                        // Relevance indicator
-                        if (result.isHighRelevance)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Match',
-                              style: TextStyle(
-                                color: Colors.green[400],
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -709,14 +498,13 @@ class SearchResultsStaggeredGrid extends ConsumerWidget {
             final result = results[index];
             
             return SearchResultCard(
-              result: result,
+              searchResult: result,
               onTap: () {
                 HapticFeedback.lightImpact();
                 onVideoTap(result.video.id);
               },
-              height: _getCardHeight(index),
-              showRelevanceScore: false,
-              animationDelay: Duration(milliseconds: index * 50),
+              showRelevance: false,
+              showMatchType: true,
             );
           },
         ),
@@ -735,13 +523,6 @@ class SearchResultsStaggeredGrid extends ConsumerWidget {
           ),
       ],
     );
-  }
-
-  double _getCardHeight(int index) {
-    // Staggered heights for more visual interest
-    const baseHeight = 200.0;
-    const heights = [baseHeight, baseHeight + 40, baseHeight + 20, baseHeight + 60];
-    return heights[index % heights.length];
   }
 }
 

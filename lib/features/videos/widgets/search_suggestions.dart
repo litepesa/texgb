@@ -418,18 +418,18 @@ class SearchSuggestions extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         ...categories.map((category) => 
-          _buildCategoryItem(category)
+          _buildCategoryItem(context, category)
         ).toList(),
       ],
     );
   }
 
-  Widget _buildCategoryItem(_CategoryItem category) {
+  Widget _buildCategoryItem(BuildContext context, _CategoryItem category) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
         onTap: () {
-          _showCategoryDialog(category);
+          _showCategoryDialog(context, category);
         },
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -559,7 +559,7 @@ class SearchSuggestions extends ConsumerWidget {
     );
   }
 
-  void _showCategoryDialog(_CategoryItem category) {
+  void _showCategoryDialog(BuildContext context, _CategoryItem category) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

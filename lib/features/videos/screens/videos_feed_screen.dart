@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with improved navigation)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with search integration)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
+import 'package:textgb/features/videos/widgets/search_overlay.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:video_player/video_player.dart';
@@ -1005,6 +1006,22 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
+  // NEW: Method to open search overlay
+  void _openSearchOverlay() {
+    // Pause video before opening search
+    _pauseForNavigation();
+
+    SearchOverlayController.show(
+      context,
+      onVideoTap: (videoId) {
+        // When a video is selected from search, jump to it
+        _jumpToVideo(videoId);
+        _resumeFromNavigation();
+      },
+      showFilters: true,
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('VideosFeedScreen: Disposing');
@@ -1143,7 +1160,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(width: 8),
-              Text(
+              /*Text(
                 'Marketplace',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
@@ -1157,14 +1174,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                     ),
                   ],
                 ),
-              ),
+              ),*/
             ],
           ),
         ),
 
-        // Search button
+        // Search button - UPDATED: Now opens search overlay
         IconButton(
-          onPressed: () {},
+          onPressed: _openSearchOverlay,
           icon: const Icon(
             CupertinoIcons.search,
             color: Colors.white,
