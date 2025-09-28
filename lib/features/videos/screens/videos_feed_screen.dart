@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with search integration)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with rounded edges and black status bar)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -12,13 +12,18 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/videos/widgets/search_overlay.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:dio/dio.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 
 class VideosFeedScreen extends ConsumerStatefulWidget {
   final String? startVideoId; // For direct video navigation
@@ -53,9 +58,18 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
 
-  // Video controllers
+  // Download state management
+  final Map<String, bool> _downloadingVideos =
+      {}; // Track which videos are downloading
+  final Map<String, double> _downloadProgress =
+      {}; // Track download progress for each video
+
+  // Video controllers - ADD THESE MISSING PROPERTIES
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
+  
+  // Store original system UI for restoration
+  SystemUiOverlayStyle? _originalSystemUiStyle;
 
   @override
   bool get wantKeepAlive => true;
@@ -65,7 +79,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    _setupCacheCleanup();
+    _setupCacheCleanup(); // ADD THIS
     // Use post-frame callback to avoid provider modification during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVideos();
@@ -76,6 +90,23 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Store original system UI after dependencies are available
+    if (_originalSystemUiStyle == null) {
+      _storeOriginalSystemUI();
+    }
+  }
+
+  void _storeOriginalSystemUI() {
+    // Store the current system UI style before making changes
+    final brightness = Theme.of(context).brightness;
+    _originalSystemUiStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    );
   }
 
   @override
@@ -107,10 +138,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
 
-    // Setup system UI when actually becoming active and visible
-    if (mounted) {
-      _setupSystemUI();
-    }
+    // Setup system UI when becoming active
+    _setupSystemUI();
 
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
@@ -125,10 +154,27 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = false;
     _stopPlayback();
 
-    // Don't restore system UI here - let HomeScreen handle it
-    // The home screen will manage system UI for other tabs
+    // Restore original system UI when becoming inactive
+    _restoreOriginalSystemUI();
 
     WakelockPlus.disable();
+  }
+
+  void _restoreOriginalSystemUI() {
+    if (_originalSystemUiStyle != null) {
+      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else {
+      // Fallback: restore based on current theme
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
   }
 
   // New method to handle navigation away from feed
@@ -160,19 +206,19 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
+  // ADD THIS METHOD - Missing from original
   void _setupCacheCleanup() {
     _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
       // Cache cleanup logic can be added here if needed
     });
   }
 
+  // ADD THIS METHOD - Missing intelligent preloading
   void _startIntelligentPreloading() {
     if (!_isScreenActive ||
         !_isAppInForeground ||
         _isNavigatingAway ||
-        _isCommentsSheetOpen) {
-      return;
-    }
+        _isCommentsSheetOpen) return;
 
     final videos = ref.read(videosProvider);
     if (videos.isEmpty) return;
@@ -188,9 +234,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isAppInForeground ||
         _isNavigatingAway ||
         _isManuallyPaused ||
-        _isCommentsSheetOpen) {
-      return;
-    }
+        _isCommentsSheetOpen) return;
 
     debugPrint('VideosFeedScreen: Starting fresh playback');
 
@@ -208,7 +252,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       }
     }
 
-    _startIntelligentPreloading();
+    _startIntelligentPreloading(); // ADD THIS
     WakelockPlus.enable();
   }
 
@@ -238,18 +282,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     // Controllers initialization if needed in the future
   }
 
-  // Only apply system UI when screen is actually active and visible
   void _setupSystemUI() {
-    // Only apply black system UI if this screen is currently active and visible
-    if (!mounted || !_isScreenActive) return;
-
-    debugPrint('VideosFeedScreen: Setting up system UI (black theme)');
-
-    // Set immersive black theme only when this screen is active
+    // Set both status bar and navigation bar to black for immersive TikTok-style experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black, // Changed from transparent to black
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.black, // Keep black for immersive experience
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
@@ -272,14 +310,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
         // If a specific video ID was provided, jump to it
         if (widget.startVideoId != null) {
-          // Ensure we have videos loaded before jumping
-          final videos = ref.read(videosProvider);
-          if (videos.isNotEmpty) {
-            debugPrint('VideosFeedScreen: Videos loaded, jumping to ${widget.startVideoId}');
-            _jumpToVideo(widget.startVideoId!);
-          } else {
-            debugPrint('VideosFeedScreen: No videos loaded, cannot jump to specific video');
-          }
+          _jumpToVideo(widget.startVideoId!);
         } else {
           // Start intelligent preloading for the first video
           _startIntelligentPreloading();
@@ -288,7 +319,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // IMPROVED: Add this method to jump to a specific video with better reliability
+  // Add this method to jump to a specific video
   void _jumpToVideo(String videoId) {
     final videos = ref.read(videosProvider);
     final videoIndex = videos.indexWhere((video) => video.id == videoId);
@@ -296,57 +327,21 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (videoIndex != -1) {
       debugPrint('VideosFeedScreen: Jumping to video at index $videoIndex');
 
-      // Set the current index immediately to prevent wrong video from playing
-      _currentVideoIndex = videoIndex;
-
-      // Method 1: Try immediate jump if PageController is ready
-      if (_pageController.hasClients && mounted) {
-        try {
+      // Use a delay to ensure the PageView is ready and videos are loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _pageController.hasClients) {
           _pageController.jumpToPage(videoIndex);
-          debugPrint('VideosFeedScreen: Immediate jump successful to index $videoIndex');
-          
-          // Update state to reflect the change
-          if (mounted) {
-            setState(() {
-              _currentVideoIndex = videoIndex;
-              _isManuallyPaused = false; // Reset pause state for new video
-            });
-          }
-          
+
+          // Update the current video index
+          setState(() {
+            _currentVideoIndex = videoIndex;
+          });
+
           // Start intelligent preloading for the target video
           _startIntelligentPreloading();
-          return;
-        } catch (e) {
-          debugPrint('VideosFeedScreen: Immediate jump failed: $e');
-        }
-      }
 
-      // Method 2: Use post-frame callback for reliable navigation
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        
-        // Double-check PageController is ready
-        if (_pageController.hasClients) {
-          try {
-            _pageController.jumpToPage(videoIndex);
-            debugPrint('VideosFeedScreen: Post-frame jump successful to index $videoIndex');
-            
-            // Update state after successful jump
-            if (mounted) {
-              setState(() {
-                _currentVideoIndex = videoIndex;
-                _isManuallyPaused = false;
-              });
-            }
-            
-            _startIntelligentPreloading();
-          } catch (e) {
-            debugPrint('VideosFeedScreen: Post-frame jump failed: $e');
-            _fallbackJump(videoIndex);
-          }
-        } else {
-          debugPrint('VideosFeedScreen: PageController not ready, using fallback');
-          _fallbackJump(videoIndex);
+          debugPrint(
+              'VideosFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
         }
       });
     } else {
@@ -354,48 +349,13 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // Add this fallback method for delayed navigation
-  void _fallbackJump(int targetIndex) {
-    // Use a timer as fallback for when PageController isn't immediately ready
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      
-      if (_pageController.hasClients) {
-        timer.cancel();
-        
-        try {
-          _pageController.jumpToPage(targetIndex);
-          debugPrint('VideosFeedScreen: Fallback jump successful to index $targetIndex');
-          
-          if (mounted) {
-            setState(() {
-              _currentVideoIndex = targetIndex;
-              _isManuallyPaused = false;
-            });
-          }
-          
-          _startIntelligentPreloading();
-        } catch (e) {
-          debugPrint('VideosFeedScreen: Fallback jump failed: $e');
-        }
-      } else if (timer.tick > 50) { // Stop trying after 5 seconds
-        timer.cancel();
-        debugPrint('VideosFeedScreen: Giving up on jump after timeout');
-      }
-    });
-  }
-
+  // UPDATE THIS METHOD - Add proper controller handling like SingleVideoScreen
   void _onVideoControllerReady(VideoPlayerController controller) {
     if (!mounted ||
         !_isScreenActive ||
         !_isAppInForeground ||
         _isNavigatingAway ||
-        _isCommentsSheetOpen) {
-      return;
-    }
+        _isCommentsSheetOpen) return;
 
     debugPrint('Video controller ready, setting up fresh playback');
 
@@ -424,9 +384,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isAppInForeground ||
         _isNavigatingAway ||
         _isManuallyPaused ||
-        _isCommentsSheetOpen) {
-      return;
-    }
+        _isCommentsSheetOpen) return;
 
     debugPrint('VideosFeedScreen: Starting fresh video from beginning');
 
@@ -462,7 +420,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isNavigatingAway &&
         !_isManuallyPaused &&
         !_isCommentsSheetOpen) {
-      _startIntelligentPreloading();
+      _startIntelligentPreloading(); // ADD THIS
       WakelockPlus.enable();
     }
 
@@ -497,275 +455,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       // User not found in current list
       return null;
     }
-  }
-
-  // Updated WhatsApp function to use actual user WhatsApp number from database
-  Future<void> _openWhatsAppWithVideo(VideoModel? video) async {
-    if (video == null) return;
-
-    // Check if user is authenticated before allowing WhatsApp messaging
-    final canInteract = await _requireAuthentication('message on whatsapp');
-    if (!canInteract) return;
-
-    final currentUser = ref.read(currentUserProvider);
-
-    // Check if user is trying to message their own video
-    if (video.userId == currentUser!.uid) {
-      _showCannotMessageOwnVideoMessage();
-      return;
-    }
-
-    try {
-      // Pause video before opening WhatsApp
-      _pauseForNavigation();
-
-      // Get the video creator's user data from the database
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      final videoCreator = await authNotifier.getUserById(video.userId);
-
-      if (videoCreator == null) {
-        _showUserNotFoundMessage();
-        return;
-      }
-
-      // Check if the video creator has a WhatsApp number
-      if (!videoCreator.hasWhatsApp) {
-        _showWhatsAppNotAvailableMessage(videoCreator.name);
-        return;
-      }
-
-      // Prepare message content with video context
-      String message = 'Hi ${videoCreator.name}! I saw your video';
-      
-      if (video.caption.isNotEmpty) {
-        // Add video caption for context (truncate if too long)
-        String caption = video.caption;
-        if (caption.length > 50) {
-          caption = '${caption.substring(0, 50)}...';
-        }
-        message += ' about "$caption"';
-      }
-      
-      message += ' and wanted to chat!';
-
-      // Encode the message for URL
-      final encodedMessage = Uri.encodeComponent(message);
-      
-      // Create WhatsApp URL with the user's actual WhatsApp number
-      final whatsappUrl = 'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
-      final uri = Uri.parse(whatsappUrl);
-
-      debugPrint('Opening WhatsApp with URL: $whatsappUrl');
-      debugPrint('Video creator: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
-
-      // Try to launch WhatsApp
-      if (await canLaunchUrl(uri)) {
-        final success = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-
-        if (success) {
-          _showSnackBar('Opening WhatsApp to message ${videoCreator.name}...');
-        } else {
-          throw Exception('Failed to launch WhatsApp');
-        }
-      } else {
-        // WhatsApp is not installed or URL is invalid
-        _showWhatsAppNotInstalledMessage();
-      }
-    } catch (e) {
-      debugPrint('Error opening WhatsApp: $e');
-      _showSnackBar('Failed to open WhatsApp');
-    } finally {
-      // Resume video after attempting to open WhatsApp
-      // Add delay to ensure user returns to the app
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          _resumeFromNavigation();
-        }
-      });
-    }
-  }
-
-  // Helper method to show when user is not found
-  void _showUserNotFoundMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_off,
-                color: Colors.orange,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'User Not Found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Could not find the video creator\'s profile. Please try again later.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to show when WhatsApp number is not available
-  void _showWhatsAppNotAvailableMessage(String userName) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.link_off,
-                color: Colors.green,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'WhatsApp Link Not Added',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$userName hasn\'t added their WhatsApp number to their profile yet.',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to show WhatsApp not installed message
-  void _showWhatsAppNotInstalledMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.message,
-                color: Colors.green,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'WhatsApp Not Available',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please install WhatsApp to send messages or check your internet connection.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // Add this method to build the small video window
@@ -898,6 +587,49 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
+  // Show virtual gifts bottom sheet
+  void _showVirtualGifts(VideoModel? video) async {
+    if (video == null) {
+      debugPrint('No video available for gifting');
+      return;
+    }
+
+    // Check if user is authenticated before allowing gifts
+    final canInteract = await _requireAuthentication('send gifts');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if user is trying to gift their own video
+    if (video.userId == currentUser!.uid) {
+      _showCannotGiftOwnVideoMessage();
+      return;
+    }
+
+    // Pause video before showing gifts
+    _pauseForNavigation();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => VirtualGiftsBottomSheet(
+        recipientName: video.userName,
+        recipientImage: video.userImage,
+        onGiftSelected: (gift) {
+          _handleGiftSent(video, gift);
+        },
+        onClose: () {
+          // Resume video when gifts sheet is closed
+          _resumeFromNavigation();
+        },
+      ),
+    ).whenComplete(() {
+      // Ensure video resumes if sheet is dismissed
+      _resumeFromNavigation();
+    });
+  }
+
   // Helper method to require authentication before actions
   Future<bool> _requireAuthentication(String actionName) async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
@@ -926,12 +658,116 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       case 'comment':
       case 'comment on videos':
         return Icons.comment;
+      case 'send gifts':
+      case 'gift':
+        return Icons.card_giftcard;
+      case 'download videos':
+      case 'download':
+        return Icons.download;
+      case 'share videos':
+      case 'share':
+        return Icons.share;
       case 'message on whatsapp':
       case 'whatsapp':
         return Icons.message;
       default:
         return Icons.video_call;
     }
+  }
+
+  void _handleGiftSent(VideoModel video, VirtualGift gift) {
+    // TODO: Implement actual gift sending logic
+    debugPrint(
+        'Gift sent: ${gift.name} (KES ${gift.price}) to ${video.userName}');
+
+    // Show success message
+    _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.userName}!');
+  }
+
+  // Helper method to show cannot gift own video message
+  void _showCannotGiftOwnVideoMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.card_giftcard,
+              color: Colors.orange,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Gift Your Own Video',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send gifts to your own videos.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show snackbar
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // WhatsApp navigation method (dummy implementation for now)
+  void _openWhatsApp(VideoModel? video) async {
+    if (video == null) return;
+
+    // Check if user is authenticated before allowing WhatsApp messaging
+    final canInteract = await _requireAuthentication('message on whatsapp');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if user is trying to message their own video
+    if (video.userId == currentUser!.uid) {
+      _showCannotMessageOwnVideoMessage();
+      return;
+    }
+
+    // TODO: Implement actual WhatsApp navigation logic
+    // For now, just show a message that this will be implemented
+    _showWhatsAppComingSoonMessage(video);
   }
 
   // Helper method to show cannot message own video
@@ -994,31 +830,63 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // Helper method to show snackbar
-  void _showSnackBar(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 2),
+  // Helper method to show WhatsApp coming soon message
+  void _showWhatsAppComingSoonMessage(VideoModel video) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
         ),
-      );
-    }
-  }
-
-  // NEW: Method to open search overlay
-  void _openSearchOverlay() {
-    // Pause video before opening search
-    _pauseForNavigation();
-
-    SearchOverlayController.show(
-      context,
-      onVideoTap: (videoId) {
-        // When a video is selected from search, jump to it
-        _jumpToVideo(videoId);
-        _resumeFromNavigation();
-      },
-      showFilters: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Integration',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'WhatsApp messaging with ${video.userName} will be available soon!',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1028,13 +896,16 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     WidgetsBinding.instance.removeObserver(this);
 
-    // STOP ALL PLAYBACK AND DISABLE WAKELOCK
+    // STOP ALL PLAYBACK AND DISABLE WAKELOCK - ADD THIS
     _stopPlayback();
     
-    // CLEANUP CACHE TIMER
+    // CLEANUP CACHE TIMER - ADD THIS
     _cacheCleanupTimer?.cancel();
 
     _pageController.dispose();
+
+    // Restore original system UI on dispose
+    _restoreOriginalSystemUI();
 
     // Final wakelock disable
     WakelockPlus.disable();
@@ -1046,10 +917,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Only setup system UI if this screen is actually active
-    if (_isScreenActive && mounted) {
-      _setupSystemUI();
-    }
+    // Setup system UI for current theme
+    _setupSystemUI();
 
     // Watch videos from the new authentication provider
     final videos = ref.watch(videosProvider);
@@ -1059,27 +928,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     // Show loading screen during initial video loading
     if (_isFirstLoad && isLoading) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(
-                color: Colors.white,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Loading videos...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
+        body: SizedBox.shrink(),
       );
     }
 
@@ -1087,12 +938,21 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       extendBodyBehindAppBar: true,
       extendBody: true,
       backgroundColor: Colors.black,
-      body: Container(
-        color: Colors.black, // Ensure black background
+      body: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
         child: Stack(
           children: [
-            // Main content area
-            _buildBody(videos),
+            // Main content - positioned to avoid covering status bar and system nav
+            Positioned(
+              top: systemTopPadding, // Start below status bar
+              left: 0,
+              right: 0,
+              bottom: systemBottomPadding, // Reserve space above system nav
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
+                child: _buildBody(videos),
+              ),
+            ),
 
             // Small video window when comments are open
             if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
@@ -1100,7 +960,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             // Top navigation - simplified header matching moments feed style
             if (!_isCommentsSheetOpen) // Hide top bar when comments are open
               Positioned(
-                top: systemTopPadding,
+                top: systemTopPadding + 16, // Positioned below status bar with some padding
                 left: 0,
                 right: 0,
                 child: _buildSimplifiedHeader(),
@@ -1160,8 +1020,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(width: 8),
-              /*Text(
-                'Marketplace',
+              Text(
+                'For You',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,
@@ -1174,14 +1034,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                     ),
                   ],
                 ),
-              ),*/
+              ),
             ],
           ),
         ),
 
-        // Search button - UPDATED: Now opens search overlay
+        // Search button
         IconButton(
-          onPressed: _openSearchOverlay,
+          onPressed: () {},
           icon: const Icon(
             CupertinoIcons.search,
             color: Colors.white,
@@ -1207,7 +1067,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // TikTok-style right side menu
+  // TikTok-style right side menu - now with WhatsApp button
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length
@@ -1217,29 +1077,23 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom:
-          systemBottomPadding, // Closer to system nav for better screen utilization
+      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
       child: Column(
         children: [
-          // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of VideoReactionWidget
-          GestureDetector(
-            onTap: () => _openWhatsAppWithVideo(currentVideo),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  child: Lottie.asset(
-                    'assets/lottie/chat_bubble.json',
-                    width: 58,
-                    height: 58,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
+          // DM button - Using VideoReactionWidget (moved after Share)
+          /*VideoReactionWidget(
+            video: currentVideo,
+            onPause: _pauseForNavigation,
+            onResume: _resumeFromNavigation,
+            child: Lottie.asset(
+              'assets/lottie/chat_bubble.json',
+              width: 58,
+              height: 58,
+              fit: BoxFit.contain,
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Like button
           _buildRightMenuItem(
@@ -1269,7 +1123,78 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Profile avatar with red border
+          // Download button (replaced star/bookmark)
+          _buildRightMenuItem(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Show progress indicator if downloading
+                if (_downloadingVideos[currentVideo?.id] == true)
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      value: _downloadProgress[currentVideo?.id] ?? 0.0,
+                      color: Colors.white,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.download,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+              ],
+            ),
+            label: _downloadingVideos[currentVideo?.id] == true
+                ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
+                : 'Save',
+            onTap: () => _downloadCurrentVideo(currentVideo),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Share button - UPDATED with share_plus functionality
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.arrowshape_turn_up_right,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: 'Share',
+            onTap: () async {
+              // Check if user is authenticated before allowing share
+              final canInteract = await _requireAuthentication('share videos');
+              if (canInteract) {
+                await _shareCurrentVideo(currentVideo);
+              }
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // Gift button - with exciting emoji
+          _buildRightMenuItem(
+            child: const Text(
+              '🎁',
+              style: TextStyle(
+                fontSize: 28,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+            onTap: () => _showVirtualGifts(currentVideo),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Profile avatar with red border - SIMPLIFIED: Use video metadata directly
           _buildRightMenuItem(
             child: Container(
               width: 44,
@@ -1341,7 +1266,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                           child: Text(
                             currentVideo?.userName.isNotEmpty == true
                                 ? currentVideo!.userName[0].toUpperCase()
-                                : 'H',
+                                : 'U',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -1482,6 +1407,235 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       // Ensure video returns to full screen mode
       _setVideoWindowMode(false);
     });
+  }
+
+  // Share current video using share_plus package
+  Future<void> _shareCurrentVideo(VideoModel? video) async {
+    if (video == null) return;
+
+    try {
+      // Create share content
+      String shareText = '';
+
+      // Add video caption if available
+      if (video.caption.isNotEmpty) {
+        shareText += video.caption;
+      }
+
+      // Add creator credit
+      if (shareText.isNotEmpty) {
+        shareText += '\n\n';
+      }
+      shareText += 'Check out this video by ${video.userName}!';
+
+      // Add hashtags if available
+      if (video.tags.isNotEmpty) {
+        shareText += '\n\n${video.tags.map((tag) => '#$tag').join(' ')}';
+      }
+
+      // Add app promotion
+      shareText += '\n\nShared via TextGB';
+
+      // Get the render box for share position (required for iPad)
+      final RenderBox? box = context.findRenderObject() as RenderBox?;
+
+      // Share using share_plus
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          text: shareText,
+          subject: 'Check out this video!',
+          sharePositionOrigin:
+              box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+        ),
+      );
+
+      // Show feedback based on share result
+      if (result.status == ShareResultStatus.success) {
+        _showSnackBar('Video shared successfully!');
+      } else if (result.status == ShareResultStatus.dismissed) {
+        // User cancelled sharing - no need to show message
+      } else {
+        _showSnackBar('Failed to share video');
+      }
+    } catch (e) {
+      debugPrint('Error sharing video: $e');
+      _showSnackBar('Failed to share video');
+    }
+  }
+
+  // Download current video functionality
+  Future<void> _downloadCurrentVideo(VideoModel? video) async {
+    if (video == null) return;
+
+    // Check if user is authenticated before allowing download
+    final canInteract = await _requireAuthentication('download videos');
+    if (!canInteract) return;
+
+    // Check if already downloading
+    if (_downloadingVideos[video.id] == true) {
+      _showSnackBar('Video is already downloading...');
+      return;
+    }
+
+    // For image posts, we can't download videos
+    if (video.isMultipleImages) {
+      _showSnackBar('Cannot download image posts');
+      return;
+    }
+
+    // Check if video URL is valid
+    if (video.videoUrl.isEmpty) {
+      _showSnackBar('Invalid video URL');
+      return;
+    }
+
+    try {
+      // Request storage permission
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        _showSnackBar('Storage permission required to download videos');
+        return;
+      }
+
+      // Start download
+      await _downloadVideo(video);
+    } catch (e) {
+      debugPrint('Error downloading video: $e');
+      _showSnackBar('Failed to download video');
+      setState(() {
+        _downloadingVideos[video.id] = false;
+        _downloadProgress.remove(video.id);
+      });
+    }
+  }
+
+  // Request storage permission based on Android version
+  Future<bool> _requestStoragePermission() async {
+    // For Android 13+ (API 33+), we need different permissions
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 33) {
+        // Android 13+ - request media permissions
+        final status = await [
+          Permission.videos,
+          Permission.photos,
+        ].request();
+
+        return status.values.every((status) => status.isGranted);
+      } else {
+        // Android 12 and below - request storage permission
+        final status = await Permission.storage.request();
+        return status.isGranted;
+      }
+    } else if (Platform.isIOS) {
+      // For iOS, request photos permission
+      final status = await Permission.photos.request();
+      return status.isGranted;
+    }
+
+    return true; // For other platforms
+  }
+
+  // Download video with progress tracking
+  Future<void> _downloadVideo(VideoModel video) async {
+    setState(() {
+      _downloadingVideos[video.id] = true;
+      _downloadProgress[video.id] = 0.0;
+    });
+
+    try {
+      final dio = Dio();
+
+      // Get download directory
+      Directory? directory;
+      String fileName =
+          'textgb_${video.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      if (Platform.isAndroid) {
+        // Try to save to Downloads folder
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          // Fallback to app documents directory
+          directory = await getApplicationDocumentsDirectory();
+        }
+      } else if (Platform.isIOS) {
+        // For iOS, save to app documents directory
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        // For other platforms
+        directory = await getDownloadsDirectory() ??
+            await getApplicationDocumentsDirectory();
+      }
+
+      final savePath = '${directory.path}/$fileName';
+
+      // Download with progress tracking
+      await dio.download(
+        video.videoUrl,
+        savePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = received / total;
+            setState(() {
+              _downloadProgress[video.id] = progress;
+            });
+          }
+        },
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: false,
+          validateStatus: (status) {
+            return status! < 500;
+          },
+        ),
+      );
+
+      // Download completed successfully
+      setState(() {
+        _downloadingVideos[video.id] = false;
+        _downloadProgress.remove(video.id);
+      });
+
+      _showSnackBar('Video saved successfully!');
+
+      // Optionally, add to device gallery (Android only)
+      if (Platform.isAndroid) {
+        await _addToGallery(savePath);
+      }
+    } catch (e) {
+      debugPrint('Download error: $e');
+      setState(() {
+        _downloadingVideos[video.id] = false;
+        _downloadProgress.remove(video.id);
+      });
+
+      if (e is DioException) {
+        switch (e.type) {
+          case DioExceptionType.connectionTimeout:
+          case DioExceptionType.receiveTimeout:
+            _showSnackBar('Download timeout. Please try again.');
+            break;
+          case DioExceptionType.connectionError:
+            _showSnackBar('Network error. Check your connection.');
+            break;
+          default:
+            _showSnackBar('Download failed. Please try again.');
+        }
+      } else {
+        _showSnackBar('Download failed. Please try again.');
+      }
+    }
+  }
+
+  // Add video to Android gallery (optional)
+  Future<void> _addToGallery(String filePath) async {
+    try {
+      // This would require additional packages like gallery_saver
+      // For now, we'll just save to Downloads which should be visible in gallery
+      debugPrint('Video saved to: $filePath');
+    } catch (e) {
+      debugPrint('Error adding to gallery: $e');
+    }
   }
 
   String _formatCount(int count) {

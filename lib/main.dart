@@ -13,7 +13,6 @@ import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-
 import 'package:textgb/features/users/screens/user_profile_screen.dart';
 import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
