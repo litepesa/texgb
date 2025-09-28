@@ -5,16 +5,14 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class EditTabWidget extends StatelessWidget {
   final VideoModel? video;
-  final VoidCallback onEditCaption;
-  final VoidCallback onUpdatePrice;
-  final VoidCallback onDeleteVideo;
+  final VoidCallback onAddBannerText;
+  final VoidCallback onEditPost;
 
   const EditTabWidget({
     super.key,
     required this.video,
-    required this.onEditCaption,
-    required this.onUpdatePrice,
-    required this.onDeleteVideo,
+    required this.onAddBannerText,
+    required this.onEditPost,
   });
 
   @override
@@ -27,7 +25,7 @@ class EditTabWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Edit Content',
+            'Edit Options',
             style: TextStyle(
               color: modernTheme.textColor,
               fontSize: 18,
@@ -36,77 +34,69 @@ class EditTabWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           
-          // Essential Edit Options
+          // Edit Options
+          _buildEditOption(
+            'Add Banner Text',
+            'Overlay text on your video or image',
+            Icons.text_fields,
+            onAddBannerText,
+            modernTheme,
+          ),
           _buildEditOption(
             'Edit Caption',
-            'Update your post description and text',
+            'Update your post description',
             Icons.edit_note,
-            onEditCaption,
+            onEditPost,
             modernTheme,
           ),
           _buildEditOption(
-            'Update Price',
-            'Set or change content pricing',
-            Icons.attach_money,
-            onUpdatePrice,
+            'Manage Tags',
+            'Add or remove hashtags',
+            Icons.tag,
+            onEditPost,
+            modernTheme,
+          ),
+          _buildEditOption(
+            'Privacy Settings',
+            'Control who can see this post',
+            Icons.privacy_tip,
+            () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Privacy settings coming soon!'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            modernTheme,
+          ),
+          _buildEditOption(
+            'Advanced Settings',
+            'Comments, downloads, and more',
+            Icons.settings,
+            () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Advanced settings coming soon!'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
             modernTheme,
           ),
           
           const SizedBox(height: 24),
           
-          // Content Information
-          if (video != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: modernTheme.surfaceColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: modernTheme.primaryColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Content Information',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildInfoRow('Content Type', video!.isMultipleImages ? 'Image Gallery' : 'Video', modernTheme),
-                  _buildInfoRow('Current Price', video!.formattedPrice, modernTheme),
-                  _buildInfoRow('Total Views', video!.formattedViews, modernTheme),
-                  _buildInfoRow('Engagement Rate', video!.formattedEngagementRate, modernTheme),
-                  _buildInfoRow('Content Tier', video!.contentTier, modernTheme),
-                  _buildInfoRow('Created', video!.timeAgo, modernTheme),
-                  if (video!.isVerified)
-                    _buildInfoRow('Status', '✓ Verified', modernTheme),
-                  if (video!.isFeatured)
-                    _buildInfoRow('Featured', '⭐ Yes', modernTheme),
-                ],
-              ),
-            ),
-          
-          const SizedBox(height: 24),
-          
-          // Danger Zone
+          // Post Activity Status
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: modernTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.red.withOpacity(0.3),
+                color: modernTheme.primaryColor!.withOpacity(0.3),
               ),
             ),
             child: Column(
@@ -115,44 +105,45 @@ class EditTabWidget extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.warning_outlined,
-                      color: Colors.red.shade600,
-                      size: 20,
+                      Icons.toggle_on,
+                      color: modernTheme.primaryColor,
+                      size: 24,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Danger Zone',
+                      'Post Activity',
                       style: TextStyle(
-                        color: Colors.red.shade600,
+                        color: modernTheme.textColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
+                    const Spacer(),
+                    Switch(
+                      value: video?.isActive ?? true,
+                      onChanged: (value) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              value ? 'Post activated' : 'Post paused',
+                            ),
+                            backgroundColor: modernTheme.primaryColor,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      activeColor: modernTheme.primaryColor,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
-                  'Once you delete this post, there is no going back. Please be certain.',
+                  video?.isActive ?? true
+                      ? 'Your post is visible to viewers'
+                      : 'Your post is hidden from viewers',
                   style: TextStyle(
                     color: modernTheme.textSecondaryColor,
                     fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onDeleteVideo,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade600,
-                      side: BorderSide(color: Colors.red.shade600),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: const Icon(Icons.delete_forever, size: 20),
-                    label: const Text('Delete Post Permanently'),
                   ),
                 ),
               ],
@@ -206,32 +197,6 @@ class EditTabWidget extends StatelessWidget {
           size: 16,
         ),
         onTap: onTap,
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, ModernThemeExtension modernTheme) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

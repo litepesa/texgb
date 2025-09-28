@@ -212,424 +212,22 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  void _editCaption() {
-    if (_video == null) return;
-    
-    final TextEditingController captionController = TextEditingController(text: _video!.caption);
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text('Edit Caption'),
-        content: TextField(
-          controller: captionController,
-          maxLines: 4,
-          maxLength: 2200,
-          decoration: const InputDecoration(
-            hintText: 'Enter your caption...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              await ref.read(authenticationProvider.notifier).updateVideoCaption(
-                videoId: _video!.id,
-                caption: captionController.text.trim(),
-                onSuccess: (message) {
-                  // Update local state
-                  setState(() {
-                    _video = _video!.copyWith(caption: captionController.text.trim());
-                  });
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                onError: (error) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(error),
-                      backgroundColor: Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+  void _editPost() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Edit feature coming soon!'),
+        backgroundColor: context.modernTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  void _updatePrice() {
-    if (_video == null) return;
-    
-    final TextEditingController priceController = TextEditingController(
-      text: _video!.price > 0 ? _video!.price.toString() : '',
-    );
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text('Update Price'),
-        content: TextField(
-          controller: priceController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            hintText: 'Enter price (0 for free)',
-            prefixText: 'KES ',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              final price = double.tryParse(priceController.text.trim()) ?? 0.0;
-              
-              await ref.read(authenticationProvider.notifier).updateVideoPrice(
-                videoId: _video!.id,
-                price: price,
-                onSuccess: (message) {
-                  // Update local state
-                  setState(() {
-                    _video = _video!.copyWith(price: price);
-                  });
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('$message - New price: ${_video!.formattedPrice}'),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                onError: (error) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(error),
-                      backgroundColor: Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _updateVideoUrl() {
-    if (_video == null) return;
-    
-    final TextEditingController urlController = TextEditingController(text: _video!.videoUrl);
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text('Update Video URL'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: urlController,
-              decoration: const InputDecoration(
-                hintText: 'Enter video URL...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Note: Video will be re-processed after URL change',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              await ref.read(authenticationProvider.notifier).updateVideoUrl(
-                videoId: _video!.id,
-                videoUrl: urlController.text.trim(),
-                onSuccess: (message) {
-                  // Update local state
-                  setState(() {
-                    _video = _video!.copyWith(videoUrl: urlController.text.trim());
-                  });
-                  
-                  // Reset video player to reload with new URL
-                  _videoPlayerController?.dispose();
-                  _videoPlayerController = null;
-                  _isPlaying = false;
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                onError: (error) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(error),
-                      backgroundColor: Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _updateThumbnailUrl() {
-    if (_video == null) return;
-    
-    final TextEditingController thumbnailController = TextEditingController(text: _video!.thumbnailUrl);
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text('Update Thumbnail URL'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: thumbnailController,
-              decoration: const InputDecoration(
-                hintText: 'Enter thumbnail URL...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Thumbnail will be updated in preview',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              await ref.read(authenticationProvider.notifier).updateVideoThumbnail(
-                videoId: _video!.id,
-                thumbnailUrl: thumbnailController.text.trim(),
-                onSuccess: (message) {
-                  // Update local state
-                  setState(() {
-                    _video = _video!.copyWith(thumbnailUrl: thumbnailController.text.trim());
-                  });
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                onError: (error) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(error),
-                      backgroundColor: Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _manageTags() {
-    if (_video == null) return;
-    
-    final TextEditingController tagsController = TextEditingController(
-      text: _video!.tags.join(', '),
-    );
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text('Manage Tags'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: tagsController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Enter tags separated by commas...',
-                helperText: 'Example: music, dance, trending',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Current tags: ${_video!.tags.length}',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              final tags = tagsController.text
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .where((tag) => tag.isNotEmpty)
-                  .toList();
-              
-              await ref.read(authenticationProvider.notifier).updateVideoTags(
-                videoId: _video!.id,
-                tags: tags,
-                onSuccess: (message) {
-                  // Update local state
-                  setState(() {
-                    _video = _video!.copyWith(tags: tags);
-                  });
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('$message (${tags.length} tags)'),
-                      backgroundColor: Colors.green.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                onError: (error) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(error),
-                      backgroundColor: Colors.red.shade600,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+  void _addBannerText() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Banner text editor coming soon!'),
+        backgroundColor: context.modernTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -773,7 +371,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   onSelected: (value) {
                     switch (value) {
                       case 'edit':
-                        _tabController.animateTo(3); // Go to edit tab
+                        _editPost();
                         break;
                       case 'delete':
                         _deletePost();
@@ -1010,9 +608,8 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
               // Edit Tab
               EditTabWidget(
                 video: _video,
-                onEditCaption: _editCaption,
-                onUpdatePrice: _updatePrice,
-                onDeleteVideo: _deletePost,
+                onAddBannerText: _addBannerText,
+                onEditPost: _editPost,
               ),
             ],
           ),
@@ -1195,32 +792,20 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      video.userName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black,
-                                            offset: Offset(0, 1),
-                                            blurRadius: 3,
-                                          ),
-                                        ],
+                                Text(
+                                  video.userName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black,
+                                        offset: Offset(0, 1),
+                                        blurRadius: 3,
                                       ),
-                                    ),
-                                    if (video.isVerified)
-                                      const SizedBox(width: 4),
-                                    if (video.isVerified)
-                                      const Icon(
-                                        Icons.verified,
-                                        color: Colors.blue,
-                                        size: 16,
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                                 Text(
                                   _formatTimeAgo(video.createdAt), // UPDATED: Pass string directly
@@ -1265,42 +850,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                       
                       const SizedBox(height: 12),
                       
-                      // Price display
-                      if (video.price > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.attach_money,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              Text(
-                                video.formattedPrice.replaceAll('KES ', ''),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      
-                      const SizedBox(height: 12),
-                      
                       // Tags
                       if (video.tags.isNotEmpty)
                         Wrap(
@@ -1340,6 +889,14 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             Icons.favorite,
                             _formatViewCount(video.likes),
                             modernTheme,
+                            isOverlay: true,
+                          ),
+                          const SizedBox(width: 12),
+                          _buildStatChip(
+                            Icons.comment,
+                            _formatViewCount(video.comments),
+                            modernTheme,
+                            isOverlay: true,
                           ),
                           const SizedBox(width: 12),
                           _buildStatChip(
@@ -1379,39 +936,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                         color: Colors.white,
                         fontSize: 12,
                       ),
-                    ),
-                  ),
-                ),
-              
-              // Featured badge
-              if (video.isFeatured)
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.star,
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Featured',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ),
@@ -1490,7 +1014,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => _tabController.animateTo(3), // Go to edit tab
+              onPressed: _editPost,
               style: OutlinedButton.styleFrom(
                 foregroundColor: modernTheme.primaryColor,
                 side: BorderSide(color: modernTheme.primaryColor!),

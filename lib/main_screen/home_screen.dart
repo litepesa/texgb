@@ -7,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
+import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -37,16 +37,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
-    'Wallet',    // Index 3 - Wallet 
+    'Trending',    // Index 3 - Featured Screen
     'Profile'    // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                   // Home
-    Icons.radio_button_checked_rounded,   // Channels
+    Icons.home_rounded,                    // Home
+    Icons.radio_button_checked_rounded,   // Users
     Icons.add,                           // Post 
-    Icons.account_balance_wallet_outlined, // Wallet
-    Icons.person_2_outlined              // Me/Profile
+    CupertinoIcons.flame,               // Trending
+    Icons.person_2_outlined            // Profile
   ];
 
   // Feed screen controller for lifecycle management (keep your existing functionality)
@@ -334,7 +334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
-              child: const WalletScreen(),
+              child: const FeaturedVideosScreen(),
             ),
           ),
           // Profile tab (index 4) - Build only when accessed with authentication check

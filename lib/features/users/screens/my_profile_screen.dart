@@ -223,6 +223,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     ).then((_) => _refreshUserData()); // Refresh when coming back
   }
 
+  void _navigateToWallet() {
+    Navigator.pushNamed(
+      context,
+      Constants.walletScreen,
+    );
+  }
+
   // ENHANCED: Profile creation callback with cache clearing
   void _onProfileCreated() async {
     debugPrint('Profile created, refreshing data...');
@@ -824,45 +831,96 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
         children: [
           // Manage Posts Button - Primary Action
-          Expanded(
-            flex: 2,
-            child: GestureDetector(
-              onTap: _navigateToManagePosts,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor!.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: modernTheme.primaryColor!.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.dashboard,
+          GestureDetector(
+            onTap: _navigateToManagePosts,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor!.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: modernTheme.primaryColor!.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.dashboard,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Manage My Posts',
+                    style: TextStyle(
                       color: Colors.white,
-                      size: 24,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Manage My Posts',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Wallet Button - Secondary Action
+          GestureDetector(
+            onTap: _navigateToWallet,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1B5E20), // Dark green
+                    const Color(0xFF2E7D32), // Medium green
+                    const Color(0xFF1976D2), // Blue accent
                   ],
                 ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF4CAF50).withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4CAF50).withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'My Wallet',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
