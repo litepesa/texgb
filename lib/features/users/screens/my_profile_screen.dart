@@ -426,7 +426,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
                 // Center - Profile title
                 const Text(
-                  'Profile',
+                  'My Profile',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -603,7 +603,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     GestureDetector(
                       onTap: () => VerificationInfoWidget.show(context),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         decoration: BoxDecoration(
                           gradient: _user!.isVerified
                               ? const LinearGradient(
@@ -834,11 +834,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: modernTheme.primaryColor,
+                  color: modernTheme.primaryColor!.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: modernTheme.primaryColor!.withOpacity(0.3),
+                      color: modernTheme.primaryColor!.withOpacity(0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -854,7 +854,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     ),
                     const SizedBox(width: 12),
                     const Text(
-                      'Manage Posts',
+                      'Manage My Posts',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -862,39 +862,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Post Button
-          Expanded(
-            child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, Constants.createPostScreen),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: modernTheme.primaryColor!.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'Post',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ),
             ),

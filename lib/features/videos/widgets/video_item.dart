@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - PRODUCTION VERSION
+// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with Boolean Flag Positioning
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +21,7 @@ class VideoItem extends ConsumerStatefulWidget {
   final bool hasFailed;
   final bool isCommentsOpen;
   final bool showVerificationBadge;
+  final bool isFeedScreen; // NEW: Simple boolean flag for feed screen
 
   const VideoItem({
     super.key,
@@ -33,6 +34,7 @@ class VideoItem extends ConsumerStatefulWidget {
     this.hasFailed = false,
     this.isCommentsOpen = false,
     this.showVerificationBadge = true,
+    this.isFeedScreen = false, // Default to single video behavior
   });
 
   @override
@@ -825,17 +827,23 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
+  // UPDATED: Bottom overlay with conditional positioning for feed vs single video screen
   Widget _buildBottomContentOverlay() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(widget.video.userId);
     final currentUser = ref.watch(currentUserProvider);
-    final isOwner =
-        currentUser != null && currentUser.uid == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
+
+    // Feed screen: Position relative to video play area (no system padding consideration)
+    // Single video: Position relative to entire phone screen (includes system padding)
+    final bottomPadding = widget.isFeedScreen 
+        ? 10.0  // Feed: Simple offset from video play area bottom
+        : MediaQuery.of(context).padding.bottom; // Single: Use system bottom padding
 
     return Positioned(
-      bottom: MediaQuery.of(context).padding.bottom,
+      bottom: bottomPadding,
       left: 16,
       right: 80,
       child: Column(
@@ -878,93 +886,57 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ),
             ),
             const SizedBox(width: 6),
-            if (widget.showVerificationBadge && videoUser != null) ...[
-              if (videoUser.isVerified)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF1DA1F2),
-                        Color(0xFF0D8BD9),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+            // Only show verification badge if user is verified
+            if (widget.showVerificationBadge && videoUser != null && videoUser.isVerified)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF1DA1F2),
+                      Color(0xFF0D8BD9),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1DA1F2).withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.verified_rounded,
-                        size: 12,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.help_outline,
-                        size: 12,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Not Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.7),
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.7),
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-            ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Verified',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         );
       },
@@ -1063,8 +1035,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
   Widget _buildCarouselIndicators() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
+    // Feed screen: Position relative to video play area
+    // Single video: Position relative to entire phone screen
+    final topPosition = widget.isFeedScreen
+        ? 120.0  // Feed: Simple offset from video play area top
+        : MediaQuery.of(context).padding.top + 120; // Single: Include system top padding
+
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 120,
+      top: topPosition,
       left: 0,
       right: 0,
       child: Row(
@@ -1093,6 +1071,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
+  // UPDATED: Follow button with conditional positioning for feed vs single video screen
   Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
@@ -1101,15 +1080,20 @@ class _VideoItemState extends ConsumerState<VideoItem>
       return const SizedBox.shrink();
     }
 
-    final isOwner =
-        currentUser != null && currentUser.uid == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
     if (isOwner) return const SizedBox.shrink();
 
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(widget.video.userId);
 
+    // Feed screen: Position relative to video play area (no system padding consideration)
+    // Single video: Position relative to entire phone screen (includes system padding)
+    final topPosition = widget.isFeedScreen
+        ? 30.0  // Feed: Simple offset from video play area top
+        : MediaQuery.of(context).padding.top + 16; // Single: Include system top padding
+
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 16,
+      top: topPosition,
       left: 16,
       child: AnimatedScale(
         scale: isFollowing ? 0.0 : 1.0,

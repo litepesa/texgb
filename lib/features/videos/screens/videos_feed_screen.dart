@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with rounded edges and black status bar)
+// lib/features/videos/screens/videos_feed_screen.dart - FIXED VERSION (No black bars bleeding)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -64,7 +64,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   final Map<String, double> _downloadProgress =
       {}; // Track download progress for each video
 
-  // Video controllers - ADD THESE MISSING PROPERTIES
+  // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
   
@@ -79,7 +79,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    _setupCacheCleanup(); // ADD THIS
+    _setupCacheCleanup();
     // Use post-frame callback to avoid provider modification during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVideos();
@@ -131,6 +131,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
+  // FIXED: Setup system UI ONLY when feed becomes active
   void onScreenBecameActive() {
     if (!_hasInitialized) return;
 
@@ -138,7 +139,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
 
-    // Setup system UI when becoming active
+    // Setup black system UI ONLY when feed becomes active
     _setupSystemUI();
 
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
@@ -147,6 +148,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
+  // FIXED: Restore system UI IMMEDIATELY when feed becomes inactive
   void onScreenBecameInactive() {
     if (!_hasInitialized) return;
 
@@ -154,27 +156,30 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = false;
     _stopPlayback();
 
-    // Restore original system UI when becoming inactive
+    // Restore system UI IMMEDIATELY when feed becomes inactive
     _restoreOriginalSystemUI();
 
     WakelockPlus.disable();
   }
 
+  // FIXED: More explicit system UI restoration
   void _restoreOriginalSystemUI() {
-    if (_originalSystemUiStyle != null) {
-      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
-    } else {
-      // Fallback: restore based on current theme
-      final brightness = Theme.of(context).brightness;
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ));
-    }
+    debugPrint('VideosFeedScreen: Restoring original system UI');
+    
+    if (!mounted) return;
+    
+    // Get current theme brightness
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Restore transparent system UI with theme-appropriate colors
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent, // Force transparent
+      systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
   }
 
   // New method to handle navigation away from feed
@@ -206,14 +211,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // ADD THIS METHOD - Missing from original
   void _setupCacheCleanup() {
     _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
       // Cache cleanup logic can be added here if needed
     });
   }
 
-  // ADD THIS METHOD - Missing intelligent preloading
   void _startIntelligentPreloading() {
     if (!_isScreenActive ||
         !_isAppInForeground ||
@@ -252,7 +255,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       }
     }
 
-    _startIntelligentPreloading(); // ADD THIS
+    _startIntelligentPreloading();
     WakelockPlus.enable();
   }
 
@@ -282,12 +285,15 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     // Controllers initialization if needed in the future
   }
 
+  // ONLY called when feed is active - sets black system UI
   void _setupSystemUI() {
+    debugPrint('VideosFeedScreen: Setting up black system UI');
+    
     // Set both status bar and navigation bar to black for immersive TikTok-style experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black, // Changed from transparent to black
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black, // Keep black for immersive experience
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
@@ -349,7 +355,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // UPDATE THIS METHOD - Add proper controller handling like SingleVideoScreen
   void _onVideoControllerReady(VideoPlayerController controller) {
     if (!mounted ||
         !_isScreenActive ||
@@ -420,7 +425,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isNavigatingAway &&
         !_isManuallyPaused &&
         !_isCommentsSheetOpen) {
-      _startIntelligentPreloading(); // ADD THIS
+      _startIntelligentPreloading();
       WakelockPlus.enable();
     }
 
@@ -896,10 +901,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     WidgetsBinding.instance.removeObserver(this);
 
-    // STOP ALL PLAYBACK AND DISABLE WAKELOCK - ADD THIS
+    // Stop all playback and disable wakelock
     _stopPlayback();
     
-    // CLEANUP CACHE TIMER - ADD THIS
+    // Cleanup cache timer
     _cacheCleanupTimer?.cancel();
 
     _pageController.dispose();
@@ -917,8 +922,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Setup system UI for current theme
-    _setupSystemUI();
+    // FIXED: Do NOT call _setupSystemUI() here - it bleeds to other tabs
+    // Only call it in onScreenBecameActive()
 
     // Watch videos from the new authentication provider
     final videos = ref.watch(videosProvider);
@@ -975,6 +980,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
+  // UPDATED: _buildBody method with isFeedScreen flag
   Widget _buildBody(List<VideoModel> videos) {
     final isLoading = ref.watch(isAuthLoadingProvider);
 
@@ -1001,8 +1007,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
-          isCommentsOpen:
-              _isCommentsSheetOpen, // Pass comments state to video item
+          isCommentsOpen: _isCommentsSheetOpen,
+          isFeedScreen: true, // NEW: Enable feed screen positioning
         );
       },
     );
@@ -1020,7 +1026,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(width: 8),
-              Text(
+              /*Text(
                 'For You',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
@@ -1034,7 +1040,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                     ),
                   ],
                 ),
-              ),
+              ),*/
             ],
           ),
         ),
@@ -1080,26 +1086,11 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
       child: Column(
         children: [
-          // DM button - Using VideoReactionWidget (moved after Share)
-          /*VideoReactionWidget(
-            video: currentVideo,
-            onPause: _pauseForNavigation,
-            onResume: _resumeFromNavigation,
-            child: Lottie.asset(
-              'assets/lottie/chat_bubble.json',
-              width: 58,
-              height: 58,
-              fit: BoxFit.contain,
-            ),
-          ),
-
-          const SizedBox(height: 10),*/
-
           // Like button
           _buildRightMenuItem(
             child: Icon(
               currentVideo?.isLiked == true
-                  ? CupertinoIcons.heart
+                  ? CupertinoIcons.heart_fill
                   : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
