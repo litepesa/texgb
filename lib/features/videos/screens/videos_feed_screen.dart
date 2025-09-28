@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - FIXED VERSION (No black bars bleeding)
+// lib/features/videos/screens/videos_feed_screen.dart - FIXED VERSION (Full screen like single video)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -922,14 +922,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // FIXED: Do NOT call _setupSystemUI() here - it bleeds to other tabs
-    // Only call it in onScreenBecameActive()
-
     // Watch videos from the new authentication provider
     final videos = ref.watch(videosProvider);
     final isLoading = ref.watch(isAuthLoadingProvider);
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     // Show loading screen during initial video loading
     if (_isFirstLoad && isLoading) {
@@ -939,48 +934,34 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       );
     }
 
+    // FIXED: Remove all system padding and use full screen layout like single video screen
     return Scaffold(
       extendBodyBehindAppBar: true,
       extendBody: true,
       backgroundColor: Colors.black,
-      body: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
-        child: Stack(
-          children: [
-            // Main content - positioned to avoid covering status bar and system nav
-            Positioned(
-              top: systemTopPadding, // Start below status bar
-              left: 0,
-              right: 0,
-              bottom: systemBottomPadding, // Reserve space above system nav
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
-                child: _buildBody(videos),
-              ),
-            ),
+      body: Stack(
+        children: [
+          // Main video content - full screen without any padding (like single video screen)
+          Positioned.fill(
+            child: _buildBody(videos),
+          ),
 
-            // Small video window when comments are open
-            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+          // Small video window when comments are open
+          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
 
-            // Top navigation - simplified header matching moments feed style
-            if (!_isCommentsSheetOpen) // Hide top bar when comments are open
-              Positioned(
-                top: systemTopPadding + 16, // Positioned below status bar with some padding
-                left: 0,
-                right: 0,
-                child: _buildSimplifiedHeader(),
-              ),
+          // Top navigation - simplified header matching moments feed style
+          if (!_isCommentsSheetOpen) // Hide top bar when comments are open
+            _buildSimplifiedHeader(),
 
-            // TikTok-style right side menu
-            if (!_isCommentsSheetOpen) // Hide right menu when comments are open
-              _buildRightSideMenu(),
-          ],
-        ),
+          // TikTok-style right side menu
+          if (!_isCommentsSheetOpen) // Hide right menu when comments are open
+            _buildRightSideMenu(),
+        ],
       ),
     );
   }
 
-  // UPDATED: _buildBody method with isFeedScreen flag
+  // UPDATED: _buildBody method with full screen layout
   Widget _buildBody(List<VideoModel> videos) {
     final isLoading = ref.watch(isAuthLoadingProvider);
 
@@ -1008,72 +989,79 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
-          isFeedScreen: true, // NEW: Enable feed screen positioning
+          showVerificationBadge: true, // Show verification badge like single video screen
         );
       },
     );
   }
 
-  // New simplified header matching moments feed screen style (without back button)
+  // FIXED: Header positioned absolutely like single video screen
   Widget _buildSimplifiedHeader() {
-    return Row(
-      children: [
-        // Empty space for alignment
-        const SizedBox(width: 56), // Same width as an IconButton
+    final systemTopPadding = MediaQuery.of(context).padding.top;
 
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(width: 8),
-              /*Text(
-                'For You',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.7),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+    return Positioned(
+      top: systemTopPadding + 16, // Positioned below status bar with some padding
+      left: 0,
+      right: 0,
+      child: Row(
+        children: [
+          // Empty space for alignment
+          const SizedBox(width: 56), // Same width as an IconButton
+
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(width: 8),
+                /*Text(
+                  'For You',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.7),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),*/
+              ],
+            ),
+          ),
+
+          // Search button
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
                 ),
-              ),*/
-            ],
+              ],
+            ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Search',
           ),
-        ),
-
-        // Search button
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(
-            CupertinoIcons.search,
-            color: Colors.white,
-            size: 28,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                blurRadius: 3,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          iconSize: 28,
-          padding: const EdgeInsets.all(12),
-          constraints: const BoxConstraints(
-            minWidth: 44,
-            minHeight: 44,
-          ),
-          splashRadius: 24,
-          tooltip: 'Search',
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // TikTok-style right side menu - now with WhatsApp button
+  // TikTok-style right side menu - positioned absolutely like single video screen
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length
@@ -1082,8 +1070,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      right: 4, // Much closer to edge
-      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
+      right: 0.5, // Much closer to edge, matching single video screen
+      bottom: systemBottomPadding, // Position above system nav bar
       child: Column(
         children: [
           // Like button
