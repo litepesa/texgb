@@ -7,9 +7,6 @@ class EditTabWidget extends StatelessWidget {
   final VideoModel? video;
   final VoidCallback onEditCaption;
   final VoidCallback onUpdatePrice;
-  final VoidCallback onUpdateVideoUrl;
-  final VoidCallback onUpdateThumbnailUrl;
-  final VoidCallback onManageTags;
   final VoidCallback onDeleteVideo;
 
   const EditTabWidget({
@@ -17,9 +14,6 @@ class EditTabWidget extends StatelessWidget {
     required this.video,
     required this.onEditCaption,
     required this.onUpdatePrice,
-    required this.onUpdateVideoUrl,
-    required this.onUpdateThumbnailUrl,
-    required this.onManageTags,
     required this.onDeleteVideo,
   });
 
@@ -42,7 +36,7 @@ class EditTabWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           
-          // Host Edit Options
+          // Essential Edit Options
           _buildEditOption(
             'Edit Caption',
             'Update your post description and text',
@@ -55,27 +49,6 @@ class EditTabWidget extends StatelessWidget {
             'Set or change content pricing',
             Icons.attach_money,
             onUpdatePrice,
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Update Video URL',
-            'Change the video source link',
-            Icons.video_library,
-            onUpdateVideoUrl,
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Update Thumbnail',
-            'Change video thumbnail image',
-            Icons.image,
-            onUpdateThumbnailUrl,
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Manage Tags',
-            'Add or remove hashtags',
-            Icons.tag,
-            onManageTags,
             modernTheme,
           ),
           
