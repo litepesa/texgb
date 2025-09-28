@@ -1015,7 +1015,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       child: Column(
         children: [
           // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of VideoReactionWidget
-          /*GestureDetector(
+          GestureDetector(
             onTap: () => _openWhatsAppWithVideo(currentVideo),
             child: Column(
               children: [
@@ -1032,7 +1032,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             ),
           ),
 
-          const SizedBox(height: 10),*/
+          const SizedBox(height: 10),
 
           // Like button
           _buildRightMenuItem(

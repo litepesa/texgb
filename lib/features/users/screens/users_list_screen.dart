@@ -1016,7 +1016,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                           color: theme.textColor ?? Colors.black,
                           letterSpacing: -0.2,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       

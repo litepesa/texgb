@@ -12,6 +12,9 @@ import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/features/videos/widgets/boost_tab_widget.dart';
+import 'package:textgb/features/videos/widgets/edit_tab_widget.dart';
+import 'package:textgb/features/videos/widgets/analytics_tab_widget.dart';
 import 'package:intl/intl.dart';
 
 class MyPostScreen extends ConsumerStatefulWidget {
@@ -209,22 +212,424 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  void _editPost() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Edit feature coming soon!'),
-        backgroundColor: context.modernTheme.primaryColor,
-        behavior: SnackBarBehavior.floating,
+  void _editCaption() {
+    if (_video == null) return;
+    
+    final TextEditingController captionController = TextEditingController(text: _video!.caption);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Edit Caption'),
+        content: TextField(
+          controller: captionController,
+          maxLines: 4,
+          maxLength: 2200,
+          decoration: const InputDecoration(
+            hintText: 'Enter your caption...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              await ref.read(authenticationProvider.notifier).updateVideoCaption(
+                videoId: _video!.id,
+                caption: captionController.text.trim(),
+                onSuccess: (message) {
+                  // Update local state
+                  setState(() {
+                    _video = _video!.copyWith(caption: captionController.text.trim());
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: Colors.green.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                onError: (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error),
+                      backgroundColor: Colors.red.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }
 
-  void _addBannerText() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Banner text editor coming soon!'),
-        backgroundColor: context.modernTheme.primaryColor,
-        behavior: SnackBarBehavior.floating,
+  void _updatePrice() {
+    if (_video == null) return;
+    
+    final TextEditingController priceController = TextEditingController(
+      text: _video!.price > 0 ? _video!.price.toString() : '',
+    );
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Update Price'),
+        content: TextField(
+          controller: priceController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            hintText: 'Enter price (0 for free)',
+            prefixText: 'KES ',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              final price = double.tryParse(priceController.text.trim()) ?? 0.0;
+              
+              await ref.read(authenticationProvider.notifier).updateVideoPrice(
+                videoId: _video!.id,
+                price: price,
+                onSuccess: (message) {
+                  // Update local state
+                  setState(() {
+                    _video = _video!.copyWith(price: price);
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$message - New price: ${_video!.formattedPrice}'),
+                      backgroundColor: Colors.green.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                onError: (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error),
+                      backgroundColor: Colors.red.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateVideoUrl() {
+    if (_video == null) return;
+    
+    final TextEditingController urlController = TextEditingController(text: _video!.videoUrl);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Update Video URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                hintText: 'Enter video URL...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Note: Video will be re-processed after URL change',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              await ref.read(authenticationProvider.notifier).updateVideoUrl(
+                videoId: _video!.id,
+                videoUrl: urlController.text.trim(),
+                onSuccess: (message) {
+                  // Update local state
+                  setState(() {
+                    _video = _video!.copyWith(videoUrl: urlController.text.trim());
+                  });
+                  
+                  // Reset video player to reload with new URL
+                  _videoPlayerController?.dispose();
+                  _videoPlayerController = null;
+                  _isPlaying = false;
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: Colors.green.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                onError: (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error),
+                      backgroundColor: Colors.red.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateThumbnailUrl() {
+    if (_video == null) return;
+    
+    final TextEditingController thumbnailController = TextEditingController(text: _video!.thumbnailUrl);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Update Thumbnail URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: thumbnailController,
+              decoration: const InputDecoration(
+                hintText: 'Enter thumbnail URL...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Thumbnail will be updated in preview',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              await ref.read(authenticationProvider.notifier).updateVideoThumbnail(
+                videoId: _video!.id,
+                thumbnailUrl: thumbnailController.text.trim(),
+                onSuccess: (message) {
+                  // Update local state
+                  setState(() {
+                    _video = _video!.copyWith(thumbnailUrl: thumbnailController.text.trim());
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: Colors.green.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                onError: (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error),
+                      backgroundColor: Colors.red.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _manageTags() {
+    if (_video == null) return;
+    
+    final TextEditingController tagsController = TextEditingController(
+      text: _video!.tags.join(', '),
+    );
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Manage Tags'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: tagsController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Enter tags separated by commas...',
+                helperText: 'Example: music, dance, trending',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Current tags: ${_video!.tags.length}',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              
+              final tags = tagsController.text
+                  .split(',')
+                  .map((tag) => tag.trim())
+                  .where((tag) => tag.isNotEmpty)
+                  .toList();
+              
+              await ref.read(authenticationProvider.notifier).updateVideoTags(
+                videoId: _video!.id,
+                tags: tags,
+                onSuccess: (message) {
+                  // Update local state
+                  setState(() {
+                    _video = _video!.copyWith(tags: tags);
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$message (${tags.length} tags)'),
+                      backgroundColor: Colors.green.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                onError: (error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error),
+                      backgroundColor: Colors.red.shade600,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }
@@ -368,7 +773,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   onSelected: (value) {
                     switch (value) {
                       case 'edit':
-                        _editPost();
+                        _tabController.animateTo(3); // Go to edit tab
                         break;
                       case 'delete':
                         _deletePost();
@@ -585,7 +990,11 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             controller: _tabController,
             children: [
               // Boost Tab
-              _buildBoostTab(modernTheme),
+              BoostTabWidget(
+                rocketAnimationController: _rocketAnimationController,
+                rocketAnimation: _rocketAnimation,
+                onBoostPost: _boostPost,
+              ),
               // Preview Tab
               SingleChildScrollView(
                 child: Column(
@@ -597,9 +1006,17 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                 ),
               ),
               // Analytics Tab
-              _buildAnalyticsTab(_video!, modernTheme),
+              AnalyticsTabWidget(video: _video!),
               // Edit Tab
-              _buildEditTab(modernTheme),
+              EditTabWidget(
+                video: _video,
+                onEditCaption: _editCaption,
+                onUpdatePrice: _updatePrice,
+                onUpdateVideoUrl: _updateVideoUrl,
+                onUpdateThumbnailUrl: _updateThumbnailUrl,
+                onManageTags: _manageTags,
+                onDeleteVideo: _deletePost,
+              ),
             ],
           ),
         ),
@@ -781,20 +1198,32 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  video.userName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black,
-                                        offset: Offset(0, 1),
-                                        blurRadius: 3,
+                                Row(
+                                  children: [
+                                    Text(
+                                      video.userName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black,
+                                            offset: Offset(0, 1),
+                                            blurRadius: 3,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    if (video.isVerified)
+                                      const SizedBox(width: 4),
+                                    if (video.isVerified)
+                                      const Icon(
+                                        Icons.verified,
+                                        color: Colors.blue,
+                                        size: 16,
+                                      ),
+                                  ],
                                 ),
                                 Text(
                                   _formatTimeAgo(video.createdAt), // UPDATED: Pass string directly
@@ -839,6 +1268,42 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                       
                       const SizedBox(height: 12),
                       
+                      // Price display
+                      if (video.price > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.attach_money,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              Text(
+                                video.formattedPrice.replaceAll('KES ', ''),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 12),
+                      
                       // Tags
                       if (video.tags.isNotEmpty)
                         Wrap(
@@ -878,14 +1343,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             Icons.favorite,
                             _formatViewCount(video.likes),
                             modernTheme,
-                            isOverlay: true,
-                          ),
-                          const SizedBox(width: 12),
-                          _buildStatChip(
-                            Icons.comment,
-                            _formatViewCount(video.comments),
-                            modernTheme,
-                            isOverlay: true,
                           ),
                           const SizedBox(width: 12),
                           _buildStatChip(
@@ -925,6 +1382,39 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                         color: Colors.white,
                         fontSize: 12,
                       ),
+                    ),
+                  ),
+                ),
+              
+              // Featured badge
+              if (video.isFeatured)
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.star,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Featured',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1003,7 +1493,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _editPost,
+              onPressed: () => _tabController.animateTo(3), // Go to edit tab
               style: OutlinedButton.styleFrom(
                 foregroundColor: modernTheme.primaryColor,
                 side: BorderSide(color: modernTheme.primaryColor!),
@@ -1016,927 +1506,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
               label: const Text('Edit'),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsTab(VideoModel video, ModernThemeExtension modernTheme) {
-    final engagementRate = video.views > 0
-        ? ((video.likes + video.comments + video.shares) / video.views * 100)
-        : 0.0;
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Performance Overview
-          Text(
-            'Performance Overview',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Analytics Cards
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.2,
-            children: [
-              _buildAnalyticsCard(
-                'Total Views',
-                _formatViewCount(video.views),
-                Icons.visibility,
-                video.isFeatured ? '⭐ Featured' : '↗ Growing',
-                Colors.green,
-                modernTheme,
-              ),
-              _buildAnalyticsCard(
-                'Likes',
-                _formatViewCount(video.likes),
-                Icons.favorite,
-                '${(video.likes / (video.views > 0 ? video.views : 1) * 100).toStringAsFixed(1)}% rate',
-                Colors.red,
-                modernTheme,
-              ),
-              _buildAnalyticsCard(
-                'Comments',
-                _formatViewCount(video.comments),
-                Icons.comment,
-                '${(video.comments / (video.views > 0 ? video.views : 1) * 100).toStringAsFixed(1)}% rate',
-                Colors.blue,
-                modernTheme,
-              ),
-              _buildAnalyticsCard(
-                'Engagement',
-                '${engagementRate.toStringAsFixed(1)}%',
-                Icons.trending_up,
-                engagementRate > 10 ? 'Excellent' : 'Good',
-                Colors.orange,
-                modernTheme,
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Post Status
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: video.isActive
-                    ? Colors.green.withOpacity(0.3)
-                    : Colors.orange.withOpacity(0.3),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  video.isActive ? Icons.check_circle : Icons.pause_circle,
-                  color: video.isActive ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Post Status',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        video.isActive ? 'Active' : 'Paused',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (video.isFeatured)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Featured',
-                          style: TextStyle(
-                            color: Colors.amber.shade700,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Performance Graph Placeholder
-          Container(
-            height: 200,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.show_chart,
-                    color: modernTheme.primaryColor,
-                    size: 48,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Performance graph coming soon',
-                    style: TextStyle(
-                      color: modernTheme.textSecondaryColor,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsCard(
-    String title,
-    String value,
-    IconData icon,
-    String trend,
-    Color iconColor,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            trend,
-            style: TextStyle(
-              color: trend.contains('↗') || trend.contains('Excellent') || trend.contains('Featured')
-                  ? Colors.green
-                  : modernTheme.textSecondaryColor,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditTab(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Edit Options',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Edit Options
-          _buildEditOption(
-            'Add Banner Text',
-            'Overlay text on your video or image',
-            Icons.text_fields,
-            _addBannerText,
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Edit Caption',
-            'Update your post description',
-            Icons.edit_note,
-            _editPost,
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Manage Tags',
-            'Add or remove hashtags',
-            Icons.tag,
-            _editPost,
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Privacy Settings',
-            'Control who can see this post',
-            Icons.privacy_tip,
-            () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Privacy settings coming soon!'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            modernTheme,
-          ),
-          _buildEditOption(
-            'Advanced Settings',
-            'Comments, downloads, and more',
-            Icons.settings,
-            () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Advanced settings coming soon!'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            modernTheme,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Post Activity Status
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: modernTheme.primaryColor!.withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.toggle_on,
-                      color: modernTheme.primaryColor,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Post Activity',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const Spacer(),
-                    Switch(
-                      value: _video?.isActive ?? true,
-                      onChanged: (value) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              value ? 'Post activated' : 'Post paused',
-                            ),
-                            backgroundColor: modernTheme.primaryColor,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      activeColor: modernTheme.primaryColor,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _video?.isActive ?? true
-                      ? 'Your post is visible to viewers'
-                      : 'Your post is hidden from viewers',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditOption(
-    String title,
-    String subtitle,
-    IconData icon,
-    VoidCallback onTap,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        tileColor: modernTheme.surfaceColor,
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: modernTheme.primaryColor!.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: modernTheme.primaryColor),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor,
-            fontSize: 12,
-          ),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          color: modernTheme.textSecondaryColor,
-          size: 16,
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  Widget _buildBoostTab(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Enhanced Boost Header
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  modernTheme.primaryColor!,
-                  modernTheme.primaryColor!.withOpacity(0.7),
-                  modernTheme.primaryColor!.withOpacity(0.9),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: modernTheme.primaryColor!.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                AnimatedBuilder(
-                  animation: _rocketAnimation,
-                  builder: (context, child) {
-                    return Transform.translate(
-                      offset: Offset(0, -_rocketAnimation.value * 30),
-                      child: Transform.rotate(
-                        angle: _rocketAnimation.value * 0.8,
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.rocket_launch,
-                            color: Colors.white,
-                            size: 64,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  '🚀 BOOST POST',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Increase visibility and reach more audience',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w300,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.trending_up,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Up to 10x more views',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 32),
-          
-          // Special Offer Banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.orange.shade400,
-                  Colors.orange.shade600,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.local_offer,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'LIMITED TIME OFFER',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      Text(
-                        'Get 20% off on all boost packages',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          Text(
-            'Choose Your Boost Package',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Boost Options with enhanced styling
-          _buildBoostOption(
-            'Quick Boost',
-            '24 hours',
-            'KES 599',
-            'Get 2x more views for 24 hours',
-            Icons.flash_on,
-            Colors.orange,
-            modernTheme,
-            isPopular: false,
-          ),
-          _buildBoostOption(
-            'Power Boost',
-            '7 days',
-            'KES 1,999',
-            'Get 5x more views for a week',
-            Icons.rocket_launch,
-            Colors.red,
-            modernTheme,
-            isPopular: true,
-          ),
-          _buildBoostOption(
-            'Mega Boost',
-            '30 days',
-            'KES 4,999',
-            'Get 10x more views for a month',
-            Icons.star,
-            Colors.purple,
-            modernTheme,
-            isPopular: false,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Benefits Section
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: modernTheme.primaryColor!.withOpacity(0.2),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.auto_awesome,
-                      color: modernTheme.primaryColor,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Why Boost Your Post?',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildBenefitItem(
-                  'Reach more viewers instantly',
-                  Icons.visibility,
-                  modernTheme,
-                ),
-                _buildBenefitItem(
-                  'Get featured on explore page',
-                  Icons.explore,
-                  modernTheme,
-                ),
-                _buildBenefitItem(
-                  'Increase engagement & followers',
-                  Icons.people,
-                  modernTheme,
-                ),
-                _buildBenefitItem(
-                  'Priority in search results',
-                  Icons.search,
-                  modernTheme,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Current Boost Status
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: modernTheme.primaryColor!.withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Current Status',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'No active boost',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start boosting now to maximize your post\'s potential!',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenefitItem(
-    String text,
-    IconData icon,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor!.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: modernTheme.primaryColor,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            text,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBoostOption(
-    String title,
-    String duration,
-    String price,
-    String description,
-    IconData icon,
-    Color color,
-    ModernThemeExtension modernTheme,
-    {bool isPopular = false}
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isPopular ? color.withOpacity(0.5) : Colors.transparent,
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isPopular 
-                      ? color.withOpacity(0.2)
-                      : Colors.black.withOpacity(0.05),
-                  blurRadius: isPopular ? 15 : 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icon
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: color, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    
-                    // Text content
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Title and Price
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  style: TextStyle(
-                                    color: modernTheme.textColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                price,
-                                style: TextStyle(
-                                  color: modernTheme.primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          // Description
-                          Text(
-                            description,
-                            style: TextStyle(
-                              color: modernTheme.textColor,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          // Duration
-                          Text(
-                            'Duration: $duration',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Select button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _boostPost,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: color,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: const Text('Select'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Popular badge
-          if (isPopular)
-            Positioned(
-              top: -5,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'MOST POPULAR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

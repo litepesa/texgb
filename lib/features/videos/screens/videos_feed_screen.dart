@@ -1219,7 +1219,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             children: [
               const SizedBox(width: 8),
               Text(
-                'For You',
+                'Marketplace',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,
@@ -1279,6 +1279,26 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           systemBottomPadding, // Closer to system nav for better screen utilization
       child: Column(
         children: [
+          // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of VideoReactionWidget
+          GestureDetector(
+            onTap: () => _openWhatsAppWithVideo(currentVideo),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Lottie.asset(
+                    'assets/lottie/chat_bubble.json',
+                    width: 58,
+                    height: 58,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
           // Like button
           _buildRightMenuItem(
             child: Icon(

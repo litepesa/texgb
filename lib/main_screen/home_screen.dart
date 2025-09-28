@@ -1,12 +1,14 @@
-// lib/main_screen/home_screen.dart (FIXED VERSION)
-
+// lib/main_screen/home_screen.dart (FINAL VERSION - 4 TABS)
+// PROFESSIONAL: UsersListScreen, DiscoverScreen, WalletScreen, MyProfileScreen
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
+import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
+import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -28,16 +30,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _currentIndex = 0;
   // REMOVED: PageController - using IndexedStack instead
   
+  // UPDATED: 4 tabs configuration
   final List<String> _tabNames = [
-    'Home',
-    'Hot', 
-    'Profile'
+    'Home',            // Index 0 - wallet screen
+    'Buy',            // Index 1 -  User Screen Screen
+    'Hot',           // Index 2 - Discove Screen
+    'Profile'       // Index 3 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.qrcode_viewfinder,
-    CupertinoIcons.flame,
-    CupertinoIcons.person
+    CupertinoIcons.qrcode_viewfinder,                   // Home - Users List
+    CupertinoIcons.dot_radiowaves_left_right,          // Discover - Discovery/Explore
+    CupertinoIcons.flame,                             // Wallet - Escrow
+    CupertinoIcons.person                            // Profile
   ];
 
   @override
@@ -111,12 +116,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     debugPrint('HomeScreen: Navigating from $_currentIndex to $index');
     
+    // Add haptic feedback for better UX
+    HapticFeedback.lightImpact();
+    
     // INSTANT: No animation, no intermediate screens shown
     setState(() {
       _currentIndex = index;
     });
   }
-  
+
   // REMOVED: Page change handler - not needed with IndexedStack
 
   void _navigateToCreatePost() async {
@@ -144,7 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isProfileTab = _currentIndex == 2;
+    final isProfileTab = _currentIndex == 3; // Updated for 4 tabs
     
     // CRITICAL FIX: Watch authentication state to handle profile screen properly
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
@@ -163,7 +171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       extendBodyBehindAppBar: isProfileTab,
       backgroundColor: modernTheme.backgroundColor,
       
-      // Show AppBar for home and wallet tabs, hide for profile
+      // Show AppBar for all tabs except profile
       appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       // PROFESSIONAL FIX: IndexedStack prevents intermediate screen visibility
@@ -171,10 +179,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         index: _currentIndex,
         children: [
           // Home tab (index 0) - Users List
-          _KeepAliveWrapper(child: const DiscoverScreen()),
-          // Wallet tab (index 1) - Wallet Screen  
+          _KeepAliveWrapper(child: const WalletScreen()),
+          // Discover tab (index 1) - Discover Screen
+          _KeepAliveWrapper(child: const UsersListScreen()),
+          // Wallet tab (index 2) - Wallet Screen  
           _KeepAliveWrapper(child: const FeaturedVideosScreen()),
-          // Profile tab (index 2) - MyProfileScreen
+          // Profile tab (index 3) - MyProfileScreen
           _KeepAliveWrapper(child: const MyProfileScreen()),
         ],
       ),
@@ -198,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         text: TextSpan(
           children: [
             TextSpan(
-              text: "Al",
+              text: "Wei",
               style: TextStyle(
                 color: textColor,          
                 fontWeight: FontWeight.bold,
@@ -207,7 +217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             TextSpan(
-              text: "pha",
+              text: "Bao",
               style: TextStyle(
                 color: iconColor,
                 fontWeight: FontWeight.w700,
@@ -216,7 +226,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             TextSpan(
-              text: "BED",
+              text: "微宝",
               style: TextStyle(
                 color: const Color(0xFFFE2C55),
                 fontWeight: FontWeight.w700,
@@ -238,6 +248,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  // REMOVED: Dynamic app bar title method - no longer needed
+
+  // UPDATED: 4 tabs bottom navigation
   Widget _buildBottomNav(ModernThemeExtension modernTheme) {
     Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
     Color? borderColor = modernTheme.dividerColor ?? Colors.grey[300];
@@ -259,7 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(3, (index) {
+            children: List.generate(4, (index) { // Updated to 4 tabs
               return _buildNavItem(index, modernTheme);
             }),
           ),
@@ -282,7 +295,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       onTap: () => _onTabTapped(index),
       behavior: HitTestBehavior.translucent,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // Adjusted padding for 4 tabs - slightly smaller to fit better
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -300,6 +314,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
           ],
         ),

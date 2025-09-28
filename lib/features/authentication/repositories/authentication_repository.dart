@@ -1,5 +1,5 @@
 // lib/features/authentication/repositories/authentication_repository.dart
-// COMPLETE VERSION: Firebase Auth + R2 Storage + Video Support
+// COMPLETE VERSION: Firebase Auth + R2 Storage + Video Support + Video Updates
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -67,6 +67,14 @@ abstract class AuthenticationRepository {
     required List<String> imageUrls,
     required String caption,
     double? price,
+  });
+  Future<VideoModel> updateVideo({
+    required String videoId,
+    String? caption,
+    double? price,
+    String? videoUrl,
+    String? thumbnailUrl,
+    List<String>? tags,
   });
   Future<void> deleteVideo(String videoId, String userId);
   Future<void> likeVideo(String videoId, String userId);
@@ -611,6 +619,52 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       }
     } catch (e) {
       throw AuthRepositoryException('Failed to create image post: $e');
+    }
+  }
+
+  // ===============================
+  // NEW: UPDATE VIDEO OPERATION
+  // ===============================
+
+  @override
+  Future<VideoModel> updateVideo({
+    required String videoId,
+    String? caption,
+    double? price,
+    String? videoUrl,
+    String? thumbnailUrl,
+    List<String>? tags,
+  }) async {
+    try {
+      debugPrint('🔄 Updating video: $videoId');
+      
+      // Build update payload with only provided fields
+      final Map<String, dynamic> updateData = {
+        'updatedAt': _createTimestamp(),
+      };
+      
+      if (caption != null) updateData['caption'] = caption;
+      if (price != null) updateData['price'] = price;
+      if (videoUrl != null) updateData['videoUrl'] = videoUrl;
+      if (thumbnailUrl != null) updateData['thumbnailUrl'] = thumbnailUrl;
+      if (tags != null) updateData['tags'] = tags;
+
+      debugPrint('📤 Sending update data: $updateData');
+
+      final response = await _httpClient.put('/videos/$videoId', body: updateData);
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
+        debugPrint('✅ Video updated successfully');
+        return VideoModel.fromJson(videoMap);
+      } else {
+        debugPrint('❌ Failed to update video: ${response.statusCode} - ${response.body}');
+        throw AuthRepositoryException('Failed to update video: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating video: $e');
+      throw AuthRepositoryException('Failed to update video: $e');
     }
   }
 

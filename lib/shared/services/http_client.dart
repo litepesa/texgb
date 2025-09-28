@@ -24,7 +24,7 @@ class HttpClientService {
     }
   }
   
-  static const Duration _timeout = Duration(seconds: 45);
+  static const Duration _timeout = Duration(seconds: 600);
 
   // Singleton pattern
   static final HttpClientService _instance = HttpClientService._internal();

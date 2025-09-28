@@ -1,5 +1,5 @@
 // lib/features/authentication/providers/authentication_provider.dart 
-// Video-focused authentication provider with instant auth recognition and caching
+// Video-focused authentication provider with instant auth recognition, caching, and video updates
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -545,7 +545,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // VIDEO METHODS (unchanged)
+  // VIDEO METHODS (updated with video editing)
   // ===============================
 
   Future<void> loadVideos() async {
@@ -740,6 +740,124 @@ class Authentication extends _$Authentication {
       state = AsyncValue.data(currentState.copyWith(isLoading: false));
       onError(e.message);
     }
+  }
+
+  // ===============================
+  // NEW: VIDEO UPDATE METHODS
+  // ===============================
+
+  Future<void> updateVideo({
+    required String videoId,
+    String? caption,
+    double? price,
+    String? videoUrl,
+    String? thumbnailUrl,
+    List<String>? tags,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    final currentState = state.value ?? const AuthenticationState();
+    if (currentState.state != AuthState.authenticated) {
+      onError('User not authenticated');
+      return;
+    }
+    
+    try {
+      // Call repository to update video
+      final updatedVideo = await _repository.updateVideo(
+        videoId: videoId,
+        caption: caption,
+        price: price,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        tags: tags,
+      );
+      
+      // Update local state with the updated video
+      final updatedVideos = currentState.videos.map((video) {
+        if (video.id == videoId) {
+          return updatedVideo;
+        }
+        return video;
+      }).toList();
+      
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
+      
+      onSuccess('Video updated successfully');
+    } on AuthRepositoryException catch (e) {
+      debugPrint('Error updating video: ${e.message}');
+      onError(e.message);
+    }
+  }
+
+  Future<void> updateVideoCaption({
+    required String videoId,
+    required String caption,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    await updateVideo(
+      videoId: videoId,
+      caption: caption,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
+  }
+
+  Future<void> updateVideoPrice({
+    required String videoId,
+    required double price,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    await updateVideo(
+      videoId: videoId,
+      price: price,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
+  }
+
+  Future<void> updateVideoUrl({
+    required String videoId,
+    required String videoUrl,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    await updateVideo(
+      videoId: videoId,
+      videoUrl: videoUrl,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
+  }
+
+  Future<void> updateVideoThumbnail({
+    required String videoId,
+    required String thumbnailUrl,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    await updateVideo(
+      videoId: videoId,
+      thumbnailUrl: thumbnailUrl,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
+  }
+
+  Future<void> updateVideoTags({
+    required String videoId,
+    required List<String> tags,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    await updateVideo(
+      videoId: videoId,
+      tags: tags,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
   }
 
   Future<void> deleteVideo(String videoId, Function(String) onError) async {
