@@ -2,7 +2,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/videos/widgets/video_trim_screen.dart';
@@ -79,9 +78,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Wakelock state tracking
   bool _wakelockActive = false;
   
-  // UPDATED: Caption and price controllers (price replaces tags)
   final TextEditingController _captionController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
 
   @override
   void initState() {
@@ -92,7 +90,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   void dispose() {
     _videoPlayerController?.dispose();
     _captionController.dispose();
-    _priceController.dispose(); // Price controller (replaces tags)
+    _tagsController.dispose();
     _cacheManager.emptyCache();
     _uploadSimulationTimer?.cancel();
     _disableWakelock();
@@ -681,19 +679,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return result ?? false;
   }
 
-  // Parse price from text input
-  double _parsePriceInput() {
-    final text = _priceController.text.trim();
-    if (text.isEmpty) return 0.0;
-    
-    try {
-      return double.parse(text);
-    } catch (e) {
-      return 0.0; // Return 0 if parsing fails
-    }
-  }
-
-  // Modified submit form to use price instead of tags
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final isAuthenticated = await _checkUserAuthentication();
@@ -716,8 +701,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       await _enableWakelock();
       
-      // Parse price from input
-      final price = _parsePriceInput();
+      List<String> tags = [];
+      if (_tagsController.text.isNotEmpty) {
+        tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
+      }
       
       File videoToUpload = _videoFile!;
       
@@ -735,7 +722,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       authProvider.createVideo(
         videoFile: videoToUpload,
         caption: _captionController.text,
-        price: price, // Use price instead of tags
+        tags: tags,
         onSuccess: (message) {
           _uploadSimulationTimer?.cancel();
           setState(() {
@@ -1004,11 +991,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ],
                 ),
               
-              // Caption (Required)
+              // Caption
               TextFormField(
                 controller: _captionController,
                 decoration: InputDecoration(
-                  labelText: 'Description & Location *',
+                  labelText: 'Caption *',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
@@ -1021,13 +1008,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   filled: true,
                   fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                  hintText: 'Describe your airbnb and its location...',
                 ),
                 style: TextStyle(color: modernTheme.textColor),
                 maxLines: 3,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a description';
+                    return 'Please enter a caption';
                   }
                   return null;
                 },
@@ -1036,57 +1022,24 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               
               const SizedBox(height: 16),
               
-              // UPDATED: Price input field (replaces tags)
+              // Tags (Optional)
               TextFormField(
-                controller: _priceController,
+                controller: _tagsController,
                 decoration: InputDecoration(
-                  labelText: 'Price *',
+                  labelText: 'Tags (Comma separated, Optional)',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  prefixText: 'KES ',
-                  prefixStyle: TextStyle(
-                    color: modernTheme.textColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  hintText: '0',
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.primaryColor!),
                   ),
-                  errorBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.red),
-                  ),
                   filled: true,
                   fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
+                  hintText: 'e.g. sports, travel, music',
                 ),
                 style: TextStyle(color: modernTheme.textColor),
-                keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly, // Only allow digits
-                ],
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a price';
-                  }
-                  final price = double.tryParse(value);
-                  if (price == null || price < 0) {
-                    return 'Please enter a valid price';
-                  }
-                  return null;
-                },
                 enabled: !isLoading && !_isProcessing && !isUploading,
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Price formatting helper text
-              Text(
-                'Enter amount in KES (required field)',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 12,
-                ),
               ),
               
               const SizedBox(height: 24),
