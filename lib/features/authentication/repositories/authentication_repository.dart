@@ -59,7 +59,7 @@ abstract class AuthenticationRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String caption,
-    double? price,
+    List<String>? tags,
   });
   Future<VideoModel> createImagePost({
     required String userId,
@@ -67,12 +67,11 @@ abstract class AuthenticationRepository {
     required String userImage,
     required List<String> imageUrls,
     required String caption,
-    double? price,
+    List<String>? tags,
   });
   Future<VideoModel> updateVideo({
     required String videoId,
     String? caption,
-    double? price,
     String? videoUrl,
     String? thumbnailUrl,
     List<String>? tags,
@@ -552,7 +551,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String caption,
-    double? price,
+    List<String>? tags,
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -564,12 +563,11 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'caption': caption,
-        'price': price ?? 0.0,
+        'tags': tags ?? [],
         'likesCount': 0,
         'commentsCount': 0,
         'viewsCount': 0,
         'sharesCount': 0,
-        'tags': <String>[],
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'isActive': true,
@@ -599,7 +597,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required String userImage,
     required List<String> imageUrls,
     required String caption,
-    double? price,
+    List<String>? tags,
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -611,12 +609,11 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': '',
         'thumbnailUrl': imageUrls.isNotEmpty ? imageUrls.first : '',
         'caption': caption,
-        'price': price ?? 0.0,
+        'tags': tags ?? [],
         'likesCount': 0,
         'commentsCount': 0,
         'viewsCount': 0,
         'sharesCount': 0,
-        'tags': <String>[],
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'isActive': true,

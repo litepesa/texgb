@@ -1,4 +1,4 @@
-// lib/features/authentication/providers/authentication_provider.dart 
+// lib/features/authentication/providers/authentication_provider.dart
 // Video-focused authentication provider with instant auth recognition, caching, and video updates
 import 'dart:convert';
 import 'dart:io';
@@ -15,9 +15,9 @@ part 'authentication_provider.g.dart';
 
 // Authentication states
 enum AuthState {
-  guest,           // Can browse videos only
-  authenticated,   // Firebase user + profile exists
-  partial,         // Firebase authenticated but no backend profile
+  guest, // Can browse videos only
+  authenticated, // Firebase user + profile exists
+  partial, // Firebase authenticated but no backend profile
   loading,
   error
 }
@@ -30,7 +30,7 @@ class AuthenticationState {
   final UserModel? currentUser;
   final String? phoneNumber;
   final String? error;
-  
+
   // Video-related state
   final List<VideoModel> videos;
   final List<String> likedVideos;
@@ -86,13 +86,15 @@ class AuthenticationState {
 }
 
 // Repository provider
-final authenticationRepositoryProvider = Provider<AuthenticationRepository>((ref) {
+final authenticationRepositoryProvider =
+    Provider<AuthenticationRepository>((ref) {
   return FirebaseAuthenticationRepository();
 });
 
 @riverpod
 class Authentication extends _$Authentication {
-  AuthenticationRepository get _repository => ref.read(authenticationRepositoryProvider);
+  AuthenticationRepository get _repository =>
+      ref.read(authenticationRepositoryProvider);
 
   // Cache keys
   static const String _userProfileCacheKey = 'cached_user_profile';
@@ -103,12 +105,12 @@ class Authentication extends _$Authentication {
   FutureOr<AuthenticationState> build() async {
     // INSTANT AUTH CHECK: Check Firebase Auth immediately (synchronous)
     final firebaseUser = _repository.currentUserId;
-    
+
     if (firebaseUser != null) {
       // User is authenticated in Firebase - try to load cached data
       final cachedUser = await _loadCachedUserProfile();
       final cachedUsers = await _loadCachedUsers();
-      
+
       if (cachedUser != null) {
         // Return authenticated state IMMEDIATELY with cached data
         final immediateState = AuthenticationState(
@@ -118,26 +120,26 @@ class Authentication extends _$Authentication {
           phoneNumber: _repository.currentUserPhoneNumber,
           users: cachedUsers,
         );
-        
+
         // Set state immediately for instant UI
         state = AsyncValue.data(immediateState);
-        
+
         // Start background refresh (non-blocking)
         _refreshDataInBackground();
-        
+
         return immediateState;
       } else {
         // Firebase authenticated but no cached profile - check backend
         final userExists = await checkUserExists();
-        
+
         if (userExists) {
           final userProfile = await getUserDataFromBackend();
-          
+
           if (userProfile != null) {
             await _saveCachedUserProfile(userProfile);
             await loadUsers(); // Load users for home screen
             await _saveCachedUsers(state.value?.users ?? []);
-            
+
             return AuthenticationState(
               state: AuthState.authenticated,
               isSuccessful: true,
@@ -149,7 +151,7 @@ class Authentication extends _$Authentication {
         } else {
           // Authenticated but no backend profile
           await loadUsers();
-          
+
           return AuthenticationState(
             state: AuthState.partial,
             isSuccessful: false,
@@ -159,10 +161,10 @@ class Authentication extends _$Authentication {
         }
       }
     }
-    
+
     // User not authenticated - load public data for guest browsing
     await loadUsers(); // Still load users for home screen
-    
+
     return AuthenticationState(
       state: AuthState.guest,
       users: state.value?.users ?? [],
@@ -177,7 +179,7 @@ class Authentication extends _$Authentication {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userJson = prefs.getString(_userProfileCacheKey);
-      
+
       if (userJson != null && userJson.isNotEmpty) {
         final userMap = jsonDecode(userJson) as Map<String, dynamic>;
         return UserModel.fromMap(userMap);
@@ -192,7 +194,8 @@ class Authentication extends _$Authentication {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_userProfileCacheKey, jsonEncode(user.toMap()));
-      await prefs.setInt(_lastSyncCacheKey, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+          _lastSyncCacheKey, DateTime.now().millisecondsSinceEpoch);
       debugPrint('User profile cached successfully');
     } catch (e) {
       debugPrint('Error saving cached user profile: $e');
@@ -203,11 +206,12 @@ class Authentication extends _$Authentication {
     try {
       final prefs = await SharedPreferences.getInstance();
       final usersJson = prefs.getString(_usersListCacheKey);
-      
+
       if (usersJson != null && usersJson.isNotEmpty) {
         final List<dynamic> usersData = jsonDecode(usersJson);
         return usersData
-            .map((userData) => UserModel.fromMap(userData as Map<String, dynamic>))
+            .map((userData) =>
+                UserModel.fromMap(userData as Map<String, dynamic>))
             .toList();
       }
     } catch (e) {
@@ -245,7 +249,7 @@ class Authentication extends _$Authentication {
       final prefs = await SharedPreferences.getInstance();
       final lastSync = prefs.getInt(_lastSyncCacheKey) ?? 0;
       final timeDiff = DateTime.now().millisecondsSinceEpoch - lastSync;
-      
+
       // Cache valid for 1 hour (3600000 milliseconds)
       return timeDiff < 3600000;
     } catch (e) {
@@ -258,26 +262,26 @@ class Authentication extends _$Authentication {
   Future<void> _refreshDataInBackground() async {
     try {
       debugPrint('Starting background data refresh...');
-      
+
       // Refresh user profile
       final freshUserProfile = await getUserProfile();
       if (freshUserProfile != null) {
         await _saveCachedUserProfile(freshUserProfile);
-        
+
         // Update state with fresh profile
         final currentState = state.value ?? const AuthenticationState();
         state = AsyncValue.data(currentState.copyWith(
           currentUser: freshUserProfile,
         ));
       }
-      
+
       // Refresh users list
       await loadUsers();
       final currentState = state.value ?? const AuthenticationState();
       if (currentState.users.isNotEmpty) {
         await _saveCachedUsers(currentState.users);
       }
-      
+
       debugPrint('Background data refresh completed');
     } catch (e) {
       debugPrint('Background refresh failed (non-critical): $e');
@@ -292,7 +296,7 @@ class Authentication extends _$Authentication {
   Future<bool> checkUserExists() async {
     final userId = _repository.currentUserId;
     if (userId == null) return false;
-    
+
     try {
       return await _repository.checkUserExists(userId);
     } on AuthRepositoryException catch (e) {
@@ -304,10 +308,10 @@ class Authentication extends _$Authentication {
   Future<UserModel?> getUserDataFromBackend() async {
     final userId = _repository.currentUserId;
     if (userId == null) return null;
-    
+
     try {
       final userModel = await _repository.getUserProfile(userId);
-      
+
       if (userModel != null) {
         final currentState = state.value ?? const AuthenticationState();
         state = AsyncValue.data(currentState.copyWith(
@@ -315,11 +319,11 @@ class Authentication extends _$Authentication {
           state: AuthState.authenticated,
           isSuccessful: true,
         ));
-        
+
         // Cache the fresh user profile
         await _saveCachedUserProfile(userModel);
       }
-      
+
       return userModel;
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
@@ -330,7 +334,7 @@ class Authentication extends _$Authentication {
   Future<UserModel?> getUserProfile() async {
     final userId = _repository.currentUserId;
     if (userId == null) return null;
-    
+
     try {
       return await _repository.getUserProfile(userId);
     } on AuthRepositoryException catch (e) {
@@ -362,7 +366,7 @@ class Authentication extends _$Authentication {
         phoneNumber: phoneNumber,
         context: context,
       );
-      
+
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.loading,
         phoneNumber: phoneNumber,
@@ -406,15 +410,15 @@ class Authentication extends _$Authentication {
 
     try {
       final userExists = await checkUserExists();
-      
+
       if (userExists) {
         final userModel = await getUserDataFromBackend();
-        
+
         if (userModel != null) {
           await _saveCachedUserProfile(userModel);
           await loadUsers();
           await _saveCachedUsers(state.value?.users ?? []);
-          
+
           state = AsyncValue.data(AuthenticationState(
             state: AuthState.authenticated,
             isSuccessful: true,
@@ -425,7 +429,7 @@ class Authentication extends _$Authentication {
         }
       } else {
         await loadUsers();
-        
+
         state = AsyncValue.data(AuthenticationState(
           state: AuthState.partial,
           isSuccessful: false,
@@ -436,7 +440,7 @@ class Authentication extends _$Authentication {
     } on AuthRepositoryException catch (e) {
       debugPrint('Failed to handle post-OTP verification: ${e.message}');
       await loadUsers();
-      
+
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.partial,
         isSuccessful: false,
@@ -464,12 +468,12 @@ class Authentication extends _$Authentication {
         profileImage: profileImage,
         coverImage: coverImage,
       );
-      
+
       // Cache the new user profile
       await _saveCachedUserProfile(createdUser);
       await loadUsers();
       await _saveCachedUsers(state.value?.users ?? []);
-      
+
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.authenticated,
         isSuccessful: true,
@@ -477,7 +481,7 @@ class Authentication extends _$Authentication {
         phoneNumber: _repository.currentUserPhoneNumber,
         users: state.value?.users ?? [],
       ));
-      
+
       onSuccess();
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
@@ -490,8 +494,9 @@ class Authentication extends _$Authentication {
     File? profileImage,
     File? coverImage,
   }) async {
-    state = AsyncValue.data(state.value?.copyWith(isLoading: true) ?? const AuthenticationState(isLoading: true));
-    
+    state = AsyncValue.data(state.value?.copyWith(isLoading: true) ??
+        const AuthenticationState(isLoading: true));
+
     try {
       final updatedUser = await _repository.updateUserProfile(
         user: user,
@@ -500,7 +505,7 @@ class Authentication extends _$Authentication {
       );
 
       final currentState = state.value ?? const AuthenticationState();
-      
+
       state = AsyncValue.data(currentState.copyWith(
         currentUser: updatedUser,
         state: AuthState.authenticated,
@@ -521,19 +526,20 @@ class Authentication extends _$Authentication {
       state: AuthState.loading,
       isLoading: true,
     ));
-    
+
     try {
       await _repository.signOut();
-      
+
       // Clear all cached data on sign out
       await _clearCache();
-      
+
       // Also clear SharedPreferences userModel (your existing logic)
-      SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+      SharedPreferences sharedPreferences =
+          await SharedPreferences.getInstance();
       await sharedPreferences.remove('userModel');
-      
+
       await loadUsers(); // Load users for guest browsing
-      
+
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.guest,
         users: state.value?.users ?? [],
@@ -551,14 +557,15 @@ class Authentication extends _$Authentication {
   Future<void> loadVideos() async {
     try {
       final videos = await _repository.getVideos();
-      
+
       final currentState = state.value ?? const AuthenticationState();
       final videosWithLikedStatus = videos.map((video) {
         final isLiked = currentState.likedVideos.contains(video.id);
         return video.copyWith(isLiked: isLiked);
       }).toList();
-      
-      state = AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
+
+      state =
+          AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
     } on AuthRepositoryException catch (e) {
       debugPrint('Error loading videos: ${e.message}');
     }
@@ -575,14 +582,14 @@ class Authentication extends _$Authentication {
   Future<void> likeVideo(String videoId) async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.state != AuthState.authenticated) return;
-    
+
     final userId = _repository.currentUserId;
     if (userId == null) return;
-    
+
     try {
       List<String> likedVideos = List.from(currentState.likedVideos);
       bool isCurrentlyLiked = likedVideos.contains(videoId);
-      
+
       if (isCurrentlyLiked) {
         likedVideos.remove(videoId);
         await _repository.unlikeVideo(videoId, userId);
@@ -590,7 +597,7 @@ class Authentication extends _$Authentication {
         likedVideos.add(videoId);
         await _repository.likeVideo(videoId, userId);
       }
-      
+
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
           return video.copyWith(
@@ -600,12 +607,11 @@ class Authentication extends _$Authentication {
         }
         return video;
       }).toList();
-      
+
       state = AsyncValue.data(currentState.copyWith(
         videos: updatedVideos,
         likedVideos: likedVideos,
       ));
-      
     } on AuthRepositoryException catch (e) {
       debugPrint('Error toggling like: ${e.message}');
       await loadVideos();
@@ -617,27 +623,29 @@ class Authentication extends _$Authentication {
   Future<void> createVideo({
     required File videoFile,
     required String caption,
-    double? price, // UPDATED: Price parameter replaces tags
+    List<String>? tags, // UPDATED: Tags parameter replaces price
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
     final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated || currentState.currentUser == null) {
+    if (currentState.state != AuthState.authenticated ||
+        currentState.currentUser == null) {
       onError('User not authenticated');
       return;
     }
-    
+
     state = AsyncValue.data(currentState.copyWith(
       isUploading: true,
       uploadProgress: 0.0,
     ));
-    
+
     try {
       final user = currentState.currentUser!;
-      
+
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
-        reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
+        reference:
+            'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
           final currentState = state.value ?? const AuthenticationState();
           state = AsyncValue.data(currentState.copyWith(
@@ -645,10 +653,10 @@ class Authentication extends _$Authentication {
           ));
         },
       );
-      
+
       const thumbnailUrl = '';
-      
-      // UPDATED: Pass price parameter instead of tags to repository
+
+      // UPDATED: Pass tags parameter instead of price to repository
       final videoData = await _repository.createVideo(
         userId: user.uid,
         userName: user.name,
@@ -656,20 +664,20 @@ class Authentication extends _$Authentication {
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         caption: caption,
-        price: price ?? 0.0, // UPDATED: Use price instead of tags
+        tags: tags ?? [], // UPDATED: Use tags instead of price
       );
-      
+
       List<VideoModel> updatedVideos = [
         videoData,
         ...currentState.videos,
       ];
-      
+
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 1.0,
         videos: updatedVideos,
       ));
-      
+
       onSuccess('Video uploaded successfully');
     } on AuthRepositoryException catch (e) {
       debugPrint('Error uploading video: ${e.message}');
@@ -684,56 +692,58 @@ class Authentication extends _$Authentication {
   Future<void> createImagePost({
     required List<File> imageFiles,
     required String caption,
-    double? price, // UPDATED: Price parameter replaces tags
+    List<String>? tags, // UPDATED: Tags parameter replaces price
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
     final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated || currentState.currentUser == null) {
+    if (currentState.state != AuthState.authenticated ||
+        currentState.currentUser == null) {
       onError('User not authenticated');
       return;
     }
-    
+
     if (imageFiles.isEmpty) {
       onError('No images selected');
       return;
     }
-    
+
     state = AsyncValue.data(currentState.copyWith(isLoading: true));
-    
+
     try {
       final user = currentState.currentUser!;
       final List<String> imageUrls = [];
-      
+
       for (int i = 0; i < imageFiles.length; i++) {
         final file = imageFiles[i];
         final imageUrl = await _repository.storeFileToStorage(
           file: file,
-          reference: 'images/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+          reference:
+              'images/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
         );
         imageUrls.add(imageUrl);
       }
-      
-      // UPDATED: Pass price parameter instead of tags to repository
+
+      // UPDATED: Pass tags parameter instead of price to repository
       final postData = await _repository.createImagePost(
         userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         imageUrls: imageUrls,
         caption: caption,
-        price: price ?? 0.0, // UPDATED: Use price instead of tags
+        tags: tags ?? [], // UPDATED: Use tags instead of price
       );
-      
+
       List<VideoModel> updatedVideos = [
         postData,
         ...currentState.videos,
       ];
-      
+
       state = AsyncValue.data(currentState.copyWith(
         isLoading: false,
         videos: updatedVideos,
       ));
-      
+
       onSuccess('Images uploaded successfully');
     } on AuthRepositoryException catch (e) {
       debugPrint('Error uploading images: ${e.message}');
@@ -749,7 +759,6 @@ class Authentication extends _$Authentication {
   Future<void> updateVideo({
     required String videoId,
     String? caption,
-    double? price,
     String? videoUrl,
     String? thumbnailUrl,
     List<String>? tags,
@@ -761,18 +770,17 @@ class Authentication extends _$Authentication {
       onError('User not authenticated');
       return;
     }
-    
+
     try {
       // Call repository to update video
       final updatedVideo = await _repository.updateVideo(
         videoId: videoId,
         caption: caption,
-        price: price,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         tags: tags,
       );
-      
+
       // Update local state with the updated video
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
@@ -780,9 +788,9 @@ class Authentication extends _$Authentication {
         }
         return video;
       }).toList();
-      
+
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
-      
+
       onSuccess('Video updated successfully');
     } on AuthRepositoryException catch (e) {
       debugPrint('Error updating video: ${e.message}');
@@ -799,20 +807,6 @@ class Authentication extends _$Authentication {
     await updateVideo(
       videoId: videoId,
       caption: caption,
-      onSuccess: onSuccess,
-      onError: onError,
-    );
-  }
-
-  Future<void> updateVideoPrice({
-    required String videoId,
-    required double price,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    await updateVideo(
-      videoId: videoId,
-      price: price,
       onSuccess: onSuccess,
       onError: onError,
     );
@@ -866,17 +860,18 @@ class Authentication extends _$Authentication {
       onError('User not authenticated');
       return;
     }
-    
+
     final userId = _repository.currentUserId;
     if (userId == null) {
       onError('User not authenticated');
       return;
     }
-    
+
     try {
       await _repository.deleteVideo(videoId, userId);
-      
-      final updatedVideos = currentState.videos.where((video) => video.id != videoId).toList();
+
+      final updatedVideos =
+          currentState.videos.where((video) => video.id != videoId).toList();
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } on AuthRepositoryException catch (e) {
       debugPrint('Error deleting video: ${e.message}');
@@ -887,7 +882,7 @@ class Authentication extends _$Authentication {
   Future<void> incrementViewCount(String videoId) async {
     try {
       await _repository.incrementViewCount(videoId);
-      
+
       final currentState = state.value ?? const AuthenticationState();
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
@@ -895,7 +890,7 @@ class Authentication extends _$Authentication {
         }
         return video;
       }).toList();
-      
+
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } on AuthRepositoryException catch (e) {
       debugPrint('Error incrementing view count: ${e.message}');
@@ -905,17 +900,17 @@ class Authentication extends _$Authentication {
   Future<void> loadLikedVideos() async {
     final userId = _repository.currentUserId;
     if (userId == null) return;
-    
+
     try {
       final likedVideos = await _repository.getLikedVideos(userId);
       final currentState = state.value ?? const AuthenticationState();
-      
+
       state = AsyncValue.data(currentState.copyWith(likedVideos: likedVideos));
-      
+
       final updatedVideos = currentState.videos.map((video) {
         return video.copyWith(isLiked: likedVideos.contains(video.id));
       }).toList();
-      
+
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } on AuthRepositoryException catch (e) {
       debugPrint('Error loading liked videos: ${e.message}');
@@ -928,13 +923,13 @@ class Authentication extends _$Authentication {
 
   Future<void> loadUsers() async {
     final currentUserId = _repository.currentUserId ?? '';
-    
+
     try {
       final users = await _repository.getAllUsers(excludeUserId: currentUserId);
       final currentState = state.value ?? const AuthenticationState();
-      
+
       state = AsyncValue.data(currentState.copyWith(users: users));
-      
+
       // Cache users list after loading
       if (users.isNotEmpty) {
         await _saveCachedUsers(users);
@@ -947,26 +942,28 @@ class Authentication extends _$Authentication {
   Future<void> followUser(String userId) async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.state != AuthState.authenticated) return;
-    
+
     final currentUserId = _repository.currentUserId;
     if (currentUserId == null) return;
-    
+
     try {
       List<String> followedUsers = List.from(currentState.followedUsers);
       bool isCurrentlyFollowed = followedUsers.contains(userId);
-      
+
       if (isCurrentlyFollowed) {
         followedUsers.remove(userId);
-        await _repository.unfollowUser(followerId: currentUserId, userId: userId);
+        await _repository.unfollowUser(
+            followerId: currentUserId, userId: userId);
       } else {
         followedUsers.add(userId);
         await _repository.followUser(followerId: currentUserId, userId: userId);
       }
-      
+
       final updatedUsers = currentState.users.map((user) {
         if (user.uid == userId) {
           return user.copyWith(
-            followers: isCurrentlyFollowed ? user.followers - 1 : user.followers + 1,
+            followers:
+                isCurrentlyFollowed ? user.followers - 1 : user.followers + 1,
             followerUIDs: isCurrentlyFollowed
                 ? (List.from(user.followerUIDs)..remove(currentUserId))
                 : (List.from(user.followerUIDs)..add(currentUserId)),
@@ -974,15 +971,14 @@ class Authentication extends _$Authentication {
         }
         return user;
       }).toList();
-      
+
       state = AsyncValue.data(currentState.copyWith(
         users: updatedUsers,
         followedUsers: followedUsers,
       ));
-      
+
       // Update cached users with new follow state
       await _saveCachedUsers(updatedUsers);
-      
     } on AuthRepositoryException catch (e) {
       debugPrint('Error toggling follow: ${e.message}');
       await loadUsers();
@@ -992,11 +988,13 @@ class Authentication extends _$Authentication {
 
   Future<void> loadFollowedUsers() async {
     final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated || currentState.currentUser == null) return;
-    
+    if (currentState.state != AuthState.authenticated ||
+        currentState.currentUser == null) return;
+
     try {
       final followedUsers = currentState.currentUser!.followingUIDs;
-      state = AsyncValue.data(currentState.copyWith(followedUsers: followedUsers));
+      state =
+          AsyncValue.data(currentState.copyWith(followedUsers: followedUsers));
     } on AuthRepositoryException catch (e) {
       debugPrint('Error loading followed users: ${e.message}');
     }
@@ -1033,14 +1031,15 @@ class Authentication extends _$Authentication {
     required Function(String) onError,
   }) async {
     final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated || currentState.currentUser == null) {
+    if (currentState.state != AuthState.authenticated ||
+        currentState.currentUser == null) {
       onError('User not authenticated');
       return;
     }
 
     try {
       final user = currentState.currentUser!;
-      
+
       await _repository.addComment(
         videoId: videoId,
         authorId: user.uid,
@@ -1073,13 +1072,13 @@ class Authentication extends _$Authentication {
       onError('User not authenticated');
       return;
     }
-    
+
     final userId = _repository.currentUserId;
     if (userId == null) {
       onError('User not authenticated');
       return;
     }
-    
+
     try {
       await _repository.deleteComment(commentId, userId);
     } on AuthRepositoryException catch (e) {
@@ -1091,10 +1090,10 @@ class Authentication extends _$Authentication {
   Future<void> likeComment(String commentId) async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.state != AuthState.authenticated) return;
-    
+
     final userId = _repository.currentUserId;
     if (userId == null) return;
-    
+
     try {
       await _repository.likeComment(commentId, userId);
     } on AuthRepositoryException catch (e) {
@@ -1105,10 +1104,10 @@ class Authentication extends _$Authentication {
   Future<void> unlikeComment(String commentId) async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.state != AuthState.authenticated) return;
-    
+
     final userId = _repository.currentUserId;
     if (userId == null) return;
-    
+
     try {
       await _repository.unlikeComment(commentId, userId);
     } on AuthRepositoryException catch (e) {
@@ -1123,7 +1122,7 @@ class Authentication extends _$Authentication {
   Future<void> saveUserDataToSharedPreferences() async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.currentUser == null) return;
-    
+
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.setString(
         'userModel', jsonEncode(currentState.currentUser!.toMap()));
@@ -1132,13 +1131,13 @@ class Authentication extends _$Authentication {
   Future<void> loadUserDataFromSharedPreferences() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     String userModelString = sharedPreferences.getString('userModel') ?? '';
-    
+
     if (userModelString.isEmpty) return;
-    
+
     final Map<String, dynamic> userMap = jsonDecode(userModelString);
     final user = UserModel.fromMap(userMap);
     final currentState = state.value ?? const AuthenticationState();
-    
+
     state = AsyncValue.data(currentState.copyWith(
       currentUser: user,
       phoneNumber: user.phoneNumber,
@@ -1150,7 +1149,8 @@ class Authentication extends _$Authentication {
   // Helper getters for UI
   bool get isAuthenticated {
     final currentState = state.value;
-    return currentState?.state == AuthState.authenticated && currentState?.isSuccessful == true;
+    return currentState?.state == AuthState.authenticated &&
+        currentState?.isSuccessful == true;
   }
 
   bool get isGuest {
@@ -1214,9 +1214,11 @@ class Authentication extends _$Authentication {
   }
 
   // File operations
-  Future<String> storeFileToStorage({required File file, required String reference}) async {
+  Future<String> storeFileToStorage(
+      {required File file, required String reference}) async {
     try {
-      return await _repository.storeFileToStorage(file: file, reference: reference);
+      return await _repository.storeFileToStorage(
+          file: file, reference: reference);
     } on AuthRepositoryException catch (e) {
       throw e.message;
     }
