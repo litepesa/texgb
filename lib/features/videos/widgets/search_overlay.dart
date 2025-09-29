@@ -1,7 +1,6 @@
 // ===============================
 // lib/features/videos/widgets/search_overlay.dart
-// Search Overlay Widget - TikTok-style search interface
-// Slides down from top with search results
+// Clean TikTok-Style Search Overlay - Minimalist Design
 // ===============================
 
 import 'dart:async';
@@ -12,20 +11,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/videos/models/search_models.dart';
 import 'package:textgb/features/videos/providers/video_search_provider.dart';
 import 'package:textgb/features/videos/widgets/search_results_grid.dart';
-import 'package:textgb/features/videos/widgets/search_suggestions.dart';
-import 'package:textgb/constants.dart';
 
 class SearchOverlay extends ConsumerStatefulWidget {
   final VoidCallback onClose;
   final Function(String videoId)? onVideoTap;
-  final bool showFilters;
   final String? initialQuery;
 
   const SearchOverlay({
     super.key,
     required this.onClose,
     this.onVideoTap,
-    this.showFilters = true,
     this.initialQuery,
   });
 
@@ -35,36 +30,21 @@ class SearchOverlay extends ConsumerStatefulWidget {
 
 class _SearchOverlayState extends ConsumerState<SearchOverlay>
     with TickerProviderStateMixin {
-  // Controllers and focus
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
-  
-  // Animations
   late AnimationController _slideController;
-  late AnimationController _fadeController;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-  
-  // State
-  bool _isFiltersExpanded = false;
-  Timer? _suggestionTimer;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
     
-    // Initialize controllers
     _searchController = TextEditingController(text: widget.initialQuery ?? '');
     _searchFocusNode = FocusNode();
     
-    // Initialize animations
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
     
@@ -73,28 +53,16 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
       curve: Curves.easeOut,
     ));
     
-    // Start animations
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _slideController.forward();
-      _fadeController.forward();
       
-      // Focus search input after animation
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           _searchFocusNode.requestFocus();
           
-          // If there's an initial query, perform search
           if (widget.initialQuery?.isNotEmpty == true) {
             _performSearch(widget.initialQuery!);
           }
@@ -108,8 +76,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
     _searchController.dispose();
     _searchFocusNode.dispose();
     _slideController.dispose();
-    _fadeController.dispose();
-    _suggestionTimer?.cancel();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -122,411 +89,54 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
     return Material(
       color: Colors.transparent,
       child: GestureDetector(
-        onTap: _closeOverlay,
+        onTap: () {
+          // Only close if tapping outside when no results
+          if (!searchState.hasResults) {
+            _closeOverlay();
+          }
+        },
         child: Container(
-          color: Colors.black.withOpacity(0.7),
-          child: GestureDetector(
-            onTap: () {}, // Prevent closing when tapping inside
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Container(
-                  height: screenHeight,
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      // Search header with padding for system status bar
-                      Container(
-                        padding: EdgeInsets.only(
-                          top: systemTopPadding + 8,
-                          left: 16,
-                          right: 16,
-                          bottom: 8,
-                        ),
-                        child: _buildSearchHeader(),
-                      ),
-                      
-                      // Filters (if enabled and expanded)
-                      if (widget.showFilters && _isFiltersExpanded)
-                        _buildFiltersSection(),
-                      
-                      // Search content
-                      Expanded(
-                        child: _buildSearchContent(searchState),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===============================
-  // HEADER SECTION
-  // ===============================
-
-  Widget _buildSearchHeader() {
-    return Column(
-      children: [
-        // Search bar row
-        Row(
-          children: [
-            // Search input
-            Expanded(
+          color: Colors.black.withOpacity(0.3),
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: GestureDetector(
+              onTap: () {}, // Prevent closing when tapping inside
               child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: Colors.grey[700]!,
-                    width: 1,
-                  ),
+                height: screenHeight,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
                 ),
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search videos or creators...',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 16,
-                    ),
-                    prefixIcon: Icon(
-                      CupertinoIcons.search,
-                      color: Colors.grey[400],
-                      size: 20,
-                    ),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              color: Colors.grey[400],
-                              size: 20,
-                            ),
-                            onPressed: _clearSearch,
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  onChanged: _onSearchChanged,
-                  onSubmitted: _onSearchSubmitted,
-                  textInputAction: TextInputAction.search,
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 12),
-            
-            // Cancel button
-            GestureDetector(
-              onTap: _closeOverlay,
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        
-        // Filter toggle and quick stats
-        if (widget.showFilters) ...[
-          const SizedBox(height: 12),
-          _buildQuickFiltersRow(),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildQuickFiltersRow() {
-    final searchState = ref.watch(videoSearchProvider);
-    
-    return Row(
-      children: [
-        // Filter toggle button
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _isFiltersExpanded = !_isFiltersExpanded;
-            });
-            HapticFeedback.lightImpact();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _isFiltersExpanded ? Colors.red.withOpacity(0.2) : Colors.grey[800],
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _isFiltersExpanded ? Colors.red : Colors.grey[600]!,
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  CupertinoIcons.slider_horizontal_3,
-                  color: _isFiltersExpanded ? Colors.red : Colors.grey[300],
-                  size: 16,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Filters',
-                  style: TextStyle(
-                    color: _isFiltersExpanded ? Colors.red : Colors.grey[300],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (searchState.filters.hasActiveFilters) ...[
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        
-        const Spacer(),
-        
-        // Search results info
-        if (searchState.hasResults) ...[
-          Text(
-            '${searchState.totalResults} results',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            ref.watch(searchTimeTakenProvider),
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ===============================
-  // FILTERS SECTION
-  // ===============================
-
-  Widget _buildFiltersSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        border: Border(
-          top: BorderSide(color: Colors.grey[800]!, width: 1),
-          bottom: BorderSide(color: Colors.grey[800]!, width: 1),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Media type filter
-          _buildFilterRow(
-            'Content Type',
-            _buildMediaTypeFilter(),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Sort and verification filters
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterRow(
-                  'Sort',
-                  _buildSortFilter(),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildFilterRow(
-                  'Quality',
-                  _buildVerificationFilter(),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Reset filters button
-          if (ref.watch(videoSearchProvider).filters.hasActiveFilters)
-            GestureDetector(
-              onTap: () {
-                ref.read(searchControllerProvider.notifier).resetFilters();
-                HapticFeedback.lightImpact();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.refresh,
-                      color: Colors.red,
-                      size: 16,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Reset Filters',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    // Search header
+                    Container(
+                      padding: EdgeInsets.only(
+                        top: systemTopPadding + 8,
+                        left: 16,
+                        right: 16,
+                        bottom: 12,
                       ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: _buildSearchHeader(),
+                    ),
+                    
+                    // Search content
+                    Expanded(
+                      child: _buildSearchContent(searchState),
                     ),
                   ],
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterRow(String label, Widget filter) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 6),
-        filter,
-      ],
-    );
-  }
-
-  Widget _buildMediaTypeFilter() {
-    final currentFilter = ref.watch(videoSearchProvider).filters.mediaType;
-    
-    return Row(
-      children: [
-        _buildFilterChip('All', 'all', currentFilter, (value) {
-          _applyFilter(mediaType: value);
-        }),
-        const SizedBox(width: 8),
-        _buildFilterChip('Videos', 'video', currentFilter, (value) {
-          _applyFilter(mediaType: value);
-        }),
-        const SizedBox(width: 8),
-        _buildFilterChip('Images', 'image', currentFilter, (value) {
-          _applyFilter(mediaType: value);
-        }),
-      ],
-    );
-  }
-
-  Widget _buildSortFilter() {
-    final currentSort = ref.watch(videoSearchProvider).filters.sortBy;
-    
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildFilterChip('Best Match', 'relevance', currentSort, (value) {
-            _applyFilter(sortBy: value);
-          }),
-          const SizedBox(width: 8),
-          _buildFilterChip('Latest', 'latest', currentSort, (value) {
-            _applyFilter(sortBy: value);
-          }),
-          const SizedBox(width: 8),
-          _buildFilterChip('Popular', 'popular', currentSort, (value) {
-            _applyFilter(sortBy: value);
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVerificationFilter() {
-    final currentFilter = ref.watch(videoSearchProvider).filters.isVerified;
-    
-    return Row(
-      children: [
-        _buildFilterChip('All', null, currentFilter, (value) {
-          _applyFilter(isVerified: value);
-        }),
-        const SizedBox(width: 8),
-        _buildFilterChip('Verified', true, currentFilter, (value) {
-          _applyFilter(isVerified: value);
-        }),
-      ],
-    );
-  }
-
-  Widget _buildFilterChip<T>(String label, T value, T currentValue, Function(T) onTap) {
-    final isSelected = value == currentValue;
-    
-    return GestureDetector(
-      onTap: () {
-        onTap(value);
-        HapticFeedback.selectionClick();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.red : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? Colors.red : Colors.grey[600]!,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[300],
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ),
@@ -534,19 +144,106 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   }
 
   // ===============================
-  // CONTENT SECTION
+  // SEARCH HEADER
+  // ===============================
+
+  Widget _buildSearchHeader() {
+    return Row(
+      children: [
+        // Back button
+        GestureDetector(
+          onTap: _closeOverlay,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            child: const Icon(
+              CupertinoIcons.back,
+              color: Colors.black87,
+              size: 24,
+            ),
+          ),
+        ),
+        
+        const SizedBox(width: 12),
+        
+        // Search input
+        Expanded(
+          child: Container(
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search',
+                hintStyle: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 16,
+                ),
+                prefixIcon: Icon(
+                  CupertinoIcons.search,
+                  color: Colors.grey[500],
+                  size: 20,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? GestureDetector(
+                        onTap: _clearSearch,
+                        child: Icon(
+                          Icons.cancel,
+                          color: Colors.grey[500],
+                          size: 20,
+                        ),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                isDense: true,
+              ),
+              onChanged: _onSearchChanged,
+              onSubmitted: _onSearchSubmitted,
+              textInputAction: TextInputAction.search,
+            ),
+          ),
+        ),
+        
+        const SizedBox(width: 12),
+        
+        // Cancel button
+        GestureDetector(
+          onTap: _closeOverlay,
+          child: const Text(
+            'Cancel',
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===============================
+  // SEARCH CONTENT
   // ===============================
 
   Widget _buildSearchContent(VideoSearchState searchState) {
-    if (searchState.isInitial || (_searchController.text.isEmpty && !searchState.hasQuery)) {
-      return SearchSuggestions(
-        onSuggestionTap: _onSuggestionTap,
-        onTrendingTap: _onTrendingTap,
-        onRecentTap: _onRecentTap,
-      );
+    // Show suggestions when typing or no query
+    if (_searchController.text.isEmpty || searchState.suggestions.isNotEmpty) {
+      return _buildSuggestions(searchState);
     }
     
-    if (searchState.isLoading) {
+    if (searchState.isLoading && !searchState.hasResults) {
       return _buildLoadingState();
     }
     
@@ -564,149 +261,291 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
         onVideoTap: _onVideoTap,
         onLoadMore: _canLoadMore(searchState) ? _loadMore : null,
         isLoadingMore: searchState.isLoading && searchState.hasResults,
+        padding: const EdgeInsets.all(12),
+        crossAxisCount: 3,
+        childAspectRatio: 0.65,
       );
     }
     
     return const SizedBox.shrink();
   }
 
-  Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  // ===============================
+  // SUGGESTIONS (CLEAN & SIMPLE)
+  // ===============================
+
+  Widget _buildSuggestions(VideoSearchState searchState) {
+    final suggestions = searchState.suggestions;
+    final recentSearches = ref.watch(recentSearchesProvider);
+    final trendingTerms = ref.watch(trendingTermsProvider);
+
+    return Container(
+      color: Colors.white,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
-          CircularProgressIndicator(
-            color: Colors.red,
-            strokeWidth: 2,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Searching...',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+          // Search suggestions (real-time)
+          if (suggestions.isNotEmpty) ...[
+            ...suggestions.take(10).map((suggestion) {
+              return _buildSuggestionItem(
+                text: suggestion,
+                icon: CupertinoIcons.search,
+                onTap: () => _onSuggestionTap(suggestion),
+              );
+            }).toList(),
+          ]
+          // Recent searches (when no suggestions)
+          else if (recentSearches.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Recent',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      ref.read(videoSearchProvider.notifier).clearSearchHistory();
+                      HapticFeedback.lightImpact();
+                    },
+                    child: Text(
+                      'Clear',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            ...recentSearches.take(8).map((search) {
+              return _buildSuggestionItem(
+                text: search,
+                icon: CupertinoIcons.time,
+                onTap: () => _onSuggestionTap(search),
+                trailing: GestureDetector(
+                  onTap: () {
+                    ref.read(videoSearchProvider.notifier).removeFromHistory(search);
+                    HapticFeedback.lightImpact();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.grey[400],
+                      size: 18,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ]
+          // Trending (when no recent searches)
+          else if (trendingTerms.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                'Trending',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ...trendingTerms.take(10).map((term) {
+              return _buildSuggestionItem(
+                text: term,
+                icon: CupertinoIcons.flame,
+                iconColor: Colors.red[400],
+                onTap: () => _onSuggestionTap(term),
+              );
+            }).toList(),
+          ]
+          // Empty state
+          else ...[
+            const SizedBox(height: 100),
+            Center(
+              child: Column(
+                children: [
+                  Icon(
+                    CupertinoIcons.search,
+                    color: Colors.grey[300],
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Search for videos',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildErrorState(String errorMessage) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildSuggestionItem({
+    required String text,
+    required IconData icon,
+    Color? iconColor,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
           children: [
             Icon(
-              Icons.error_outline,
-              color: Colors.grey[400],
-              size: 64,
+              icon,
+              color: iconColor ?? Colors.grey[600],
+              size: 20,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Search Error',
-              style: TextStyle(
-                color: Colors.grey[300],
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              errorMessage,
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(searchControllerProvider.notifier).retrySearch();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Try Again'),
-            ),
+            if (trailing != null) trailing,
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              CupertinoIcons.search,
-              color: Colors.grey[400],
-              size: 64,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Results Found',
-              style: TextStyle(
-                color: Colors.grey[300],
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try different keywords or check your spelling',
-              style: TextStyle(
+  // ===============================
+  // LOADING STATE
+  // ===============================
+
+  Widget _buildLoadingState() {
+    return Container(
+      color: Colors.white,
+      child: const Center(
+        child: CircularProgressIndicator(
+          color: Colors.black87,
+          strokeWidth: 2,
+        ),
+      ),
+    );
+  }
+
+  // ===============================
+  // ERROR STATE
+  // ===============================
+
+  Widget _buildErrorState(String errorMessage) {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
                 color: Colors.grey[400],
-                fontSize: 14,
+                size: 64,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            
-            // Suggestions from API response
-            if (ref.watch(videoSearchProvider).suggestions.isNotEmpty) ...[
+              const SizedBox(height: 16),
               Text(
-                'Try these suggestions:',
+                'Something went wrong',
                 style: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ref.watch(videoSearchProvider).suggestions.map((suggestion) {
-                  return GestureDetector(
-                    onTap: () => _onSuggestionTap(suggestion),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[800],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        suggestion,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+              const SizedBox(height: 8),
+              Text(
+                errorMessage,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  ref.read(searchControllerProvider.notifier).retrySearch();
+                },
+                child: const Text(
+                  'Try Again',
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===============================
+  // EMPTY STATE
+  // ===============================
+
+  Widget _buildEmptyState() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                CupertinoIcons.search,
+                color: Colors.grey[300],
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No results found',
+                style: TextStyle(
+                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try different keywords',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -717,21 +556,18 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   // ===============================
 
   void _onSearchChanged(String query) {
-    setState(() {}); // Update clear button visibility
+    setState(() {}); // Update clear button
     
-    // Cancel previous timer
-    _suggestionTimer?.cancel();
+    _debounceTimer?.cancel();
     
-    // Get suggestions after short delay
     if (query.length >= 2) {
-      _suggestionTimer = Timer(const Duration(milliseconds: 300), () {
+      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
         if (mounted) {
           ref.read(videoSearchProvider.notifier).getSuggestions(query);
         }
       });
     }
     
-    // Perform search with debouncing
     ref.read(videoSearchProvider.notifier).search(query);
   }
 
@@ -750,16 +586,13 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
     _searchController.clear();
     ref.read(videoSearchProvider.notifier).clearSearch();
     setState(() {});
+    _searchFocusNode.requestFocus();
   }
 
   void _closeOverlay() {
     _searchFocusNode.unfocus();
-    
-    // Animate out
     _slideController.reverse();
-    _fadeController.reverse();
     
-    // Close after animation
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
         widget.onClose();
@@ -770,51 +603,14 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   void _onVideoTap(String videoId) {
     _closeOverlay();
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (widget.onVideoTap != null) {
-        widget.onVideoTap!(videoId);
-      } else {
-        // Default navigation to videos feed
-        Navigator.pushNamed(
-          context,
-          Constants.videosFeedScreen,
-          arguments: {
-            Constants.startVideoId: videoId,
-          },
-        );
-      }
+      widget.onVideoTap?.call(videoId);
     });
   }
 
   void _onSuggestionTap(String suggestion) {
     _searchController.text = suggestion;
     _performSearch(suggestion);
-  }
-
-  void _onTrendingTap(String term) {
-    _searchController.text = term;
-    _performSearch(term);
-  }
-
-  void _onRecentTap(String recent) {
-    _searchController.text = recent;
-    _performSearch(recent);
-  }
-
-  void _applyFilter({
-    String? mediaType,
-    String? sortBy,
-    bool? isVerified,
-    bool? hasPrice,
-  }) {
-    final currentFilters = ref.read(videoSearchProvider).filters;
-    final newFilters = currentFilters.copyWith(
-      mediaType: mediaType,
-      sortBy: sortBy,
-      isVerified: isVerified,
-      hasPrice: hasPrice,
-    );
-    
-    ref.read(videoSearchProvider.notifier).applyFilters(newFilters);
+    HapticFeedback.selectionClick();
   }
 
   void _loadMore() {
@@ -837,7 +633,6 @@ class SearchOverlayController {
   static void show(
     BuildContext context, {
     Function(String videoId)? onVideoTap,
-    bool showFilters = true,
     String? initialQuery,
   }) {
     if (_isShowing) return;
@@ -849,7 +644,6 @@ class SearchOverlayController {
           hide();
         },
         onVideoTap: onVideoTap,
-        showFilters: showFilters,
         initialQuery: initialQuery,
       ),
     );
