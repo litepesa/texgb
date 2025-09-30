@@ -244,16 +244,19 @@ class _VideoItemState extends ConsumerState<VideoItem>
         return;
       }
 
-      // Use the actual video URL from Cloudflare R2
-      final videoLink = widget.video.videoUrl;
+      // Prepare message content with product context
+      String message = 'Hi ${videoCreator.name}! I\'m interested in buying your product';
       
-      // Prepare message content with product link
-      String message = 'Hi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice}):\n\n$videoLink';
-      
-      // Add caption for context if available
       if (widget.video.caption.isNotEmpty) {
-        message += '\n\nProduct: ${widget.video.caption}';
+        // Add product caption for context (truncate if too long)
+        String caption = widget.video.caption;
+        if (caption.length > 50) {
+          caption = '${caption.substring(0, 50)}...';
+        }
+        message += ': "$caption"';
       }
+      
+      message += ' (${widget.video.formattedPrice})';
 
       // Encode the message for URL
       final encodedMessage = Uri.encodeComponent(message);
@@ -264,7 +267,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
       debugPrint('Opening WhatsApp with URL: $whatsappUrl');
       debugPrint('Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
-      debugPrint('Product link: $videoLink');
 
       // Try to launch WhatsApp directly without checking canLaunchUrl
       // This works better across different WhatsApp versions (regular and business)

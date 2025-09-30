@@ -273,7 +273,7 @@ final searchTimeTakenProvider = AutoDisposeProvider<String>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SearchTimeTakenRef = AutoDisposeProviderRef<String>;
-String _$videoSearchHash() => r'752554b603abfb8c7b30e53272346465b5510327';
+String _$videoSearchHash() => r'3ba5f4b5553d681ae367a84b826bd8f8a4a80e25';
 
 /// See also [VideoSearch].
 @ProviderFor(VideoSearch)

@@ -36,7 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
-    'Channels',  // Index 1 - Users List
+    'Sellers',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
     'Live',     // Index 3 - Featured Screen
     'Profile'    // Index 4 - Profile

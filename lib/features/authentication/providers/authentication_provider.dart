@@ -9,6 +9,7 @@ import 'package:textgb/features/authentication/repositories/authentication_repos
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/models/comment_model.dart';
+import 'package:textgb/features/videos/services/video_thumbnail_service.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 part 'authentication_provider.g.dart';
@@ -551,7 +552,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // VIDEO METHODS (updated with video editing)
+  // VIDEO METHODS (updated with video editing and thumbnail generation)
   // ===============================
 
   Future<void> loadVideos() async {
@@ -619,11 +620,11 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // UPDATED: createVideo method with price parameter (replaces tags)
+  // 🎬 UPDATED: createVideo method with automatic thumbnail generation and upload
   Future<void> createVideo({
     required File videoFile,
     required String caption,
-    List<String>? tags, // UPDATED: Tags parameter replaces price
+    List<String>? tags,
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -639,60 +640,149 @@ class Authentication extends _$Authentication {
       uploadProgress: 0.0,
     ));
 
+    File? thumbnailFile;
+
     try {
       final user = currentState.currentUser!;
 
+      // 🎬 STEP 1: Generate thumbnail from video file
+      debugPrint('🎬 Step 1/4: Generating thumbnail from video...');
+      final thumbnailService = VideoThumbnailService();
+      thumbnailFile = await thumbnailService.generateBestThumbnailFile(
+        videoFile: videoFile,
+        maxWidth: 400,
+        maxHeight: 600,
+        quality: 85,
+      );
+
+      if (thumbnailFile == null) {
+        debugPrint('⚠️ Warning: Failed to generate thumbnail, continuing without it');
+      } else {
+        debugPrint('✅ Thumbnail generated successfully: ${thumbnailFile.path}');
+      }
+
+      // Update progress: Thumbnail generated (10%)
+      state = AsyncValue.data(currentState.copyWith(
+        uploadProgress: 0.1,
+      ));
+
+      // 🎬 STEP 2: Upload thumbnail to Cloudflare R2 (if generated)
+      String thumbnailUrl = '';
+      if (thumbnailFile != null) {
+        debugPrint('☁️ Step 2/4: Uploading thumbnail to Cloudflare R2...');
+        try {
+          thumbnailUrl = await _repository.storeFileToStorage(
+            file: thumbnailFile,
+            reference: 'thumbnails/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+          );
+          debugPrint('✅ Thumbnail uploaded to R2: $thumbnailUrl');
+          
+          // Clean up temporary thumbnail file after successful upload
+          await thumbnailService.deleteThumbnailFile(thumbnailFile);
+        } catch (e) {
+          debugPrint('⚠️ Warning: Failed to upload thumbnail: $e');
+          // Continue without thumbnail - don't fail the entire upload
+          thumbnailUrl = '';
+          
+          // Try to clean up the file anyway
+          try {
+            await thumbnailService.deleteThumbnailFile(thumbnailFile);
+          } catch (_) {}
+        }
+      }
+
+      // Update progress: Thumbnail uploaded (20%)
+      state = AsyncValue.data(currentState.copyWith(
+        uploadProgress: 0.2,
+      ));
+
+      // 🎬 STEP 3: Upload video to Cloudflare R2
+      debugPrint('📹 Step 3/4: Uploading video to Cloudflare R2...');
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
-        reference:
-            'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
+        reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
+          // Map video upload progress from 20% to 90%
+          final mappedProgress = 0.2 + (progress * 0.7);
           final currentState = state.value ?? const AuthenticationState();
           state = AsyncValue.data(currentState.copyWith(
-            uploadProgress: progress,
+            uploadProgress: mappedProgress,
           ));
         },
       );
+      debugPrint('✅ Video uploaded to R2: $videoUrl');
 
-      const thumbnailUrl = '';
+      // Update progress: Video uploaded (90%)
+      state = AsyncValue.data(currentState.copyWith(
+        uploadProgress: 0.9,
+      ));
 
-      // UPDATED: Pass tags parameter instead of price to repository
+      // 🎬 STEP 4: Create video record in database
+      debugPrint('💾 Step 4/4: Creating video record in database...');
       final videoData = await _repository.createVideo(
         userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         videoUrl: videoUrl,
-        thumbnailUrl: thumbnailUrl,
+        thumbnailUrl: thumbnailUrl, // ✅ Now includes actual thumbnail URL
         caption: caption,
-        tags: tags ?? [], // UPDATED: Use tags instead of price
+        tags: tags ?? [],
       );
+      debugPrint('✅ Video record created in database');
 
       List<VideoModel> updatedVideos = [
         videoData,
         ...currentState.videos,
       ];
 
+      // Update progress: Complete (100%)
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 1.0,
         videos: updatedVideos,
       ));
 
-      onSuccess('Video uploaded successfully');
+      debugPrint('✅ Video upload complete with thumbnail!');
+      onSuccess('Video uploaded successfully with thumbnail');
     } on AuthRepositoryException catch (e) {
-      debugPrint('Error uploading video: ${e.message}');
+      debugPrint('❌ Error uploading video: ${e.message}');
+      
+      // Clean up thumbnail file if it exists
+      if (thumbnailFile != null) {
+        try {
+          final thumbnailService = VideoThumbnailService();
+          await thumbnailService.deleteThumbnailFile(thumbnailFile);
+        } catch (_) {}
+      }
+      
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 0.0,
       ));
       onError(e.message);
+    } catch (e) {
+      debugPrint('❌ Unexpected error uploading video: $e');
+      
+      // Clean up thumbnail file if it exists
+      if (thumbnailFile != null) {
+        try {
+          final thumbnailService = VideoThumbnailService();
+          await thumbnailService.deleteThumbnailFile(thumbnailFile);
+        } catch (_) {}
+      }
+      
+      state = AsyncValue.data(currentState.copyWith(
+        isUploading: false,
+        uploadProgress: 0.0,
+      ));
+      onError('Failed to upload video: $e');
     }
   }
 
   Future<void> createImagePost({
     required List<File> imageFiles,
     required String caption,
-    List<String>? tags, // UPDATED: Tags parameter replaces price
+    List<String>? tags,
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -724,14 +814,13 @@ class Authentication extends _$Authentication {
         imageUrls.add(imageUrl);
       }
 
-      // UPDATED: Pass tags parameter instead of price to repository
       final postData = await _repository.createImagePost(
         userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         imageUrls: imageUrls,
         caption: caption,
-        tags: tags ?? [], // UPDATED: Use tags instead of price
+        tags: tags ?? [],
       );
 
       List<VideoModel> updatedVideos = [
@@ -753,7 +842,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // NEW: VIDEO UPDATE METHODS
+  // VIDEO UPDATE METHODS
   // ===============================
 
   Future<void> updateVideo({
@@ -1019,7 +1108,7 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // COMMENT METHODS (unchanged)
+  // COMMENT METHODS
   // ===============================
 
   Future<void> addComment({
