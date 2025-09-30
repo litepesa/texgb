@@ -9,6 +9,7 @@ import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
+import 'package:textgb/features/users/screens/live_users_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
@@ -168,6 +169,7 @@ class AppRoot extends ConsumerWidget {
           
           // NEW: Featured Videos Screen Route
           Constants.featuredVideosScreen: (context) => const FeaturedVideosScreen(),
+          Constants.liveUsersScreen: (context) => const LiveUsersScreen(),
           
           Constants.singleVideoScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments;
@@ -321,6 +323,14 @@ class UserNavigationHelper {
         Constants.userId: userId,
       },
     );
+  }
+
+  // Navigate to live users screen
+  static void navigateToLiveUsers(
+    BuildContext context) {
+    Navigator.pushNamed(
+      context,
+      Constants.liveUsersScreen);
   }
 
   // Navigate to single video

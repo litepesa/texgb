@@ -143,6 +143,7 @@ class UserModel {
   final String lastSeen;
   final bool isActive;
   final bool isFeatured;
+  final bool isLive;         // NEW: Track if user is currently live streaming
   final String? lastPostAt;
   final UserPreferences preferences;
 
@@ -172,6 +173,7 @@ class UserModel {
     required this.lastSeen,
     required this.isActive,
     required this.isFeatured,
+    this.isLive = false,  // NEW
     this.lastPostAt,
     this.preferences = const UserPreferences(),
   });
@@ -205,6 +207,7 @@ class UserModel {
       lastSeen: _extractString(map['lastSeen'] ?? map['last_seen']) ?? '',
       isActive: _extractBool(map['isActive'] ?? map['is_active']) ?? true,
       isFeatured: _extractBool(map['isFeatured'] ?? map['is_featured']) ?? false,
+      isLive: _extractBool(map['isLive'] ?? map['is_live']) ?? false,  // NEW
       lastPostAt: _extractString(map['lastPostAt'] ?? map['last_post_at']),
       preferences: UserPreferences.fromMap(
         (map['preferences'] as Map<String, dynamic>?) ?? <String, dynamic>{},
@@ -322,6 +325,7 @@ class UserModel {
       lastSeen: now,
       isActive: true,
       isFeatured: false,
+      isLive: false,         // NEW
       lastPostAt: null,
       preferences: const UserPreferences(),
     );
@@ -349,6 +353,7 @@ class UserModel {
       'isVerified': isVerified,
       'isActive': isActive,
       'isFeatured': isFeatured,
+      'isLive': isLive,      // NEW
       'tags': _formatArrayForPostgreSQL(tags),
       'createdAt': createdAt,
       'updatedAt': updatedAt,
@@ -392,6 +397,7 @@ class UserModel {
     String? lastSeen,
     bool? isActive,
     bool? isFeatured,
+    bool? isLive,        // NEW
     String? lastPostAt,
     UserPreferences? preferences,
   }) {
@@ -421,6 +427,7 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      isLive: isLive ?? this.isLive,        // NEW
       lastPostAt: lastPostAt ?? this.lastPostAt,
       preferences: preferences ?? this.preferences,
     );
@@ -524,7 +531,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, role: ${role.value}, phoneNumber: $phoneNumber)';
+    return 'UserModel(uid: $uid, name: $name, role: ${role.value}, phoneNumber: $phoneNumber, isLive: $isLive)';
   }
 
   // ===============================
@@ -557,6 +564,9 @@ class UserModel {
           'location_display': locationDisplay,
           'has_language': hasLanguage,
           'language_display': languageDisplay,
+        },
+        'live_status': {
+          'is_live': isLive,
         },
       },
     };

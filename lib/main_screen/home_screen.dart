@@ -7,7 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
+import 'package:textgb/features/users/screens/live_users_screen.dart';
+//import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
@@ -37,7 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
-    'Trending',    // Index 3 - Featured Screen
+    'Live',     // Index 3 - Featured Screen
     'Profile'    // Index 4 - Profile
   ];
   
@@ -45,7 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.home_rounded,                    // Home
     Icons.radio_button_checked_rounded,   // Users
     Icons.add,                           // Post 
-    CupertinoIcons.flame,               // Trending
+    CupertinoIcons.dot_radiowaves_left_right,               // Trending
     Icons.person_2_outlined            // Profile
   ];
 
@@ -334,7 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
-              child: const FeaturedVideosScreen(),
+              child: const LiveUsersScreen(),
             ),
           ),
           // Profile tab (index 4) - Build only when accessed with authentication check

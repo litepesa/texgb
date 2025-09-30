@@ -1031,7 +1031,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Download button
+          /*// Download button
           _buildRightMenuItem(
             child: Stack(
               alignment: Alignment.center,
@@ -1098,7 +1098,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             onTap: () => _showVirtualGifts(currentVideo),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Profile avatar
           _buildRightMenuItem(

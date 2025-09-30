@@ -854,7 +854,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           const SizedBox(height: 6),
           _buildSmartCaption(),
           const SizedBox(height: 8),
-          _buildTimestampDisplay(),
+          _buildPriceAndBuyButton(),
         ],
       ),
     );
@@ -886,60 +886,230 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ),
             ),
             const SizedBox(width: 6),
-            // Only show verification badge if user is verified
-            if (widget.showVerificationBadge && videoUser != null && videoUser.isVerified)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF1DA1F2),
-                      Color(0xFF0D8BD9),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1DA1F2).withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
+            if (widget.showVerificationBadge && videoUser != null) ...[
+              if (videoUser.isVerified)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF1DA1F2),
+                        Color(0xFF0D8BD9),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.verified_rounded,
-                      size: 12,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      'Verified',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
                       ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.help_outline,
+                        size: 12,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Not Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.7),
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.7),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPriceAndBuyButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Price container using real price from video model
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF4CAF50), // Green start
+                Color(0xFF2E7D32), // Darker green end
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Price icon
+              const Icon(
+                Icons.local_offer,
+                color: Colors.white,
+                size: 16,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              // Real price text using video.formattedPrice
+              Text(
+                widget.video.formattedPrice,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
                     ),
                   ],
                 ),
               ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        
+        const SizedBox(width: 8), // Space between price and buy button
+        
+        // BUY button
+        GestureDetector(
+          onTap: () {
+            // Buy button does nothing on click as requested
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF6B6B), // Coral red start
+                  Color(0xFFE55353), // Darker red end
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Shopping cart icon
+                const Icon(
+                  Icons.shopping_cart,
+                  color: Colors.white,
+                  size: 16,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              // BUY text
+              const Text(
+                'BUY',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),)
+      ],
     );
   }
 
@@ -1009,27 +1179,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[dateTime.month - 1]} ${dateTime.day}';
-  }
-
-  Widget _buildTimestampDisplay() {
-    final timestampStyle = TextStyle(
-      color: Colors.white.withOpacity(0.7),
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      height: 1.3,
-      shadows: [
-        Shadow(
-          color: Colors.black.withOpacity(0.7),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
-
-    return Text(
-      _getRelativeTime(),
-      style: timestampStyle,
-    );
   }
 
   Widget _buildCarouselIndicators() {
@@ -1104,12 +1253,20 @@ class _VideoItemState extends ConsumerState<VideoItem>
           duration: const Duration(milliseconds: 300),
           child: GestureDetector(
             onTap: _handleFollowToggle,
-            child: const Text(
-              'Follow',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              /*decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(5),
+              ),*/
+              child: const Text(
+                'Follow',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -1128,3 +1285,4 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 }
+                    

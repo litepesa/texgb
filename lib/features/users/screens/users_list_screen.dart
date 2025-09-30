@@ -1,5 +1,5 @@
 // lib/features/users/screens/users_list_screen.dart
-// UPDATED: Pull-to-refresh implementation - no loading on tab switches
+// FIXED: Null-safe theme access with fallback values
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +23,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   final ScrollController _scrollController = ScrollController();
   String _selectedCategory = 'All';
   bool _isInitialized = false;
+  bool _isLoadingInitial = false;
+  String? _error;
   
   final List<String> categories = ['All', 'Following', 'Verified'];
 
@@ -40,17 +42,86 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     super.dispose();
   }
 
-  // NEW: Initialize screen with cached data first
-  void _initializeScreen() {
-    // Just mark as initialized - use cached data from providers
-    setState(() {
-      _isInitialized = true;
-    });
+  // Helper method to get safe theme with fallback
+  ModernThemeExtension _getSafeTheme(BuildContext context) {
+    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
   }
 
-  // NEW: Refresh users data (only called by pull-to-refresh)
+  // NEW: Check if we have cached users data
+  bool get _hasCachedData {
+    final users = ref.read(usersProvider);
+    return users.isNotEmpty;
+  }
+
+  // ENHANCED: Cache-aware initialization
+  void _initializeScreen() {
+    if (_hasCachedData) {
+      // Use cached data immediately
+      setState(() {
+        _isInitialized = true;
+      });
+      debugPrint('Users screen: Using cached data');
+    } else {
+      // No cached data (new user OR cleared cache) - load fresh data
+      debugPrint('Users screen: No cached data found, loading initial data');
+      _loadInitialData();
+    }
+  }
+
+  // NEW: Load initial data for new users or cleared cache
+  Future<void> _loadInitialData() async {
+    setState(() {
+      _isLoadingInitial = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(authenticationProvider.notifier).loadUsers();
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _isLoadingInitial = false;
+        });
+        debugPrint('Users screen: Initial data loaded successfully');
+      }
+    } catch (e) {
+      debugPrint('Users screen: Error loading initial data: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoadingInitial = false;
+          _isInitialized = true; // Still mark as initialized to show error state
+        });
+      }
+    }
+  }
+
+  // UPDATED: Refresh users data (only called by pull-to-refresh)
   Future<void> _refreshUsers() async {
-    await ref.read(authenticationProvider.notifier).loadUsers();
+    try {
+      await ref.read(authenticationProvider.notifier).loadUsers();
+      // Clear any previous errors on successful refresh
+      if (_error != null) {
+        setState(() {
+          _error = null;
+        });
+      }
+      debugPrint('Users screen: Data refreshed successfully');
+    } catch (e) {
+      debugPrint('Users screen: Error refreshing data: $e');
+      // Don't update error state on refresh failure to avoid disrupting UX
+    }
   }
 
   List<UserModel> get filteredUsers {
@@ -80,6 +151,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     if (currentUser != null) {
       filteredList.removeWhere((user) => user.id == currentUser.id);
     }
+    
+    // Filter out users with no posts
+    filteredList.removeWhere((user) => user.videosCount == 0);
     
     // Sort by latest activity - most recent first
     filteredList.sort((a, b) {
@@ -152,7 +226,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.modernTheme;
+    final theme = _getSafeTheme(context);
     
     return Scaffold(
       backgroundColor: theme.surfaceColor,
@@ -167,12 +241,12 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                 color: theme.surfaceColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.dividerColor!.withOpacity(0.15),
+                  color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.primaryColor!.withOpacity(0.08),
+                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                     spreadRadius: -4,
@@ -205,12 +279,12 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: theme.primaryColor!.withOpacity(0.1),
+                          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           Icons.person,
-                          color: theme.primaryColor,
+                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
                           size: 20,
                         ),
                       ),
@@ -291,12 +365,12 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: theme.primaryColor!.withOpacity(0.1),
+                          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           Icons.search_rounded,
-                          color: theme.primaryColor,
+                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
                           size: 20,
                         ),
                       ),
@@ -306,20 +380,319 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
               ),
             ),*/
             
-            // Category Filter Tabs
+            // Users List with integrated filter tabs
+            Expanded(
+              child: Container(
+                color: theme.surfaceColor,
+                child: !_isInitialized 
+                  ? _buildInitialLoadingView(theme)
+                  : _error != null
+                      ? _buildErrorView(theme)
+                      : _buildUsersListWithTabs(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInitialLoadingView(ModernThemeExtension theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: theme.primaryColor ?? const Color(0xFFFE2C55),
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _isLoadingInitial ? 'Loading users...' : 'Initializing...',
+            style: TextStyle(
+              color: theme.textSecondaryColor ?? Colors.grey[600],
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView(ModernThemeExtension theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
             Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.red.shade600,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Unable to load users',
+              style: TextStyle(
+                color: theme.textColor ?? Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: TextStyle(
+                color: theme.textSecondaryColor ?? Colors.grey[600],
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                _loadInitialData();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+              ),
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Following':
+        return Icons.favorite;
+      case 'Verified':
+        return Icons.verified;
+      default:
+        return Icons.people;
+    }
+  }
+
+  Widget _buildUsersListWithTabs() {
+    final theme = _getSafeTheme(context);
+    final users = filteredUsers;
+
+    // Show empty state only if we have no error and no users
+    if (users.isEmpty && _error == null) {
+      return RefreshIndicator(
+        onRefresh: _refreshUsers,
+        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+        backgroundColor: theme.surfaceColor,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              // Category Filter Tabs - now part of scrollable content
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.surfaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                      spreadRadius: -4,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                      spreadRadius: -2,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: categories.map((category) {
+                    final isSelected = _selectedCategory == category;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: isSelected ? Border(
+                              bottom: BorderSide(
+                                color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                width: 3,
+                              ),
+                            ) : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: isSelected 
+                                    ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
+                                    : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(
+                                  _getCategoryIcon(category),
+                                  color: isSelected 
+                                    ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                                    : theme.textSecondaryColor ?? Colors.grey[600],
+                                  size: 14,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 200),
+                                  style: TextStyle(
+                                    color: isSelected 
+                                      ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                                      : theme.textSecondaryColor ?? Colors.grey[600],
+                                    fontWeight: isSelected 
+                                      ? FontWeight.w700 
+                                      : FontWeight.w500,
+                                    fontSize: 12,
+                                    letterSpacing: 0.1,
+                                  ),
+                                  child: Text(
+                                    category,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              
+              // Empty state content
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _getEmptyStateIcon(),
+                          color: theme.textTertiaryColor ?? Colors.grey[400],
+                          size: 64,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _getEmptyStateTitle(),
+                          style: TextStyle(
+                            color: theme.textColor ?? Colors.black,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _getEmptyStateSubtitle(),
+                          style: TextStyle(
+                            color: theme.textSecondaryColor ?? Colors.grey[600],
+                            fontSize: 15,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (_selectedCategory == 'All') ...[
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(context, Constants.createProfileScreen);
+                            },
+                            icon: const Icon(Icons.person_add),
+                            label: const Text('Join WeiBao'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshUsers,
+      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+      backgroundColor: theme.surfaceColor,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Category Filter Tabs as a sliver
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: theme.surfaceColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.dividerColor!.withOpacity(0.15),
+                  color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.primaryColor!.withOpacity(0.08),
+                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                     spreadRadius: -4,
@@ -349,7 +722,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: isSelected ? Border(
                             bottom: BorderSide(
-                              color: theme.primaryColor!,
+                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
                               width: 3,
                             ),
                           ) : null,
@@ -363,15 +736,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 color: isSelected 
-                                  ? theme.primaryColor!.withOpacity(0.15)
-                                  : theme.primaryColor!.withOpacity(0.08),
+                                  ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
+                                  : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Icon(
                                 _getCategoryIcon(category),
                                 color: isSelected 
-                                  ? theme.primaryColor 
-                                  : theme.textSecondaryColor,
+                                  ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                                  : theme.textSecondaryColor ?? Colors.grey[600],
                                 size: 14,
                               ),
                             ),
@@ -381,8 +754,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                 duration: const Duration(milliseconds: 200),
                                 style: TextStyle(
                                   color: isSelected 
-                                    ? theme.primaryColor 
-                                    : theme.textSecondaryColor,
+                                    ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                                    : theme.textSecondaryColor ?? Colors.grey[600],
                                   fontWeight: isSelected 
                                     ? FontWeight.w700 
                                     : FontWeight.w500,
@@ -404,138 +777,26 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                 }).toList(),
               ),
             ),
-            
-            // Users List
-            Expanded(
-              child: Container(
-                color: theme.surfaceColor,
-                child: !_isInitialized 
-                  ? _buildLoadingView(theme)
-                  : _buildUsersList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingView(ModernThemeExtension theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: theme.primaryColor,
-            strokeWidth: 3,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading users...',
-            style: TextStyle(
-              color: theme.textSecondaryColor,
-              fontSize: 16,
+          
+          // Users List as a sliver
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final user = users[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: index == users.length - 1 ? 16 : 8,
+                  ),
+                  child: _buildUserItem(user),
+                );
+              },
+              childCount: users.length,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Following':
-        return Icons.favorite;
-      case 'Verified':
-        return Icons.verified;
-      default:
-        return Icons.people;
-    }
-  }
-
-  Widget _buildUsersList() {
-    final theme = context.modernTheme;
-    final users = filteredUsers;
-
-    if (users.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _refreshUsers,
-        color: theme.primaryColor,
-        backgroundColor: theme.surfaceColor,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _getEmptyStateIcon(),
-                      color: theme.textTertiaryColor,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      _getEmptyStateTitle(),
-                      style: TextStyle(
-                        color: theme.textColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _getEmptyStateSubtitle(),
-                      style: TextStyle(
-                        color: theme.textSecondaryColor,
-                        fontSize: 15,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (_selectedCategory == 'All') ...[
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pushNamed(context, Constants.createProfileScreen);
-                        },
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Join WeiBao'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _refreshUsers,
-      color: theme.primaryColor,
-      backgroundColor: theme.surfaceColor,
-      child: ListView.separated(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        itemCount: users.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          final user = users[index];
-          return _buildUserItem(user);
-        },
       ),
     );
   }
@@ -576,7 +837,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   Widget _buildUserItem(UserModel user) {
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(user.id);
-    final theme = context.modernTheme;
+    final theme = _getSafeTheme(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -587,14 +848,14 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
         border: Border.all(
           color: user.isVerified 
             ? Colors.blue.withOpacity(0.3)
-            : theme.dividerColor!.withOpacity(0.15),
+            : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
           width: user.isVerified ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: user.isVerified 
               ? Colors.blue.withOpacity(0.12)
-              : theme.primaryColor!.withOpacity(0.08),
+              : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: -4,
@@ -641,12 +902,12 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                           colors: [Colors.blue.shade300, Colors.indigo.shade400],
                         ) : null,
                         border: !user.isVerified ? Border.all(
-                          color: theme.dividerColor!.withOpacity(0.2),
+                          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
                           width: 1,
                         ) : null,
                         boxShadow: [
                           BoxShadow(
-                            color: (user.isVerified ? Colors.blue : theme.primaryColor!)
+                            color: (user.isVerified ? Colors.blue : (theme.primaryColor ?? const Color(0xFFFE2C55)))
                                 .withOpacity(0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -663,18 +924,18 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
                                     decoration: BoxDecoration(
-                                      color: theme.primaryColor!.withOpacity(0.1),
+                                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       Icons.person,
-                                      color: theme.primaryColor,
+                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       size: 22,
                                     ),
                                   ),
                                   errorWidget: (context, url, error) => Container(
                                     decoration: BoxDecoration(
-                                      color: theme.primaryColor!.withOpacity(0.15),
+                                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
@@ -683,7 +944,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
-                                          color: theme.primaryColor,
+                                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                         ),
                                       ),
                                     ),
@@ -691,7 +952,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                 )
                               : Container(
                                   decoration: BoxDecoration(
-                                    color: theme.primaryColor!.withOpacity(0.15),
+                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
@@ -700,7 +961,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w700,
-                                        color: theme.primaryColor,
+                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       ),
                                     ),
                                   ),
@@ -719,7 +980,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                           decoration: BoxDecoration(
                             color: Colors.blue,
                             shape: BoxShape.circle,
-                            border: Border.all(color: theme.surfaceColor!, width: 2),
+                            border: Border.all(color: theme.surfaceColor ?? Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.blue.withOpacity(0.3),
@@ -746,65 +1007,22 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // User name with prominent verified badge
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              user.name,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: theme.textColor,
-                                letterSpacing: -0.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (user.isVerified) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.blue.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.verified_rounded,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'Verified',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                      // User name without verified badge (more space for longer names)
+                      Text(
+                        user.name,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textColor ?? Colors.black,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       
                       const SizedBox(height: 4),
                       
-                      // Enhanced stats with proper wrapping
+                      // Enhanced stats - all three stats always visible
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -833,38 +1051,106 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       
                       const SizedBox(height: 4),
                       
-                      // Last activity with enhanced styling
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor!.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.schedule_rounded,
-                              size: 10,
-                              color: theme.primaryColor,
-                            ),
-                            const SizedBox(width: 3),
-                            Flexible(
-                              child: Text(
-                                user.lastPostAt != null 
-                                  ? 'Active ${user.lastPostTimeAgo}'
-                                  : 'No posts',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: theme.primaryColor,
-                                  fontWeight: FontWeight.w600,
+                      // Both verification status AND activity status
+                      Row(
+                        children: [
+                          // Verification status badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: user.isVerified ? Colors.blue : (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: user.isVerified ? [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
+                              ] : null,
+                              border: !user.isVerified ? Border.all(
+                                color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                                width: 1,
+                              ) : null,
                             ),
-                          ],
-                        ),
+                            child: user.isVerified 
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Verified',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.help_outline,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                  'Not Verified',
+                                  style: TextStyle(
+                                    color: theme.textSecondaryColor ?? Colors.grey[600],
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                  ],
+                                )
+                          ),
+                          
+                          const SizedBox(width: 8),
+                          
+                          // Activity status
+                          /*Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 10,
+                                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                ),
+                                const SizedBox(width: 3),
+                                Flexible(
+                                  child: Text(
+                                    user.lastPostAt != null 
+                                      ? 'Active ${user.lastPostTimeAgo}'
+                                      : 'No posts',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),*/
+                        ],
                       ),
                     ],
                   ),
@@ -890,17 +1176,17 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
+                        color: isFollowing ? (theme.surfaceVariantColor ?? Colors.grey[100]) : (theme.primaryColor ?? const Color(0xFFFE2C55)),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isFollowing 
-                            ? theme.dividerColor!.withOpacity(0.3)
-                            : theme.primaryColor!,
+                            ? (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3)
+                            : (theme.primaryColor ?? const Color(0xFFFE2C55)),
                           width: 1,
                         ),
                         boxShadow: !isFollowing ? [
                           BoxShadow(
-                            color: theme.primaryColor!.withOpacity(0.3),
+                            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -914,13 +1200,13 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               color: isFollowing 
-                                ? theme.primaryColor!.withOpacity(0.15)
+                                ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
                                 : Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Icon(
                               isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                              color: isFollowing ? theme.primaryColor : Colors.white,
+                              color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
                               size: 12,
                             ),
                           ),
@@ -929,7 +1215,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                             child: Text(
                               isFollowing ? 'Following' : 'Follow',
                               style: TextStyle(
-                                color: isFollowing ? theme.primaryColor : Colors.white,
+                                color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.1,
@@ -954,15 +1240,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   Widget _buildStatChip({
     required IconData icon,
     required String text,
-    required theme,
+    required ModernThemeExtension theme,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: theme.surfaceVariantColor!.withOpacity(0.7),
+        color: (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: theme.dividerColor!.withOpacity(0.2),
+          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -972,14 +1258,14 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
           Icon(
             icon,
             size: 10,
-            color: theme.textSecondaryColor,
+            color: theme.textSecondaryColor ?? Colors.grey[600],
           ),
           const SizedBox(width: 3),
           Text(
             text,
             style: TextStyle(
               fontSize: 10,
-              color: theme.textSecondaryColor,
+              color: theme.textSecondaryColor ?? Colors.grey[600],
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1026,9 +1312,24 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
   @override
   String get searchFieldLabel => 'Search users...';
 
+  // Helper method to get safe theme with fallback
+  ModernThemeExtension _getSafeTheme(BuildContext context) {
+    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
+  }
+
   @override
   ThemeData appBarTheme(BuildContext context) {
-    final theme = Theme.of(context).extension<ModernThemeExtension>()!;
+    final theme = _getSafeTheme(context);
     return Theme.of(context).copyWith(
       appBarTheme: AppBarTheme(
         backgroundColor: theme.surfaceColor,
@@ -1072,7 +1373,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    final theme = context.modernTheme;
+    final theme = _getSafeTheme(context);
     
     if (query.isEmpty) {
       return Center(
@@ -1082,7 +1383,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
             Icon(
               Icons.search,
               size: 64,
-              color: theme.textTertiaryColor,
+              color: theme.textTertiaryColor ?? Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
@@ -1090,7 +1391,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: theme.textColor,
+                color: theme.textColor ?? Colors.black,
               ),
             ),
             const SizedBox(height: 8),
@@ -1098,7 +1399,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
               'Find creators and friends on WeiBao',
               style: TextStyle(
                 fontSize: 14,
-                color: theme.textSecondaryColor,
+                color: theme.textSecondaryColor ?? Colors.grey[600],
               ),
             ),
           ],
@@ -1113,7 +1414,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
             child: CircularProgressIndicator(
-              color: theme.primaryColor,
+              color: theme.primaryColor ?? const Color(0xFFFE2C55),
             ),
           );
         }
@@ -1126,7 +1427,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                 Icon(
                   Icons.error_outline,
                   size: 64,
-                  color: theme.textTertiaryColor,
+                  color: theme.textTertiaryColor ?? Colors.grey[400],
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -1134,7 +1435,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: theme.textColor,
+                    color: theme.textColor ?? Colors.black,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1142,7 +1443,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   'Unable to search users at the moment',
                   style: TextStyle(
                     fontSize: 14,
-                    color: theme.textSecondaryColor,
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ),
               ],
@@ -1160,7 +1461,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                 Icon(
                   Icons.person_search,
                   size: 64,
-                  color: theme.textTertiaryColor,
+                  color: theme.textTertiaryColor ?? Colors.grey[400],
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -1168,7 +1469,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: theme.textColor,
+                    color: theme.textColor ?? Colors.black,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1176,7 +1477,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   'Try searching with different keywords',
                   style: TextStyle(
                     fontSize: 14,
-                    color: theme.textSecondaryColor,
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ),
               ],
@@ -1201,7 +1502,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   color: theme.surfaceColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: theme.dividerColor!.withOpacity(0.2),
+                    color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -1230,7 +1531,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: theme.dividerColor!.withOpacity(0.2),
+                            color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
                           ),
                         ),
                         child: ClipRRect(
@@ -1240,36 +1541,36 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                   imageUrl: user.profileImage,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
-                                    color: theme.primaryColor!.withOpacity(0.1),
+                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                                     child: Icon(
                                       Icons.person,
-                                      color: theme.primaryColor,
+                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       size: 24,
                                     ),
                                   ),
                                   errorWidget: (context, url, error) => Container(
-                                    color: theme.primaryColor!.withOpacity(0.15),
+                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
                                     child: Center(
                                       child: Text(
                                         user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: theme.primaryColor,
+                                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                         ),
                                       ),
                                     ),
                                   ),
                                 )
                               : Container(
-                                  color: theme.primaryColor!.withOpacity(0.15),
+                                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
                                   child: Center(
                                     child: Text(
                                       user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: theme.primaryColor,
+                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       ),
                                     ),
                                   ),
@@ -1291,7 +1592,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                     user.name,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
-                                      color: theme.textColor,
+                                      color: theme.textColor ?? Colors.black,
                                       fontSize: 16,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -1311,7 +1612,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                             Text(
                               '${user.videosCount} posts • ${_formatCount(user.followers)} followers',
                               style: TextStyle(
-                                color: theme.textSecondaryColor,
+                                color: theme.textSecondaryColor ?? Colors.grey[600],
                                 fontSize: 14,
                               ),
                             ),
@@ -1320,7 +1621,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                               Text(
                                 user.bio,
                                 style: TextStyle(
-                                  color: theme.textSecondaryColor,
+                                  color: theme.textSecondaryColor ?? Colors.grey[600],
                                   fontSize: 12,
                                 ),
                                 maxLines: 1,
@@ -1346,18 +1647,18 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
+                              color: isFollowing ? (theme.surfaceVariantColor ?? Colors.grey[100]) : (theme.primaryColor ?? const Color(0xFFFE2C55)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isFollowing 
-                                  ? theme.dividerColor!.withOpacity(0.3)
-                                  : theme.primaryColor!,
+                                  ? (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3)
+                                  : (theme.primaryColor ?? const Color(0xFFFE2C55)),
                               ),
                             ),
                             child: Text(
                               isFollowing ? 'Following' : 'Follow',
                               style: TextStyle(
-                                color: isFollowing ? theme.primaryColor : Colors.white,
+                                color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),

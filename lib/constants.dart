@@ -72,6 +72,7 @@ class Constants {
   static const String videoPreviewScreen = '/videoPreview';
   static const String managePostsScreen = '/managePosts';
   static const String featuredVideosScreen = '/featured-videos';
+  static const String liveUsersScreen = '/live-users';
   
   // Discovery Routes
   static const String exploreScreen = '/explore';                   // was exploreChannelsScreen
