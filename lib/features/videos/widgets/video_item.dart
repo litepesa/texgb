@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with Boolean Flag Positioning
+// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with WhatsApp Buy Button
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +10,7 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class VideoItem extends ConsumerStatefulWidget {
   final VideoModel video;
@@ -205,8 +206,342 @@ class _VideoItemState extends ConsumerState<VideoItem>
       case 'follow users':
       case 'follow':
         return Icons.people;
+      case 'buy this product':
+      case 'buy':
+        return Icons.shopping_cart;
       default:
         return Icons.video_call;
+    }
+  }
+
+  // NEW: WhatsApp functionality for Buy button
+  Future<void> _openWhatsAppForBuy() async {
+    // Check if user is authenticated before allowing purchase
+    final canInteract = await _requireAuthentication('buy this product');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if user is trying to buy their own product
+    if (widget.video.userId == currentUser!.uid) {
+      _showCannotBuyOwnProductMessage();
+      return;
+    }
+
+    try {
+      // Get the video creator's user data from the database
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final videoCreator = await authNotifier.getUserById(widget.video.userId);
+
+      if (videoCreator == null) {
+        _showUserNotFoundMessage();
+        return;
+      }
+
+      // Check if the video creator has a WhatsApp number
+      if (!videoCreator.hasWhatsApp) {
+        _showWhatsAppNotAvailableMessage(videoCreator.name);
+        return;
+      }
+
+      // Prepare message content with product context
+      String message = 'Hi ${videoCreator.name}! I\'m interested in buying your product';
+      
+      if (widget.video.caption.isNotEmpty) {
+        // Add product caption for context (truncate if too long)
+        String caption = widget.video.caption;
+        if (caption.length > 50) {
+          caption = '${caption.substring(0, 50)}...';
+        }
+        message += ': "$caption"';
+      }
+      
+      message += ' (${widget.video.formattedPrice})';
+
+      // Encode the message for URL
+      final encodedMessage = Uri.encodeComponent(message);
+      
+      // Create WhatsApp URL with the user's actual WhatsApp number
+      final whatsappUrl = 'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
+      final uri = Uri.parse(whatsappUrl);
+
+      debugPrint('Opening WhatsApp with URL: $whatsappUrl');
+      debugPrint('Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
+
+      // Try to launch WhatsApp directly without checking canLaunchUrl
+      // This works better across different WhatsApp versions (regular and business)
+      try {
+        final success = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+
+        if (success) {
+          _showSnackBar('Opening WhatsApp to contact ${videoCreator.name}...');
+        } else {
+          // If launch returns false, WhatsApp might not be installed
+          _showWhatsAppNotInstalledMessage();
+        }
+      } catch (e) {
+        // If launching fails, WhatsApp is likely not installed
+        debugPrint('Failed to launch WhatsApp: $e');
+        _showWhatsAppNotInstalledMessage();
+      }
+    } catch (e) {
+      debugPrint('Error opening WhatsApp: $e');
+      _showSnackBar('Failed to open WhatsApp');
+    }
+  }
+
+  // Helper method to show when user tries to buy their own product
+  void _showCannotBuyOwnProductMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.shopping_cart_outlined,
+                color: Colors.orange,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Buy Own Product',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot purchase your own product.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show when user is not found
+  void _showUserNotFoundMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_off,
+                color: Colors.orange,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'User Not Found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Could not find the product owner\'s profile. Please try again later.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show when WhatsApp number is not available
+  void _showWhatsAppNotAvailableMessage(String userName) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.link_off,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Link Not Added',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$userName hasn\'t added their WhatsApp number to their profile yet.',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show WhatsApp not installed message
+  void _showWhatsAppNotInstalledMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Not Available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please install WhatsApp to send messages or check your internet connection.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show snackbar
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -1045,11 +1380,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         
         const SizedBox(width: 8), // Space between price and buy button
         
-        // BUY button
+        // BUY button - NOW OPENS WHATSAPP
         GestureDetector(
-          onTap: () {
-            // Buy button does nothing on click as requested
-          },
+          onTap: _openWhatsAppForBuy, // UPDATED: Call WhatsApp function
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -1087,28 +1420,29 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       color: Colors.black,
                       blurRadius: 2,
                     ),
-                ],
-              ),
-              const SizedBox(width: 6),
-              // BUY text
-              const Text(
-                'BUY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                // BUY text
+                const Text(
+                  'BUY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),)
+        ),
       ],
     );
   }
@@ -1255,11 +1589,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
             onTap: _handleFollowToggle,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              /*decoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border.all(color: Colors.white, width: 1),
-                borderRadius: BorderRadius.circular(5),
-              ),*/
               child: const Text(
                 'Follow',
                 style: TextStyle(
@@ -1285,4 +1614,3 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 }
-                    
