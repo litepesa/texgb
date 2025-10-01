@@ -249,8 +249,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       
       // Prepare message content with landing page link
       // When clicked in WhatsApp, this will show rich preview and open your app
-      String message = 'Hi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice}):\n\n$videoLink';
-
+      String message = '$videoLink\n\nHi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice})';
       // Encode the message for URL
       final encodedMessage = Uri.encodeComponent(message);
       
