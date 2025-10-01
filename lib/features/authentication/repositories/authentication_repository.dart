@@ -563,6 +563,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'caption': caption,
+        'price': 0.0,
         'tags': tags ?? [],
         'likesCount': 0,
         'commentsCount': 0,

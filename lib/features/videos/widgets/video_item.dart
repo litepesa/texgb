@@ -244,19 +244,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
         return;
       }
 
-      // Prepare message content with product context
-      String message = 'Hi ${videoCreator.name}! I\'m interested in buying your product';
+      // Generate shareable link for this video (your landing page)
+      final videoLink = 'https://share.weibao.africa/v/${widget.video.id}';
       
-      if (widget.video.caption.isNotEmpty) {
-        // Add product caption for context (truncate if too long)
-        String caption = widget.video.caption;
-        if (caption.length > 50) {
-          caption = '${caption.substring(0, 50)}...';
-        }
-        message += ': "$caption"';
-      }
-      
-      message += ' (${widget.video.formattedPrice})';
+      // Prepare message content with landing page link
+      // When clicked in WhatsApp, this will show rich preview and open your app
+      String message = 'Hi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice}):\n\n$videoLink';
 
       // Encode the message for URL
       final encodedMessage = Uri.encodeComponent(message);
@@ -267,6 +260,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
       debugPrint('Opening WhatsApp with URL: $whatsappUrl');
       debugPrint('Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
+      debugPrint('Product link: $videoLink');
 
       // Try to launch WhatsApp directly without checking canLaunchUrl
       // This works better across different WhatsApp versions (regular and business)
