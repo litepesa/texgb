@@ -1,5 +1,4 @@
-// lib/main_screen/home_screen.dart (IMPROVED 5-TAB VERSION)
-// Borrows best practices from 4-tab version while maintaining all functionality
+// lib/main_screen/home_screen.dart (OPTIMIZED VERSION)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +7,6 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/features/users/screens/live_users_screen.dart';
-//import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
@@ -25,13 +23,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   
-  // BORROWED: Keep state alive to prevent rebuilds
   @override
   bool get wantKeepAlive => true;
   
   int _currentIndex = 0;
   
-  // Video progress tracking (keep your existing functionality)
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   final List<String> _tabNames = [
@@ -50,14 +46,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.person_2_outlined            // Profile
   ];
 
-  // Feed screen controller for lifecycle management (keep your existing functionality)
   final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
 
   @override
   void initState() {
     super.initState();
     
-    // BORROWED: Simplified initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _setSystemUIOverlayStyle();
@@ -67,12 +61,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
-    // BORROWED: Clean disposal without PageController
     _videoProgressNotifier.dispose();
     super.dispose();
   }
 
-  // BORROWED: Safe method to get modern theme with comprehensive fallback
   ModernThemeExtension _getModernTheme() {
     if (!mounted) {
       return _getFallbackTheme();
@@ -87,7 +79,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  // BORROWED: Comprehensive fallback theme
   ModernThemeExtension _getFallbackTheme() {
     final isDark = mounted ? Theme.of(context).brightness == Brightness.dark : false;
     
@@ -103,14 +94,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Helper method to build profile tab with proper authentication handling
   Widget _buildProfileTab(ModernThemeExtension modernTheme) {
-    // Watch authentication state
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final currentUser = ref.watch(currentUserProvider);
     final isLoading = ref.watch(isAuthLoadingProvider);
     
-    // Show loading if authentication is still being determined
     if (isLoading) {
       return Container(
         color: modernTheme.backgroundColor,
@@ -136,7 +124,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // If not authenticated, show login required
     if (!isAuthenticated || currentUser == null) {
       return Container(
         color: modernTheme.backgroundColor,
@@ -149,15 +136,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // User is authenticated, show profile screen
     return _KeepAliveWrapper(child: const MyProfileScreen());
   }
 
-  // IMPROVED: Clean navigation with authentication check
   void _onTabTapped(int index) {
     if (!mounted || index == _currentIndex) return;
     
-    // Handle special post button (keep your existing functionality)
     if (index == 2) {
       _navigateToCreatePost();
       return;
@@ -165,7 +149,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     debugPrint('HomeScreen: Navigating from $_currentIndex to $index');
     
-    // Add debugging for profile tab
     if (index == 4) {
       final isAuthenticated = ref.read(isAuthenticatedProvider);
       final currentUser = ref.read(currentUserProvider);
@@ -173,7 +156,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       debugPrint('HomeScreen: Profile Tab Access - Auth: $isAuthenticated, User: ${currentUser?.uid}, Loading: $isLoading');
       
-      // If not authenticated and not loading, force authentication check
       if (!isAuthenticated && !isLoading) {
         debugPrint('HomeScreen: Triggering auth check for profile tab');
         final authNotifier = ref.read(authenticationProvider.notifier);
@@ -181,10 +163,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     }
     
-    // BORROWED: Add haptic feedback for better UX
     HapticFeedback.lightImpact();
     
-    // Handle feed screen lifecycle (keep your existing functionality)
     if (_currentIndex == 0) {
       try {
         _feedScreenKey.currentState?.onScreenBecameInactive();
@@ -193,15 +173,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     }
     
-    // BORROWED: Instant navigation without intermediate screens
     setState(() {
       _currentIndex = index;
     });
     
-    // SIMPLIFIED: Single system UI update
     _setSystemUIOverlayStyle();
     
-    // Handle feed screen lifecycle (keep your existing functionality)
     if (_currentIndex == 0) {
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
@@ -215,13 +192,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  // BORROWED & IMPROVED: Single SystemUI method without complex conditional logic
   void _setSystemUIOverlayStyle() {
     if (!mounted) return;
     
     try {
       if (_currentIndex == 0) {
-        // Home/Feed screen - black background with light status bar
         SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
@@ -231,7 +206,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           systemNavigationBarContrastEnforced: false,
         ));
       } else {
-        // Other screens - use theme-appropriate colors
         final isDark = Theme.of(context).brightness == Brightness.dark;
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
@@ -250,10 +224,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _navigateToCreatePost() async {
     if (!mounted) return;
     
-    // BORROWED: Add haptic feedback
     HapticFeedback.lightImpact();
     
-    // Pause feed if active (keep your existing functionality)
     if (_currentIndex == 0) {
       try {
         _feedScreenKey.currentState?.onScreenBecameInactive();
@@ -269,7 +241,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
 
-    // Resume feed if returning to it (keep your existing functionality)
     if (result == true && _currentIndex == 0 && mounted) {
       try {
         _feedScreenKey.currentState?.onScreenBecameActive();
@@ -281,7 +252,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // BORROWED: Required for AutomaticKeepAliveClientMixin
+    super.build(context);
     
     if (!mounted) {
       return const Scaffold(
@@ -293,20 +264,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
+    
+    // ✅ Check if app is still initializing
+    final isAppInitializing = ref.watch(isAppInitializingProvider);
+
+    // ✅ Show branded loading screen ONLY during initial app startup
+    if (isAppInitializing) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // App logo/branding
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFE2C55),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  '微宝 WeiBao',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(
+                color: Color(0xFFFE2C55),
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading...',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: isHomeTab || isProfileTab,
       backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
       
-      // Hide AppBar for home and profile tabs (keep your existing functionality)
       appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
-      // BORROWED: IndexedStack prevents intermediate screen visibility
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          // Home tab (index 0) - Videos Feed with black background
+          // Home tab (index 0) - Videos Feed
           _KeepAliveWrapper(
             child: Container(
               color: Colors.black,
@@ -315,14 +331,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // Channels tab (index 1) - Users List
+          // Sellers tab (index 1) - Users List
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
               child: const UsersListScreen(),
             ),
           ),
-          // Post tab (index 2) - Should never be shown as we navigate directly
+          // Post tab (index 2) - Never shown (navigates directly)
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
@@ -331,14 +347,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // Wallet tab (index 3)
+          // Live tab (index 3)
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
               child: const LiveUsersScreen(),
             ),
           ),
-          // Profile tab (index 4) - Build only when accessed with authentication check
+          // Profile tab (index 4)
           _buildProfileTab(modernTheme),
         ],
       ),
@@ -347,7 +363,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // BORROWED: AppBar from 4-tab version with better styling
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     Color appBarColor = modernTheme.surfaceColor ?? (isDarkMode ? Colors.grey[900]! : Colors.white);
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
@@ -403,7 +418,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // TikTok-style bottom navigation (keep your existing design)
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
     
@@ -431,11 +445,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Video progress indicator for home tab only (keep your existing functionality)
           if (isHomeTab)
             _buildVideoProgressIndicator(),
           
-          // Bottom navigation content
           SafeArea(
             top: false,
             child: Container(
@@ -445,7 +457,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(5, (index) {
                   if (index == 2) {
-                    // Special post button (keep your existing design)
                     return _buildPostButton(modernTheme, isHomeTab);
                   }
                   
@@ -463,7 +474,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Video progress indicator widget (keep your existing functionality)
   Widget _buildVideoProgressIndicator() {
     return ValueListenableBuilder<double>(
       valueListenable: _videoProgressNotifier,
@@ -495,7 +505,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Keep your existing post button design
   Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
     return GestureDetector(
       onTap: () => _navigateToCreatePost(),
@@ -562,7 +571,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Keep your existing nav item design
   Widget _buildNavItem(
     int index,
     ModernThemeExtension modernTheme,
@@ -615,7 +623,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
-// BORROWED: Critical fix to keep screen states alive
 class _KeepAliveWrapper extends StatefulWidget {
   const _KeepAliveWrapper({required this.child});
   
@@ -629,32 +636,6 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
-  }
-}
-
-// Conditional KeepAlive wrapper for problematic screens like Profile
-class _ConditionalKeepAliveWrapper extends StatefulWidget {
-  const _ConditionalKeepAliveWrapper({
-    required this.child,
-    required this.keepAlive,
-  });
-  
-  final Widget child;
-  final bool keepAlive;
-
-  @override
-  State<_ConditionalKeepAliveWrapper> createState() => _ConditionalKeepAliveWrapperState();
-}
-
-class _ConditionalKeepAliveWrapperState extends State<_ConditionalKeepAliveWrapper>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => widget.keepAlive;
 
   @override
   Widget build(BuildContext context) {

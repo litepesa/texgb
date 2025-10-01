@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - WITH SEARCH INTEGRATION
+// lib/features/videos/screens/videos_feed_screen.dart - OPTIMIZED VERSION
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -80,9 +80,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
     _setupCacheCleanup();
+    
+    // ✅ OPTIMIZED: Just handle initial video position - videos already loading in provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadVideos();
+      _handleInitialVideoPosition();
     });
+    
     _hasInitialized = true;
   }
 
@@ -275,24 +278,18 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     ));
   }
 
-  Future<void> _loadVideos() async {
-    if (_isFirstLoad) {
-      debugPrint('VideosFeedScreen: Loading initial videos');
+  // ✅ OPTIMIZED: Handle initial video position without loading
+  void _handleInitialVideoPosition() {
+    if (!mounted) return;
+    
+    setState(() {
+      _isFirstLoad = false;
+    });
 
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      await authNotifier.loadVideos();
-
-      if (mounted) {
-        setState(() {
-          _isFirstLoad = false;
-        });
-
-        if (widget.startVideoId != null) {
-          _jumpToVideo(widget.startVideoId!);
-        } else {
-          _startIntelligentPreloading();
-        }
-      }
+    if (widget.startVideoId != null) {
+      _jumpToVideo(widget.startVideoId!);
+    } else {
+      _startIntelligentPreloading();
     }
   }
 
@@ -827,7 +824,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // NEW: Show search overlay method
+  // Show search overlay method
   void _showSearchOverlay() {
     // Pause video before showing search
     _pauseForNavigation();
@@ -840,7 +837,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         // Resume playback after search
         _resumeFromNavigation();
       },
-      //showFilters: true,
     );
   }
 
@@ -868,14 +864,37 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.build(context);
 
     final videos = ref.watch(videosProvider);
-    final isLoading = ref.watch(isAuthLoadingProvider);
+    final isAppInitializing = ref.watch(isAppInitializingProvider); // ✅ Use new provider
     final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
-    if (_isFirstLoad && isLoading) {
-      return const Scaffold(
+    // ✅ Show loading only while app is initializing (provider loading)
+    if (isAppInitializing || (_isFirstLoad && videos.isEmpty)) {
+      return Scaffold(
         backgroundColor: Colors.black,
-        body: SizedBox.shrink(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading videos...',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -917,12 +936,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   Widget _buildBody(List<VideoModel> videos) {
-    final isLoading = ref.watch(isAuthLoadingProvider);
-
-    if (!isLoading && videos.isEmpty) {
-      return _buildEmptyState();
-    }
-
+    // ✅ SIMPLIFIED: Just show PageView - no empty state check needed
     return PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
@@ -963,7 +977,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           ),
         ),
 
-        // UPDATED: Search button with functionality
+        // Search button
         IconButton(
           onPressed: _showSearchOverlay,
           icon: const Icon(
@@ -1030,75 +1044,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           ),
 
           const SizedBox(height: 10),
-
-          /*// Download button
-          _buildRightMenuItem(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (_downloadingVideos[currentVideo?.id] == true)
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      value: _downloadProgress[currentVideo?.id] ?? 0.0,
-                      color: Colors.white,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      strokeWidth: 2,
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.download,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-              ],
-            ),
-            label: _downloadingVideos[currentVideo?.id] == true
-                ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
-                : 'Save',
-            onTap: () => _downloadCurrentVideo(currentVideo),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Share button
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.arrowshape_turn_up_right,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: 'Share',
-            onTap: () async {
-              final canInteract = await _requireAuthentication('share videos');
-              if (canInteract) {
-                await _shareCurrentVideo(currentVideo);
-              }
-            },
-          ),
-
-          const SizedBox(height: 10),
-
-          // Gift button
-          _buildRightMenuItem(
-            child: const Text(
-              '🎁',
-              style: TextStyle(
-                fontSize: 28,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                  ),
-                ],
-              ),
-            ),
-            onTap: () => _showVirtualGifts(currentVideo),
-          ),
-
-          const SizedBox(height: 10),*/
 
           // Profile avatar
           _buildRightMenuItem(
@@ -1220,39 +1165,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.videocam_off_outlined,
-            color: Colors.white,
-            size: 80,
-          ),
-          SizedBox(height: 24),
-          Text(
-            'No Videos Yet',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Check back later for new videos',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );

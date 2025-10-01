@@ -1,5 +1,6 @@
 // lib/features/authentication/providers/authentication_provider.dart
 // Video-focused authentication provider with instant auth recognition, caching, and video updates
+// OPTIMIZED: Videos load during app initialization for instant feed display
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -120,15 +121,19 @@ class Authentication extends _$Authentication {
           currentUser: cachedUser,
           phoneNumber: _repository.currentUserPhoneNumber,
           users: cachedUsers,
+          videos: [], // Empty initially, will load below
         );
 
         // Set state immediately for instant UI
         state = AsyncValue.data(immediateState);
 
-        // Start background refresh (non-blocking)
-        _refreshDataInBackground();
+        // ✅ Load videos AND refresh user data in parallel (non-blocking)
+        await Future.wait([
+          _loadVideosInBackground(),
+          _refreshDataInBackground(),
+        ]);
 
-        return immediateState;
+        return state.value ?? immediateState;
       } else {
         // Firebase authenticated but no cached profile - check backend
         final userExists = await checkUserExists();
@@ -138,7 +143,13 @@ class Authentication extends _$Authentication {
 
           if (userProfile != null) {
             await _saveCachedUserProfile(userProfile);
-            await loadUsers(); // Load users for home screen
+            
+            // ✅ Load videos AND users in parallel
+            await Future.wait([
+              loadVideos(),
+              loadUsers(),
+            ]);
+            
             await _saveCachedUsers(state.value?.users ?? []);
 
             return AuthenticationState(
@@ -147,28 +158,40 @@ class Authentication extends _$Authentication {
               currentUser: userProfile,
               phoneNumber: _repository.currentUserPhoneNumber,
               users: state.value?.users ?? [],
+              videos: state.value?.videos ?? [],
             );
           }
         } else {
           // Authenticated but no backend profile
-          await loadUsers();
+          // ✅ Still load videos for browsing
+          await Future.wait([
+            loadVideos(),
+            loadUsers(),
+          ]);
 
           return AuthenticationState(
             state: AuthState.partial,
             isSuccessful: false,
             phoneNumber: _repository.currentUserPhoneNumber,
             users: state.value?.users ?? [],
+            videos: state.value?.videos ?? [],
           );
         }
       }
     }
 
-    // User not authenticated - load public data for guest browsing
-    await loadUsers(); // Still load users for home screen
+    // ✅ User not authenticated - load videos immediately for guest browsing
+    debugPrint('🎬 Loading videos for guest user...');
+    
+    await Future.wait([
+      loadVideos(),
+      loadUsers(),
+    ]);
 
     return AuthenticationState(
       state: AuthState.guest,
       users: state.value?.users ?? [],
+      videos: state.value?.videos ?? [],
     );
   }
 
@@ -256,6 +279,18 @@ class Authentication extends _$Authentication {
     } catch (e) {
       debugPrint('Error checking cache freshness: $e');
       return false;
+    }
+  }
+
+  // ✅ NEW: Load videos in background and update state
+  Future<void> _loadVideosInBackground() async {
+    try {
+      debugPrint('🎬 Loading videos in background...');
+      await loadVideos();
+      debugPrint('✅ Videos loaded in background');
+    } catch (e) {
+      debugPrint('❌ Background video loading failed (non-critical): $e');
+      // Don't throw - this is non-critical background operation
     }
   }
 
@@ -417,7 +452,13 @@ class Authentication extends _$Authentication {
 
         if (userModel != null) {
           await _saveCachedUserProfile(userModel);
-          await loadUsers();
+          
+          // ✅ Load videos and users in parallel
+          await Future.wait([
+            loadVideos(),
+            loadUsers(),
+          ]);
+          
           await _saveCachedUsers(state.value?.users ?? []);
 
           state = AsyncValue.data(AuthenticationState(
@@ -426,27 +467,39 @@ class Authentication extends _$Authentication {
             currentUser: userModel,
             phoneNumber: _repository.currentUserPhoneNumber,
             users: state.value?.users ?? [],
+            videos: state.value?.videos ?? [],
           ));
         }
       } else {
-        await loadUsers();
+        // ✅ Still load videos for browsing even without profile
+        await Future.wait([
+          loadVideos(),
+          loadUsers(),
+        ]);
 
         state = AsyncValue.data(AuthenticationState(
           state: AuthState.partial,
           isSuccessful: false,
           phoneNumber: _repository.currentUserPhoneNumber,
           users: state.value?.users ?? [],
+          videos: state.value?.videos ?? [],
         ));
       }
     } on AuthRepositoryException catch (e) {
       debugPrint('Failed to handle post-OTP verification: ${e.message}');
-      await loadUsers();
+      
+      // ✅ Still load videos even on error
+      await Future.wait([
+        loadVideos(),
+        loadUsers(),
+      ]);
 
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.partial,
         isSuccessful: false,
         phoneNumber: _repository.currentUserPhoneNumber,
         users: state.value?.users ?? [],
+        videos: state.value?.videos ?? [],
       ));
     }
   }
@@ -472,7 +525,13 @@ class Authentication extends _$Authentication {
 
       // Cache the new user profile
       await _saveCachedUserProfile(createdUser);
-      await loadUsers();
+      
+      // ✅ Load videos and users in parallel
+      await Future.wait([
+        loadVideos(),
+        loadUsers(),
+      ]);
+      
       await _saveCachedUsers(state.value?.users ?? []);
 
       state = AsyncValue.data(AuthenticationState(
@@ -481,6 +540,7 @@ class Authentication extends _$Authentication {
         currentUser: createdUser,
         phoneNumber: _repository.currentUserPhoneNumber,
         users: state.value?.users ?? [],
+        videos: state.value?.videos ?? [],
       ));
 
       onSuccess();
@@ -539,11 +599,16 @@ class Authentication extends _$Authentication {
           await SharedPreferences.getInstance();
       await sharedPreferences.remove('userModel');
 
-      await loadUsers(); // Load users for guest browsing
+      // ✅ Reload videos for guest browsing
+      await Future.wait([
+        loadVideos(),
+        loadUsers(),
+      ]);
 
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.guest,
         users: state.value?.users ?? [],
+        videos: state.value?.videos ?? [],
       ));
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
@@ -552,12 +617,16 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // VIDEO METHODS (updated with video editing and thumbnail generation)
+  // VIDEO METHODS
   // ===============================
 
   Future<void> loadVideos() async {
     try {
+      debugPrint('🎬 Loading videos from backend...');
+      
       final videos = await _repository.getVideos();
+      
+      debugPrint('✅ Loaded ${videos.length} videos successfully');
 
       final currentState = state.value ?? const AuthenticationState();
       final videosWithLikedStatus = videos.map((video) {
@@ -565,10 +634,14 @@ class Authentication extends _$Authentication {
         return video.copyWith(isLiked: isLiked);
       }).toList();
 
-      state =
-          AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
+      state = AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
+      
     } on AuthRepositoryException catch (e) {
-      debugPrint('Error loading videos: ${e.message}');
+      debugPrint('❌ Error loading videos: ${e.message}');
+      // ✅ Don't set error state - just log it to keep UI functional
+    } catch (e) {
+      debugPrint('❌ Unexpected error loading videos: $e');
+      // ✅ Don't set error state - just log it to keep UI functional
     }
   }
 
@@ -620,12 +693,11 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // 🎬 UPDATED: createVideo method with price parameter
   Future<void> createVideo({
     required File videoFile,
     required String caption,
     List<String>? tags,
-    double? price, // ✅ NEW: Added price parameter (optional, defaults to 0.0)
+    double? price,
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -646,7 +718,7 @@ class Authentication extends _$Authentication {
     try {
       final user = currentState.currentUser!;
 
-      // 🎬 STEP 1: Generate thumbnail from video file
+      // Generate thumbnail from video file
       debugPrint('🎬 Step 1/4: Generating thumbnail from video...');
       final thumbnailService = VideoThumbnailService();
       thumbnailFile = await thumbnailService.generateBestThumbnailFile(
@@ -667,7 +739,7 @@ class Authentication extends _$Authentication {
         uploadProgress: 0.1,
       ));
 
-      // 🎬 STEP 2: Upload thumbnail to Cloudflare R2 (if generated)
+      // Upload thumbnail to Cloudflare R2 (if generated)
       String thumbnailUrl = '';
       if (thumbnailFile != null) {
         debugPrint('☁️ Step 2/4: Uploading thumbnail to Cloudflare R2...');
@@ -697,7 +769,7 @@ class Authentication extends _$Authentication {
         uploadProgress: 0.2,
       ));
 
-      // 🎬 STEP 3: Upload video to Cloudflare R2
+      // Upload video to Cloudflare R2
       debugPrint('📹 Step 3/4: Uploading video to Cloudflare R2...');
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
@@ -718,9 +790,9 @@ class Authentication extends _$Authentication {
         uploadProgress: 0.9,
       ));
 
-      // 🎬 STEP 4: Create video record in database with price
+      // Create video record in database with price
       debugPrint('💾 Step 4/4: Creating video record in database...');
-      debugPrint('💰 Video price: ${price ?? 0.0} KES'); // ✅ Log the price
+      debugPrint('💰 Video price: ${price ?? 0.0} KES');
       
       final videoData = await _repository.createVideo(
         userId: user.uid,
@@ -730,7 +802,7 @@ class Authentication extends _$Authentication {
         thumbnailUrl: thumbnailUrl,
         caption: caption,
         tags: tags ?? [],
-        price: price ?? 0.0, // ✅ Pass price to backend (defaults to 0.0 if null)
+        price: price ?? 0.0,
       );
       debugPrint('✅ Video record created in database with price: ${videoData.price}');
 
