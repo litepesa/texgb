@@ -49,7 +49,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     });
   }
 
-  // NEW: Initialize screen with cached data first
   void _initializeScreen() {
     final currentUser = ref.read(currentUserProvider);
     final isAuthenticated = ref.read(isAuthenticatedProvider);
@@ -62,7 +61,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       return;
     }
 
-    // Use cached data immediately
     final videos = ref.read(videosProvider);
     final userVideos = videos
         .where((video) => video.userId == currentUser.uid)
@@ -75,13 +73,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       _isInitialized = true;
     });
 
-    // Generate thumbnail for cached video if available
     if (_userVideos.isNotEmpty) {
       _generateVideoThumbnail();
     }
   }
 
-  // UPDATED: Only called by pull-to-refresh
   Future<void> _refreshUserData() async {
     if (_isRefreshing) return;
 
@@ -91,7 +87,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     });
 
     try {
-      // Check if user is authenticated
       final currentUser = ref.read(currentUserProvider);
       final isAuthenticated = ref.read(isAuthenticatedProvider);
 
@@ -105,7 +100,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      // Get fresh user profile from backend
       final authNotifier = ref.read(authenticationProvider.notifier);
       final freshUserProfile = await authNotifier.getUserProfile();
 
@@ -119,7 +113,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      // Get user's videos (limited to recent 1 for profile preview)
       await authNotifier.loadVideos();
       await authNotifier.loadUserVideos(freshUserProfile.uid);
 
@@ -136,7 +129,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _isRefreshing = false;
         });
 
-        // Generate thumbnail only for the single post
         _generateVideoThumbnail();
       }
     } catch (e) {
@@ -150,7 +142,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     }
   }
 
-  // Generate thumbnail only for single post
   Future<void> _generateVideoThumbnail() async {
     if (_userVideos.isEmpty) return;
     
@@ -202,7 +193,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       context,
       Constants.editProfileScreen,
       arguments: _user,
-    ).then((_) => _refreshUserData()); // Refresh after edit
+    ).then((_) => _refreshUserData());
   }
 
   void _openVideoDetails(VideoModel video) {
@@ -213,14 +204,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         Constants.videoId: video.id,
         Constants.videoModel: video,
       },
-    ).then((_) => _refreshUserData()); // Refresh when coming back
+    ).then((_) => _refreshUserData());
   }
 
   void _navigateToManagePosts() {
     Navigator.pushNamed(
       context,
       Constants.managePostsScreen,
-    ).then((_) => _refreshUserData()); // Refresh when coming back
+    ).then((_) => _refreshUserData());
   }
 
   void _navigateToWallet() {
@@ -230,23 +221,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  // ENHANCED: Profile creation callback with cache clearing
   void _onProfileCreated() async {
     debugPrint('Profile created, refreshing data...');
 
-    // Clear any cached network images
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
       await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
 
-    // Clear thumbnail cache
     await _thumbnailCacheManager.emptyCache();
 
-    // Force refresh authentication state to get latest user data
     final authNotifier = ref.read(authenticationProvider.notifier);
     await authNotifier.loadUserDataFromSharedPreferences();
 
-    // Reload the screen data after profile creation
     await _refreshUserData();
 
     debugPrint('Profile data refreshed');
@@ -378,19 +364,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       color: modernTheme.primaryColor,
       backgroundColor: modernTheme.surfaceColor,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh even when content fits
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
-            // Profile Header
             _buildProfileHeader(modernTheme),
-
-            // Profile Info Card
             _buildProfileInfoCard(modernTheme),
-
-            // Quick Actions Section
             _buildQuickActionsSection(modernTheme),
-
-            // Bottom padding for navigation
+            _buildMarketplaceInfoCard(modernTheme),
             const SizedBox(height: 80),
           ],
         ),
@@ -398,7 +378,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  // Rest of the methods remain the same...
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -419,19 +398,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       ),
       child: Column(
         children: [
-          // Add safe area padding at the top
           SizedBox(height: MediaQuery.of(context).padding.top),
-
-          // App bar with theme switcher
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Left side - placeholder for symmetry
                 const SizedBox(width: 40),
-
-                // Center - Profile title
                 const Text(
                   'My Profile',
                   style: TextStyle(
@@ -441,8 +414,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     letterSpacing: 0.5,
                   ),
                 ),
-
-                // Right side - Theme switcher
                 GestureDetector(
                   onTap: () => showThemeSelector(context),
                   child: Container(
@@ -466,17 +437,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               ],
             ),
           ),
-
-          // Profile Content
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             child: Column(
               children: [
-                // Profile Image with enhanced R2 handling
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Outer glow effect
                     Container(
                       width: 120,
                       height: 120,
@@ -566,8 +533,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-
-                // User name
                 Text(
                   _user!.name,
                   style: const TextStyle(
@@ -586,8 +551,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-
-                // User bio
                 if (_user!.bio.isNotEmpty)
                   Text(
                     _user!.bio,
@@ -601,12 +564,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 const SizedBox(height: 20),
-
-                // Action buttons row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Verification status button
                     GestureDetector(
                       onTap: () => VerificationInfoWidget.show(context),
                       child: Container(
@@ -667,10 +627,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 16),
-
-                    // Edit Profile Button
                     GestureDetector(
                       onTap: _editProfile,
                       child: Container(
@@ -725,7 +682,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stats Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -755,8 +711,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               ),
             ],
           ),
-
-          // Tags
           if (_user!.tags.isNotEmpty) ...[
             const SizedBox(height: 16),
             SizedBox(
@@ -791,6 +745,150 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMarketplaceInfoCard(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1565C0).withOpacity(0.15),
+            const Color(0xFF0D47A1).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF1565C0).withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1565C0).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xFF1565C0),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Marketplace Safety Tips',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInfoItem(
+            icon: Icons.verified_rounded,
+            iconColor: const Color(0xFF1565C0),
+            title: 'Buy from Verified Shops',
+            description: 'Shops with verified badges have been physically verified at their location',
+            modernTheme: modernTheme,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            icon: Icons.chat_bubble_outline_rounded,
+            iconColor: const Color(0xFF2E7D32),
+            title: 'WhatsApp Orders',
+            description: 'All orders are processed directly with sellers via WhatsApp',
+            modernTheme: modernTheme,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            icon: Icons.security_rounded,
+            iconColor: const Color(0xFFFF6F00),
+            title: 'Use Escrow Service',
+            description: 'For sellers you don\'t trust, use our built-in escrow service for safe transactions',
+            modernTheme: modernTheme,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            icon: Icons.place_rounded,
+            iconColor: const Color(0xFFD32F2F),
+            title: 'Verified Locations',
+            description: 'Verified shops have confirmed physical addresses and ownership',
+            modernTheme: modernTheme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required ModernThemeExtension modernTheme,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: iconColor,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -833,7 +931,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          // Manage Posts Button - Primary Action
           GestureDetector(
             onTap: _navigateToManagePosts,
             child: Container(
@@ -924,6 +1021,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               ),
             ),
           ),
+
+          const SizedBox(height: 20),
         ],
       ),
     );
