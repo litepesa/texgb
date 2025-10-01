@@ -620,11 +620,12 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // 🎬 UPDATED: createVideo method with automatic thumbnail generation and upload
+  // 🎬 UPDATED: createVideo method with price parameter
   Future<void> createVideo({
     required File videoFile,
     required String caption,
     List<String>? tags,
+    double? price, // ✅ NEW: Added price parameter (optional, defaults to 0.0)
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -717,18 +718,21 @@ class Authentication extends _$Authentication {
         uploadProgress: 0.9,
       ));
 
-      // 🎬 STEP 4: Create video record in database
+      // 🎬 STEP 4: Create video record in database with price
       debugPrint('💾 Step 4/4: Creating video record in database...');
+      debugPrint('💰 Video price: ${price ?? 0.0} KES'); // ✅ Log the price
+      
       final videoData = await _repository.createVideo(
         userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         videoUrl: videoUrl,
-        thumbnailUrl: thumbnailUrl, // ✅ Now includes actual thumbnail URL
+        thumbnailUrl: thumbnailUrl,
         caption: caption,
         tags: tags ?? [],
+        price: price ?? 0.0, // ✅ Pass price to backend (defaults to 0.0 if null)
       );
-      debugPrint('✅ Video record created in database');
+      debugPrint('✅ Video record created in database with price: ${videoData.price}');
 
       List<VideoModel> updatedVideos = [
         videoData,
@@ -742,8 +746,8 @@ class Authentication extends _$Authentication {
         videos: updatedVideos,
       ));
 
-      debugPrint('✅ Video upload complete with thumbnail!');
-      onSuccess('Video uploaded successfully with thumbnail');
+      debugPrint('✅ Video upload complete with thumbnail and price!');
+      onSuccess('Video uploaded successfully');
     } on AuthRepositoryException catch (e) {
       debugPrint('❌ Error uploading video: ${e.message}');
       

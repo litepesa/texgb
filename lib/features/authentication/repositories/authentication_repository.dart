@@ -1,5 +1,5 @@
 // lib/features/authentication/repositories/authentication_repository.dart
-// COMPLETE VERSION: Firebase Auth + R2 Storage + Video Support + Video Updates + SEARCH SUPPORT
+// COMPLETE VERSION: Firebase Auth + R2 Storage + Video Support + Video Updates + SEARCH SUPPORT + PRICE SUPPORT
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -60,6 +60,7 @@ abstract class AuthenticationRepository {
     required String thumbnailUrl,
     required String caption,
     List<String>? tags,
+    double? price, // ✅ Added price parameter
   });
   Future<VideoModel> createImagePost({
     required String userId,
@@ -68,6 +69,7 @@ abstract class AuthenticationRepository {
     required List<String> imageUrls,
     required String caption,
     List<String>? tags,
+    double? price, // ✅ Added price parameter
   });
   Future<VideoModel> updateVideo({
     required String videoId,
@@ -75,6 +77,7 @@ abstract class AuthenticationRepository {
     String? videoUrl,
     String? thumbnailUrl,
     List<String>? tags,
+    double? price, // ✅ Added price parameter
   });
   Future<void> deleteVideo(String videoId, String userId);
   Future<void> likeVideo(String videoId, String userId);
@@ -125,7 +128,7 @@ abstract class AuthenticationRepository {
   String? get currentUserPhoneNumber;
 }
 
-// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend (Video Support + Search)
+// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend (Video Support + Search + Price)
 class FirebaseAuthenticationRepository implements AuthenticationRepository {
   final FirebaseAuth _auth;
   final HttpClientService _httpClient;
@@ -483,7 +486,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // VIDEO OPERATIONS
+  // VIDEO OPERATIONS (WITH PRICE SUPPORT)
   // ===============================
 
   @override
@@ -552,6 +555,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required String thumbnailUrl,
     required String caption,
     List<String>? tags,
+    double? price, // ✅ Added price parameter
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -563,7 +567,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'caption': caption,
-        'price': 0.0,
+        'price': price ?? 0.0, // ✅ Include price in video data (defaults to 0.0)
         'tags': tags ?? [],
         'likesCount': 0,
         'commentsCount': 0,
@@ -577,11 +581,14 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'imageUrls': <String>[],
       };
 
+      debugPrint('📤 Creating video with price: ${price ?? 0.0}');
+
       final response = await _httpClient.post('/videos', body: videoData);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
+        debugPrint('✅ Video created successfully with price: ${videoMap['price']}');
         return VideoModel.fromJson(videoMap);
       } else {
         throw AuthRepositoryException('Failed to create video: ${response.body}');
@@ -599,6 +606,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required List<String> imageUrls,
     required String caption,
     List<String>? tags,
+    double? price, // ✅ Added price parameter
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -610,6 +618,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': '',
         'thumbnailUrl': imageUrls.isNotEmpty ? imageUrls.first : '',
         'caption': caption,
+        'price': price ?? 0.0, // ✅ Include price in image post data
         'tags': tags ?? [],
         'likesCount': 0,
         'commentsCount': 0,
@@ -638,14 +647,14 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // NEW: UPDATE VIDEO OPERATION
+  // NEW: UPDATE VIDEO OPERATION (WITH PRICE SUPPORT)
   // ===============================
 
   @override
   Future<VideoModel> updateVideo({
     required String videoId,
     String? caption,
-    double? price,
+    double? price, // ✅ Added price parameter
     String? videoUrl,
     String? thumbnailUrl,
     List<String>? tags,
@@ -659,7 +668,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       };
       
       if (caption != null) updateData['caption'] = caption;
-      if (price != null) updateData['price'] = price;
+      if (price != null) updateData['price'] = price; // ✅ Include price in update
       if (videoUrl != null) updateData['videoUrl'] = videoUrl;
       if (thumbnailUrl != null) updateData['thumbnailUrl'] = thumbnailUrl;
       if (tags != null) updateData['tags'] = tags;

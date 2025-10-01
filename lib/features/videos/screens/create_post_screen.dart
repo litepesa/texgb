@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/videos/widgets/video_trim_screen.dart';
@@ -80,6 +81,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
 
   @override
   void initState() {
@@ -91,6 +93,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     _videoPlayerController?.dispose();
     _captionController.dispose();
     _tagsController.dispose();
+    _priceController.dispose();
     _cacheManager.emptyCache();
     _uploadSimulationTimer?.cancel();
     _disableWakelock();
@@ -701,9 +704,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       await _enableWakelock();
       
+      // Parse tags
       List<String> tags = [];
       if (_tagsController.text.isNotEmpty) {
         tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
+      }
+      
+      // Parse price
+      double price = 0.0;
+      if (_priceController.text.isNotEmpty) {
+        price = double.tryParse(_priceController.text) ?? 0.0;
       }
       
       File videoToUpload = _videoFile!;
@@ -723,6 +733,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         videoFile: videoToUpload,
         caption: _captionController.text,
         tags: tags,
+        price: price, // ✅ Pass the price to backend
         onSuccess: (message) {
           _uploadSimulationTimer?.cancel();
           setState(() {
@@ -1014,6 +1025,58 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a caption';
+                  }
+                  return null;
+                },
+                enabled: !isLoading && !_isProcessing && !isUploading,
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Price field (Required temporarily)
+              TextFormField(
+                controller: _priceController,
+                decoration: InputDecoration(
+                  labelText: 'Price (KES) *',
+                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: modernTheme.primaryColor!),
+                  ),
+                  errorBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red),
+                  ),
+                  filled: true,
+                  fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
+                  hintText: 'e.g. 100, 500, 1000',
+                  hintStyle: TextStyle(color: modernTheme.textSecondaryColor?.withOpacity(0.5)),
+                  prefixIcon: Icon(
+                    Icons.attach_money,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  helperText: 'Enter 0 for free content',
+                  helperStyle: TextStyle(
+                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+                style: TextStyle(color: modernTheme.textColor),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a price (use 0 for free)';
+                  }
+                  final price = double.tryParse(value);
+                  if (price == null) {
+                    return 'Please enter a valid price';
+                  }
+                  if (price < 0) {
+                    return 'Price cannot be negative';
                   }
                   return null;
                 },
