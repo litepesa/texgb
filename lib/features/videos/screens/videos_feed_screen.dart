@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION
+// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION WITH PRECACHING
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -83,9 +83,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _initializeControllers();
     _setupCacheCleanup();
     
-    // ✅ OPTIMIZED: Just handle initial video position - videos already loading in provider
+    // Handle initial video position and start precaching
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialVideoPosition();
+      _precacheInitialVideos(); // Start precaching immediately
     });
     
     _hasInitialized = true;
@@ -209,28 +210,72 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
   }
 
+  // NEW: Precache initial videos as soon as they load
+  void _precacheInitialVideos() {
+    final videos = ref.read(videosProvider);
+    if (videos.isEmpty) return;
+
+    debugPrint('Precaching initial videos for instant playback...');
+    
+    // Get first 3 video URLs (skip image posts)
+    final videoUrls = videos
+        .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
+        .take(3)
+        .map((v) => v.videoUrl)
+        .toList();
+    
+    if (videoUrls.isNotEmpty) {
+      VideoCacheService().precacheMultiple(
+        videoUrls,
+        cacheSegmentsPerVideo: 3, // Cache 6MB per video for instant start
+        maxConcurrent: 2,
+      );
+    }
+  }
+
+  // UPDATED: Intelligent preloading with filtering for video-only content
   void _startIntelligentPreloading() {
-  if (!_isScreenActive ||
-      !_isAppInForeground ||
-      _isNavigatingAway ||
-      _isCommentsSheetOpen) return;
+    if (!_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isCommentsSheetOpen) return;
 
-  final videos = ref.read(videosProvider);
-  if (videos.isEmpty) return;
+    final videos = ref.read(videosProvider);
+    if (videos.isEmpty) return;
 
-  debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
-  
-  // NEW: Intelligent cache preloading
-  final videoUrls = videos.map((v) => v.videoUrl).toList();
-  
-  VideoCacheService().intelligentPreload(
-    videoUrls: videoUrls,
-    currentIndex: _currentVideoIndex,
-    preloadNext: 5,           // Preload next 5 videos
-    preloadPrevious: 2,       // Preload previous 2 video
-    cacheSegmentsPerVideo: 2, // 4MB per video (2 segments × 2MB)
-  );
-}
+    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
+    
+    // Filter to get only actual videos (no image posts)
+    final videoOnlyList = videos
+        .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
+        .toList();
+    
+    if (videoOnlyList.isEmpty) return;
+    
+    // Find current video in the filtered list
+    final currentVideo = videos[_currentVideoIndex];
+    
+    // If current item is an image post, find nearest video
+    if (currentVideo.isMultipleImages) {
+      debugPrint('Current item is image post, skipping preload');
+      return;
+    }
+    
+    final currentIndexInVideoList = videoOnlyList
+        .indexWhere((v) => v.videoUrl == currentVideo.videoUrl);
+    
+    if (currentIndexInVideoList == -1) return;
+    
+    final videoUrls = videoOnlyList.map((v) => v.videoUrl).toList();
+    
+    VideoCacheService().intelligentPreload(
+      videoUrls: videoUrls,
+      currentIndex: currentIndexInVideoList,
+      preloadNext: 5,           // Preload next 5 videos
+      preloadPrevious: 2,       // Preload previous 2 videos
+      cacheSegmentsPerVideo: 3, // 6MB per video (increased from 2)
+    );
+  }
 
   void _startFreshPlayback() {
     if (!mounted ||
@@ -291,7 +336,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     ));
   }
 
-  // ✅ OPTIMIZED: Handle initial video position without loading
   void _handleInitialVideoPosition() {
     if (!mounted) return;
     
@@ -555,27 +599,22 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // UPDATED METHOD: Handle WhatsApp messaging with video context - now mirrors BUY button functionality
   Future<void> _openWhatsAppWithVideo(VideoModel? video) async {
     if (video == null) return;
 
-    // Check if user is authenticated before allowing WhatsApp messaging
     final canInteract = await _requireAuthentication('message on whatsapp');
     if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
 
-    // Check if user is trying to message their own video
     if (video.userId == currentUser!.uid) {
       _showCannotMessageOwnVideoMessage();
       return;
     }
 
     try {
-      // Pause video before opening WhatsApp
       _pauseForNavigation();
 
-      // Get the video creator's user data from the database
       final authNotifier = ref.read(authenticationProvider.notifier);
       final videoCreator = await authNotifier.getUserById(video.userId);
 
@@ -584,21 +623,16 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         return;
       }
 
-      // Check if the video creator has a WhatsApp number
       if (!videoCreator.hasWhatsApp) {
         _showWhatsAppNotAvailableMessage(videoCreator.name);
         return;
       }
 
-      // Generate shareable link for this video (your landing page)
       final videoLink = 'https://share.weibao.africa/v/${video.id}';
       
-      // Prepare message content with landing page link
-      // When clicked in WhatsApp, this will show rich preview and open your app
       String message = '$videoLink\n\nHi ${videoCreator.name}! I saw your video';
       
       if (video.caption.isNotEmpty) {
-        // Add video caption for context (truncate if too long)
         String caption = video.caption;
         if (caption.length > 50) {
           caption = '${caption.substring(0, 50)}...';
@@ -608,19 +642,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       
       message += ' and wanted to chat!';
 
-      // Encode the message for URL
       final encodedMessage = Uri.encodeComponent(message);
-      
-      // Create WhatsApp URL with the user's actual WhatsApp number
       final whatsappUrl = 'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
       final uri = Uri.parse(whatsappUrl);
 
       debugPrint('Opening WhatsApp with URL: $whatsappUrl');
-      debugPrint('Video creator: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
-      debugPrint('Video link: $videoLink');
 
-      // Try to launch WhatsApp directly without checking canLaunchUrl
-      // This works better across different WhatsApp versions (regular and business)
       try {
         final success = await launchUrl(
           uri,
@@ -630,11 +657,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         if (success) {
           _showSnackBar('Opening WhatsApp to contact ${videoCreator.name}...');
         } else {
-          // If launch returns false, WhatsApp might not be installed
           _showWhatsAppNotInstalledMessage();
         }
       } catch (e) {
-        // If launching fails, WhatsApp is likely not installed
         debugPrint('Failed to launch WhatsApp: $e');
         _showWhatsAppNotInstalledMessage();
       }
@@ -642,8 +667,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       debugPrint('Error opening WhatsApp: $e');
       _showSnackBar('Failed to open WhatsApp');
     } finally {
-      // Resume video after attempting to open WhatsApp
-      // Add delay to ensure user returns to the app
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
           _resumeFromNavigation();
@@ -652,7 +675,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // Helper method to show when user is not found
   void _showUserNotFoundMessage() {
     showModalBottomSheet(
       context: context,
@@ -712,7 +734,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // Helper method to show when WhatsApp number is not available
   void _showWhatsAppNotAvailableMessage(String userName) {
     showModalBottomSheet(
       context: context,
@@ -772,7 +793,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // Helper method to show WhatsApp not installed message
   void _showWhatsAppNotInstalledMessage() {
     showModalBottomSheet(
       context: context,

@@ -34,8 +34,8 @@ class VideoCacheService {
     int? port,
     int maxMemoryCacheMB = 100,
     int maxStorageCacheMB = 1024,
-    int segmentSizeMB = 2,
-    int maxConcurrentDownloads = 8,
+    int segmentSizeMB = 10,
+    int maxConcurrentDownloads = 2,
     bool enableLogging = false,
   }) async {
     if (_isInitialized) {
