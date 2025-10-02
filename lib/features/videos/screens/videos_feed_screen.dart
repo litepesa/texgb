@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
@@ -209,16 +210,27 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   void _startIntelligentPreloading() {
-    if (!_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isCommentsSheetOpen) return;
+  if (!_isScreenActive ||
+      !_isAppInForeground ||
+      _isNavigatingAway ||
+      _isCommentsSheetOpen) return;
 
-    final videos = ref.read(videosProvider);
-    if (videos.isEmpty) return;
+  final videos = ref.read(videosProvider);
+  if (videos.isEmpty) return;
 
-    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
-  }
+  debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
+  
+  // NEW: Intelligent cache preloading
+  final videoUrls = videos.map((v) => v.videoUrl).toList();
+  
+  VideoCacheService().intelligentPreload(
+    videoUrls: videoUrls,
+    currentIndex: _currentVideoIndex,
+    preloadNext: 5,           // Preload next 5 videos
+    preloadPrevious: 2,       // Preload previous 2 video
+    cacheSegmentsPerVideo: 2, // 4MB per video (2 segments × 2MB)
+  );
+}
 
   void _startFreshPlayback() {
     if (!mounted ||

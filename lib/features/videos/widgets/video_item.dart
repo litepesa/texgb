@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
+import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -607,8 +608,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Future<void> _createControllerFromNetwork() async {
+    // NEW: Get cached URI instead of original URL
+    final cachedUri = VideoCacheService().getLocalUri(widget.video.videoUrl);
+    
     _videoPlayerController = VideoPlayerController.networkUrl(
-      Uri.parse(widget.video.videoUrl),
+      cachedUri, // Changed from Uri.parse(widget.video.videoUrl)
       videoPlayerOptions: VideoPlayerOptions(
         allowBackgroundPlayback: false,
         mixWithOthers: false,

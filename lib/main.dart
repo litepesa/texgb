@@ -1,4 +1,4 @@
-// lib/main.dart (Updated with Featured Videos Screen route)
+// lib/main.dart (Updated with Video Caching)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +28,8 @@ import 'package:textgb/main_screen/home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
+// NEW: Import video cache service
+import 'package:textgb/features/videos/services/video_cache_service.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -39,6 +41,16 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // NEW: Initialize video caching service
+  // This MUST be called before runApp() for caching to work
+  await VideoCacheService().initialize(
+    maxMemoryCacheMB: 100,        // 100MB memory cache
+    maxStorageCacheMB: 1024,      // 1GB storage cache
+    segmentSizeMB: 2,             // 2MB per segment
+    maxConcurrentDownloads: 8,    // 8 concurrent downloads
+    enableLogging: true,          // Enable for debugging (set false in production)
   );
   
   // Initial system UI setup - the SystemUIUpdater will handle ongoing updates
