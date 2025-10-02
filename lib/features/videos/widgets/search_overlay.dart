@@ -1,6 +1,6 @@
 // ===============================
 // lib/features/videos/widgets/search_overlay.dart
-// Clean TikTok-Style Search Overlay - Minimalist Design
+// SIMPLIFIED Search Overlay - Clean TikTok Style, No Complications
 // ===============================
 
 import 'dart:async';
@@ -8,9 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/videos/models/search_models.dart';
 import 'package:textgb/features/videos/providers/video_search_provider.dart';
-import 'package:textgb/features/videos/widgets/search_results_grid.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SearchOverlay extends ConsumerStatefulWidget {
   final VoidCallback onClose;
@@ -29,21 +28,21 @@ class SearchOverlay extends ConsumerStatefulWidget {
 }
 
 class _SearchOverlayState extends ConsumerState<SearchOverlay>
-    with TickerProviderStateMixin {
-  late TextEditingController _searchController;
-  late FocusNode _searchFocusNode;
-  late AnimationController _slideController;
+    with SingleTickerProviderStateMixin {
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+  late AnimationController _animController;
   late Animation<Offset> _slideAnimation;
-  Timer? _debounceTimer;
+  bool _usernameOnly = false;
 
   @override
   void initState() {
     super.initState();
     
-    _searchController = TextEditingController(text: widget.initialQuery ?? '');
-    _searchFocusNode = FocusNode();
+    _controller = TextEditingController(text: widget.initialQuery ?? '');
+    _focusNode = FocusNode();
     
-    _slideController = AnimationController(
+    _animController = AnimationController(
       duration: const Duration(milliseconds: 250),
       vsync: this,
     );
@@ -52,19 +51,17 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
       begin: const Offset(0, -1),
       end: Offset.zero,
     ).animate(CurvedAnimation(
-      parent: _slideController,
+      parent: _animController,
       curve: Curves.easeOut,
     ));
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _slideController.forward();
-      
+      _animController.forward();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
-          _searchFocusNode.requestFocus();
-          
+          _focusNode.requestFocus();
           if (widget.initialQuery?.isNotEmpty == true) {
-            _performSearch(widget.initialQuery!);
+            ref.read(videoSearchProvider.notifier).searchNow(widget.initialQuery!);
           }
         }
       });
@@ -73,28 +70,22 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    _slideController.dispose();
-    _debounceTimer?.cancel();
+    _controller.dispose();
+    _focusNode.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(videoSearchProvider);
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Material(
       color: Colors.transparent,
       child: GestureDetector(
-        onTap: () {
-          // Only close if tapping outside when no results
-          if (!searchState.hasResults) {
-            _closeOverlay();
-          }
-        },
+        onTap: () => _close(),
         child: Container(
           color: Colors.black.withOpacity(0.3),
           child: SlideTransition(
@@ -102,16 +93,13 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
             child: GestureDetector(
               onTap: () {}, // Prevent closing when tapping inside
               child: Container(
-                height: screenHeight,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                ),
+                color: Colors.white,
                 child: Column(
                   children: [
                     // Search header
                     Container(
                       padding: EdgeInsets.only(
-                        top: systemTopPadding + 8,
+                        top: topPadding + 8,
                         left: 16,
                         right: 16,
                         bottom: 12,
@@ -129,9 +117,13 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
                       child: _buildSearchHeader(),
                     ),
                     
-                    // Search content
+                    // Filter chip
+                    if (_controller.text.isNotEmpty)
+                      _buildFilterChip(),
+                    
+                    // Search results or empty state
                     Expanded(
-                      child: _buildSearchContent(searchState),
+                      child: _buildContent(searchState, bottomPadding),
                     ),
                   ],
                 ),
@@ -150,22 +142,14 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   Widget _buildSearchHeader() {
     return Row(
       children: [
-        // Back button
         GestureDetector(
-          onTap: _closeOverlay,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            child: const Icon(
-              CupertinoIcons.back,
-              color: Colors.black87,
-              size: 24,
-            ),
+          onTap: _close,
+          child: const Padding(
+            padding: EdgeInsets.all(8),
+            child: Icon(CupertinoIcons.back, color: Colors.black87, size: 24),
           ),
         ),
-        
         const SizedBox(width: 12),
-        
-        // Search input
         Expanded(
           child: Container(
             height: 40,
@@ -174,59 +158,50 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
               borderRadius: BorderRadius.circular(8),
             ),
             child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-              ),
+              controller: _controller,
+              focusNode: _focusNode,
+              style: const TextStyle(color: Colors.black87, fontSize: 16),
               decoration: InputDecoration(
                 hintText: 'Search',
-                hintStyle: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 16,
-                ),
-                prefixIcon: Icon(
-                  CupertinoIcons.search,
-                  color: Colors.grey[500],
-                  size: 20,
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
+                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
+                prefixIcon: Icon(CupertinoIcons.search, color: Colors.grey[500], size: 20),
+                suffixIcon: _controller.text.isNotEmpty
                     ? GestureDetector(
-                        onTap: _clearSearch,
-                        child: Icon(
-                          Icons.cancel,
-                          color: Colors.grey[500],
-                          size: 20,
-                        ),
+                        onTap: () {
+                          _controller.clear();
+                          ref.read(videoSearchProvider.notifier).clear();
+                          setState(() {});
+                        },
+                        child: Icon(Icons.cancel, color: Colors.grey[500], size: 20),
                       )
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 isDense: true,
               ),
-              onChanged: _onSearchChanged,
-              onSubmitted: _onSearchSubmitted,
+              onChanged: (value) {
+                setState(() {});
+                if (value.trim().isNotEmpty) {
+                  ref.read(videoSearchProvider.notifier).search(value, usernameOnly: _usernameOnly);
+                } else {
+                  ref.read(videoSearchProvider.notifier).clear();
+                }
+              },
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty) {
+                  ref.read(videoSearchProvider.notifier).searchNow(value, usernameOnly: _usernameOnly);
+                }
+              },
               textInputAction: TextInputAction.search,
             ),
           ),
         ),
-        
         const SizedBox(width: 12),
-        
-        // Cancel button
         GestureDetector(
-          onTap: _closeOverlay,
+          onTap: _close,
           child: const Text(
             'Cancel',
-            style: TextStyle(
-              color: Colors.black87,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -234,201 +209,276 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   }
 
   // ===============================
-  // SEARCH CONTENT
+  // FILTER CHIP
   // ===============================
 
-  Widget _buildSearchContent(VideoSearchState searchState) {
-    // Show suggestions when typing or no query
-    if (_searchController.text.isEmpty || searchState.suggestions.isNotEmpty) {
-      return _buildSuggestions(searchState);
-    }
-    
-    if (searchState.isLoading && !searchState.hasResults) {
-      return _buildLoadingState();
-    }
-    
-    if (searchState.isError) {
-      return _buildErrorState(searchState.errorMessage ?? 'Search failed');
-    }
-    
-    if (searchState.isEmpty) {
-      return _buildEmptyState();
-    }
-    
-    if (searchState.hasResults) {
-      return SearchResultsGrid(
-        results: searchState.results,
-        onVideoTap: _onVideoTap,
-        onLoadMore: _canLoadMore(searchState) ? _loadMore : null,
-        isLoadingMore: searchState.isLoading && searchState.hasResults,
-        padding: const EdgeInsets.all(12),
-        crossAxisCount: 3,
-        childAspectRatio: 0.65,
-      );
-    }
-    
-    return const SizedBox.shrink();
-  }
-
-  // ===============================
-  // SUGGESTIONS (CLEAN & SIMPLE)
-  // ===============================
-
-  Widget _buildSuggestions(VideoSearchState searchState) {
-    final suggestions = searchState.suggestions;
-    final recentSearches = ref.watch(recentSearchesProvider);
-    final trendingTerms = ref.watch(trendingTermsProvider);
-
+  Widget _buildFilterChip() {
     return Container(
-      color: Colors.white,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
         children: [
-          // Search suggestions (real-time)
-          if (suggestions.isNotEmpty) ...[
-            ...suggestions.take(10).map((suggestion) {
-              return _buildSuggestionItem(
-                text: suggestion,
-                icon: CupertinoIcons.search,
-                onTap: () => _onSuggestionTap(suggestion),
-              );
-            }).toList(),
-          ]
-          // Recent searches (when no suggestions)
-          else if (recentSearches.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          GestureDetector(
+            onTap: () {
+              setState(() => _usernameOnly = !_usernameOnly);
+              ref.read(videoSearchProvider.notifier).toggleUsernameOnly();
+              HapticFeedback.lightImpact();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _usernameOnly ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _usernameOnly ? Colors.blue : Colors.grey[300]!,
+                  width: 1,
+                ),
+              ),
               child: Row(
-                children: [
-                  Text(
-                    'Recent',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      ref.read(videoSearchProvider.notifier).clearSearchHistory();
-                      HapticFeedback.lightImpact();
-                    },
-                    child: Text(
-                      'Clear',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ...recentSearches.take(8).map((search) {
-              return _buildSuggestionItem(
-                text: search,
-                icon: CupertinoIcons.time,
-                onTap: () => _onSuggestionTap(search),
-                trailing: GestureDetector(
-                  onTap: () {
-                    ref.read(videoSearchProvider.notifier).removeFromHistory(search);
-                    HapticFeedback.lightImpact();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.close,
-                      color: Colors.grey[400],
-                      size: 18,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ]
-          // Trending (when no recent searches)
-          else if (trendingTerms.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                'Trending',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            ...trendingTerms.take(10).map((term) {
-              return _buildSuggestionItem(
-                text: term,
-                icon: CupertinoIcons.flame,
-                iconColor: Colors.red[400],
-                onTap: () => _onSuggestionTap(term),
-              );
-            }).toList(),
-          ]
-          // Empty state
-          else ...[
-            const SizedBox(height: 100),
-            Center(
-              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    CupertinoIcons.search,
-                    color: Colors.grey[300],
-                    size: 64,
+                    CupertinoIcons.person,
+                    size: 14,
+                    color: _usernameOnly ? Colors.blue : Colors.grey[600],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(width: 6),
                   Text(
-                    'Search for videos',
+                    'All Users',
                     style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 16,
+                      color: _usernameOnly ? Colors.blue : Colors.grey[600],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSuggestionItem({
-    required String text,
-    required IconData icon,
-    Color? iconColor,
-    required VoidCallback onTap,
-    Widget? trailing,
-  }) {
+  // ===============================
+  // CONTENT
+  // ===============================
+
+  Widget _buildContent(SimpleSearchState state, double bottomPadding) {
+    if (_controller.text.trim().isEmpty) {
+      return _buildEmptyState('Start typing to search');
+    }
+
+    if (state.isLoading && !state.hasResults) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.black87, strokeWidth: 2),
+      );
+    }
+
+    if (state.isError) {
+      return _buildErrorState(state.errorMessage ?? 'Search failed');
+    }
+
+    if (state.isEmpty) {
+      return _buildEmptyState('No results found');
+    }
+
+    if (state.hasResults) {
+      return _buildResultsGrid(state, bottomPadding);
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildResultsGrid(SimpleSearchState state, double bottomPadding) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollEndNotification) {
+          final pixels = notification.metrics.pixels;
+          final max = notification.metrics.maxScrollExtent;
+          if (pixels >= max * 0.8 && state.hasMore && !state.isLoading) {
+            ref.read(videoSearchProvider.notifier).loadMore();
+          }
+        }
+        return false;
+      },
+      child: GridView.builder(
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          top: 12,
+          bottom: bottomPadding + 12,
+        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 0.65,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: state.videos.length + (state.isLoading && state.hasResults ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == state.videos.length) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.black87, strokeWidth: 2),
+            );
+          }
+
+          final video = state.videos[index];
+          return _buildVideoCard(video);
+        },
+      ),
+    );
+  }
+
+  Widget _buildVideoCard(video) {
     return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _close();
+        Future.delayed(const Duration(milliseconds: 300), () {
+          widget.onVideoTap?.call(video.id);
+        });
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Icon(
-              icon,
-              color: iconColor ?? Colors.grey[600],
-              size: 20,
+            // Thumbnail
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: video.thumbnailUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: video.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.play_circle_outline, color: Colors.grey),
+                    ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 16,
+            
+            // Gradient overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.5),
+                    ],
+                    stops: const [0.6, 1.0],
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (trailing != null) trailing,
+            
+            // Stats overlay
+            Positioned(
+              bottom: 4,
+              left: 4,
+              right: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Username
+                  Text(
+                    video.userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  // Views
+                  Row(
+                    children: [
+                      const Icon(CupertinoIcons.eye, color: Colors.white, size: 10),
+                      const SizedBox(width: 3),
+                      Text(
+                        _formatCount(video.views),
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(CupertinoIcons.search, color: Colors.grey[300], size: 64),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.grey[400], size: 64),
+            const SizedBox(height: 16),
+            Text(
+              'Something went wrong',
+              style: TextStyle(color: Colors.grey[800], fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: () {
+                if (_controller.text.trim().isNotEmpty) {
+                  ref.read(videoSearchProvider.notifier).searchNow(
+                    _controller.text,
+                    usernameOnly: _usernameOnly,
+                  );
+                }
+              },
+              child: const Text(
+                'Try Again',
+                style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
           ],
         ),
       ),
@@ -436,198 +486,30 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   }
 
   // ===============================
-  // LOADING STATE
+  // HELPERS
   // ===============================
 
-  Widget _buildLoadingState() {
-    return Container(
-      color: Colors.white,
-      child: const Center(
-        child: CircularProgressIndicator(
-          color: Colors.black87,
-          strokeWidth: 2,
-        ),
-      ),
-    );
+  String _formatCount(int count) {
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return '${(count / 1000000).toStringAsFixed(1)}M';
   }
 
-  // ===============================
-  // ERROR STATE
-  // ===============================
-
-  Widget _buildErrorState(String errorMessage) {
-    return Container(
-      color: Colors.white,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                color: Colors.grey[400],
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Something went wrong',
-                style: TextStyle(
-                  color: Colors.grey[800],
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                errorMessage,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () {
-                  ref.read(searchControllerProvider.notifier).retrySearch();
-                },
-                child: const Text(
-                  'Try Again',
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===============================
-  // EMPTY STATE
-  // ===============================
-
-  Widget _buildEmptyState() {
-    return Container(
-      color: Colors.white,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                CupertinoIcons.search,
-                color: Colors.grey[300],
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No results found',
-                style: TextStyle(
-                  color: Colors.grey[800],
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Try different keywords',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===============================
-  // EVENT HANDLERS
-  // ===============================
-
-  void _onSearchChanged(String query) {
-    setState(() {}); // Update clear button
-    
-    _debounceTimer?.cancel();
-    
-    if (query.length >= 2) {
-      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          ref.read(videoSearchProvider.notifier).getSuggestions(query);
-        }
-      });
-    }
-    
-    ref.read(videoSearchProvider.notifier).search(query);
-  }
-
-  void _onSearchSubmitted(String query) {
-    if (query.trim().isNotEmpty) {
-      _performSearch(query);
-    }
-  }
-
-  void _performSearch(String query) {
-    ref.read(videoSearchProvider.notifier).searchImmediate(query);
-    _searchFocusNode.unfocus();
-  }
-
-  void _clearSearch() {
-    _searchController.clear();
-    ref.read(videoSearchProvider.notifier).clearSearch();
-    setState(() {});
-    _searchFocusNode.requestFocus();
-  }
-
-  void _closeOverlay() {
-    _searchFocusNode.unfocus();
-    _slideController.reverse();
-    
+  void _close() {
+    _focusNode.unfocus();
+    _animController.reverse();
     Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        widget.onClose();
-      }
+      if (mounted) widget.onClose();
     });
-  }
-
-  void _onVideoTap(String videoId) {
-    _closeOverlay();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      widget.onVideoTap?.call(videoId);
-    });
-  }
-
-  void _onSuggestionTap(String suggestion) {
-    _searchController.text = suggestion;
-    _performSearch(suggestion);
-    HapticFeedback.selectionClick();
-  }
-
-  void _loadMore() {
-    ref.read(videoSearchProvider.notifier).loadMore();
-  }
-
-  bool _canLoadMore(VideoSearchState state) {
-    return state.hasMore && !state.isLoading;
   }
 }
 
 // ===============================
-// SEARCH OVERLAY CONTROLLER
+// OVERLAY CONTROLLER
 // ===============================
 
 class SearchOverlayController {
-  static OverlayEntry? _overlayEntry;
+  static OverlayEntry? _entry;
   static bool _isShowing = false;
 
   static void show(
@@ -638,24 +520,21 @@ class SearchOverlayController {
     if (_isShowing) return;
 
     _isShowing = true;
-    _overlayEntry = OverlayEntry(
+    _entry = OverlayEntry(
       builder: (context) => SearchOverlay(
-        onClose: () {
-          hide();
-        },
+        onClose: hide,
         onVideoTap: onVideoTap,
         initialQuery: initialQuery,
       ),
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    Overlay.of(context).insert(_entry!);
   }
 
   static void hide() {
-    if (!_isShowing || _overlayEntry == null) return;
-
-    _overlayEntry!.remove();
-    _overlayEntry = null;
+    if (!_isShowing || _entry == null) return;
+    _entry!.remove();
+    _entry = null;
     _isShowing = false;
   }
 

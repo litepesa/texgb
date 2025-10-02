@@ -567,7 +567,7 @@ class Constants {
   static const int giftPriceMax = 10000; // coins
   
   // NEW: Marketplace constants
-  static const double maxPrice = 10000000.0; // KES 10 Million maximum price
+  static const double maxPrice = 1000000000.0; // KES 1 Billion maximum price
   static const double minPrice = 0.0; // Free items allowed
   static const double defaultPriceStep = 100.0; // Price increment steps
   static const List<double> suggestedPrices = [
