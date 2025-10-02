@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/features/users/widgets/verification_widget.dart';
+import 'package:textgb/features/users/widgets/seller_upgrade_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -368,6 +369,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         child: Column(
           children: [
             _buildProfileHeader(modernTheme),
+            
+            // Add seller upgrade card for guest users
+            if (_user!.role == UserRole.guest)
+              _buildSellerUpgradeCard(modernTheme),
+            
             _buildProfileInfoCard(modernTheme),
             _buildQuickActionsSection(modernTheme),
             _buildMarketplaceInfoCard(modernTheme),
@@ -375,6 +381,200 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSellerUpgradeCard(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1B5E20),
+            Color(0xFF2E7D32),
+            Color(0xFF388E3C),
+            Color(0xFF4CAF50),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4CAF50).withOpacity(0.4),
+            blurRadius: 15,
+            spreadRadius: 2,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => SellerUpgradeWidget.show(context),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.store_rounded,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Become a Seller',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Start your business journey',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                
+                // Key highlights
+                _buildSellerHighlight(
+                  icon: Icons.money_off_rounded,
+                  text: '0% Commission - Keep all your earnings',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.trending_up_rounded,
+                  text: 'Unlimited products & earning potential',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  text: 'Direct WhatsApp orders from buyers',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.visibility_rounded,
+                  text: 'Reach thousands of active buyers',
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // CTA Button
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.rocket_launch_rounded,
+                        color: Color(0xFF2E7D32),
+                        size: 22,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Upgrade Now - KES 1,035',
+                        style: TextStyle(
+                          color: Color(0xFF2E7D32),
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Additional info
+                const Center(
+                  child: Text(
+                    'One-time payment • Instant activation',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSellerHighlight({
+    required IconData icon,
+    required String text,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -947,16 +1147,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   ),
                 ],
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.dashboard,
                     color: Colors.white,
                     size: 24,
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
+                  SizedBox(width: 12),
+                  Text(
                     'Manage My Posts',
                     style: TextStyle(
                       color: Colors.white,
@@ -978,13 +1178,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1B5E20), // Dark green
-                    const Color(0xFF2E7D32), // Medium green
-                    const Color(0xFF1976D2), // Blue accent
+                    Color(0xFF1B5E20), // Dark green
+                    Color(0xFF2E7D32), // Medium green
+                    Color(0xFF1976D2), // Blue accent
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
@@ -1000,16 +1200,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   ),
                 ],
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.account_balance_wallet_rounded,
                     color: Colors.white,
                     size: 24,
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
+                  SizedBox(width: 12),
+                  Text(
                     'My Wallet',
                     style: TextStyle(
                       color: Colors.white,
