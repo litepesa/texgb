@@ -1,5 +1,6 @@
 // lib/features/users/widgets/seller_upgrade_widget.dart
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class SellerUpgradeWidget extends StatelessWidget {
@@ -110,7 +111,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         _buildHighlightCard(
-                          icon: Icons.chat_bubble_outline_rounded,
+                          icon: CupertinoIcons.bubble_left,
                           title: 'Direct WhatsApp Orders',
                           description: 'Process orders directly with customers via WhatsApp',
                           gradient: const LinearGradient(
@@ -140,7 +141,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildBenefitItem(
                           icon: Icons.add_circle_outline,
                           title: 'Create Unlimited Product Posts',
-                          description: 'Showcase all your products with photos and videos',
+                          description: 'Showcase all your products with short immersive videos',
                           color: Colors.blue,
                         ),
                         const SizedBox(height: 12),

@@ -1,6 +1,7 @@
 // lib/features/authentication/providers/authentication_provider.dart
 // Video-focused authentication provider with instant auth recognition, caching, and video updates
 // OPTIMIZED: Videos load during app initialization for instant feed display
+// ENHANCED: Simple force refresh solution for backend updates
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -322,6 +323,66 @@ class Authentication extends _$Authentication {
     } catch (e) {
       debugPrint('Background refresh failed (non-critical): $e');
       // Don't update UI on background refresh failure
+    }
+  }
+
+  // ===============================
+  // 🆕 SIMPLE FORCE REFRESH METHODS
+  // ===============================
+
+  /// Force refresh user profile from backend, bypassing all caches
+  /// This is the SIMPLE solution for pull-to-refresh
+  Future<UserModel?> forceRefreshUserProfile() async {
+    final userId = _repository.currentUserId;
+    if (userId == null) return null;
+
+    try {
+      debugPrint('🔄 Force refreshing user profile from backend...');
+      
+      // 1. Fetch fresh data from backend (ignore cache completely)
+      final freshProfile = await _repository.getUserProfile(userId);
+      
+      if (freshProfile != null) {
+        debugPrint('✅ Fresh profile retrieved:');
+        debugPrint('   - Name: ${freshProfile.name}');
+        debugPrint('   - Verified: ${freshProfile.isVerified}');
+        debugPrint('   - Role: ${freshProfile.role}');
+        debugPrint('   - UID: ${freshProfile.uid}');
+        
+        // 2. Update state immediately with fresh data
+        final currentState = state.value ?? const AuthenticationState();
+        state = AsyncValue.data(currentState.copyWith(
+          currentUser: freshProfile,
+          state: AuthState.authenticated,
+          isSuccessful: true,
+        ));
+        
+        // 3. Update all caches with fresh data
+        await _saveCachedUserProfile(freshProfile);
+        
+        // Also update SharedPreferences userModel
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userModel', jsonEncode(freshProfile.toMap()));
+        
+        debugPrint('✅ Profile refresh complete and all caches updated');
+      }
+      
+      return freshProfile;
+    } catch (e) {
+      debugPrint('❌ Force refresh failed: $e');
+      throw AuthRepositoryException('Failed to refresh user profile: $e');
+    }
+  }
+
+  /// Clear only user-specific cache (not videos/users cache)
+  Future<void> _clearUserCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userProfileCacheKey);
+      await prefs.remove('userModel');
+      debugPrint('🗑️ User cache cleared');
+    } catch (e) {
+      debugPrint('❌ Error clearing user cache: $e');
     }
   }
 

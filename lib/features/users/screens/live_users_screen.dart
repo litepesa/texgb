@@ -231,7 +231,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -470,15 +470,15 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 18),
               decoration: BoxDecoration(
-                color: theme.primaryColor,
+                color: theme.primaryColor!.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [
+                /*boxShadow: [
                   BoxShadow(
                     color: theme.primaryColor!.withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
-                ],
+                ],*/
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -617,6 +617,11 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
               childCount: users.length,
             ),
           ),
+        ),
+        
+        // Bottom padding to avoid bottom nav bar
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 100),
         ),
       ],
     );

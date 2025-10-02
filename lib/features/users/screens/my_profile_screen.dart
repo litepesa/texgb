@@ -102,7 +102,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       }
 
       final authNotifier = ref.read(authenticationProvider.notifier);
-      final freshUserProfile = await authNotifier.getUserProfile();
+      
+      // 🎯 SIMPLE: Just force refresh from backend (bypasses all caches)
+      debugPrint('🔄 Refreshing profile from backend...');
+      final freshUserProfile = await authNotifier.forceRefreshUserProfile();
 
       if (freshUserProfile == null) {
         if (mounted) {
@@ -114,7 +117,103 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      await authNotifier.loadVideos();
+      // 🎉 Show success message if verification status changed
+      if (currentUser.isVerified != freshUserProfile.isVerified && freshUserProfile.isVerified) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.verified, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '✨ Your account is now verified!',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF1565C0),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+
+      // 🎉 Show success message if role changed to seller
+      if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.host) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.store_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '🎊 You are now a seller! Start posting products',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF2E7D32),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+
+      // 🎉 Show success message if role changed from seller to guest
+      if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.guest) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Your account role has been updated',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF1976D2),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+
+      // Reload user videos
       await authNotifier.loadUserVideos(freshUserProfile.uid);
 
       final videos = ref.read(videosProvider);
@@ -132,13 +231,42 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
         _generateVideoThumbnail();
       }
+      
+      debugPrint('✅ Profile refreshed successfully:');
+      debugPrint('   - Name: ${freshUserProfile.name}');
+      debugPrint('   - Verified: ${freshUserProfile.isVerified}');
+      debugPrint('   - Role: ${freshUserProfile.role}');
     } catch (e) {
-      debugPrint('Error refreshing user data: $e');
+      debugPrint('❌ Error refreshing user data: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
           _isRefreshing = false;
         });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Failed to refresh: ${e.toString()}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
       }
     }
   }
@@ -377,7 +505,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             _buildProfileInfoCard(modernTheme),
             _buildQuickActionsSection(modernTheme),
             _buildMarketplaceInfoCard(modernTheme),
-            const SizedBox(height: 80),
+            const SizedBox(height: 120),
           ],
         ),
       ),
@@ -767,66 +895,118 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    GestureDetector(
-                      onTap: () => VerificationInfoWidget.show(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: _user!.isVerified
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1565C0),
-                                    Color(0xFF0D47A1),
-                                    Color(0xFF0A1E3D),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1976D2),
-                                    Color(0xFF1565C0),
-                                    Color(0xFF0D47A1),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _user!.isVerified
-                                  ? const Color(0xFF1565C0).withOpacity(0.4)
-                                  : const Color(0xFF1976D2).withOpacity(0.4),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _user!.isVerified
-                                  ? Icons.verified_rounded
-                                  : Icons.star_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _user!.isVerified ? 'Verified' : 'Get Verified',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
+                    // Show verification button only for sellers (host role)
+                    if (_user!.role == UserRole.host)
+                      GestureDetector(
+                        onTap: () => VerificationInfoWidget.show(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: _user!.isVerified
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF1565C0),
+                                      Color(0xFF0D47A1),
+                                      Color(0xFF0A1E3D),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : const LinearGradient(
+                                    colors: [
+                                      Color(0xFF1976D2),
+                                      Color(0xFF1565C0),
+                                      Color(0xFF0D47A1),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _user!.isVerified
+                                    ? const Color(0xFF1565C0).withOpacity(0.4)
+                                    : const Color(0xFF1976D2).withOpacity(0.4),
+                                blurRadius: 12,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _user!.isVerified
+                                    ? Icons.verified_rounded
+                                    : Icons.star_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _user!.isVerified ? 'Verified' : 'Get Verified',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    
+                    // Show "Start Selling" button for guests
+                    if (_user!.role == UserRole.guest)
+                      GestureDetector(
+                        onTap: () => SellerUpgradeWidget.show(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF2E7D32),
+                                Color(0xFF388E3C),
+                                Color(0xFF4CAF50),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF4CAF50).withOpacity(0.4),
+                                blurRadius: 12,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.store_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Start Selling',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    
                     const SizedBox(width: 16),
                     GestureDetector(
                       onTap: _editProfile,
@@ -1131,95 +1311,92 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          GestureDetector(
-            onTap: _navigateToManagePosts,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor!.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: modernTheme.primaryColor!.withOpacity(0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.dashboard,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Manage My Posts',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              // Manage My Posts Button (larger)
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: _navigateToManagePosts,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: modernTheme.primaryColor!.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.dashboard,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Manage My Posts',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Wallet Button - Secondary Action
-          GestureDetector(
-            onTap: _navigateToWallet,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1B5E20), // Dark green
-                    Color(0xFF2E7D32), // Medium green
-                    Color(0xFF1976D2), // Blue accent
-                  ],
                 ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF4CAF50).withOpacity(0.3),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4CAF50).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'My Wallet',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+              
+              const SizedBox(width: 12),
+              
+              // Wallet Button (smaller)
+              Expanded(
+                flex: 1,
+                child: GestureDetector(
+                  onTap: _navigateToWallet,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: modernTheme.primaryColor!.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Wallet',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
 
           const SizedBox(height: 20),
