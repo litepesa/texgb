@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - OPTIMIZED VERSION
+// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -24,6 +24,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 // Import search overlay
 import 'package:textgb/features/videos/widgets/search_overlay.dart';
 
@@ -542,6 +543,283 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
+  // UPDATED METHOD: Handle WhatsApp messaging with video context - now mirrors BUY button functionality
+  Future<void> _openWhatsAppWithVideo(VideoModel? video) async {
+    if (video == null) return;
+
+    // Check if user is authenticated before allowing WhatsApp messaging
+    final canInteract = await _requireAuthentication('message on whatsapp');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if user is trying to message their own video
+    if (video.userId == currentUser!.uid) {
+      _showCannotMessageOwnVideoMessage();
+      return;
+    }
+
+    try {
+      // Pause video before opening WhatsApp
+      _pauseForNavigation();
+
+      // Get the video creator's user data from the database
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final videoCreator = await authNotifier.getUserById(video.userId);
+
+      if (videoCreator == null) {
+        _showUserNotFoundMessage();
+        return;
+      }
+
+      // Check if the video creator has a WhatsApp number
+      if (!videoCreator.hasWhatsApp) {
+        _showWhatsAppNotAvailableMessage(videoCreator.name);
+        return;
+      }
+
+      // Generate shareable link for this video (your landing page)
+      final videoLink = 'https://share.weibao.africa/v/${video.id}';
+      
+      // Prepare message content with landing page link
+      // When clicked in WhatsApp, this will show rich preview and open your app
+      String message = '$videoLink\n\nHi ${videoCreator.name}! I saw your video';
+      
+      if (video.caption.isNotEmpty) {
+        // Add video caption for context (truncate if too long)
+        String caption = video.caption;
+        if (caption.length > 50) {
+          caption = '${caption.substring(0, 50)}...';
+        }
+        message += ' about "$caption"';
+      }
+      
+      message += ' and wanted to chat!';
+
+      // Encode the message for URL
+      final encodedMessage = Uri.encodeComponent(message);
+      
+      // Create WhatsApp URL with the user's actual WhatsApp number
+      final whatsappUrl = 'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
+      final uri = Uri.parse(whatsappUrl);
+
+      debugPrint('Opening WhatsApp with URL: $whatsappUrl');
+      debugPrint('Video creator: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
+      debugPrint('Video link: $videoLink');
+
+      // Try to launch WhatsApp directly without checking canLaunchUrl
+      // This works better across different WhatsApp versions (regular and business)
+      try {
+        final success = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+
+        if (success) {
+          _showSnackBar('Opening WhatsApp to contact ${videoCreator.name}...');
+        } else {
+          // If launch returns false, WhatsApp might not be installed
+          _showWhatsAppNotInstalledMessage();
+        }
+      } catch (e) {
+        // If launching fails, WhatsApp is likely not installed
+        debugPrint('Failed to launch WhatsApp: $e');
+        _showWhatsAppNotInstalledMessage();
+      }
+    } catch (e) {
+      debugPrint('Error opening WhatsApp: $e');
+      _showSnackBar('Failed to open WhatsApp');
+    } finally {
+      // Resume video after attempting to open WhatsApp
+      // Add delay to ensure user returns to the app
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          _resumeFromNavigation();
+        }
+      });
+    }
+  }
+
+  // Helper method to show when user is not found
+  void _showUserNotFoundMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_off,
+                color: Colors.orange,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'User Not Found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Could not find the video owner\'s profile. Please try again later.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show when WhatsApp number is not available
+  void _showWhatsAppNotAvailableMessage(String userName) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.link_off,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Link Not Added',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$userName hasn\'t added their WhatsApp number to their profile yet.',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show WhatsApp not installed message
+  void _showWhatsAppNotInstalledMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Not Available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please install WhatsApp to send messages or check your internet connection.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showVirtualGifts(VideoModel? video) async {
     if (video == null) {
       debugPrint('No video available for gifting');
@@ -690,22 +968,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  void _openWhatsApp(VideoModel? video) async {
-    if (video == null) return;
-
-    final canInteract = await _requireAuthentication('message on whatsapp');
-    if (!canInteract) return;
-
-    final currentUser = ref.read(currentUserProvider);
-
-    if (video.userId == currentUser!.uid) {
-      _showCannotMessageOwnVideoMessage();
-      return;
-    }
-
-    _showWhatsAppComingSoonMessage(video);
-  }
-
   void _showCannotMessageOwnVideoMessage() {
     showModalBottomSheet(
       context: context,
@@ -745,65 +1007,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             const Text(
               'You cannot send a WhatsApp message to your own video.',
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showWhatsAppComingSoonMessage(VideoModel video) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.message,
-                color: Colors.green,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'WhatsApp Integration',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'WhatsApp messaging with ${video.userName} will be available soon!',
-              style: const TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
               ),
@@ -1013,10 +1216,30 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      right: 4,
-      bottom: systemBottomPadding + 8,
+      right: 0.5, // Much closer to edge
+      bottom: systemBottomPadding, // Position above system nav bar
       child: Column(
         children: [
+          // WhatsApp button - UPDATED: Now directly opens WhatsApp
+          GestureDetector(
+            onTap: () => _openWhatsAppWithVideo(currentVideo),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Lottie.asset(
+                    'assets/lottie/chat_bubble.json',
+                    width: 58,
+                    height: 58,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
           // Like button
           _buildRightMenuItem(
             child: Icon(
@@ -1045,7 +1268,59 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Profile avatar
+          // Download button
+          _buildRightMenuItem(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Show progress indicator if downloading
+                if (_downloadingVideos[currentVideo?.id] == true)
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      value: _downloadProgress[currentVideo?.id] ?? 0.0,
+                      color: Colors.white,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.download,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+              ],
+            ),
+            label: _downloadingVideos[currentVideo?.id] == true
+                ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
+                : 'Save',
+            onTap: () => _downloadCurrentVideo(currentVideo),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Gift button - with exciting emoji
+          _buildRightMenuItem(
+            child: const Text(
+              '🎁',
+              style: TextStyle(
+                fontSize: 28,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+            onTap: () => _showVirtualGifts(currentVideo),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Profile avatar with red border
           _buildRightMenuItem(
             child: Container(
               width: 44,
