@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:textgb/features/videos/widgets/video_trim_screen.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -17,7 +16,7 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path/path.dart' as path;
 
-// Data classes for video processing - shared with VideoTrimScreen
+// Data classes for video processing
 class VideoInfo {
   final Duration duration;
   final Size resolution;
@@ -175,13 +174,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     
     final videoInfo = await _analyzeVideo(videoFile);
     
-    if (videoInfo.duration.inSeconds > 300) { // 5 minutes
-      await _showVideoTrimDialog(videoFile, videoInfo, isRequired: true);
-      return;
-    } else {
-      await _showVideoTrimDialog(videoFile, videoInfo, isRequired: false);
+    // Check if video is longer than 5 minutes
+    if (videoInfo.duration.inSeconds > 300) {
+      _showError('Video must be under 5 minutes');
+      await _disableWakelock();
       return;
     }
+    
+    // Set video directly without trim dialog
+    await _setVideoDirectly(videoFile, videoInfo);
   }
 
   Future<Duration> _getVideoDuration(File file) async {
@@ -471,78 +472,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
   }
 
-  Future<void> _showVideoTrimDialog(File videoFile, VideoInfo videoInfo, {required bool isRequired}) async {
-    final durationMinutes = (videoInfo.duration.inSeconds / 60).round();
-    final durationSeconds = videoInfo.duration.inSeconds;
-    
-    String title;
-    String content;
-    List<Widget> actions = [];
-    
-    if (isRequired) {
-      title = 'Video Too Long';
-      content = 'Your video is $durationMinutes minutes long. Videos must be 5 minutes or less.\n\n'
-          'Choose how you want to trim it:';
-      
-      actions = [
-        TextButton(
-          child: const Text('Cancel'),
-          onPressed: () {
-            Navigator.of(context).pop();
-            _disableWakelock();
-          },
-        ),
-        TextButton(
-          child: const Text('First 5 Minutes'),
-          onPressed: () async {
-            Navigator.of(context).pop();
-            await _trimVideoTo5Minutes(videoFile, videoInfo);
-          },
-        ),
-        TextButton(
-          child: const Text('Manual Trim'),
-          onPressed: () {
-            Navigator.of(context).pop();
-            _showManualTrimScreen(videoFile, videoInfo);
-          },
-        ),
-      ];
-    } else {
-      title = 'Trim Video?';
-      content = 'Your video is $durationSeconds seconds long.\n\n'
-          'Would you like to trim it to a shorter clip, or use the full video?';
-      
-      actions = [
-        TextButton(
-          child: const Text('Use Full Video'),
-          onPressed: () async {
-            Navigator.of(context).pop();
-            await _setVideoDirectly(videoFile, videoInfo);
-          },
-        ),
-        TextButton(
-          child: const Text('Trim Video'),
-          onPressed: () {
-            Navigator.of(context).pop();
-            _showManualTrimScreen(videoFile, videoInfo);
-          },
-        ),
-      ];
-    }
-    
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(content),
-          actions: actions,
-        );
-      },
-    );
-  }
-
   Future<void> _setVideoDirectly(File videoFile, VideoInfo videoInfo) async {
     setState(() {
       _videoFile = videoFile;
@@ -550,109 +479,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
     
     await _initializeVideoPlayer();
-  }
-
-  void _showManualTrimScreen(File videoFile, VideoInfo videoInfo) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => VideoTrimScreen(
-          videoFile: videoFile,
-          videoInfo: videoInfo,
-          onTrimComplete: (File trimmedFile) async {
-            Navigator.of(context).pop();
-            await _setTrimmedVideoDirectly(trimmedFile);
-          },
-        ),
-      ),
-    );
-  }
-
-  Future<void> _setTrimmedVideoDirectly(File trimmedFile) async {
-    try {
-      final cachedFile = await _cacheVideoFile(trimmedFile);
-      final trimmedVideoInfo = await _analyzeVideo(cachedFile);
-      
-      setState(() {
-        _videoFile = cachedFile;
-        _videoInfo = trimmedVideoInfo;
-      });
-      
-      await _initializeVideoPlayer();
-      _showSuccess('Video trimmed successfully!');
-    } catch (e) {
-      _showError('Failed to set trimmed video');
-      await _disableWakelock();
-    }
-  }
-
-  Future<File> _cacheVideoFile(File videoFile) async {
-    try {
-      final fileKey = 'video_${DateTime.now().millisecondsSinceEpoch}_${path.basename(videoFile.path)}';
-      final videoBytes = await videoFile.readAsBytes();
-      
-      final cachedFile = await _cacheManager.putFile(
-        fileKey,
-        videoBytes,
-        fileExtension: path.extension(videoFile.path),
-      );
-      
-      return cachedFile;
-    } catch (e) {
-      return videoFile;
-    }
-  }
-
-  Future<void> _trimVideoTo5Minutes(File videoFile, VideoInfo videoInfo) async {
-    try {
-      await _enableWakelock();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Processing...'),
-            duration: Duration(seconds: 30),
-          ),
-        );
-      }
-      
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileExtension = path.extension(videoFile.path);
-      final trimmedFileName = 'trimmed_5min_$timestamp$fileExtension';
-      
-      final tempDir = Directory.systemTemp;
-      final trimmedPath = path.join(tempDir.path, trimmedFileName);
-      
-      final command = '-y -i "${videoFile.path}" '
-          '-t 300 '
-          '-c:v libx264 '
-          '-c:a aac '
-          '-avoid_negative_ts make_zero '
-          '-movflags +faststart '
-          '"$trimmedPath"';
-      
-      final session = await FFmpegKit.execute(command);
-      final returnCode = await session.getReturnCode();
-      
-      if (ReturnCode.isSuccess(returnCode)) {
-        final trimmedFile = File(trimmedPath);
-        if (await trimmedFile.exists()) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          }
-          
-          await _setTrimmedVideoDirectly(trimmedFile);
-        } else {
-          _showError('Failed to process video');
-          await _disableWakelock();
-        }
-      } else {
-        _showError('Failed to process video');
-        await _disableWakelock();
-      }
-    } catch (e) {
-      _showError('Failed to process video');
-      await _disableWakelock();
-    }
   }
 
   Future<bool> _checkUserAuthentication() async {
@@ -733,7 +559,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         videoFile: videoToUpload,
         caption: _captionController.text,
         tags: tags,
-        price: price, // ✅ Pass the price to backend
+        price: price,
         onSuccess: (message) {
           _uploadSimulationTimer?.cancel();
           setState(() {
@@ -801,8 +627,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final authProvider = ref.watch(authenticationProvider);
     final isLoading = ref.watch(isAuthLoadingProvider);
     final authState = authProvider.value ?? const AuthenticationState();
-    final isUploading = _isUploading; // Use our custom getter that includes simulation
-    final uploadProgress = _uploadProgress; // Use our custom getter that includes simulation
+    final isUploading = _isUploading;
+    final uploadProgress = _uploadProgress;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final modernTheme = context.modernTheme;
     
@@ -1056,27 +882,27 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     Icons.attach_money,
                     color: modernTheme.textSecondaryColor,
                   ),
-                  helperText: 'Enter 0 for free content',
+                  helperText: 'Enter whole numbers only (minimum 1 KES)',
                   helperStyle: TextStyle(
                     color: modernTheme.textSecondaryColor?.withOpacity(0.7),
                     fontSize: 12,
                   ),
                 ),
                 style: TextStyle(color: modernTheme.textColor),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  FilteringTextInputFormatter.digitsOnly,
                 ],
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a price (use 0 for free)';
+                    return 'Please enter a price';
                   }
-                  final price = double.tryParse(value);
+                  final price = int.tryParse(value);
                   if (price == null) {
                     return 'Please enter a valid price';
                   }
-                  if (price < 0) {
-                    return 'Price cannot be negative';
+                  if (price <= 0) {
+                    return 'Price must be greater than 0';
                   }
                   return null;
                 },
@@ -1174,25 +1000,47 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: (!_isProcessing && !_isUploading) ? _pickVideoFromGallery : null,
-              label: const Text('Select Video'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.video_library,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Select Video'),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
-              label: const Text('Photos'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.video_camera_back,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Go Live'),
+                ],
               ),
             ),
           ],

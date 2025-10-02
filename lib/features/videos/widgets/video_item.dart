@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with WhatsApp Buy Button
+// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with Conditional Price/Timestamp Display
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -1180,9 +1180,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
         children: [
           _buildUserNameWithVerification(),
           const SizedBox(height: 6),
-          _buildSmartCaption(),
-          const SizedBox(height: 8),
-          _buildPriceAndBuyButton(),
+          if (widget.video.caption.isNotEmpty) ...[
+            _buildSmartCaption(),
+            const SizedBox(height: 8),
+          ],
+          // UPDATED: Conditional display - Price/Buy OR Timestamp
+          _buildConditionalBottomInfo(),
         ],
       ),
     );
@@ -1244,6 +1247,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       const Icon(
                         Icons.verified_rounded,
                         size: 12,
+                        color: Colors.white,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1305,6 +1309,18 @@ class _VideoItemState extends ConsumerState<VideoItem>
         );
       },
     );
+  }
+
+  // NEW: Conditional widget - shows Price/Buy if price > 0, otherwise shows Timestamp
+  Widget _buildConditionalBottomInfo() {
+    // If video has a price (product/service), show price and buy button
+    if (widget.video.price > 0) {
+      return _buildPriceAndBuyButton();
+    }
+    // Otherwise, show timestamp (regular social media post)
+    else {
+      return _buildTimestampDisplay();
+    }
   }
 
   Widget _buildPriceAndBuyButton() {
@@ -1373,9 +1389,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         
         const SizedBox(width: 8), // Space between price and buy button
         
-        // BUY button - NOW OPENS WHATSAPP
+        // BUY button - OPENS WHATSAPP
         GestureDetector(
-          onTap: _openWhatsAppForBuy, // UPDATED: Call WhatsApp function
+          onTap: _openWhatsAppForBuy,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -1437,6 +1453,28 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ),
         ),
       ],
+    );
+  }
+
+  // NEW: Timestamp display (for regular videos without price)
+  Widget _buildTimestampDisplay() {
+    final timestampStyle = TextStyle(
+      color: Colors.white.withOpacity(0.7),
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+
+    return Text(
+      _getRelativeTime(),
+      style: timestampStyle,
     );
   }
 
@@ -1582,6 +1620,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
             onTap: _handleFollowToggle,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(5),
+              ),
               child: const Text(
                 'Follow',
                 style: TextStyle(

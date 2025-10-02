@@ -40,7 +40,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     Icons.home_rounded,                    // Home
-    Icons.radio_button_checked_rounded,   // Users
+    CupertinoIcons.qrcode_viewfinder,   // Users
     Icons.add,                           // Post 
     CupertinoIcons.dot_radiowaves_left_right,               // Trending
     Icons.person_2_outlined            // Profile
