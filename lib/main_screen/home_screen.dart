@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (OPTIMIZED VERSION)
+// lib/main_screen/home_screen.dart (3-TAB VERSION)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,9 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/users/screens/live_users_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
-import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -32,18 +30,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
-    'Sellers',  // Index 1 - Users List
-    '',          // Index 2 - Post (no label, special design)
-    'Live',     // Index 3 - Featured Screen
-    'Profile'    // Index 4 - Profile
+    '',          // Index 1 - Post (no label, special design)
+    'Profile'    // Index 2 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                    // Home
-    CupertinoIcons.qrcode_viewfinder,   // Users
-    Icons.add,                           // Post 
-    CupertinoIcons.dot_radiowaves_left_right,               // Trending
-    Icons.person_2_outlined            // Profile
+    Icons.home_rounded,     // Home
+    Icons.add,              // Post 
+    Icons.person_2_outlined // Profile
   ];
 
   final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
@@ -142,14 +136,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _onTabTapped(int index) {
     if (!mounted || index == _currentIndex) return;
     
-    if (index == 2) {
+    if (index == 1) {
       _navigateToCreatePost();
       return;
     }
 
     debugPrint('HomeScreen: Navigating from $_currentIndex to $index');
     
-    if (index == 4) {
+    if (index == 2) {
       final isAuthenticated = ref.read(isAuthenticatedProvider);
       final currentUser = ref.read(currentUserProvider);
       final isLoading = ref.read(isAuthLoadingProvider);
@@ -263,7 +257,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
-    final isProfileTab = _currentIndex == 4;
+    final isProfileTab = _currentIndex == 2;
     
     // ✅ Check if app is still initializing
     final isAppInitializing = ref.watch(isAppInitializingProvider);
@@ -331,14 +325,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // Sellers tab (index 1) - Users List
-          _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const UsersListScreen(),
-            ),
-          ),
-          // Post tab (index 2) - Never shown (navigates directly)
+          // Post tab (index 1) - Never shown (navigates directly)
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
@@ -347,14 +334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // Live tab (index 3)
-          _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const LiveUsersScreen(),
-            ),
-          ),
-          // Profile tab (index 4)
+          // Profile tab (index 2)
           _buildProfileTab(modernTheme),
         ],
       ),
@@ -455,8 +435,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(5, (index) {
-                  if (index == 2) {
+                children: List.generate(3, (index) {
+                  if (index == 1) {
                     return _buildPostButton(modernTheme, isHomeTab);
                   }
                   
