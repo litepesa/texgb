@@ -218,8 +218,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
   // NEW: WhatsApp functionality for Buy button
   Future<void> _openWhatsAppForBuy() async {
     // Check if user is authenticated before allowing purchase
-    final canInteract = await _requireAuthentication('buy this product');
-    if (!canInteract) return;
+    //final canInteract = await _requireAuthentication('buy this product');
+    //if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
 
@@ -798,7 +798,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ),
 
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
-          if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
+          //if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -1222,7 +1222,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
             const SizedBox(width: 6),
             if (widget.showVerificationBadge && videoUser != null) ...[
-              if (videoUser.isVerified)
+              if (widget.video.isVerified)
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   padding:
@@ -1360,7 +1360,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Price icon
-              const Icon(
+              /*const Icon(
                 Icons.local_offer,
                 color: Colors.white,
                 size: 16,
@@ -1370,8 +1370,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
                     blurRadius: 2,
                   ),
                 ],
-              ),
-              const SizedBox(width: 6),
+              ),*/
+              //const SizedBox(width: 6),
               // Real price text using video.formattedPrice
               Text(
                 widget.video.formattedPrice,
@@ -1424,7 +1424,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Shopping cart icon
-                const Icon(
+                /*const Icon(
                   Icons.shopping_cart,
                   color: Colors.white,
                   size: 16,
@@ -1434,11 +1434,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       blurRadius: 2,
                     ),
                   ],
-                ),
-                const SizedBox(width: 6),
+                ),*/
+                //const SizedBox(width: 6),
                 // BUY text
                 const Text(
-                  'BUY',
+                  'BOOK',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -1590,7 +1590,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   // UPDATED: Follow button with conditional positioning for feed vs single video screen
-  Widget _buildTopLeftFollowButton() {
+  /*Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
 
@@ -1642,7 +1642,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         ),
       ),
     );
-  }
+  }*/
 
   String _formatCount(int count) {
     if (count < 1000) {

@@ -602,8 +602,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Future<void> _openWhatsAppWithVideo(VideoModel? video) async {
     if (video == null) return;
 
-    final canInteract = await _requireAuthentication('message on whatsapp');
-    if (!canInteract) return;
+    //final canInteract = await _requireAuthentication('message on whatsapp');
+    //if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
 
@@ -1270,10 +1270,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 20),
 
           // Like button
-          _buildRightMenuItem(
+          /*_buildRightMenuItem(
             child: Icon(
               currentVideo?.isLiked == true
                   ? CupertinoIcons.heart_fill
@@ -1436,7 +1436,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               ),
             ),
             onTap: () => _navigateToUserProfile(),
-          ),
+          ),*/
         ],
       ),
     );

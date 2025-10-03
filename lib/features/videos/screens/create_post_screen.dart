@@ -660,7 +660,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
         body: const InlineLoginRequiredWidget(
           title: 'Sign In to Create',
-          subtitle: 'You need to sign in before you can upload videos. Join WeiBao to share your content with the world!',
+          subtitle: 'You need to sign in before you can upload video listings. Join WeiBao Platfrom to share your property with the world!',
         ),
       );
     }
@@ -834,7 +834,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               TextFormField(
                 controller: _captionController,
                 decoration: InputDecoration(
-                  labelText: 'Caption *',
+                  labelText: 'Caption/Description/Location *',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
@@ -865,7 +865,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               TextFormField(
                 controller: _priceController,
                 decoration: InputDecoration(
-                  labelText: 'Price (KES) *',
+                  labelText: 'Charges/Night (KES) *',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
@@ -878,7 +878,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   filled: true,
                   fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                  hintText: 'e.g. 100, 500, 1000',
+                  hintText: 'e.g. 1000, 5000, 10000',
                   hintStyle: TextStyle(color: modernTheme.textSecondaryColor?.withOpacity(0.5)),
                   prefixIcon: Icon(
                     Icons.attach_money,
@@ -917,7 +917,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               TextFormField(
                 controller: _tagsController,
                 decoration: InputDecoration(
-                  labelText: 'Tags (Comma separated, Optional)',
+                  labelText: 'Location Tags (Comma separated, Optional)',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
