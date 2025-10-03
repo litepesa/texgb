@@ -1624,11 +1624,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
             onTap: _handleFollowToggle,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
+              /*decoration: BoxDecoration(
                 color: Colors.transparent,
                 border: Border.all(color: Colors.white, width: 1),
                 borderRadius: BorderRadius.circular(5),
-              ),
+              ),*/
               child: const Text(
                 'Follow',
                 style: TextStyle(
