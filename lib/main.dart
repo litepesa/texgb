@@ -46,9 +46,9 @@ void main() async {
   // NEW: Initialize video caching service
   // This MUST be called before runApp() for caching to work
   await VideoCacheService().initialize(
-    maxMemoryCacheMB: 400,        // 100MB memory cache
+    maxMemoryCacheMB: 600,        // 100MB memory cache
     maxStorageCacheMB: 2048,      // 1GB storage cache
-    segmentSizeMB: 10,             // 2MB per segment
+    segmentSizeMB: 50,             // 2MB per segment
     maxConcurrentDownloads: 2,    // 8 concurrent downloads
     enableLogging: true,          // Enable for debugging (set false in production)
   );

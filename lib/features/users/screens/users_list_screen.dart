@@ -233,6 +233,72 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       body: SafeArea(
         child: Column(
           children: [
+
+            Container(
+  margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+  decoration: BoxDecoration(
+    color: theme.surfaceColor,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(
+      color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+      width: 1,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+        blurRadius: 20,
+        offset: const Offset(0, 4),
+        spreadRadius: -4,
+      ),
+      BoxShadow(
+        color: Colors.black.withOpacity(0.04),
+        blurRadius: 10,
+        offset: const Offset(0, 2),
+        spreadRadius: -2,
+      ),
+    ],
+  ),
+  child: Material(
+    color: Colors.transparent,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        showSearch(
+          context: context,
+          delegate: UserSearchDelegate(ref: ref),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.search_rounded,
+              color: theme.primaryColor ?? const Color(0xFFFE2C55),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Search',
+              style: TextStyle(
+                color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.7),
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+),
             // Enhanced Custom App Bar
             /*Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -1396,7 +1462,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Find creators and friends on WeiBao',
+              'Find sellers and businesses on WeiBao',
               style: TextStyle(
                 fontSize: 14,
                 color: theme.textSecondaryColor ?? Colors.grey[600],
