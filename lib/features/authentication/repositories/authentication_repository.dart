@@ -293,59 +293,76 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   @override
-  Future<UserModel> createUserProfile({
-    required UserModel user,
-    required File? profileImage,
-    required File? coverImage,
-  }) async {
-    try {
-      debugPrint('🗃️ Creating user profile: ${user.name}');
-      UserModel updatedUser = user;
+Future<UserModel> createUserProfile({
+  required UserModel user,
+  required File? profileImage,
+  required File? coverImage,
+}) async {
+  try {
+    debugPrint('🗃️ Creating user profile: ${user.name}');
+    UserModel updatedUser = user;
 
-      // Upload profile image to R2 (NOT Firebase)
-      if (profileImage != null) {
-        debugPrint('📸 Uploading profile image to R2...');
-        String profileImageUrl = await storeFileToStorage(
-          file: profileImage,
-          reference: 'profile/${user.uid}',
-        );
-        updatedUser = updatedUser.copyWith(profileImage: profileImageUrl);
-        debugPrint('✅ Profile image uploaded to R2: $profileImageUrl');
-      }
-
-      // Upload cover image to R2 (NOT Firebase)
-      if (coverImage != null) {
-        debugPrint('🖼️ Uploading cover image to R2...');
-        String coverImageUrl = await storeFileToStorage(
-          file: coverImage,
-          reference: 'cover/${user.uid}',
-        );
-        updatedUser = updatedUser.copyWith(coverImage: coverImageUrl);
-        debugPrint('✅ Cover image uploaded to R2: $coverImageUrl');
-      }
-
-      // Set creation and update timestamps
-      final timestamp = _createTimestamp();
-      final finalUser = updatedUser.copyWith(
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        lastSeen: timestamp,
+    // Upload profile image to R2 (NOT Firebase)
+    if (profileImage != null) {
+      debugPrint('📸 Uploading profile image to R2...');
+      String profileImageUrl = await storeFileToStorage(
+        file: profileImage,
+        reference: 'profile/${user.uid}',
       );
-
-      debugPrint('📤 Updating user profile in backend...');
-      final response = await _httpClient.post('/auth/sync', body: finalUser.toMap());
-      
-      if (response.statusCode == 200) {
-        debugPrint('✅ User profile created successfully');
-        return finalUser;
-      } else {
-        throw AuthRepositoryException('Failed to create user profile: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('❌ Error creating user profile: $e');
-      throw AuthRepositoryException('Failed to create user profile: $e');
+      updatedUser = updatedUser.copyWith(profileImage: profileImageUrl);
+      debugPrint('✅ Profile image uploaded to R2: $profileImageUrl');
     }
+
+    // Upload cover image to R2 (NOT Firebase)
+    if (coverImage != null) {
+      debugPrint('🖼️ Uploading cover image to R2...');
+      String coverImageUrl = await storeFileToStorage(
+        file: coverImage,
+        reference: 'cover/${user.uid}',
+      );
+      updatedUser = updatedUser.copyWith(coverImage: coverImageUrl);
+      debugPrint('✅ Cover image uploaded to R2: $coverImageUrl');
+    }
+
+    // Set creation and update timestamps
+    final timestamp = _createTimestamp();
+    final finalUser = updatedUser.copyWith(
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      lastSeen: timestamp,
+    );
+
+    debugPrint('📤 Creating user profile in backend...');
+    debugPrint('📋 User data being sent:');
+    debugPrint('   - Name: ${finalUser.name}');
+    debugPrint('   - UID: ${finalUser.uid}');
+    debugPrint('   - Profile Image: ${finalUser.profileImage}');
+    debugPrint('   - Cover Image: ${finalUser.coverImage}');
+    
+    final response = await _httpClient.post('/auth/sync', body: finalUser.toMap());
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // Parse and return the user from backend response
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      final userData = responseData['user'] ?? responseData;
+      final createdUser = UserModel.fromMap(userData);
+      
+      debugPrint('✅ User profile created successfully');
+      debugPrint('✅ Backend returned user:');
+      debugPrint('   - Name: ${createdUser.name}');
+      debugPrint('   - Profile Image: ${createdUser.profileImage}');
+      debugPrint('   - Cover Image: ${createdUser.coverImage}');
+      
+      return createdUser;
+    } else {
+      debugPrint('❌ Failed to create user profile: ${response.statusCode} - ${response.body}');
+      throw AuthRepositoryException('Failed to create user profile: ${response.body}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error creating user profile: $e');
+    throw AuthRepositoryException('Failed to create user profile: $e');
   }
+}
 
   @override
   Future<UserModel> updateUserProfile({
