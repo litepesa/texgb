@@ -128,7 +128,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '✨ Your listing is now verified!',
+                      '✨ Your account is now verified!',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -149,18 +149,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         }
       }
 
-      // 🎉 Show success message if role changed to host
+      // 🎉 Show success message if role changed to seller
       if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.host) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Row(
                 children: [
-                  Icon(Icons.home_rounded, color: Colors.white, size: 20),
+                  Icon(Icons.store_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '🎊 You are now a host! Start posting listings',
+                      '🎊 You are now a seller! Start posting products',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -181,7 +181,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         }
       }
 
-      // 🎉 Show success message if role changed from host to guest
+      // 🎉 Show success message if role changed from seller to guest
       if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.guest) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -498,9 +498,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           children: [
             _buildProfileHeader(modernTheme),
             
-            // Add host info card for guest users
+            // Add seller upgrade card for guest users
             if (_user!.role == UserRole.guest)
-              _buildHostInfoCard(modernTheme),
+              _buildSellerUpgradeCard(modernTheme),
             
             _buildProfileInfoCard(modernTheme),
             _buildQuickActionsSection(modernTheme),
@@ -512,7 +512,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  Widget _buildHostInfoCard(ModernThemeExtension modernTheme) {
+  Widget _buildSellerUpgradeCard(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       decoration: BoxDecoration(
@@ -555,7 +555,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
-                        Icons.home_rounded,
+                        Icons.store_rounded,
                         color: Colors.white,
                         size: 32,
                       ),
@@ -566,7 +566,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Become a Host',
+                            'Become a Seller',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 22,
@@ -576,7 +576,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'List your Airbnb property',
+                            'Start your business journey',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
@@ -595,24 +595,24 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 const SizedBox(height: 20),
                 
                 // Key highlights
-                _buildHostHighlight(
-                  icon: Icons.verified_rounded,
-                  text: 'Physical verification of your property',
-                ),
-                const SizedBox(height: 10),
-                _buildHostHighlight(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  text: 'Direct bookings via WhatsApp',
-                ),
-                const SizedBox(height: 10),
-                _buildHostHighlight(
+                _buildSellerHighlight(
                   icon: Icons.money_off_rounded,
-                  text: '0% Commission - Keep all earnings',
+                  text: '0% Commission - Keep all your earnings',
                 ),
                 const SizedBox(height: 10),
-                _buildHostHighlight(
+                _buildSellerHighlight(
+                  icon: Icons.trending_up_rounded,
+                  text: 'Unlimited products & earning potential',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  text: 'Direct WhatsApp orders from buyers',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
                   icon: Icons.visibility_rounded,
-                  text: 'Reach thousands of potential guests',
+                  text: 'Reach thousands of active buyers',
                 ),
                 
                 const SizedBox(height: 20),
@@ -636,13 +636,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.info_outline_rounded,
+                        Icons.rocket_launch_rounded,
                         color: Color(0xFF2E7D32),
                         size: 22,
                       ),
                       SizedBox(width: 10),
                       Text(
-                        'More Information',
+                        'Upgrade Now - KES 1,035',
                         style: TextStyle(
                           color: Color(0xFF2E7D32),
                           fontSize: 17,
@@ -658,7 +658,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 // Additional info
                 const Center(
                   child: Text(
-                    'KES 8,000 per listing per year',
+                    'One-time payment • Instant activation',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -673,7 +673,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  Widget _buildHostHighlight({
+  Widget _buildSellerHighlight({
     required IconData icon,
     required String text,
   }) {
@@ -895,9 +895,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Show verification button only for hosts (host role)
+                    // Show verification button only for sellers (host role)
                     if (_user!.role == UserRole.host)
-                      /*GestureDetector(
+                      GestureDetector(
                         onTap: () => VerificationInfoWidget.show(context),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -956,58 +956,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                             ],
                           ),
                         ),
-                      ),*/
-                    
-                    // Show "Host" badge for hosts (unclickable)
-                    if (_user!.role == UserRole.host)
-                      const SizedBox(width: 16),
-                    
-                    if (_user!.role == UserRole.host)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF2E7D32),
-                              Color(0xFF388E3C),
-                              Color(0xFF4CAF50),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF4CAF50).withOpacity(0.4),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.home_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Host',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     
-                    // Show "Become a Host" button for guests
+                    // Show "Start Selling" button for guests
                     if (_user!.role == UserRole.guest)
                       GestureDetector(
                         onTap: () => SellerUpgradeWidget.show(context),
@@ -1037,13 +988,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.home_rounded,
+                                Icons.store_rounded,
                                 color: Colors.white,
                                 size: 20,
                               ),
                               SizedBox(width: 8),
                               Text(
-                                'Become a Host',
+                                'Start Selling',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -1095,8 +1046,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
-      //padding: const EdgeInsets.all(20),
-      /*decoration: BoxDecoration(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
         color: Color(0xFFFE2C55).withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -1106,8 +1057,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             offset: const Offset(0, 5),
           ),
         ],
-      ),*/
-      /*child: Column(
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1173,7 +1124,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ),
           ],
         ],
-      ),*/
+      ),
     );
   }
 
@@ -1223,7 +1174,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Booking Safety Tips',
+                  'Marketplace Safety Tips',
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 18,
@@ -1237,16 +1188,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _buildInfoItem(
             icon: Icons.verified_rounded,
             iconColor: const Color(0xFF1565C0),
-            title: 'Book from Verified Hosts',
-            description: 'Listings with verified badges have been physically verified at their location',
+            title: 'Buy from Verified Shops',
+            description: 'Shops with verified badges have been physically verified at their location',
             modernTheme: modernTheme,
           ),
           const SizedBox(height: 12),
           _buildInfoItem(
             icon: Icons.chat_bubble_outline_rounded,
             iconColor: const Color(0xFF2E7D32),
-            title: 'WhatsApp Bookings',
-            description: 'All bookings are processed directly with hosts via WhatsApp',
+            title: 'WhatsApp Orders',
+            description: 'All orders are processed directly with sellers via WhatsApp',
             modernTheme: modernTheme,
           ),
           const SizedBox(height: 12),
@@ -1254,7 +1205,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             icon: Icons.security_rounded,
             iconColor: const Color(0xFFFF6F00),
             title: 'Use Escrow Service',
-            description: 'For hosts you don\'t trust, use our built-in escrow service for safe transactions',
+            description: 'For sellers you don\'t trust, use our built-in escrow service for safe transactions',
             modernTheme: modernTheme,
           ),
           const SizedBox(height: 12),
@@ -1262,7 +1213,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             icon: Icons.place_rounded,
             iconColor: const Color(0xFFD32F2F),
             title: 'Verified Locations',
-            description: 'Verified listings have confirmed physical addresses and ownership',
+            description: 'Verified shops have confirmed physical addresses and ownership',
             modernTheme: modernTheme,
           ),
         ],
@@ -1374,7 +1325,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: modernTheme.primaryColor!.withOpacity(0.4),
+                          color: modernTheme.primaryColor!.withOpacity(0.2),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),

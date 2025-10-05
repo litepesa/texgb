@@ -235,7 +235,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome to Our Marketplace!',
+                      'Welcome to WeiBao Marketplace!',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -244,7 +244,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Join as a host to share your space or as a guest to discover amazing places to stay',
+                      'Set up your profile to start buying from verified sellers or showcase your products to thousands of buyers',
                       style: TextStyle(
                         color: Color(0xFFF3F4F6),
                         fontSize: 16,

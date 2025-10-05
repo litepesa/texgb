@@ -1204,7 +1204,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           const SizedBox(height: 10),
 
           // Download button (replaced star/bookmark)
-          _buildRightMenuItem(
+          /*_buildRightMenuItem(
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -1253,7 +1253,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             onTap: () => _showVirtualGifts(currentVideo),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Profile avatar with red border - SIMPLIFIED: Use video metadata directly
           _buildRightMenuItem(

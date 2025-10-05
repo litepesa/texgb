@@ -1,10 +1,9 @@
-// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with Conditional Price/Timestamp Display
+// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with WhatsApp Buy Button
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -218,8 +217,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
   // NEW: WhatsApp functionality for Buy button
   Future<void> _openWhatsAppForBuy() async {
     // Check if user is authenticated before allowing purchase
-    //final canInteract = await _requireAuthentication('buy this product');
-    //if (!canInteract) return;
+    final canInteract = await _requireAuthentication('buy this product');
+    if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
 
@@ -608,11 +607,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Future<void> _createControllerFromNetwork() async {
-    // NEW: Get cached URI instead of original URL
-    final cachedUri = VideoCacheService().getLocalUri(widget.video.videoUrl);
-    
     _videoPlayerController = VideoPlayerController.networkUrl(
-      cachedUri, // Changed from Uri.parse(widget.video.videoUrl)
+      Uri.parse(widget.video.videoUrl),
       videoPlayerOptions: VideoPlayerOptions(
         allowBackgroundPlayback: false,
         mixWithOthers: false,
@@ -798,7 +794,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ),
 
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
-          //if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
+          if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -1184,12 +1180,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         children: [
           _buildUserNameWithVerification(),
           const SizedBox(height: 6),
-          if (widget.video.caption.isNotEmpty) ...[
-            _buildSmartCaption(),
-            const SizedBox(height: 8),
-          ],
-          // UPDATED: Conditional display - Price/Buy OR Timestamp
-          _buildConditionalBottomInfo(),
+          _buildSmartCaption(),
+          const SizedBox(height: 8),
+          _buildPriceAndBuyButton(),
         ],
       ),
     );
@@ -1222,7 +1215,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
             const SizedBox(width: 6),
             if (widget.showVerificationBadge && videoUser != null) ...[
-              if (widget.video.isVerified)
+              if (videoUser.isVerified)
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   padding:
@@ -1251,7 +1244,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       const Icon(
                         Icons.verified_rounded,
                         size: 12,
-                        color: Colors.white,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1315,30 +1307,80 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // NEW: Conditional widget - shows Price/Buy if price > 0, otherwise shows Timestamp
-  Widget _buildConditionalBottomInfo() {
-    // If video has a price (product/service), show price and buy button
-    if (widget.video.price > 0) {
-      return _buildPriceAndBuyButton();
-    }
-    // Otherwise, show timestamp (regular social media post)
-    else {
-      return _buildTimestampDisplay();
-    }
-  }
-
   Widget _buildPriceAndBuyButton() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Price container using real price from video model
-        Container(
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // Price container - using gold/amber colors typical for price displays
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFFA726), // Warm orange/amber
+              Color(0xFFFF8A65), // Lighter coral-orange
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.local_offer,
+              color: Colors.white,
+              size: 16,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            Text(
+              widget.video.formattedPrice,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      
+      const SizedBox(width: 8),
+      
+      // WhatsApp button
+      GestureDetector(
+        onTap: _openWhatsAppForBuy,
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
-                Color(0xFF4CAF50), // Green start
-                Color(0xFF2E7D32), // Darker green end
+                Color(0xFF25D366), // WhatsApp green
+                Color(0xFF1DA851), // Darker WhatsApp green
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -1352,16 +1394,15 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ),
             ],
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withOpacity(0.3),
               width: 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Price icon
-              /*const Icon(
-                Icons.local_offer,
+              const Icon(
+                CupertinoIcons.chat_bubble_fill,
                 color: Colors.white,
                 size: 16,
                 shadows: [
@@ -1370,15 +1411,15 @@ class _VideoItemState extends ConsumerState<VideoItem>
                     blurRadius: 2,
                   ),
                 ],
-              ),*/
-              //const SizedBox(width: 6),
-              // Real price text using video.formattedPrice
-              Text(
-                widget.video.formattedPrice,
-                style: const TextStyle(
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'WhatsApp',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
                   shadows: [
                     Shadow(
                       color: Colors.black,
@@ -1390,97 +1431,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ],
           ),
         ),
-        
-        const SizedBox(width: 8), // Space between price and buy button
-        
-        // BUY button - OPENS WHATSAPP
-        GestureDetector(
-          onTap: _openWhatsAppForBuy,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFF6B6B), // Coral red start
-                  Color(0xFFE55353), // Darker red end
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Shopping cart icon
-                /*const Icon(
-                  Icons.shopping_cart,
-                  color: Colors.white,
-                  size: 16,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),*/
-                //const SizedBox(width: 6),
-                // BUY text
-                const Text(
-                  'BOOK',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // NEW: Timestamp display (for regular videos without price)
-  Widget _buildTimestampDisplay() {
-    final timestampStyle = TextStyle(
-      color: Colors.white.withOpacity(0.7),
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      height: 1.3,
-      shadows: [
-        Shadow(
-          color: Colors.black.withOpacity(0.7),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
-
-    return Text(
-      _getRelativeTime(),
-      style: timestampStyle,
-    );
-  }
+      ),
+    ],
+  );
+}
 
   String _getRelativeTime() {
     final now = DateTime.now();
@@ -1590,7 +1544,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   // UPDATED: Follow button with conditional positioning for feed vs single video screen
-  /*Widget _buildTopLeftFollowButton() {
+  Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
 
@@ -1624,11 +1578,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
             onTap: _handleFollowToggle,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              /*decoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border.all(color: Colors.white, width: 1),
-                borderRadius: BorderRadius.circular(5),
-              ),*/
               child: const Text(
                 'Follow',
                 style: TextStyle(
@@ -1642,7 +1591,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         ),
       ),
     );
-  }*/
+  }
 
   String _formatCount(int count) {
     if (count < 1000) {

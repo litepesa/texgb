@@ -2,13 +2,9 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SellerUpgradeWidget extends StatelessWidget {
   const SellerUpgradeWidget({super.key});
-
-  // Hardcoded Pomasoft Ltd WhatsApp number
-  static const String _pomasoftWhatsApp = '+254111554527';
 
   @override
   Widget build(BuildContext context) {
@@ -64,14 +60,14 @@ class SellerUpgradeWidget extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.home_rounded,
+                            Icons.store_rounded,
                             color: Colors.white,
                             size: 40,
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Become a Host',
+                          'Become a Seller',
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -80,7 +76,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'List your Airbnb property and reach thousands of guests',
+                          'Start selling and reach thousands of buyers',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[600],
@@ -97,137 +93,35 @@ class SellerUpgradeWidget extends StatelessWidget {
                     child: Column(
                       children: [
                         _buildHighlightCard(
-                          icon: Icons.verified_rounded,
-                          title: 'Physical Verification',
-                          description: 'Agent visits your property to verify it exists as advertised',
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildHighlightCard(
                           icon: Icons.money_off_rounded,
                           title: '0% Commission',
-                          description: 'Keep 100% of your booking fees - we don\'t take any commission!',
+                          description: 'Keep 100% of your sales - we don\'t take any commission!',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
                           ),
                         ),
                         const SizedBox(height: 12),
                         _buildHighlightCard(
-                          icon: CupertinoIcons.bubble_left,
-                          title: 'Direct WhatsApp Bookings',
-                          description: 'Guests book directly with you via WhatsApp',
+                          icon: Icons.trending_up_rounded,
+                          title: 'Unlimited Earning Potential',
+                          description: 'No limits on how much you can sell or earn',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFE65100), Color(0xFFFF6F00)],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildHighlightCard(
+                          icon: CupertinoIcons.bubble_left,
+                          title: 'Direct WhatsApp Orders',
+                          description: 'Process orders directly with customers via WhatsApp',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
                           ),
                         ),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                  
-                  // Pricing information
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF1B5E20),
-                            Color(0xFF2E7D32),
-                            Color(0xFF4CAF50),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4CAF50).withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.payments_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Listing Fee',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'KES 8,000',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Per listing per year',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  color: Colors.white.withOpacity(0.9),
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Multiple listings require separate annual fees',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
                   
                   // Additional benefits
                   Padding(
@@ -245,43 +139,36 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _buildBenefitItem(
-                          icon: Icons.home_work_rounded,
-                          title: 'Professional Property Listing',
-                          description: 'Showcase your Airbnb with immersive video tours',
+                          icon: Icons.add_circle_outline,
+                          title: 'Create Unlimited Product Posts',
+                          description: 'Showcase all your products with short immersive videos',
                           color: Colors.blue,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
-                          icon: Icons.verified_user_rounded,
-                          title: 'Physical Verification Badge',
-                          description: 'Agent verifies your property location and ownership',
-                          color: Colors.indigo,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildBenefitItem(
                           icon: Icons.visibility_rounded,
-                          title: 'Maximum Visibility',
-                          description: 'Your listing appears in search results and recommendations',
+                          title: 'Maximum Marketplace Visibility',
+                          description: 'Your products appear in search results and recommendations',
                           color: Colors.purple,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.people_rounded,
-                          title: 'Direct Guest Communication',
-                          description: 'Handle bookings and payments directly via WhatsApp',
+                          title: 'Build Your Customer Base',
+                          description: 'Grow followers and repeat customers on the platform',
                           color: Colors.teal,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
-                          icon: Icons.trending_up_rounded,
-                          title: 'Build Your Brand',
-                          description: 'Grow your reputation and attract repeat guests',
-                          color: Colors.green,
+                          icon: Icons.dashboard_rounded,
+                          title: 'Seller Dashboard',
+                          description: 'Manage all your posts and track performance',
+                          color: Colors.indigo,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.support_agent_rounded,
-                          title: 'Host Support',
+                          title: 'Seller Support',
                           description: 'Get assistance during business hours (8 AM - 5 PM)',
                           color: Colors.orange,
                         ),
@@ -289,69 +176,6 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
-                  // Payment details
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.payment,
-                                color: Colors.blue[700],
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'M-Pesa Payment Details',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.blue[900],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _buildPaymentDetailRow(
-                            'Business Name:',
-                            'Pomasoft Limited',
-                          ),
-                          const SizedBox(height: 8),
-                          _buildPaymentDetailRow(
-                            'Paybill Number:',
-                            '4146499',
-                            isCopyable: true,
-                            context: context,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildPaymentDetailRow(
-                            'Account Number:',
-                            'Your phone number (registration number)',
-                          ),
-                          const SizedBox(height: 8),
-                          _buildPaymentDetailRow(
-                            'Amount:',
-                            'KES 8,000 per listing',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 20),
                   
                   // Important notes
                   Padding(
@@ -389,80 +213,14 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '• Activation within 30 minutes during business hours (8 AM - 5 PM)\n'
-                                  '• Physical verification by agent after payment\n'
-                                  '• Each listing requires a separate annual fee of KES 8,000\n'
-                                  '• All bookings and payments handled directly by you\n'
-                                  '• Annual renewal required to keep listings active',
+                                  '• Activation happens within 30 minutes during business hours (8 AM - 5 PM)\n'
+                                  '• All transactions are between you and your customers\n'
+                                  '• Platform provides visibility, you handle fulfillment\n'
+                                  '• Consider getting verified to build more trust',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.amber[900],
                                     height: 1.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Contact support
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.green.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.support_agent,
-                            color: Colors.green[700],
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Need Help?',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Colors.green[900],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                GestureDetector(
-                                  onTap: () => _copyToClipboard(context, _pomasoftWhatsApp),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        'WhatsApp: $_pomasoftWhatsApp',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.green[700],
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Icon(
-                                        Icons.copy,
-                                        size: 16,
-                                        color: Colors.green[700],
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],
@@ -480,13 +238,13 @@ class SellerUpgradeWidget extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     child: Column(
                       children: [
-                        // Primary apply button
+                        // Primary upgrade button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
                               Navigator.pop(context);
-                              _applyToBeHost(context);
+                              _showUpgradeProcess(context);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2E7D32),
@@ -500,10 +258,10 @@ class SellerUpgradeWidget extends StatelessWidget {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.send_rounded, size: 22),
+                                Icon(Icons.store, size: 22),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Apply to Be a Host',
+                                  'Upgrade to Seller',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -649,197 +407,292 @@ class SellerUpgradeWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentDetailRow(
-    String label,
-    String value, {
-    bool isCopyable = false,
-    BuildContext? context,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 140,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: isCopyable && context != null
-              ? GestureDetector(
-                  onTap: () => _copyToClipboard(context, value),
-                  child: Row(
-                    children: [
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.blue[800],
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.copy,
-                        size: 16,
-                        color: Colors.blue[700],
-                      ),
-                    ],
-                  ),
-                )
-              : Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[900],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  // Copy to clipboard helper
-  static void _copyToClipboard(BuildContext context, String text) {
-    // In production, use Clipboard.setData(ClipboardData(text: text))
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$text copied to clipboard!'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  // Open WhatsApp to apply as host
-  static Future<void> _applyToBeHost(BuildContext context) async {
-    try {
-      // Prepare WhatsApp message
-      const message = 'I want to be a Host';
-      final encodedMessage = Uri.encodeComponent(message);
-      
-      // Create WhatsApp URL
-      final whatsappUrl = 'https://wa.me/$_pomasoftWhatsApp?text=$encodedMessage';
-      final uri = Uri.parse(whatsappUrl);
-
-      debugPrint('Opening WhatsApp to apply as host: $whatsappUrl');
-
-      // Try to launch WhatsApp
-      try {
-        final success = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-
-        if (success) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Opening WhatsApp to contact Pomasoft Ltd...'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        } else {
-          if (context.mounted) {
-            _showWhatsAppNotInstalledMessage(context);
-          }
-        }
-      } catch (e) {
-        debugPrint('Failed to launch WhatsApp: $e');
-        if (context.mounted) {
-          _showWhatsAppNotInstalledMessage(context);
-        }
-      }
-    } catch (e) {
-      debugPrint('Error opening WhatsApp: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to open WhatsApp'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
-  // Show WhatsApp not installed message
-  static void _showWhatsAppNotInstalledMessage(BuildContext context) {
-    showModalBottomSheet(
+  static void _showUpgradeProcess(BuildContext context) {
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.message,
-                color: Colors.green,
-                size: 32,
-              ),
+            Icon(
+              Icons.store_rounded,
+              color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'WhatsApp Not Available',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please install WhatsApp to send messages or check your internet connection.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Contact us at: $_pomasoftWhatsApp',
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.white60,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
+            const SizedBox(width: 8),
+            const Text('Seller Account Upgrade'),
           ],
         ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'One-Time Upgrade Fee:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1B5E20),
+                      Color(0xFF2E7D32),
+                      Color(0xFF4CAF50),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4CAF50).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.payment,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'KES 1,035',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'One-time payment for lifetime seller access',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Mpesa Payment Details (Pomasoft Limited):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Text(
+                          'Paybill: ',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Paybill number copied to clipboard!'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '4146499',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(
+                                  Icons.copy,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Account Number: Your phone number used for registration',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      color: Colors.blue[700],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Activation within 30 minutes during business hours (8 AM - 5 PM)',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.purple[700],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'After payment, your account will be upgraded and you can start posting products immediately',
+                        style: TextStyle(
+                          color: Colors.purple[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.support_agent,
+                      color: Colors.orange[700],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Need help? Contact Pomasoft LTD on WhatsApp:',
+                            style: TextStyle(
+                              color: Colors.orange[700],
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('WhatsApp number copied to clipboard!'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '+254111554527',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange[700],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.copy,
+                                    size: 14,
+                                    color: Colors.orange[700],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Got it',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  /// Show the host info widget as a modal bottom sheet
+  /// Show the seller upgrade widget as a modal bottom sheet
   static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
