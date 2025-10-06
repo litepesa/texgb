@@ -642,7 +642,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                       ),
                       SizedBox(width: 10),
                       Text(
-                        'Upgrade Now - KES 1,035',
+                        'Upgrade Now - KES 599',
                         style: TextStyle(
                           color: Color(0xFF2E7D32),
                           fontSize: 17,

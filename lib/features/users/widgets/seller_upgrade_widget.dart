@@ -470,7 +470,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'KES 1,035',
+                          'KES 599',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
