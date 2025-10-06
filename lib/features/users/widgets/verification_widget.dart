@@ -13,7 +13,7 @@ class VerificationInfoWidget extends StatelessWidget {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
     return Container(
-      height: screenHeight * 0.85, // Limit height to 85% of screen
+      height: screenHeight * 0.85,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(
@@ -47,30 +47,46 @@ class VerificationInfoWidget extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF1565C0),
+                                Color(0xFF1976D2),
+                                Color(0xFF42A5F5),
+                              ],
+                            ),
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF1976D2).withOpacity(0.4),
+                                blurRadius: 15,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                           ),
-                          child: Icon(
-                            Icons.verified,
-                            color: primaryColor,
+                          child: const Icon(
+                            Icons.verified_rounded,
+                            color: Colors.white,
                             size: 40,
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Get Verified as a Seller',
+                          'Get Verified',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 28,
                             fontWeight: FontWeight.bold,
                             color: Colors.grey[800],
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Build trust with buyers through physical verification',
+                          'Stand out from unverified sellers & earn buyer trust',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1565C0),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -78,49 +94,357 @@ class VerificationInfoWidget extends StatelessWidget {
                     ),
                   ),
                   
-                  // Benefits list
+                  // Trust & Credibility Banner
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFD32F2F),
+                            Color(0xFFE53935),
+                            Color(0xFFEF5350),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFE53935).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.psychology_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                              SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  'Why Buyers Choose Verified Shops',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTrustStat(
+                            '87%',
+                            'of buyers only buy from verified sellers',
+                            Icons.shopping_bag_rounded,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildTrustStat(
+                            '3.5X',
+                            'more orders compared to unverified shops',
+                            Icons.trending_up_rounded,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildTrustStat(
+                            'TOP',
+                            'Priority placement in search results',
+                            Icons.star_rounded,
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              '⚠️ Unverified sellers are losing thousands in sales to verified competitors every day!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // What you're missing section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.warning_rounded,
+                                color: Colors.orange[800],
+                                size: 28,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Without Verification:',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange[900],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildMissingItem(
+                            '❌ Buyers skip your products for verified sellers',
+                          ),
+                          _buildMissingItem(
+                            '❌ Lower search ranking = less visibility',
+                          ),
+                          _buildMissingItem(
+                            '❌ Missing out on high-value customers who only trust verified shops',
+                          ),
+                          _buildMissingItem(
+                            '❌ No trust badge = lower conversion rates',
+                          ),
+                          _buildMissingItem(
+                            '❌ Losing competitive advantage in your niche',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Benefits with enhanced messaging
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildBenefitItem(
-                          icon: Icons.store_rounded,
-                          title: 'Physical Shop Verification',
-                          description: 'Your shop location and ownership will be physically verified by our team',
-                          color: Colors.blue,
+                        Text(
+                          'What You Get:',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        _buildBenefitItem(
+                        _buildBenefitCard(
                           icon: Icons.verified_user_rounded,
-                          title: 'Enhanced Buyer Trust',
-                          description: 'Display verified badge to show buyers your shop is legitimate and trustworthy',
-                          color: Colors.green,
+                          title: 'Blue Verified Badge',
+                          description: 'Stand out with an official verified checkmark that screams legitimacy and trust',
+                          color: Colors.blue,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildBenefitItem(
+                        const SizedBox(height: 12),
+                        _buildBenefitCard(
                           icon: Icons.trending_up_rounded,
-                          title: 'Better Marketplace Visibility',
-                          description: 'Your products get priority placement in search results and recommendations',
-                          color: Colors.orange,
+                          title: 'Priority Search Placement',
+                          description: 'Appear first in search results - verified sellers get premium visibility',
+                          color: Colors.green,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildBenefitItem(
+                        const SizedBox(height: 12),
+                        _buildBenefitCard(
                           icon: Icons.shopping_cart_rounded,
-                          title: 'Increased Sales Potential',
-                          description: 'Verified sellers see higher conversion rates as buyers prefer trusted shops',
+                          title: 'Higher Conversion Rates',
+                          description: 'Buyers are 3.5X more likely to purchase from verified sellers',
                           color: Colors.purple,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildBenefitItem(
+                        const SizedBox(height: 12),
+                        _buildBenefitCard(
+                          icon: Icons.storefront_rounded,
+                          title: 'Physical Location Verified',
+                          description: 'Prove your shop is real with on-site verification by our team',
+                          color: Colors.orange,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFE65100), Color(0xFFFB8C00)],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildBenefitCard(
                           icon: Icons.support_agent_rounded,
-                          title: 'Priority Support',
-                          description: 'Get faster response times and dedicated support for your marketplace needs',
+                          title: 'Priority Support Access',
+                          description: 'Get faster response times and dedicated seller assistance',
                           color: Colors.teal,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00695C), Color(0xFF26A69A)],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildBenefitCard(
+                          icon: Icons.security_rounded,
+                          title: 'Buyer Confidence Boost',
+                          description: 'Customers feel safe buying from you knowing you\'re legitimate',
+                          color: Colors.indigo,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
+                          ),
                         ),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
+                  
+                  // Competitive advantage section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF4A148C),
+                            Color(0xFF6A1B9A),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.emoji_events_rounded,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Verified Sellers Win',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'In a marketplace where buyers have hundreds of options, verification is your competitive edge. Verified sellers dominate sales because buyers simply trust them more.',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              '💡 Your verified competitors are capturing the customers you\'re losing!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Important info
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.blue.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: Colors.blue[800],
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'How It Works',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: Colors.blue[900],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '1. Pay annual verification fee\n'
+                                  '2. Our team schedules a visit to your shop\n'
+                                  '3. Physical verification completed (3-7 days)\n'
+                                  '4. Get your verified badge instantly',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue[900],
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
                   
                   // Action buttons
                   Padding(
@@ -136,28 +460,36 @@ class VerificationInfoWidget extends StatelessWidget {
                               _showVerificationProcess(context);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
+                              backgroundColor: const Color(0xFF1565C0),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              elevation: 4,
+                              elevation: 6,
                             ),
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.verified, size: 20),
-                                SizedBox(width: 8),
+                                Icon(Icons.verified_rounded, size: 22),
+                                SizedBox(width: 10),
                                 Text(
-                                  'Start Verification Process',
+                                  'Get Verified - KES 8,000/Year',
                                   style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Annual renewal • Instant credibility boost',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -165,7 +497,7 @@ class VerificationInfoWidget extends StatelessWidget {
                         TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text(
-                            'Maybe Later',
+                            'Not Right Now',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 16,
@@ -185,33 +517,96 @@ class VerificationInfoWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBenefitItem({
+  Widget _buildTrustStat(String number, String label, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: 22,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$number ',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                TextSpan(
+                  text: label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMissingItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.orange[900],
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitCard({
     required IconData icon,
     required String title,
     required String description,
     required Color color,
+    required Gradient gradient,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        gradient: gradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               icon,
-              color: color,
+              color: Colors.white,
               size: 24,
             ),
           ),
@@ -222,18 +617,19 @@ class VerificationInfoWidget extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   description,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: Colors.white,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -254,11 +650,13 @@ class VerificationInfoWidget extends StatelessWidget {
         title: Row(
           children: [
             Icon(
-              Icons.info_outline,
+              Icons.verified_rounded,
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 8),
-            const Text('Seller Verification'),
+            const Expanded(
+              child: Text('Seller Verification'),
+            ),
           ],
         ),
         content: SingleChildScrollView(
@@ -277,46 +675,69 @@ class VerificationInfoWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.green.withOpacity(0.3),
-                    width: 1,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1565C0),
+                      Color(0xFF1976D2),
+                      Color(0xFF42A5F5),
+                    ],
                   ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1976D2).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Icon(
                           Icons.payment,
-                          color: Colors.green[700],
+                          color: Colors.white,
                           size: 24,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text(
                           'KES 8,000 / Year',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green[700],
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Annual renewal to maintain verified status',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     const Text(
                       'Mpesa Payment Details (Pomasoft Limited):',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Text('Paybill: '),
+                        const Text(
+                          'Paybill: ',
+                          style: TextStyle(color: Colors.white),
+                        ),
                         GestureDetector(
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -329,24 +750,24 @@ class VerificationInfoWidget extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.2),
+                              color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   '4146499',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green[700],
+                                    color: Colors.white,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
+                                SizedBox(width: 4),
                                 Icon(
                                   Icons.copy,
                                   size: 14,
-                                  color: Colors.green[700],
+                                  color: Colors.white,
                                 ),
                               ],
                             ),
@@ -355,7 +776,10 @@ class VerificationInfoWidget extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('Account Number: Your phone number used for registration'),
+                    const Text(
+                      'Account Number: Your phone number used for registration',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
                   ],
                 ),
               ),

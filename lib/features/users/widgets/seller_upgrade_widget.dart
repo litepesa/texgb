@@ -76,10 +76,11 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Start selling and reach thousands of buyers',
+                          'Reach 22+ million WhatsApp users in Kenya',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF2E7D32),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -87,41 +88,197 @@ class SellerUpgradeWidget extends StatelessWidget {
                     ),
                   ),
                   
+                  // Market opportunity banner
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF6A1B9A),
+                            Color(0xFF8E24AA),
+                            Color(0xFFAB47BC),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8E24AA).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.trending_up_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Untapped Market',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildMarketStat(
+                            '22M+',
+                            'WhatsApp users in Kenya',
+                            Icons.people_rounded,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildMarketStat(
+                            '100%',
+                            'Direct access through WhatsApp',
+                            CupertinoIcons.bubble_left,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildMarketStat(
+                            '0%',
+                            'Platform commission - Keep it all!',
+                            Icons.money_off_rounded,
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              '💡 Your competitors are already missing out on millions of potential customers. Don\'t make the same mistake!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
                   // Key benefits highlight cards
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
                         _buildHighlightCard(
+                          icon: Icons.groups_rounded,
+                          title: 'Massive Audience Reach',
+                          description: 'Tap into Kenya\'s 22+ million WhatsApp users - your potential customers are already on the platform they use daily',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFD32F2F), Color(0xFFE53935)],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildHighlightCard(
                           icon: Icons.money_off_rounded,
-                          title: '0% Commission',
-                          description: 'Keep 100% of your sales - we don\'t take any commission!',
+                          title: '0% Commission Forever',
+                          description: 'Keep 100% of your sales - no hidden fees, no commission cuts, ever!',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
                           ),
                         ),
                         const SizedBox(height: 12),
                         _buildHighlightCard(
-                          icon: Icons.trending_up_rounded,
-                          title: 'Unlimited Earning Potential',
-                          description: 'No limits on how much you can sell or earn',
+                          icon: CupertinoIcons.bubble_left,
+                          title: 'WhatsApp-First Platform',
+                          description: 'Every buyer can reach you instantly on WhatsApp - the app they already use and trust',
                           gradient: const LinearGradient(
-                            colors: [Color(0xFFE65100), Color(0xFFFF6F00)],
+                            colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
                           ),
                         ),
                         const SizedBox(height: 12),
                         _buildHighlightCard(
-                          icon: CupertinoIcons.bubble_left,
-                          title: 'Direct WhatsApp Orders',
-                          description: 'Process orders directly with customers via WhatsApp',
+                          icon: Icons.trending_up_rounded,
+                          title: 'Unlimited Growth Potential',
+                          description: 'No limits on products, sales, or earnings - scale your business without restrictions',
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+                            colors: [Color(0xFFE65100), Color(0xFFFF6F00)],
                           ),
                         ),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
+                  
+                  // What you're missing section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.red.withOpacity(0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.warning_rounded,
+                                color: Colors.red[700],
+                                size: 28,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'What You\'re Missing Right Now:',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red[900],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildMissingItem(
+                            '🚫 Losing sales to competitors who are already on the platform',
+                          ),
+                          _buildMissingItem(
+                            '🚫 Missing out on millions of active buyers searching daily',
+                          ),
+                          _buildMissingItem(
+                            '🚫 Paying commissions on other platforms when you could keep 100%',
+                          ),
+                          _buildMissingItem(
+                            '🚫 Limited reach when you could access 22M+ WhatsApp users',
+                          ),
+                          _buildMissingItem(
+                            '🚫 Complicated checkout processes instead of simple WhatsApp orders',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
                   
                   // Additional benefits
                   Padding(
@@ -130,7 +287,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'What You Get:',
+                          'Complete Seller Benefits:',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -140,42 +297,92 @@ class SellerUpgradeWidget extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildBenefitItem(
                           icon: Icons.add_circle_outline,
-                          title: 'Create Unlimited Product Posts',
-                          description: 'Showcase all your products with short immersive videos',
+                          title: 'Unlimited Product Posts',
+                          description: 'Showcase all your products with engaging short videos',
                           color: Colors.blue,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
-                          icon: Icons.visibility_rounded,
-                          title: 'Maximum Marketplace Visibility',
-                          description: 'Your products appear in search results and recommendations',
+                          icon: Icons.search_rounded,
+                          title: 'Prime Marketplace Visibility',
+                          description: 'Your products appear in search results and recommendations to millions',
                           color: Colors.purple,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
-                          icon: Icons.people_rounded,
-                          title: 'Build Your Customer Base',
-                          description: 'Grow followers and repeat customers on the platform',
+                          icon: Icons.phone_android_rounded,
+                          title: 'Mobile-First Experience',
+                          description: 'Optimized for Kenya\'s mobile-first market - where your customers are',
                           color: Colors.teal,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.dashboard_rounded,
-                          title: 'Seller Dashboard',
-                          description: 'Manage all your posts and track performance',
+                          title: 'Powerful Seller Dashboard',
+                          description: 'Manage inventory, track views, and monitor performance',
                           color: Colors.indigo,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.support_agent_rounded,
-                          title: 'Seller Support',
-                          description: 'Get assistance during business hours (8 AM - 5 PM)',
+                          title: 'Dedicated Seller Support',
+                          description: 'Get help during business hours (8 AM - 5 PM)',
                           color: Colors.orange,
                         ),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
+                  
+                  // Success stories section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF00695C),
+                            Color(0xFF00897B),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.emoji_events_rounded,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Join Successful Sellers',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Smart sellers are already reaching thousands of customers daily through WhatsApp orders. Your competition is growing - don\'t get left behind!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
                   
                   // Important notes
                   Padding(
@@ -213,10 +420,10 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '• Activation happens within 30 minutes during business hours (8 AM - 5 PM)\n'
-                                  '• All transactions are between you and your customers\n'
-                                  '• Platform provides visibility, you handle fulfillment\n'
-                                  '• Consider getting verified to build more trust',
+                                  '• Instant activation within 30 minutes (8 AM - 5 PM)\n'
+                                  '• One-time payment for seller access\n'
+                                  '• Start posting products immediately after upgrade\n'
+                                  '• Get verified later to build even more trust',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.amber[900],
@@ -258,10 +465,10 @@ class SellerUpgradeWidget extends StatelessWidget {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.store, size: 22),
+                                Icon(Icons.rocket_launch_rounded, size: 22),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Upgrade to Seller',
+                                  'Start Selling - KES 599',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -271,12 +478,20 @@ class SellerUpgradeWidget extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'One-time payment',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         // Secondary button
                         TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text(
-                            'Not Now',
+                            'Maybe Later',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 16,
@@ -288,6 +503,64 @@ class SellerUpgradeWidget extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarketStat(String number, String label, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: 22,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$number ',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                TextSpan(
+                  text: label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMissingItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.red[900],
+                fontWeight: FontWeight.w500,
+                height: 1.4,
               ),
             ),
           ),
@@ -316,6 +589,7 @@ class SellerUpgradeWidget extends StatelessWidget {
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -342,12 +616,13 @@ class SellerUpgradeWidget extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   description,
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.white,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -421,7 +696,9 @@ class SellerUpgradeWidget extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 8),
-            const Text('Seller Account Upgrade'),
+            const Expanded(
+              child: Text('Seller Account Upgrade'),
+            ),
           ],
         ),
         content: SingleChildScrollView(
@@ -481,7 +758,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'One-time payment for lifetime seller access',
+                      'One-time payment for seller access',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,

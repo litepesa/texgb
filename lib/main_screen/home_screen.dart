@@ -32,9 +32,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Home',          // Index 0 - Videos Feed (hidden app bar, black background)
-    'sellers',      // Index 1 - Users List
+    'Sellers',      // Index 1 - Users List
     '',            // Index 2 - Post (no label, special design)
-    'Hot',        // Index 3 - Featured Screen
+    'AirBnB',     // Index 3 - Featured Screen
     'Profile'    // Index 4 - Profile
   ];
   
@@ -42,7 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.home_rounded,                    // Home
     CupertinoIcons.qrcode_viewfinder,     // Users
     Icons.add,                           // Post 
-    CupertinoIcons.flame,               // Trending
+    CupertinoIcons.placemark,           // Trending
     Icons.person_2_outlined            // Profile
   ];
 

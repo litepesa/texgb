@@ -533,10 +533,14 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: theme.surfaceVariantColor!.withOpacity(0.7),
+                              color: video.price > 0 
+                                  ? theme.primaryColor!.withOpacity(0.15)
+                                  : theme.surfaceVariantColor!.withOpacity(0.7),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: theme.dividerColor!.withOpacity(0.2),
+                                color: video.price > 0
+                                    ? theme.primaryColor!.withOpacity(0.3)
+                                    : theme.dividerColor!.withOpacity(0.2),
                                 width: 1,
                               ),
                             ),
@@ -544,17 +548,25 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.people_outline_rounded,
+                                  video.price > 0 
+                                      ? Icons.attach_money_rounded
+                                      : Icons.money_off_rounded,
                                   size: 14,
-                                  color: theme.textSecondaryColor,
+                                  color: video.price > 0 
+                                      ? theme.primaryColor
+                                      : theme.textSecondaryColor,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '${_formatCount(_getUserFollowers(video.userId))} followers',
+                                  video.price > 0 
+                                      ? video.formattedPrice
+                                      : 'Free',
                                   style: TextStyle(
-                                    color: theme.textSecondaryColor,
+                                    color: video.price > 0 
+                                        ? theme.primaryColor
+                                        : theme.textSecondaryColor,
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
