@@ -1,4 +1,4 @@
-// lib/main.dart (Updated with Video Caching)
+// lib/main.dart (Updated with GlobalKey Navigator for reliable navigation)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +30,9 @@ import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 // NEW: Import video cache service
 import 'package:textgb/features/videos/services/video_cache_service.dart';
+
+// ✅ NEW: Global navigator key for reliable navigation without context issues
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -149,6 +152,7 @@ class AppRoot extends ConsumerWidget {
       ),
       data: (themeData) => MaterialApp(
         debugShowCheckedModeBanner: false,
+        navigatorKey: navigatorKey, // ✅ NEW: Add global navigator key
         title: 'WeiBao',
         theme: themeData.activeTheme,
         // Start directly with HomeScreen - no authentication required

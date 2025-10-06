@@ -1,9 +1,6 @@
 // lib/features/users/screens/my_profile_screen.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/features/users/widgets/verification_widget.dart';
@@ -29,18 +26,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   UserModel? _user;
   List<VideoModel> _userVideos = [];
   String? _error;
-  final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
   bool _isInitialized = false;
-
-  // Cache manager for video thumbnails
-  static final _thumbnailCacheManager = CacheManager(
-    Config(
-      'userVideoThumbnails',
-      stalePeriod: const Duration(days: 7),
-      maxNrOfCacheObjects: 100,
-    ),
-  );
 
   @override
   void initState() {
@@ -73,10 +60,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       _userVideos = userVideos;
       _isInitialized = true;
     });
-
-    if (_userVideos.isNotEmpty) {
-      _generateVideoThumbnail();
-    }
   }
 
   Future<void> _refreshUserData() async {
@@ -103,7 +86,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
       final authNotifier = ref.read(authenticationProvider.notifier);
       
-      // 🎯 SIMPLE: Just force refresh from backend (bypasses all caches)
       debugPrint('🔄 Refreshing profile from backend...');
       final freshUserProfile = await authNotifier.forceRefreshUserProfile();
 
@@ -228,8 +210,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _userVideos = userVideos;
           _isRefreshing = false;
         });
-
-        _generateVideoThumbnail();
       }
       
       debugPrint('✅ Profile refreshed successfully:');
@@ -267,50 +247,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ),
           ),
         );
-      }
-    }
-  }
-
-  Future<void> _generateVideoThumbnail() async {
-    if (_userVideos.isEmpty) return;
-    
-    final video = _userVideos.first;
-    if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
-      try {
-        final cacheKey = 'thumb_${video.id}';
-        final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
-
-        if (fileInfo != null && fileInfo.file.existsSync()) {
-          if (mounted) {
-            setState(() {
-              _videoThumbnails[video.id] = fileInfo.file.path;
-            });
-          }
-        } else {
-          final thumbnailPath = await VideoThumbnail.thumbnailFile(
-            video: video.videoUrl,
-            thumbnailPath: (await getTemporaryDirectory()).path,
-            imageFormat: ImageFormat.JPEG,
-            maxHeight: 400,
-            quality: 85,
-          );
-
-          if (thumbnailPath != null && mounted) {
-            final thumbnailFile = File(thumbnailPath);
-            if (thumbnailFile.existsSync()) {
-              await _thumbnailCacheManager.putFile(
-                cacheKey,
-                thumbnailFile.readAsBytesSync(),
-              );
-            }
-
-            setState(() {
-              _videoThumbnails[video.id] = thumbnailPath;
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint('Error generating thumbnail for video ${video.id}: $e');
       }
     }
   }
@@ -356,8 +292,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
       await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
-
-    await _thumbnailCacheManager.emptyCache();
 
     final authNotifier = ref.read(authenticationProvider.notifier);
     await authNotifier.loadUserDataFromSharedPreferences();
@@ -1403,24 +1337,5 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         ],
       ),
     );
-  }
-
-  // Helper method for time ago formatting
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 30) {
-      final months = (difference.inDays / 30).floor();
-      return '$months month${months == 1 ? '' : 's'} ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-    } else {
-      return 'Just now';
-    }
   }
 }
