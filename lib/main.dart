@@ -1,4 +1,4 @@
-// lib/main.dart (Updated with GlobalKey Navigator for reliable navigation)
+// lib/main.dart (Updated with Video Caching)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +8,10 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
 import 'package:textgb/features/users/screens/live_users_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
@@ -30,9 +34,6 @@ import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 // NEW: Import video cache service
 import 'package:textgb/features/videos/services/video_cache_service.dart';
-
-// ✅ NEW: Global navigator key for reliable navigation without context issues
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -152,7 +153,6 @@ class AppRoot extends ConsumerWidget {
       ),
       data: (themeData) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        navigatorKey: navigatorKey, // ✅ NEW: Add global navigator key
         title: 'WeiBao',
         theme: themeData.activeTheme,
         // Start directly with HomeScreen - no authentication required
@@ -167,6 +167,14 @@ class AppRoot extends ConsumerWidget {
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
           Constants.discoverScreen: (context) => const DiscoverScreen(),
+
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+          Constants.contactProfileScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return ContactProfileScreen(contact: args);
+          },
 
           
           // User/Profile routes with enhanced navigation support

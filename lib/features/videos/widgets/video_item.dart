@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with WhatsApp Buy Button
+// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION with Conditional Price/Timestamp Display
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -114,7 +114,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void _cleanupCurrentController() {
     _retryTimer?.cancel();
     _retryTimer = null;
-
+    
     if (_videoPlayerController != null && widget.preloadedController == null) {
       try {
         if (_videoPlayerController!.value.isInitialized) {
@@ -123,14 +123,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
       } catch (e) {
         // Silent error handling for production
       }
-
+      
       try {
         _videoPlayerController!.dispose();
       } catch (e) {
         // Silent error handling for production
       }
     }
-
+    
     _videoPlayerController = null;
     _isInitialized = false;
     _isPlaying = false;
@@ -247,22 +247,19 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
       // Generate shareable link for this video (your landing page)
       final videoLink = 'https://share.weibao.africa/v/${widget.video.id}';
-
+      
       // Prepare message content with landing page link
       // When clicked in WhatsApp, this will show rich preview and open your app
-      String message =
-          '$videoLink\n\nHi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice})';
+      String message = '$videoLink\n\nHi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice})';
       // Encode the message for URL
       final encodedMessage = Uri.encodeComponent(message);
-
+      
       // Create WhatsApp URL with the user's actual WhatsApp number
-      final whatsappUrl =
-          'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
+      final whatsappUrl = 'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
       final uri = Uri.parse(whatsappUrl);
 
       debugPrint('Opening WhatsApp with URL: $whatsappUrl');
-      debugPrint(
-          'Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
+      debugPrint('Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
       debugPrint('Product link: $videoLink');
 
       // Try to launch WhatsApp directly without checking canLaunchUrl
@@ -593,7 +590,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_isInitialized || _isPlaying) {
       return;
     }
-
+    
     _retryTimer?.cancel();
     _retryTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && !_isInitialized && !_isPlaying) {
@@ -613,7 +610,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   Future<void> _createControllerFromNetwork() async {
     // NEW: Get cached URI instead of original URL
     final cachedUri = VideoCacheService().getLocalUri(widget.video.videoUrl);
-
+    
     _videoPlayerController = VideoPlayerController.networkUrl(
       cachedUri, // Changed from Uri.parse(widget.video.videoUrl)
       videoPlayerOptions: VideoPlayerOptions(
@@ -623,13 +620,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
 
     await _videoPlayerController!.initialize().timeout(
-          const Duration(seconds: 15),
-        );
+      const Duration(seconds: 15),
+    );
   }
 
   Future<void> _setupVideoController() async {
     if (_videoPlayerController == null) return;
-
+    
     _videoPlayerController!.setLooping(true);
 
     // Cancel any pending retry timers since initialization succeeded
@@ -757,7 +754,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
-
+    
     super.dispose();
   }
 
@@ -779,15 +776,19 @@ class _VideoItemState extends ConsumerState<VideoItem>
               fit: StackFit.expand,
               children: [
                 _buildMediaContent(),
+
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
+
                 if (!widget.video.isMultipleImages &&
                     _isInitialized &&
                     !_isPlaying &&
                     !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
+
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
+
                 if (widget.video.isMultipleImages &&
                     widget.video.imageUrls.length > 1 &&
                     !_isCommentsSheetOpen)
@@ -795,6 +796,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ],
             ),
           ),
+
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
           if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
@@ -944,8 +946,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
         width: double.infinity,
         height: double.infinity,
         color: Colors.black,
-        child: (widget.isLoading || _isInitializing)
-            ? _buildLoadingIndicator()
+        child: (widget.isLoading || _isInitializing) 
+            ? _buildLoadingIndicator() 
             : Container(color: Colors.black),
       );
     }
@@ -1164,16 +1166,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(widget.video.userId);
     final currentUser = ref.watch(currentUserProvider);
-    final isOwner =
-        currentUser != null && currentUser.uid == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
 
     // Feed screen: Position relative to video play area (no system padding consideration)
     // Single video: Position relative to entire phone screen (includes system padding)
-    final bottomPadding = widget.isFeedScreen
-        ? 10.0 // Feed: Simple offset from video play area bottom
-        : MediaQuery.of(context)
-            .padding
-            .bottom; // Single: Use system bottom padding
+    final bottomPadding = widget.isFeedScreen 
+        ? 10.0  // Feed: Simple offset from video play area bottom
+        : MediaQuery.of(context).padding.bottom; // Single: Use system bottom padding
 
     return Positioned(
       bottom: bottomPadding,
@@ -1185,9 +1184,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
         children: [
           _buildUserNameWithVerification(),
           const SizedBox(height: 6),
-          _buildSmartCaption(),
-          const SizedBox(height: 8),
-          _buildPriceAndBuyButton(),
+          if (widget.video.caption.isNotEmpty) ...[
+            _buildSmartCaption(),
+            const SizedBox(height: 8),
+          ],
+          // UPDATED: Conditional display - Price/Buy OR Timestamp
+          _buildConditionalBottomInfo(),
         ],
       ),
     );
@@ -1249,6 +1251,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       const Icon(
                         Icons.verified_rounded,
                         size: 12,
+                        color: Colors.white,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1312,18 +1315,30 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
+  // NEW: Conditional widget - shows Price/Buy if price > 0, otherwise shows Timestamp
+  Widget _buildConditionalBottomInfo() {
+    // If video has a price (product/service), show price and buy button
+    if (widget.video.price > 0) {
+      return _buildPriceAndBuyButton();
+    }
+    // Otherwise, show timestamp (regular social media post)
+    else {
+      return _buildTimestampDisplay();
+    }
+  }
+
   Widget _buildPriceAndBuyButton() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Price container - using gold/amber colors typical for price displays
+        // Price container using real price from video model
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
-                Color(0xFFFFA726), // Warm orange/amber
-                Color(0xFFFF8A65), // Lighter coral-orange
+                Color(0xFF4CAF50), // Green start
+                Color(0xFF2E7D32), // Darker green end
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -1344,18 +1359,20 @@ class _VideoItemState extends ConsumerState<VideoItem>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              /*const Icon(
-              Icons.local_offer,
-              color: Colors.white,
-              size: 16,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-            const SizedBox(width: 6),*/
+              // Price icon
+              const Icon(
+                Icons.local_offer,
+                color: Colors.white,
+                size: 16,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              // Real price text using video.formattedPrice
               Text(
                 widget.video.formattedPrice,
                 style: const TextStyle(
@@ -1373,10 +1390,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ],
           ),
         ),
-
-        const SizedBox(width: 8),
-
-        // WhatsApp button
+        
+        const SizedBox(width: 8), // Space between price and buy button
+        
+        // BUY button - OPENS WHATSAPP
         GestureDetector(
           onTap: _openWhatsAppForBuy,
           child: Container(
@@ -1384,8 +1401,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFF25D366), // WhatsApp green
-                  Color(0xFF1DA851), // Darker WhatsApp green
+                  Color(0xFFFF6B6B), // Coral red start
+                  Color(0xFFE55353), // Darker red end
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -1406,20 +1423,22 @@ class _VideoItemState extends ConsumerState<VideoItem>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                /*const Icon(
-                CupertinoIcons.chat_bubble_fill,
-                color: Colors.white,
-                size: 16,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                  ),
-                ],
-              ),
-              const SizedBox(width: 6),*/
+                // Shopping cart icon
+                const Icon(
+                  Icons.shopping_cart,
+                  color: Colors.white,
+                  size: 16,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 6),
+                // BUY text
                 const Text(
-                  'WhatsApp',
+                  'BUY',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -1438,6 +1457,28 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ),
         ),
       ],
+    );
+  }
+
+  // NEW: Timestamp display (for regular videos without price)
+  Widget _buildTimestampDisplay() {
+    final timestampStyle = TextStyle(
+      color: Colors.white.withOpacity(0.7),
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+
+    return Text(
+      _getRelativeTime(),
+      style: timestampStyle,
     );
   }
 
@@ -1503,18 +1544,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   String _formatDate(DateTime dateTime) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[dateTime.month - 1]} ${dateTime.day}';
   }
@@ -1525,9 +1556,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
     // Feed screen: Position relative to video play area
     // Single video: Position relative to entire phone screen
     final topPosition = widget.isFeedScreen
-        ? 120.0 // Feed: Simple offset from video play area top
-        : MediaQuery.of(context).padding.top +
-            120; // Single: Include system top padding
+        ? 120.0  // Feed: Simple offset from video play area top
+        : MediaQuery.of(context).padding.top + 120; // Single: Include system top padding
 
     return Positioned(
       top: topPosition,
@@ -1568,8 +1598,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       return const SizedBox.shrink();
     }
 
-    final isOwner =
-        currentUser != null && currentUser.uid == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
     if (isOwner) return const SizedBox.shrink();
 
     final followedUsers = ref.watch(followedUsersProvider);
@@ -1578,9 +1607,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
     // Feed screen: Position relative to video play area (no system padding consideration)
     // Single video: Position relative to entire phone screen (includes system padding)
     final topPosition = widget.isFeedScreen
-        ? 30.0 // Feed: Simple offset from video play area top
-        : MediaQuery.of(context).padding.top +
-            16; // Single: Include system top padding
+        ? 30.0  // Feed: Simple offset from video play area top
+        : MediaQuery.of(context).padding.top + 16; // Single: Include system top padding
 
     return Positioned(
       top: topPosition,
@@ -1596,6 +1624,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
             onTap: _handleFollowToggle,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(5),
+              ),
               child: const Text(
                 'Follow',
                 style: TextStyle(

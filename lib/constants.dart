@@ -58,6 +58,14 @@ class Constants {
   static const String followingScreen = '/following';
   static const String followersScreen = '/followers';
 
+  // Contacts Routes
+  static const String contactsScreen = '/contactsScreen';
+  static const String addContactScreen = '/addContactScreen';
+  static const String blockedContactsScreen = '/blockedContactsScreen';
+  static const String contactProfileScreen = '/contactProfileScreen';
+
+  static const String chatId = 'chatId';
+
   static const String privacyPolicyScreen = '/privacyPolicyScreen';
   static const String privacySettingsScreen = '/privacySettingsScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';

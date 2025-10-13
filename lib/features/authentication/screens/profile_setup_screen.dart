@@ -1,5 +1,4 @@
-// lib/features/authentication/screens/profile_setup_screen.dart
-// PROFESSIONAL FIX: Zero context issues, 100% reliable
+// lib/features/authentication/screens/profile_setup_screen.dart (FIXED AUTO NAVIGATION)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +6,6 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/main.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -24,8 +22,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _aboutController = TextEditingController();
   
-  bool _isSubmitting = false;
-  AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
+  bool _isSubmitting = false; // ✅ FIXED: Add loading state to prevent multiple submissions
   
   @override
   void dispose() {
@@ -49,86 +46,112 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
   }
 
-  // ✅ REAL FIX: No SnackBars in async callbacks at all
+  // ✅ FIXED: Submit the form to create user profile with proper navigation handling
   void _submitForm() async {
+    // Prevent multiple submissions
     if (_isSubmitting) {
-      debugPrint('⚠️ Form already submitting');
+      debugPrint('⚠️ Form already submitting, ignoring duplicate submission');
       return;
     }
     
-    setState(() {
-      _autovalidateMode = AutovalidateMode.onUserInteraction;
-    });
-    
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    
-    if (_profileImage == null) {
-      // Show error before async operation
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a profile picture'),
-          backgroundColor: Color(0xFFE53E3E),
-        ),
-      );
-      return;
-    }
-    
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    final repository = ref.read(authenticationRepositoryProvider);
-    final currentUserId = repository.currentUserId;
-    final phoneNumber = repository.currentUserPhoneNumber;
-    
-    if (currentUserId == null || phoneNumber == null) {
-      // Show error before async operation
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Authentication error. Please try again.'),
-          backgroundColor: Color(0xFFE53E3E),
-        ),
-      );
-      return;
-    }
-    
-    setState(() {
-      _isSubmitting = true;
-    });
-    
-    final userModel = UserModel.create(
-      uid: currentUserId,
-      name: _nameController.text.trim(),
-      phoneNumber: phoneNumber,
-      profileImage: '',
-      bio: _aboutController.text.trim(),
-    );
-    
-    debugPrint('🏗️ Creating profile for: ${userModel.name}');
-    
-    authNotifier.createUserProfile(
-      user: userModel,
-      profileImage: _profileImage,
-      coverImage: null,
-      onSuccess: () {
-        debugPrint('✅ Profile created successfully');
-        
-        // ✅ REAL FIX: Only navigation, NO SnackBar in async callback
-        navigatorKey.currentState?.pushNamedAndRemoveUntil(
-          Constants.homeScreen,
-          (route) => false,
+    if (_formKey.currentState!.validate()) {
+      if (_profileImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a profile picture'),
+            backgroundColor: Color(0xFFE53E3E),
+          ),
         );
-      },
-      onFail: () {
-        debugPrint('❌ Profile creation failed');
-        
-        // ✅ REAL FIX: Only reset state, NO SnackBar in async callback
-        if (mounted) {
-          setState(() {
-            _isSubmitting = false;
+        return;
+      }
+      
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final repository = ref.read(authenticationRepositoryProvider);
+      final currentUserId = repository.currentUserId;
+      final phoneNumber = repository.currentUserPhoneNumber;
+      
+      if (currentUserId == null || phoneNumber == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Authentication error. Please try again.'),
+            backgroundColor: Color(0xFFE53E3E),
+          ),
+        );
+        return;
+      }
+      
+      // Set submitting state
+      setState(() {
+        _isSubmitting = true;
+      });
+      
+      // Create user model using the factory method for Go backend (PHONE-ONLY)
+      final userModel = UserModel.create(
+        uid: currentUserId,
+        name: _nameController.text.trim(),
+        phoneNumber: phoneNumber,
+        profileImage: '', // Will be set after upload
+        bio: _aboutController.text.trim(),
+      );
+      
+      debugPrint('🏗️ Creating profile for: ${userModel.name} (${userModel.phoneNumber})');
+      
+      // ✅ FIXED: Store context and navigator in variables before async operation
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      
+      // Create user profile using the new authentication provider
+      authNotifier.createUserProfile(
+        user: userModel,
+        profileImage: _profileImage,
+        coverImage: null,
+        onSuccess: () {
+          debugPrint('✅ Profile created successfully - Starting navigation');
+          
+          // ✅ FIXED: Use stored navigator instead of context
+          // This prevents the "Looking up deactivated widget's ancestor" error
+          
+          // Show success message using stored scaffoldMessenger
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Profile created successfully!'),
+              backgroundColor: Color(0xFF10B981),
+              duration: Duration(seconds: 1),
+            ),
+          );
+          
+          debugPrint('🚀 Navigating to home screen...');
+          
+          // ✅ FIXED: Navigate using stored navigator
+          // Use pushNamedAndRemoveUntil to ensure we can't go back to profile setup
+          navigator.pushNamedAndRemoveUntil(
+            Constants.homeScreen,
+            (route) => false, // Remove all previous routes
+          ).then((_) {
+            debugPrint('✅ Navigation to home screen completed');
+          }).catchError((error) {
+            debugPrint('❌ Navigation error: $error');
           });
-        }
-      },
-    );
+        },
+        onFail: () {
+          debugPrint('❌ Profile creation failed');
+          
+          // Reset submitting state on failure
+          if (mounted) {
+            setState(() {
+              _isSubmitting = false;
+            });
+            
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(
+                content: Text('Failed to create profile. Please try again.'),
+                backgroundColor: Color(0xFFE53E3E),
+              ),
+            );
+          }
+        },
+      );
+    }
   }
 
   @override
@@ -151,7 +174,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           Container(
             margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
             child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _submitForm,
+              onPressed: _isSubmitting ? null : _submitForm, // ✅ FIXED: Disable while submitting
               style: ElevatedButton.styleFrom(
                 backgroundColor: _isSubmitting 
                     ? const Color(0xFF6366F1).withOpacity(0.5) 
@@ -187,11 +210,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          autovalidateMode: _autovalidateMode,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header section
+              // Header section - E-commerce marketplace themed
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -248,7 +270,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 16),
                     GestureDetector(
-                      onTap: _isSubmitting ? null : _pickProfileImage,
+                      onTap: _isSubmitting ? null : _pickProfileImage, // ✅ FIXED: Disable while submitting
                       child: Container(
                         width: 120,
                         height: 120,
@@ -330,13 +352,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 32),
               
-              // Name field
+              // Form fields
               _buildFormField(
                 controller: _nameController,
                 label: 'Your Name',
                 hint: 'Enter your name',
                 isRequired: true,
-                enabled: !_isSubmitting,
+                enabled: !_isSubmitting, // ✅ FIXED: Disable while submitting
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your name';
@@ -353,14 +375,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 20),
               
-              // About field
               _buildFormField(
                 controller: _aboutController,
                 label: 'About You',
                 hint: 'Tell people about yourself',
                 maxLines: 3,
                 isRequired: true,
-                enabled: !_isSubmitting,
+                enabled: !_isSubmitting, // ✅ FIXED: Disable while submitting
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please tell us about yourself';
@@ -381,7 +402,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitForm,
+                  onPressed: _isSubmitting ? null : _submitForm, // ✅ FIXED: Disable while submitting
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isSubmitting 
                         ? const Color(0xFF6366F1).withOpacity(0.5) 
@@ -468,8 +489,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     required String hint,
     int maxLines = 1,
     bool isRequired = false,
-    bool enabled = true,
+    bool enabled = true, // ✅ FIXED: Add enabled parameter
     String? Function(String?)? validator,
+    String? helperText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,7 +508,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Color(0xFFEF4444)),
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                  ),
                 ),
             ],
           ),
@@ -496,7 +520,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           controller: controller,
           maxLines: maxLines,
           validator: validator,
-          enabled: enabled,
+          enabled: enabled, // ✅ FIXED: Use enabled parameter
           style: TextStyle(
             color: enabled ? const Color(0xFF1F2937) : const Color(0xFF9CA3AF),
             fontSize: 16,
@@ -536,6 +560,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
+            ),
+            helperText: helperText,
+            helperStyle: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 12,
             ),
           ),
         ),
