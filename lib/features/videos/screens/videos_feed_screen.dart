@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION WITH PRECACHING
+// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION WITH FULL SCREEN VIDEO
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -602,9 +602,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Future<void> _openWhatsAppWithVideo(VideoModel? video) async {
     if (video == null) return;
 
-    //final canInteract = await _requireAuthentication('message on whatsapp');
-    //if (!canInteract) return;
-
     final currentUser = ref.read(currentUserProvider);
 
     if (video.userId == currentUser!.uid) {
@@ -1099,11 +1096,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.build(context);
 
     final videos = ref.watch(videosProvider);
-    final isAppInitializing = ref.watch(isAppInitializingProvider); // ✅ Use new provider
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+    final isAppInitializing = ref.watch(isAppInitializingProvider);
 
-    // ✅ Show loading only while app is initializing (provider loading)
+    // Show loading only while app is initializing
     if (isAppInitializing || (_isFirstLoad && videos.isEmpty)) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -1137,41 +1132,31 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       extendBodyBehindAppBar: true,
       extendBody: true,
       backgroundColor: Colors.black,
-      body: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        child: Stack(
-          children: [
+      body: Stack(
+        children: [
+          // Full screen video - NO padding, NO ClipRRect
+          Positioned.fill(
+            child: _buildBody(videos),
+          ),
+
+          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+
+          if (!_isCommentsSheetOpen)
             Positioned(
-              top: systemTopPadding,
+              top: MediaQuery.of(context).padding.top + 16,
               left: 0,
               right: 0,
-              bottom: systemBottomPadding,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-                child: _buildBody(videos),
-              ),
+              child: _buildSimplifiedHeader(),
             ),
 
-            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-
-            if (!_isCommentsSheetOpen)
-              Positioned(
-                top: systemTopPadding + 16,
-                left: 0,
-                right: 0,
-                child: _buildSimplifiedHeader(),
-              ),
-
-            if (!_isCommentsSheetOpen)
-              _buildRightSideMenu(),
-          ],
-        ),
+          if (!_isCommentsSheetOpen)
+            _buildRightSideMenu(),
+        ],
       ),
     );
   }
 
   Widget _buildBody(List<VideoModel> videos) {
-    // ✅ SIMPLIFIED: Just show PageView - no empty state check needed
     return PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
@@ -1248,11 +1233,11 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      right: 0.5, // Much closer to edge
-      bottom: systemBottomPadding, // Position above system nav bar
+      right: 0.5,
+      bottom: systemBottomPadding,
       child: Column(
         children: [
-          // WhatsApp button - UPDATED: Now directly opens WhatsApp
+          // WhatsApp button
           GestureDetector(
             onTap: () => _openWhatsAppWithVideo(currentVideo),
             child: Column(
@@ -1305,7 +1290,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Show progress indicator if downloading
                 if (_downloadingVideos[currentVideo?.id] == true)
                   SizedBox(
                     width: 26,
@@ -1333,7 +1317,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Gift button - with exciting emoji
+          // Gift button
           _buildRightMenuItem(
             child: const Text(
               '🎁',
@@ -1352,7 +1336,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Profile avatar with red border
+          // Profile avatar
           _buildRightMenuItem(
             child: Container(
               width: 44,

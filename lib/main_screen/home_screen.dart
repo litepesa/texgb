@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (RESTRUCTURED VERSION)
+// lib/main_screen/home_screen.dart (UPDATED VERSION)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
@@ -46,8 +46,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.donut_large_rounded,                       // Status
     Icons.store_mall_directory_outlined,            // Shops
   ];
-
-  final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
 
   @override
   void initState() {
@@ -141,14 +139,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     HapticFeedback.lightImpact();
     
-    if (_currentIndex == 3) {
-      try {
-        _feedScreenKey.currentState?.onScreenBecameInactive();
-      } catch (e) {
-        debugPrint('Feed screen lifecycle error: $e');
-      }
-    }
-    
     setState(() {
       _currentIndex = index;
       _setSystemUIOverlayStyle();
@@ -164,44 +154,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         _isPageAnimating = false;
       }
     });
-    
-    if (_currentIndex == 3) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          try {
-            _feedScreenKey.currentState?.onScreenBecameActive();
-          } catch (e) {
-            debugPrint('Feed screen lifecycle error: $e');
-          }
-        }
-      });
-    }
   }
 
   void _setSystemUIOverlayStyle() {
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 3) {
-        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.light,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      } else {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      }
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
     } catch (e) {
       debugPrint('System UI update error: $e');
     }
@@ -232,7 +199,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isVideosTab = _currentIndex == 3;
     
     // ✅ Check if app is still initializing
     final isAppInitializing = ref.watch(isAppInitializingProvider);
@@ -283,10 +249,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isVideosTab,
-      backgroundColor: isVideosTab ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: false,
+      backgroundColor: modernTheme.backgroundColor,
       
-      appBar: isVideosTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      appBar: _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -305,27 +271,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const StatusTab(),
           ),
-          // Videos tab (index 3) - Videos Feed (original functionality)
+          // Users tab (index 3) - Users List Screen
           _KeepAliveWrapper(
-            child: Container(
-              color: Colors.black,
-              child: VideosFeedScreen(
-                key: _feedScreenKey,
-              ),
-            ),
+            child: const UsersListScreen(),
           ),
         ],
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
       
-      floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
+      floatingActionButton: _buildFab(modernTheme),
     );
-  }
-
-  // Show FAB on Chats, Groups, and Status tabs only (NOT on Videos tab)
-  bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2;
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -459,7 +415,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
-      // Chats tab - Single FAB that does nothing for now
+      // Chats tab - Navigate to contacts screen
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
@@ -468,28 +424,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(CupertinoIcons.bubble_left_bubble_right),
       );
     } else if (_currentIndex == 1) {
-      // Groups tab - Single FAB that does nothing for now
+      // Groups tab - Coming soon
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
-          // Does nothing for now
           debugPrint('Groups FAB pressed - Coming soon');
         },
         child: const Icon(Icons.group_add),
       );
     } else if (_currentIndex == 2) {
-      // Status tab - Single FAB that does nothing for now
+      // Status tab - Coming soon
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
-          // Does nothing for now
           debugPrint('Status FAB pressed - Coming soon');
         },
         child: const Icon(Icons.camera_alt),
+      );
+    } else if (_currentIndex == 3) {
+      // Users tab - Navigate to create post screen
+      return FloatingActionButton(
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, Constants.createPostScreen),
+        child: const Icon(Icons.add),
       );
     }
     
@@ -497,35 +460,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildBottomNav(ModernThemeExtension modernTheme) {
-    final isVideosTab = _currentIndex == 3;
-    
-    Color backgroundColor;
-    Color? borderColor;
-    
-    if (isVideosTab) {
-      backgroundColor = Colors.black;
-      borderColor = null;
-    } else {
-      backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
-      borderColor = modernTheme.dividerColor ?? Colors.grey[300];
-    }
-    
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: modernTheme.surfaceColor ?? Colors.grey[100]!,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!isVideosTab && borderColor != null)
-            Container(
-              height: 1,
-              width: double.infinity,
-              color: borderColor,
-            ),
-          if (isVideosTab)
-            _buildVideoProgressIndicator(),
-          
+          Container(
+            height: 1,
+            width: double.infinity,
+            color: modernTheme.dividerColor ?? Colors.grey[300],
+          ),
           Container(
             height: 60 + MediaQuery.of(context).padding.bottom,
             padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
@@ -535,7 +481,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 return _buildNavItem(
                   index,
                   modernTheme,
-                  isVideosTab,
                 );
               }),
             ),
@@ -545,58 +490,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildVideoProgressIndicator() {
-    return ValueListenableBuilder<double>(
-      valueListenable: _videoProgressNotifier,
-      builder: (context, progress, child) {
-        return Container(
-          height: 1,
-          width: double.infinity,
-          color: Colors.grey.withOpacity(0.3),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              height: 2,
-              width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.5),
-                    blurRadius: 4,
-                    offset: const Offset(0, 0),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildNavItem(
     int index,
     ModernThemeExtension modernTheme,
-    bool isVideosTab,
   ) {
     final isSelected = _currentIndex == index;
     
-    Color iconColor;
-    Color textColor;
-    
-    if (isVideosTab) {
-      iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-      textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-    } else {
-      iconColor = isSelected 
-          ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
-          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-      textColor = isSelected 
-          ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
-          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-    }
+    Color iconColor = isSelected 
+        ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
+        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+    Color textColor = isSelected 
+        ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
+        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -610,7 +515,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isSelected && !isVideosTab
+                color: isSelected
                   ? modernTheme.primaryColor!.withOpacity(0.2)
                   : Colors.transparent,
                 shape: BoxShape.circle,
