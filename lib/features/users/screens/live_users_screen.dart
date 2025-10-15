@@ -82,7 +82,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     final theme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: theme.surfaceColor,
       body: !_isInitialized 
         ? _buildLoadingView(theme)
         : _buildAntAIScreen(theme),
@@ -91,17 +91,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
 
   Widget _buildLoadingView(ModernThemeExtension theme) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.primaryColor!.withOpacity(0.1),
-            theme.backgroundColor!,
-            theme.primaryColor!.withOpacity(0.05),
-          ],
-        ),
-      ),
+      color: theme.surfaceColor,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -188,15 +178,16 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
           hasScrollBody: false,
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              gradient: RadialGradient(
+                center: Alignment.center,
+                radius: 0.8,
                 colors: [
-                  theme.primaryColor!.withOpacity(0.08),
-                  theme.backgroundColor!,
-                  theme.primaryColor!.withOpacity(0.05),
-                  theme.backgroundColor!,
+                  theme.primaryColor!.withOpacity(0.25),
+                  theme.primaryColor!.withOpacity(0.12),
+                  theme.surfaceColor!.withOpacity(0.95),
+                  theme.surfaceColor!,
                 ],
+                stops: const [0.0, 0.25, 0.6, 1.0],
               ),
             ),
             child: Stack(
@@ -497,12 +488,8 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: theme.primaryColor!.withOpacity(0.15),
+            color: theme.primaryColor!.withOpacity(0.2),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: theme.primaryColor!.withOpacity(0.5 + (0.3 * _pulseController.value)),
-              width: 2,
-            ),
             boxShadow: [
               BoxShadow(
                 color: theme.primaryColor!.withOpacity(0.3 * _pulseController.value),
@@ -531,7 +518,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
               ),
               const SizedBox(width: 10),
               Text(
-                'AGENTIC COMMERCE ENGINE',
+                'GENERATIVE SOCIAL ENGINE',
                 style: TextStyle(
                   color: theme.primaryColor,
                   fontSize: 12,
@@ -550,17 +537,29 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     return Column(
       children: [
         Text(
+          'Where AI Meets Viral Content Creation',
+          style: TextStyle(
+            color: theme.textColor!.withOpacity(0.9),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            height: 1.4,
+            letterSpacing: 0.2,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 10),
+        Text(
           'Available for verified selected users only',
           style: TextStyle(
             color: theme.textSecondaryColor,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             height: 1.5,
             letterSpacing: 0.3,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
@@ -571,13 +570,13 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                CupertinoIcons.lock_shield_fill,
+                CupertinoIcons.sparkles,
                 color: theme.textSecondaryColor,
                 size: 14,
               ),
               const SizedBox(width: 8),
               Text(
-                'Exclusive Access Required',
+                'Next-Gen Creator Tools',
                 style: TextStyle(
                   color: theme.textSecondaryColor,
                   fontSize: 12,
@@ -595,35 +594,43 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     return Column(
       children: [
         _buildFeatureItem(
-          icon: CupertinoIcons.search_circle_fill,
-          title: 'Visual Search & Discovery',
-          description: 'Find products instantly with AI-powered semantic search',
+          icon: CupertinoIcons.film_fill,
+          title: 'AI Video Generator',
+          description: 'Text-to-video magic. Describe it, AI creates it in HD',
           theme: theme,
           delay: 0,
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          icon: CupertinoIcons.chat_bubble_2_fill,
-          title: '24/7 AI Commerce Assistant',
-          description: 'Smart chatbot for buyers and sellers, always available',
+          icon: CupertinoIcons.scissors,
+          title: 'Smart Edit Assistant',
+          description: 'Auto-cuts, transitions, effects - viral-ready in seconds',
           theme: theme,
           delay: 200,
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
           icon: CupertinoIcons.wand_stars_inverse,
-          title: 'Generative Content Studio',
-          description: 'Auto-create product descriptions, images & video ads',
+          title: 'Remix & Transform',
+          description: 'AI reimagines any video in different styles & scenarios',
           theme: theme,
           delay: 400,
         ),
         const SizedBox(height: 16),
         _buildFeatureItem(
-          icon: CupertinoIcons.chart_bar_alt_fill,
-          title: 'Predictive Commerce Intelligence',
-          description: 'Smart inventory, demand forecasting & fraud detection',
+          icon: CupertinoIcons.chat_bubble_text_fill,
+          title: 'Conversational Creator',
+          description: 'Chat with AI to refine your content until it\'s perfect',
           theme: theme,
           delay: 600,
+        ),
+        const SizedBox(height: 16),
+        _buildFeatureItem(
+          icon: CupertinoIcons.flame_fill,
+          title: 'Viral Optimization',
+          description: 'AI analyzes trends and optimizes for maximum engagement',
+          theme: theme,
+          delay: 800,
         ),
       ],
     );
@@ -743,7 +750,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
               ),
               const SizedBox(width: 10),
               Text(
-                'LEADING THE AGENTIC REVOLUTION',
+                'THE FUTURE OF CONTENT IS HERE',
                 style: TextStyle(
                   color: theme.primaryColor,
                   fontSize: 12,
