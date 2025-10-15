@@ -1329,11 +1329,10 @@ class _VideoReactionsListScreenState extends ConsumerState<VideoReactionsListScr
   }
 
   void _navigateToVideos() {
-    // Navigate to videos tab/screen to explore content
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      Constants.homeScreen,
-      (route) => false,
+  // Navigate to videos feed screen to explore content
+  Navigator.pushNamed(
+    context,
+    Constants.videosFeedScreen,
     );
   }
 

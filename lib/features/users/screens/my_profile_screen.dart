@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
@@ -29,18 +26,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   List<VideoModel> _userVideos = [];
   String? _error;
   late TabController _tabController;
-  final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
   bool _isInitialized = false;
-  
-  // Cache manager for video thumbnails
-  static final _thumbnailCacheManager = CacheManager(
-    Config(
-      'userVideoThumbnails',
-      stalePeriod: const Duration(days: 7),
-      maxNrOfCacheObjects: 200,
-    ),
-  );
 
   @override
   void initState() {
@@ -81,12 +68,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       _isInitialized = true;
     });
     
-    // Generate thumbnails after initializing
-    _generateVideoThumbnails();
-    
     debugPrint('✅ Profile initialized from cache');
     debugPrint('   - Name: ${currentUser.name}');
     debugPrint('   - Videos: ${userVideos.length}');
+    
+    // Automatically refresh in the background to get latest data
+    if (userVideos.isEmpty) {
+      debugPrint('📋 No cached videos found, triggering background refresh...');
+      Future.microtask(() => _refreshUserData());
+    }
   }
 
   // Refresh data from backend
@@ -150,9 +140,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           _userVideos = userVideos;
           _isRefreshing = false;
         });
-
-        // Generate thumbnails for video content
-        _generateVideoThumbnails();
       }
     } catch (e) {
       debugPrint('❌ Error refreshing user data: $e');
@@ -189,53 +176,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     }
   }
 
-  Future<void> _generateVideoThumbnails() async {
-    for (final video in _userVideos) {
-      if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
-        try {
-          // Check if thumbnail is already cached
-          final cacheKey = 'thumb_${video.id}';
-          final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
-          
-          if (fileInfo != null && fileInfo.file.existsSync()) {
-            // Use cached thumbnail
-            if (mounted) {
-              setState(() {
-                _videoThumbnails[video.id] = fileInfo.file.path;
-              });
-            }
-          } else {
-            // Generate new thumbnail
-            final thumbnailPath = await VideoThumbnail.thumbnailFile(
-              video: video.videoUrl,
-              thumbnailPath: (await getTemporaryDirectory()).path,
-              imageFormat: ImageFormat.JPEG,
-              maxHeight: 400,
-              quality: 85,
-            );
-            
-            if (thumbnailPath != null && mounted) {
-              // Cache the thumbnail
-              final thumbnailFile = File(thumbnailPath);
-              if (thumbnailFile.existsSync()) {
-                await _thumbnailCacheManager.putFile(
-                  cacheKey,
-                  thumbnailFile.readAsBytesSync(),
-                );
-              }
-              
-              setState(() {
-                _videoThumbnails[video.id] = thumbnailPath;
-              });
-            }
-          }
-        } catch (e) {
-          debugPrint('❌ Error generating thumbnail for video ${video.id}: $e');
-        }
-      }
-    }
-  }
-
   void _editProfile() {
     if (_user == null) return;
     
@@ -244,6 +184,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       Constants.editProfileScreen,
       arguments: _user,
     ).then((_) => _refreshUserData());
+  }
+
+  void _navigateToManagePosts() {
+    Navigator.pushNamed(
+      context,
+      Constants.managePostsScreen,
+    ).then((_) => _refreshUserData());
+  }
+
+  void _navigateToWallet() {
+    Navigator.pushNamed(
+      context,
+      Constants.walletScreen,
+    );
   }
 
   Future<void> _deleteVideo(String videoId) async {
@@ -335,15 +289,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   }
 
   void _onProfileCreated() async {
-    debugPrint('📄 Profile created, refreshing data...');
+    debugPrint('🔄 Profile created, refreshing data...');
     
     // Clear any cached network images
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
       await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
-    
-    // Clear thumbnail cache
-    await _thumbnailCacheManager.emptyCache();
     
     // Force refresh authentication state to get latest user data
     final authNotifier = ref.read(authenticationProvider.notifier);
@@ -493,6 +444,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 
                 // Profile Info Card
                 _buildProfileInfoCard(modernTheme),
+
+                 _buildQuickActionsSection(modernTheme),
                 
                 // Tab Bar
                 Container(
@@ -750,7 +703,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                       onTap: () => VerificationInfoWidget.show(context),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         decoration: BoxDecoration(
                           gradient: _user!.isVerified
                               ? const LinearGradient(
@@ -824,7 +777,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     GestureDetector(
                       onTap: _editProfile,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(25),
@@ -982,6 +935,29 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   }
 
   Widget _buildPostsTab(ModernThemeExtension modernTheme) {
+    // Show loading indicator while refreshing if we have no videos
+    if (_isRefreshing && _userVideos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: modernTheme.primaryColor,
+              strokeWidth: 3,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading your content...',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_userVideos.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
@@ -1020,6 +996,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               imageUrl: video.imageUrls.first,
               fit: BoxFit.cover,
               memCacheHeight: 600,
+              maxHeightDiskCache: 600,
+              cacheKey: 'thumb_img_${video.id}',
               placeholder: (context, url) => Container(
                 color: modernTheme.surfaceColor,
                 child: Center(
@@ -1031,25 +1009,25 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   ),
                 ),
               ),
-              errorWidget: (context, url, error) => Container(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                child: Icon(
-                  Icons.photo_library,
-                  color: modernTheme.primaryColor,
-                  size: 48,
-                ),
-              ),
-            )
-          else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
-            Image.file(
-              File(_videoThumbnails[video.id]!),
-              fit: BoxFit.cover,
+              errorWidget: (context, url, error) {
+                debugPrint('❌ Failed to load image thumbnail: $url');
+                return Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  child: Icon(
+                    Icons.photo_library,
+                    color: modernTheme.primaryColor,
+                    size: 48,
+                  ),
+                );
+              },
             )
           else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
             CachedNetworkImage(
               imageUrl: video.thumbnailUrl,
               fit: BoxFit.cover,
               memCacheHeight: 600,
+              maxHeightDiskCache: 600,
+              cacheKey: 'thumb_vid_${video.id}',
               placeholder: (context, url) => Container(
                 color: modernTheme.surfaceColor,
                 child: Center(
@@ -1061,14 +1039,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   ),
                 ),
               ),
-              errorWidget: (context, url, error) => Container(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                child: Icon(
-                  Icons.play_circle_fill,
-                  color: modernTheme.primaryColor,
-                  size: 48,
-                ),
-              ),
+              errorWidget: (context, url, error) {
+                debugPrint('❌ Failed to load video thumbnail: $url');
+                debugPrint('Error: $error');
+                return Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    color: modernTheme.primaryColor,
+                    size: 48,
+                  ),
+                );
+              },
             )
           else
             Container(
@@ -1213,6 +1195,37 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            // Add refresh button
+            ElevatedButton.icon(
+              onPressed: _isRefreshing ? null : _refreshUserData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              icon: _isRefreshing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(
+                _isRefreshing ? 'Refreshing...' : 'Refresh',
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),
@@ -1439,5 +1452,103 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     
     if (totalViews == 0) return 0.0;
     return (totalEngagement / totalViews) * 100;
+  }
+  Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Manage My Posts Button (larger)
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: _navigateToManagePosts,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: modernTheme.primaryColor!.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.dashboard,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Manage My Posts',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              // Wallet Button (smaller)
+              Expanded(
+                flex: 1,
+                child: GestureDetector(
+                  onTap: _navigateToWallet,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: modernTheme.primaryColor!.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Wallet',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
   }
 }

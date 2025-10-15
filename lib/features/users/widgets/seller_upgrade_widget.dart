@@ -468,7 +468,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 Icon(Icons.rocket_launch_rounded, size: 22),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Start Selling - KES 599',
+                                  'Start Selling - KES 999',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -747,7 +747,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'KES 599',
+                          'KES 999',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,

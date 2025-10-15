@@ -1,4 +1,4 @@
-// lib/features/authentication/screens/profile_setup_screen.dart (FIXED AUTO NAVIGATION)
+// lib/features/authentication/screens/profile_setup_screen.dart (ENHANCED)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +6,8 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/constants/kenya_languages.dart';
+import 'package:textgb/constants/kenya_locations.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -22,7 +24,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _aboutController = TextEditingController();
   
-  bool _isSubmitting = false; // ✅ FIXED: Add loading state to prevent multiple submissions
+  // NEW: Additional profile fields
+  String? _selectedGender;
+  String? _selectedLanguage;
+  LocationData? _selectedLocation;
+  
+  bool _isSubmitting = false;
   
   @override
   void dispose() {
@@ -46,9 +53,50 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
   }
 
-  // ✅ FIXED: Submit the form to create user profile with proper navigation handling
+  // Show gender selection dialog
+  Future<void> _showGenderSelector() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => const GenderSelectorDialog(),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _selectedGender = result;
+      });
+    }
+  }
+
+  // Show language/tribe selection dialog
+  Future<void> _showLanguageSelector() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => const LanguageSelectorDialog(),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _selectedLanguage = result;
+      });
+    }
+  }
+
+  // Show location selection dialog
+  Future<void> _showLocationSelector() async {
+    final result = await showDialog<LocationData>(
+      context: context,
+      builder: (context) => const LocationSelectorDialog(),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _selectedLocation = result;
+      });
+    }
+  }
+
+  // Submit the form to create user profile
   void _submitForm() async {
-    // Prevent multiple submissions
     if (_isSubmitting) {
       debugPrint('⚠️ Form already submitting, ignoring duplicate submission');
       return;
@@ -59,6 +107,37 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please select a profile picture'),
+            backgroundColor: Color(0xFFE53E3E),
+          ),
+        );
+        return;
+      }
+
+      // Validate additional fields
+      if (_selectedGender == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your gender'),
+            backgroundColor: Color(0xFFE53E3E),
+          ),
+        );
+        return;
+      }
+
+      if (_selectedLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your location'),
+            backgroundColor: Color(0xFFE53E3E),
+          ),
+        );
+        return;
+      }
+
+      if (_selectedLanguage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select your native language'),
             backgroundColor: Color(0xFFE53E3E),
           ),
         );
@@ -80,27 +159,32 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         return;
       }
       
-      // Set submitting state
+      // Store context and navigator in variables BEFORE async operation
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      
       setState(() {
         _isSubmitting = true;
       });
       
-      // Create user model using the factory method for Go backend (PHONE-ONLY)
+      // Create user model with new fields
       final userModel = UserModel.create(
         uid: currentUserId,
         name: _nameController.text.trim(),
         phoneNumber: phoneNumber,
-        profileImage: '', // Will be set after upload
+        profileImage: '',
         bio: _aboutController.text.trim(),
+        gender: _selectedGender,
+        location: _selectedLocation!.fullLocation,
+        language: _selectedLanguage,
       );
       
-      debugPrint('🏗️ Creating profile for: ${userModel.name} (${userModel.phoneNumber})');
+      debugPrint('🏗️ Creating profile with enhanced data:');
+      debugPrint('   - Name: ${userModel.name}');
+      debugPrint('   - Gender: ${userModel.gender}');
+      debugPrint('   - Location: ${userModel.location}');
+      debugPrint('   - Language: ${userModel.language}');
       
-      // ✅ FIXED: Store context and navigator in variables before async operation
-      final navigator = Navigator.of(context);
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      
-      // Create user profile using the new authentication provider
       authNotifier.createUserProfile(
         user: userModel,
         profileImage: _profileImage,
@@ -108,10 +192,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         onSuccess: () {
           debugPrint('✅ Profile created successfully - Starting navigation');
           
-          // ✅ FIXED: Use stored navigator instead of context
-          // This prevents the "Looking up deactivated widget's ancestor" error
-          
-          // Show success message using stored scaffoldMessenger
           scaffoldMessenger.showSnackBar(
             const SnackBar(
               content: Text('Profile created successfully!'),
@@ -122,11 +202,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           
           debugPrint('🚀 Navigating to home screen...');
           
-          // ✅ FIXED: Navigate using stored navigator
-          // Use pushNamedAndRemoveUntil to ensure we can't go back to profile setup
           navigator.pushNamedAndRemoveUntil(
             Constants.homeScreen,
-            (route) => false, // Remove all previous routes
+            (route) => false,
           ).then((_) {
             debugPrint('✅ Navigation to home screen completed');
           }).catchError((error) {
@@ -136,7 +214,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         onFail: () {
           debugPrint('❌ Profile creation failed');
           
-          // Reset submitting state on failure
           if (mounted) {
             setState(() {
               _isSubmitting = false;
@@ -174,7 +251,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           Container(
             margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
             child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _submitForm, // ✅ FIXED: Disable while submitting
+              onPressed: _isSubmitting ? null : _submitForm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _isSubmitting 
                     ? const Color(0xFF6366F1).withOpacity(0.5) 
@@ -213,7 +290,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header section - E-commerce marketplace themed
+              // Header section
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -235,7 +312,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome to WeiBao Marketplace!',
+                      'Welcome to WeiBao!',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -244,7 +321,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Set up your profile to start buying, selling, and showcasing products through engaging video content',
+                      'Set up your profile to start sharing videos and discover amazing content from your community',
                       style: TextStyle(
                         color: Color(0xFFF3F4F6),
                         fontSize: 16,
@@ -270,7 +347,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 16),
                     GestureDetector(
-                      onTap: _isSubmitting ? null : _pickProfileImage, // ✅ FIXED: Disable while submitting
+                      onTap: _isSubmitting ? null : _pickProfileImage,
                       child: Container(
                         width: 120,
                         height: 120,
@@ -352,13 +429,23 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 32),
               
-              // Form fields
+              // Basic Info Section
+              const Text(
+                'Basic Information',
+                style: TextStyle(
+                  color: Color(0xFF374151),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
               _buildFormField(
                 controller: _nameController,
                 label: 'Your Name',
                 hint: 'Enter your name',
                 isRequired: true,
-                enabled: !_isSubmitting, // ✅ FIXED: Disable while submitting
+                enabled: !_isSubmitting,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your name';
@@ -381,7 +468,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 hint: 'Tell people about yourself',
                 maxLines: 3,
                 isRequired: true,
-                enabled: !_isSubmitting, // ✅ FIXED: Disable while submitting
+                enabled: !_isSubmitting,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please tell us about yourself';
@@ -396,13 +483,124 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 },
               ),
               
+              const SizedBox(height: 32),
+              
+              // Additional Info Section with explanation
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF93C5FD).withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3B82F6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.explore,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Personalize Your Experience',
+                            style: TextStyle(
+                              color: Color(0xFF1E40AF),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '• Discover what\'s happening around you\n'
+                      '• See trending videos from your area\n'
+                      '• Watch content in your native language\n'
+                      '• Connect with local creators\n'
+                      '• Get personalized recommendations',
+                      style: TextStyle(
+                        color: Color(0xFF1E40AF),
+                        fontSize: 14,
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              const Text(
+                'Additional Information',
+                style: TextStyle(
+                  color: Color(0xFF374151),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Gender Selection
+              _buildSelectionTile(
+                label: 'Gender',
+                value: _selectedGender != null 
+                    ? (_selectedGender == 'male' ? 'Male' : 'Female')
+                    : null,
+                hint: 'Select your gender',
+                icon: Icons.person_outline,
+                onTap: _isSubmitting ? null : _showGenderSelector,
+                isRequired: true,
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Location Selection
+              _buildSelectionTile(
+                label: 'Location (Ward)',
+                value: _selectedLocation?.ward,
+                hint: 'Where are you from?',
+                icon: Icons.location_on_outlined,
+                onTap: _isSubmitting ? null : _showLocationSelector,
+                isRequired: true,
+                subtitle: _selectedLocation != null 
+                    ? '${_selectedLocation!.constituency}, ${_selectedLocation!.county}'
+                    : 'See what\'s trending in your area',
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Native Language/Tribe Selection
+              _buildSelectionTile(
+                label: 'Native Language',
+                value: _selectedLanguage,
+                hint: 'Your preferred language',
+                icon: Icons.language_outlined,
+                onTap: _isSubmitting ? null : _showLanguageSelector,
+                isRequired: true,
+                subtitle: _selectedLanguage == null 
+                    ? 'Watch videos in your language'
+                    : null,
+              ),
+              
               const SizedBox(height: 40),
               
               // Submit Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitForm, // ✅ FIXED: Disable while submitting
+                  onPressed: _isSubmitting ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isSubmitting 
                         ? const Color(0xFF6366F1).withOpacity(0.5) 
@@ -448,34 +646,36 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 20),
               
-              // Footer note
+              // Privacy note
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F9FF),
+                  color: const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF93C5FD).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFFFBBF24).withOpacity(0.3)),
                 ),
                 child: const Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
-                      color: Color(0xFF3B82F6),
+                      Icons.lock_outline,
+                      color: Color(0xFF92400E),
                       size: 20,
                     ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'You can edit your profile details anytime in settings.',
+                        'Your information is secure and helps us show you relevant content from your community.',
                         style: TextStyle(
-                          color: Color(0xFF1E40AF),
-                          fontSize: 14,
+                          color: Color(0xFF92400E),
+                          fontSize: 13,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
+              
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -489,7 +689,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     required String hint,
     int maxLines = 1,
     bool isRequired = false,
-    bool enabled = true, // ✅ FIXED: Add enabled parameter
+    bool enabled = true,
     String? Function(String?)? validator,
     String? helperText,
   }) {
@@ -520,7 +720,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           controller: controller,
           maxLines: maxLines,
           validator: validator,
-          enabled: enabled, // ✅ FIXED: Use enabled parameter
+          enabled: enabled,
           style: TextStyle(
             color: enabled ? const Color(0xFF1F2937) : const Color(0xFF9CA3AF),
             fontSize: 16,
@@ -567,6 +767,387 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               fontSize: 12,
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectionTile({
+    required String label,
+    required String? value,
+    required String hint,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool isRequired = false,
+    String? subtitle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: label,
+            style: const TextStyle(
+              color: Color(0xFF374151),
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: value != null ? const Color(0xFF6366F1) : const Color(0xFF9CA3AF),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        value ?? hint,
+                        style: TextStyle(
+                          color: value != null ? const Color(0xFF1F2937) : const Color(0xFF9CA3AF),
+                          fontSize: 16,
+                          fontWeight: value != null ? FontWeight.w500 : FontWeight.normal,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: const Color(0xFF9CA3AF),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Gender Selector Dialog
+class GenderSelectorDialog extends StatelessWidget {
+  const GenderSelectorDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Gender'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.male, color: Color(0xFF3B82F6)),
+            title: const Text('Male'),
+            onTap: () => Navigator.pop(context, 'male'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.female, color: Color(0xFFEC4899)),
+            title: const Text('Female'),
+            onTap: () => Navigator.pop(context, 'female'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Language/Tribe Selector Dialog
+class LanguageSelectorDialog extends StatefulWidget {
+  const LanguageSelectorDialog({super.key});
+
+  @override
+  State<LanguageSelectorDialog> createState() => _LanguageSelectorDialogState();
+}
+
+class _LanguageSelectorDialogState extends State<LanguageSelectorDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  List<String> _filteredTribes = KenyaLanguages.allTribes;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterTribes(String query) {
+    setState(() {
+      _filteredTribes = KenyaLanguages.search(query);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Native Language'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search tribes...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onChanged: _filterTribes,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _filteredTribes.length,
+                itemBuilder: (context, index) {
+                  final tribe = _filteredTribes[index];
+                  final group = KenyaLanguages.getGroup(tribe);
+                  return ListTile(
+                    title: Text(tribe),
+                    subtitle: group != null ? Text(group, style: const TextStyle(fontSize: 12)) : null,
+                    onTap: () => Navigator.pop(context, tribe),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Location Selector Dialog
+class LocationSelectorDialog extends StatefulWidget {
+  const LocationSelectorDialog({super.key});
+
+  @override
+  State<LocationSelectorDialog> createState() => _LocationSelectorDialogState();
+}
+
+class _LocationSelectorDialogState extends State<LocationSelectorDialog> {
+  String? _selectedCounty;
+  String? _selectedConstituency;
+  String? _selectedWard;
+
+  @override
+  Widget build(BuildContext context) {
+    final counties = KenyaLocations.allCounties;
+    final constituencies = _selectedCounty != null 
+        ? KenyaLocations.getConstituencies(_selectedCounty!)
+        : <String>[];
+    final wards = _selectedCounty != null && _selectedConstituency != null
+        ? KenyaLocations.getWards(_selectedCounty!, _selectedConstituency!)
+        : <String>[];
+
+    return AlertDialog(
+      title: const Text('Select Location'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // County Dropdown
+            const Text(
+              'County',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedCounty,
+              decoration: InputDecoration(
+                hintText: 'Select County',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: counties.map((county) {
+                return DropdownMenuItem(
+                  value: county,
+                  child: Text(county),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCounty = value;
+                  _selectedConstituency = null;
+                  _selectedWard = null;
+                });
+              },
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Constituency Dropdown
+            const Text(
+              'Constituency',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedConstituency,
+              decoration: InputDecoration(
+                hintText: 'Select Constituency',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: constituencies.map((constituency) {
+                return DropdownMenuItem(
+                  value: constituency,
+                  child: Text(constituency),
+                );
+              }).toList(),
+              onChanged: _selectedCounty == null ? null : (value) {
+                setState(() {
+                  _selectedConstituency = value;
+                  _selectedWard = null;
+                });
+              },
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Ward Dropdown
+            const Text(
+              'Ward',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedWard,
+              decoration: InputDecoration(
+                hintText: 'Select Ward',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: wards.map((ward) {
+                return DropdownMenuItem(
+                  value: ward,
+                  child: Text(ward),
+                );
+              }).toList(),
+              onChanged: _selectedConstituency == null ? null : (value) {
+                setState(() {
+                  _selectedWard = value;
+                });
+              },
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Summary
+            if (_selectedCounty != null || _selectedConstituency != null || _selectedWard != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF93C5FD).withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Selected Location:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: Color(0xFF1E40AF),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _selectedWard != null && _selectedConstituency != null && _selectedCounty != null
+                          ? '$_selectedWard, $_selectedConstituency, $_selectedCounty'
+                          : 'Please select all fields',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1E40AF),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedCounty != null && 
+                     _selectedConstituency != null && 
+                     _selectedWard != null
+              ? () {
+                  final location = LocationData(
+                    ward: _selectedWard!,
+                    constituency: _selectedConstituency!,
+                    county: _selectedCounty!,
+                  );
+                  Navigator.pop(context, location);
+                }
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6366F1),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Confirm'),
         ),
       ],
     );

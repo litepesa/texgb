@@ -1184,7 +1184,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   Widget _buildSimplifiedHeader() {
-    return Row(
+  // Get system top padding for proper alignment
+  final systemTopPadding = MediaQuery.of(context).padding.top;
+  
+  return Positioned(
+    top: systemTopPadding,  // System padding + 16 offset
+    left: 0,
+    right: 0,
+    child: Row(
       children: [
         const SizedBox(width: 56),
 
@@ -1222,8 +1229,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           tooltip: 'Search',
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
