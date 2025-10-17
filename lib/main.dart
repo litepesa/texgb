@@ -8,10 +8,25 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
+
+// Chat screens
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+
+// Moments screens
+import 'package:textgb/features/moments/models/moment_model.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/moment_comments_screen.dart';
+import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
+import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
+import 'package:textgb/features/moments/screens/my_moments_screen.dart';
+
+// Contact screens
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+
+
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
 import 'package:textgb/features/users/screens/live_users_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
@@ -168,6 +183,16 @@ class AppRoot extends ConsumerWidget {
           Constants.homeScreen: (context) => const HomeScreen(),
           Constants.discoverScreen: (context) => const DiscoverScreen(),
 
+          // Chat routes
+          Constants.chatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return ChatScreen(
+              chatId: args['chatId'] as String,
+              contact: args['contact'] as UserModel,
+            );
+          },
+
+          // Contact routes
           Constants.contactsScreen: (context) => const ContactsScreen(),
           Constants.addContactScreen: (context) => const AddContactScreen(),
           Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
@@ -175,6 +200,25 @@ class AppRoot extends ConsumerWidget {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
           },
+
+          // Moments routes
+          Constants.momentsRecommendationsScreen: (context) => const MomentsRecommendationsScreen(),
+
+          Constants.momentsFeedScreen: (context) {
+            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+            return MomentsFeedScreen(
+              startMomentId: args?['startMomentId'] as String?,
+            );
+          },
+
+          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
+
+          Constants.momentCommentsScreen: (context) {
+            final moment = ModalRoute.of(context)!.settings.arguments as MomentModel;
+            return MomentCommentsScreen(moment: moment);
+          },
+
+          Constants.myMomentsScreen: (context) => const MyMomentsScreen(),
 
           
           // User/Profile routes with enhanced navigation support

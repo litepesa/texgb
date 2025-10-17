@@ -64,7 +64,34 @@ class Constants {
   static const String blockedContactsScreen = '/blockedContactsScreen';
   static const String contactProfileScreen = '/contactProfileScreen';
 
+  // Moments feature routes (keeping for backward compatibility)
+  static const String momentsFeedScreen = '/momentsFeedScreen';
+  static const String createMomentScreen = '/createMomentScreen';
+  static const String myMomentsScreen = '/myMomentsScreen';
+  static const String momentsRecommendationsScreen = '/momentsRecommendationsScreen';
+  static const String momentCommentsScreen = '/momentCommentsScreen';
+
+
+  // Moments collections
+  static const String moments = 'moments';
+  static const String momentComments = 'moment_comments';
+  static const String momentFiles = 'moment_files';
+  static const String momentLikes = 'moment_likes';
+
+  // ===== MOMENTS MODEL FIELD NAMES =====
+  
+  static const String momentId = 'momentId';
+  static const String momentContent = 'momentContent';
+  static const String momentMediaUrls = 'momentMediaUrls';
+  static const String momentMediaType = 'momentMediaType';
+  static const String momentPrivacy = 'momentPrivacy';
+  static const String momentVisibleTo = 'momentVisibleTo';
+  static const String momentCreatedAt = 'momentCreatedAt';
+  static const String momentLikesCount = 'momentLikesCount';
+  static const String momentCommentsCount = 'momentCommentsCount';
+
   static const String chatId = 'chatId';
+  static const String chatScreen = '/chatScreen';
 
   static const String privacyPolicyScreen = '/privacyPolicyScreen';
   static const String privacySettingsScreen = '/privacySettingsScreen';

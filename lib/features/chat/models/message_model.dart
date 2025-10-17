@@ -1,380 +1,198 @@
 // lib/features/chat/models/message_model.dart
-
-enum MessageType {
-  text('text'),
-  image('image'),
-  video('video'),
-  audio('audio'),
-  document('document'),
-  location('location'),
-  contact('contact'),
-  sticker('sticker'),
-  gif('gif');
-
-  const MessageType(this.value);
-  final String value;
-
-  static MessageType fromString(String? value) {
-    switch (value?.toLowerCase()) {
-      case 'image':
-        return MessageType.image;
-      case 'video':
-        return MessageType.video;
-      case 'audio':
-        return MessageType.audio;
-      case 'document':
-        return MessageType.document;
-      case 'location':
-        return MessageType.location;
-      case 'contact':
-        return MessageType.contact;
-      case 'sticker':
-        return MessageType.sticker;
-      case 'gif':
-        return MessageType.gif;
-      case 'text':
-      default:
-        return MessageType.text;
-    }
-  }
-}
-
-enum MessageStatus {
-  sending('sending'),     // Message is being sent
-  sent('sent'),          // Message sent to server
-  delivered('delivered'), // Message delivered to recipient
-  failed('failed');      // Message failed to send
-
-  const MessageStatus(this.value);
-  final String value;
-
-  static MessageStatus fromString(String? value) {
-    switch (value?.toLowerCase()) {
-      case 'sent':
-        return MessageStatus.sent;
-      case 'delivered':
-        return MessageStatus.delivered;
-      case 'failed':
-        return MessageStatus.failed;
-      case 'sending':
-      default:
-        return MessageStatus.sending;
-    }
-  }
-}
+import 'package:textgb/enums/enums.dart';
 
 class MessageModel {
-  final String id;
+  final String messageId;
   final String chatId;
   final String senderId;
-  final String senderName;
-  final String senderImage;
   final String content;
-  final MessageType type;
+  final MessageEnum type;
   final MessageStatus status;
-  
-  // Media fields (for images, videos, documents, etc.)
+  final DateTime timestamp;
   final String? mediaUrl;
-  final String? thumbnailUrl;
-  final String? fileName;
-  final int? fileSize; // in bytes
-  final int? duration; // for audio/video in seconds
-  
-  // Reply/Quote fields
-  final String? repliedToMessageId;
-  final String? repliedToContent;
-  final String? repliedToSenderName;
-  final MessageType? repliedToType;
-  
-  // Location fields
-  final double? latitude;
-  final double? longitude;
-  final String? locationName;
-  
-  // Contact fields
-  final String? contactName;
-  final String? contactPhone;
-  
-  // Reactions and interactions
-  final Map<String, String> reactions; // emoji -> userId
-  final bool isForwarded;
-  final bool isStarred;
-  final bool isDeleted; // User has deleted this message for themselves
-  
-  // Timestamps
-  final String createdAt;
-  final String? updatedAt;
-  final String? deliveredAt;
+  final Map<String, dynamic>? mediaMetadata;
+  final String? replyToMessageId;
+  final String? replyToContent;
+  final String? replyToSender;
+  final Map<String, String>? reactions; // userId -> emoji
+  final bool isEdited;
+  final DateTime? editedAt;
+  final bool isPinned;
+  final Map<String, DateTime>? readBy; // userId -> read timestamp
+  final Map<String, DateTime>? deliveredTo; // userId -> delivered timestamp
 
   const MessageModel({
-    required this.id,
+    required this.messageId,
     required this.chatId,
     required this.senderId,
-    required this.senderName,
-    required this.senderImage,
     required this.content,
     required this.type,
     required this.status,
+    required this.timestamp,
     this.mediaUrl,
-    this.thumbnailUrl,
-    this.fileName,
-    this.fileSize,
-    this.duration,
-    this.repliedToMessageId,
-    this.repliedToContent,
-    this.repliedToSenderName,
-    this.repliedToType,
-    this.latitude,
-    this.longitude,
-    this.locationName,
-    this.contactName,
-    this.contactPhone,
-    this.reactions = const {},
-    this.isForwarded = false,
-    this.isStarred = false,
-    this.isDeleted = false,
-    required this.createdAt,
-    this.updatedAt,
-    this.deliveredAt,
+    this.mediaMetadata,
+    this.replyToMessageId,
+    this.replyToContent,
+    this.replyToSender,
+    this.reactions,
+    this.isEdited = false,
+    this.editedAt,
+    this.isPinned = false,
+    this.readBy,
+    this.deliveredTo,
   });
 
-  factory MessageModel.fromMap(Map<String, dynamic> map, String id) {
+  factory MessageModel.fromMap(Map<String, dynamic> map) {
     return MessageModel(
-      id: id,
-      chatId: map['chatId'] ?? map['chat_id'] ?? '',
-      senderId: map['senderId'] ?? map['sender_id'] ?? '',
-      senderName: map['senderName'] ?? map['sender_name'] ?? '',
-      senderImage: map['senderImage'] ?? map['sender_image'] ?? '',
+      messageId: map['messageId'] ?? '',
+      chatId: map['chatId'] ?? '',
+      senderId: map['senderId'] ?? '',
       content: map['content'] ?? '',
-      type: MessageType.fromString(map['type']),
-      status: MessageStatus.fromString(map['status']),
-      mediaUrl: map['mediaUrl'] ?? map['media_url'],
-      thumbnailUrl: map['thumbnailUrl'] ?? map['thumbnail_url'],
-      fileName: map['fileName'] ?? map['file_name'],
-      fileSize: map['fileSize'] ?? map['file_size'],
-      duration: map['duration'],
-      repliedToMessageId: map['repliedToMessageId'] ?? map['replied_to_message_id'],
-      repliedToContent: map['repliedToContent'] ?? map['replied_to_content'],
-      repliedToSenderName: map['repliedToSenderName'] ?? map['replied_to_sender_name'],
-      repliedToType: map['repliedToType'] != null || map['replied_to_type'] != null
-          ? MessageType.fromString(map['repliedToType'] ?? map['replied_to_type'])
-          : null,
-      latitude: _extractDouble(map['latitude']),
-      longitude: _extractDouble(map['longitude']),
-      locationName: map['locationName'] ?? map['location_name'],
-      contactName: map['contactName'] ?? map['contact_name'],
-      contactPhone: map['contactPhone'] ?? map['contact_phone'],
-      reactions: _parseReactions(map['reactions']),
-      isForwarded: map['isForwarded'] ?? map['is_forwarded'] ?? false,
-      isStarred: map['isStarred'] ?? map['is_starred'] ?? false,
-      isDeleted: map['isDeleted'] ?? map['is_deleted'] ?? false,
-      createdAt: map['createdAt'] ?? map['created_at'] ?? '',
-      updatedAt: map['updatedAt'] ?? map['updated_at'],
-      deliveredAt: map['deliveredAt'] ?? map['delivered_at'],
+      type: MessageEnum.values.firstWhere(
+        (e) => e.name == map['type'],
+        orElse: () => MessageEnum.text,
+      ),
+      status: MessageStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => MessageStatus.sending,
+      ),
+      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
+      mediaUrl: map['mediaUrl'],
+      mediaMetadata: map['mediaMetadata'] != null 
+        ? Map<String, dynamic>.from(map['mediaMetadata']) 
+        : null,
+      replyToMessageId: map['replyToMessageId'],
+      replyToContent: map['replyToContent'],
+      replyToSender: map['replyToSender'],
+      reactions: map['reactions'] != null 
+        ? Map<String, String>.from(map['reactions']) 
+        : null,
+      isEdited: map['isEdited'] ?? false,
+      editedAt: map['editedAt'] != null 
+        ? DateTime.parse(map['editedAt']) 
+        : null,
+      isPinned: map['isPinned'] ?? false,
+      readBy: map['readBy'] != null 
+        ? Map<String, DateTime>.from(
+            (map['readBy'] as Map).map((k, v) => 
+              MapEntry(k.toString(), DateTime.parse(v)))) 
+        : null,
+      deliveredTo: map['deliveredTo'] != null 
+        ? Map<String, DateTime>.from(
+            (map['deliveredTo'] as Map).map((k, v) => 
+              MapEntry(k.toString(), DateTime.parse(v)))) 
+        : null,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'messageId': messageId,
       'chatId': chatId,
       'senderId': senderId,
-      'senderName': senderName,
-      'senderImage': senderImage,
       'content': content,
-      'type': type.value,
-      'status': status.value,
+      'type': type.name,
+      'status': status.name,
+      'timestamp': timestamp.toUtc().toIso8601String(),
       'mediaUrl': mediaUrl,
-      'thumbnailUrl': thumbnailUrl,
-      'fileName': fileName,
-      'fileSize': fileSize,
-      'duration': duration,
-      'repliedToMessageId': repliedToMessageId,
-      'repliedToContent': repliedToContent,
-      'repliedToSenderName': repliedToSenderName,
-      'repliedToType': repliedToType?.value,
-      'latitude': latitude,
-      'longitude': longitude,
-      'locationName': locationName,
-      'contactName': contactName,
-      'contactPhone': contactPhone,
+      'mediaMetadata': mediaMetadata,
+      'replyToMessageId': replyToMessageId,
+      'replyToContent': replyToContent,
+      'replyToSender': replyToSender,
       'reactions': reactions,
-      'isForwarded': isForwarded,
-      'isStarred': isStarred,
-      'isDeleted': isDeleted,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'deliveredAt': deliveredAt,
+      'isEdited': isEdited,
+      'editedAt': editedAt?.toUtc().toIso8601String(),
+      'isPinned': isPinned,
+      'readBy': readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+      'deliveredTo': deliveredTo?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
     };
   }
 
   MessageModel copyWith({
-    String? id,
+    String? messageId,
     String? chatId,
     String? senderId,
-    String? senderName,
-    String? senderImage,
     String? content,
-    MessageType? type,
+    MessageEnum? type,
     MessageStatus? status,
+    DateTime? timestamp,
     String? mediaUrl,
-    String? thumbnailUrl,
-    String? fileName,
-    int? fileSize,
-    int? duration,
-    String? repliedToMessageId,
-    String? repliedToContent,
-    String? repliedToSenderName,
-    MessageType? repliedToType,
-    double? latitude,
-    double? longitude,
-    String? locationName,
-    String? contactName,
-    String? contactPhone,
+    Map<String, dynamic>? mediaMetadata,
+    String? replyToMessageId,
+    String? replyToContent,
+    String? replyToSender,
     Map<String, String>? reactions,
-    bool? isForwarded,
-    bool? isStarred,
-    bool? isDeleted,
-    String? deletedFor,
-    String? createdAt,
-    String? updatedAt,
-    String? deliveredAt,
+    bool? isEdited,
+    DateTime? editedAt,
+    bool? isPinned,
+    Map<String, DateTime>? readBy,
+    Map<String, DateTime>? deliveredTo,
   }) {
     return MessageModel(
-      id: id ?? this.id,
+      messageId: messageId ?? this.messageId,
       chatId: chatId ?? this.chatId,
       senderId: senderId ?? this.senderId,
-      senderName: senderName ?? this.senderName,
-      senderImage: senderImage ?? this.senderImage,
       content: content ?? this.content,
       type: type ?? this.type,
       status: status ?? this.status,
+      timestamp: timestamp ?? this.timestamp,
       mediaUrl: mediaUrl ?? this.mediaUrl,
-      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
-      fileName: fileName ?? this.fileName,
-      fileSize: fileSize ?? this.fileSize,
-      duration: duration ?? this.duration,
-      repliedToMessageId: repliedToMessageId ?? this.repliedToMessageId,
-      repliedToContent: repliedToContent ?? this.repliedToContent,
-      repliedToSenderName: repliedToSenderName ?? this.repliedToSenderName,
-      repliedToType: repliedToType ?? this.repliedToType,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
-      locationName: locationName ?? this.locationName,
-      contactName: contactName ?? this.contactName,
-      contactPhone: contactPhone ?? this.contactPhone,
+      mediaMetadata: mediaMetadata ?? this.mediaMetadata,
+      replyToMessageId: replyToMessageId ?? this.replyToMessageId,
+      replyToContent: replyToContent ?? this.replyToContent,
+      replyToSender: replyToSender ?? this.replyToSender,
       reactions: reactions ?? this.reactions,
-      isForwarded: isForwarded ?? this.isForwarded,
-      isStarred: isStarred ?? this.isStarred,
-      isDeleted: isDeleted ?? this.isDeleted,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      deliveredAt: deliveredAt ?? this.deliveredAt,
+      isEdited: isEdited ?? this.isEdited,
+      editedAt: editedAt ?? this.editedAt,
+      isPinned: isPinned ?? this.isPinned,
+      readBy: readBy ?? this.readBy,
+      deliveredTo: deliveredTo ?? this.deliveredTo,
     );
   }
 
   // Helper methods
-  static double? _extractDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
+  bool isReadBy(String userId) {
+    return readBy?.containsKey(userId) ?? false;
   }
 
-  static Map<String, String> _parseReactions(dynamic value) {
-    if (value == null) return {};
-    if (value is Map) {
-      return value.map((key, val) => MapEntry(key.toString(), val.toString()));
+  bool isDeliveredTo(String userId) {
+    return deliveredTo?.containsKey(userId) ?? false;
+  }
+
+  String? getReaction(String userId) {
+    return reactions?[userId];
+  }
+
+  bool hasReactions() {
+    return reactions != null && reactions!.isNotEmpty;
+  }
+
+  bool isReply() {
+    return replyToMessageId != null;
+  }
+
+  bool hasMedia() {
+    return mediaUrl != null && mediaUrl!.isNotEmpty;
+  }
+
+  String getDisplayContent() {
+    switch (type) {
+      case MessageEnum.text:
+        return content;
+      case MessageEnum.image:
+        return content.isNotEmpty ? content : '📷 Photo';
+      case MessageEnum.video:
+        return content.isNotEmpty ? content : '📹 Video';
+      case MessageEnum.file:
+        return '📎 ${mediaMetadata?['fileName'] ?? 'Document'}';
+      case MessageEnum.audio:
+        return '🎤 Voice message';
+      case MessageEnum.location:
+        return '📍 Location';
+      case MessageEnum.contact:
+        return '👤 Contact';
+      default:
+        return content;
     }
-    return {};
-  }
-
-  // Timestamp helpers
-  DateTime get createdAtDateTime => DateTime.parse(createdAt);
-  DateTime? get updatedAtDateTime => updatedAt != null ? DateTime.parse(updatedAt!) : null;
-  DateTime? get deliveredAtDateTime => deliveredAt != null ? DateTime.parse(deliveredAt!) : null;
-
-  // Status helpers
-  bool get isSending => status == MessageStatus.sending;
-  bool get isSent => status == MessageStatus.sent;
-  bool get isDelivered => status == MessageStatus.delivered;
-  bool get isFailed => status == MessageStatus.failed;
-
-  // Type helpers
-  bool get isTextMessage => type == MessageType.text;
-  bool get isImageMessage => type == MessageType.image;
-  bool get isVideoMessage => type == MessageType.video;
-  bool get isAudioMessage => type == MessageType.audio;
-  bool get isDocumentMessage => type == MessageType.document;
-  bool get isLocationMessage => type == MessageType.location;
-  bool get isContactMessage => type == MessageType.contact;
-  bool get isStickerMessage => type == MessageType.sticker;
-  bool get isGifMessage => type == MessageType.gif;
-  bool get isMediaMessage => isImageMessage || isVideoMessage || isAudioMessage;
-
-  // Reply helpers
-  bool get isReply => repliedToMessageId != null;
-  bool get hasReactions => reactions.isNotEmpty;
-
-  // Time formatting
-  String get timeAgo {
-    final now = DateTime.now();
-    final difference = now.difference(createdAtDateTime);
-
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()}y ago';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()}mo ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
-  }
-
-  String get formattedTime {
-    final time = createdAtDateTime;
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
-  // File size formatting
-  String get formattedFileSize {
-    if (fileSize == null) return '';
-    
-    final size = fileSize!;
-    if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
-    if (size < 1024 * 1024 * 1024) return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-
-  // Duration formatting
-  String get formattedDuration {
-    if (duration == null) return '';
-    
-    final minutes = duration! ~/ 60;
-    final seconds = duration! % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is MessageModel && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-
-  @override
-  String toString() {
-    return 'MessageModel(id: $id, type: ${type.value}, status: ${status.value}, content: ${content.length > 50 ? '${content.substring(0, 50)}...' : content})';
   }
 }

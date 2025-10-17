@@ -3,30 +3,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/wallet/models/wallet_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'dart:math' as math;
 
-class CoinPackagesWidget extends ConsumerWidget {
+class CoinPackagesWidget extends ConsumerStatefulWidget {
   const CoinPackagesWidget({super.key});
 
-  // Helper method to get safe theme with fallback
-  ModernThemeExtension _getSafeTheme(BuildContext context) {
-    return Theme.of(context).extension<ModernThemeExtension>() ?? 
-        ModernThemeExtension(
-          primaryColor: const Color(0xFFFE2C55),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
-          dividerColor: Theme.of(context).dividerColor,
-          textTertiaryColor: Colors.grey[400],
-          surfaceVariantColor: Colors.grey[100],
-        );
+  @override
+  ConsumerState<CoinPackagesWidget> createState() => _CoinPackagesWidgetState();
+}
+
+class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget> 
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+  final TextEditingController _amountController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      duration: const Duration(milliseconds: 2500),
+      vsync: this,
+    )..repeat();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = _getSafeTheme(context);
+  void dispose() {
+    _shimmerController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.modernTheme;
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final currentUser = ref.watch(currentUserProvider);
@@ -36,14 +46,18 @@ class CoinPackagesWidget extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.surfaceColor,
         borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(24),
+          top: Radius.circular(28),
+        ),
+        border: Border.all(
+          color: theme.dividerColor!.withOpacity(0.2),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-            spreadRadius: 2,
+            color: theme.primaryColor!.withOpacity(0.15),
+            blurRadius: 30,
+            offset: const Offset(0, -8),
+            spreadRadius: -4,
           ),
         ],
       ),
@@ -55,7 +69,7 @@ class CoinPackagesWidget extends ConsumerWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: theme.textTertiaryColor ?? Colors.grey[400],
+              color: theme.textTertiaryColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -66,82 +80,166 @@ class CoinPackagesWidget extends ConsumerWidget {
               padding: EdgeInsets.only(bottom: bottomPadding + 20),
               child: Column(
                 children: [
-                  // Header
+                  // Futuristic Header
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF1B5E20), // Dark green
-                                Color(0xFF2E7D32), // Medium green
-                                Color(0xFF1976D2), // Blue accent
-                              ],
+                        // Animated icon with particles
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Orbiting particles
+                            AnimatedBuilder(
+                              animation: _shimmerController,
+                              builder: (context, child) {
+                                return SizedBox(
+                                  width: 120,
+                                  height: 120,
+                                  child: Stack(
+                                    children: List.generate(6, (index) {
+                                      final angle = (index / 6) * 2 * math.pi + 
+                                                   (_shimmerController.value * 2 * math.pi);
+                                      final distance = 40.0;
+                                      return Positioned(
+                                        left: 60 + math.cos(angle) * distance - 3,
+                                        top: 60 + math.sin(angle) * distance - 3,
+                                        child: Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: theme.primaryColor!.withOpacity(0.4),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: theme.primaryColor!.withOpacity(0.6),
+                                                blurRadius: 8,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                );
+                              },
                             ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF4CAF50).withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
+                            // Main icon
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    theme.primaryColor!,
+                                    theme.primaryColor!.withOpacity(0.7),
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.primaryColor!.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.primaryColor!.withOpacity(0.4),
+                                    blurRadius: 30,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.account_balance_wallet_rounded,
-                            color: Colors.white,
-                            size: 40,
-                          ),
+                              child: const Icon(
+                                Icons.account_balance_wallet_rounded,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Buy Coins',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textColor ?? Colors.black,
-                          ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Title with shimmer
+                        AnimatedBuilder(
+                          animation: _shimmerController,
+                          builder: (context, child) {
+                            return ShaderMask(
+                              shaderCallback: (bounds) => LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  theme.primaryColor!,
+                                  theme.textColor!,
+                                  theme.primaryColor!,
+                                ],
+                                stops: [
+                                  _shimmerController.value - 0.3,
+                                  _shimmerController.value,
+                                  _shimmerController.value + 0.3,
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'Buy KEST',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 8),
+                        
+                        const SizedBox(height: 12),
+                        
                         Text(
-                          'Choose a coin package to send amazing virtual gifts',
+                          'Digital currency for gifts, commerce & rewards',
                           style: TextStyle(
-                            fontSize: 16,
-                            color: theme.textSecondaryColor ?? Colors.grey[600],
+                            fontSize: 15,
+                            color: theme.textSecondaryColor,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
                           ),
                           textAlign: TextAlign.center,
                         ),
+                        
                         if (currentUser != null) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              color: theme.primaryColor!.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
+                                color: theme.primaryColor!.withOpacity(0.3),
+                                width: 1,
                               ),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  Icons.person,
-                                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                                  size: 16,
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 10),
                                 Text(
-                                  'Account: ${currentUser.phoneNumber}',
+                                  currentUser.phoneNumber,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                    color: theme.primaryColor,
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
                               ],
@@ -152,66 +250,28 @@ class CoinPackagesWidget extends ConsumerWidget {
                     ),
                   ),
                   
-                  // Coin packages
+                  // Main content
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Choose Your Package',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textColor ?? Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Display updated coin packages
-                        _buildCoinPackageCard(context, theme, _CoinPackage(
-                          coins: 100,
-                          price: 100,
-                          displayName: 'Starter Pack',
-                          isPopular: false,
-                        )),
-                        _buildCoinPackageCard(context, theme, _CoinPackage(
-                          coins: 500,
-                          price: 500,
-                          displayName: 'Popular Pack',
-                          isPopular: true,
-                        )),
-                        _buildCoinPackageCard(context, theme, _CoinPackage(
-                          coins: 1000,
-                          price: 1000,
-                          displayName: 'Premium Pack',
-                          isPopular: false,
-                        )),
-                        
-                        const SizedBox(height: 24),
-
-                        // How it works section
+                        // Amount input section
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: theme.surfaceColor,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                              color: Colors.blue.withOpacity(0.2),
-                              width: 1,
+                              color: theme.primaryColor!.withOpacity(0.3),
+                              width: 1.5,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withOpacity(0.1),
+                                color: theme.primaryColor!.withOpacity(0.15),
                                 blurRadius: 20,
-                                offset: const Offset(0, 4),
+                                offset: const Offset(0, 8),
                                 spreadRadius: -4,
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                                spreadRadius: -2,
                               ),
                             ],
                           ),
@@ -223,38 +283,313 @@ class CoinPackagesWidget extends ConsumerWidget {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.blue.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          theme.primaryColor!,
+                                          theme.primaryColor!.withOpacity(0.7),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.primaryColor!.withOpacity(0.4),
+                                          blurRadius: 10,
+                                        ),
+                                      ],
                                     ),
-                                    child: Icon(
-                                      Icons.info_outline,
-                                      color: Colors.blue[700],
+                                    child: const Icon(
+                                      Icons.payments_rounded,
+                                      color: Colors.white,
                                       size: 20,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
-                                    'How It Works',
+                                    'Enter Amount',
                                     style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue[700],
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: theme.textColor,
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '1. Select a coin package above\n'
-                                '2. Pay via M-Pesa using the provided details\n'
-                                '3. Admin will add coins to your account within 10 minutes\n'
-                                '4. Use coins to send virtual gifts to your favourite creator',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.blue[700],
-                                  height: 1.5,
+                              
+                              const SizedBox(height: 20),
+                              
+                              // Amount input field
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: theme.surfaceVariantColor!.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: theme.dividerColor!.withOpacity(0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: TextField(
+                                  controller: _amountController,
+                                  keyboardType: TextInputType.number,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.textColor,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '0',
+                                    hintStyle: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                      color: theme.textTertiaryColor,
+                                    ),
+                                    prefixIcon: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        'KES',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          color: theme.primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.all(20),
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                 ),
                               ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Quick amount buttons
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildQuickAmountButton('100', theme),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildQuickAmountButton('500', theme),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildQuickAmountButton('1000', theme),
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 20),
+                              
+                              // Conversion info
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Colors.blue.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline_rounded,
+                                      color: Colors.blue[700],
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        '1 KEST = 1 KES • Direct conversion',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 20),
+                              
+                              // Buy button
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    final amount = _amountController.text;
+                                    if (amount.isEmpty || int.tryParse(amount) == null || int.parse(amount) <= 0) {
+                                      _showErrorSnackBar(context, 'Please enter a valid amount');
+                                      return;
+                                    }
+                                    _showPurchaseInstructions(context, theme, int.parse(amount), currentUser?.phoneNumber ?? 'Your phone number');
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 0,
+                                    shadowColor: theme.primaryColor!.withOpacity(0.4),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.shopping_cart_rounded, size: 20),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Continue to Payment',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // KEST Info section
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.blue.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.blue.withOpacity(0.3),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'About KEST',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.blue[700],
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildInfoRow(
+                                icon: Icons.currency_exchange_rounded,
+                                text: '1 KEST = 1 KES (Kenyan Shilling)',
+                                theme: theme,
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoRow(
+                                icon: Icons.card_giftcard_rounded,
+                                text: 'Send virtual gifts to creators',
+                                theme: theme,
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoRow(
+                                icon: Icons.shopping_bag_rounded,
+                                text: 'Use for in-app commerce',
+                                theme: theme,
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoRow(
+                                icon: Icons.stars_rounded,
+                                text: 'Earn rewards and special perks',
+                                theme: theme,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // How to buy section
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.green.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.green.withOpacity(0.3),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.phone_android_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'How to Buy',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.green[700],
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildStep('1', 'Enter amount above', theme),
+                              _buildStep('2', 'Pay via M-Pesa', theme),
+                              _buildStep('3', 'KEST added within 10 minutes', theme),
+                              _buildStep('4', 'Start sending gifts!', theme),
                             ],
                           ),
                         ),
@@ -267,18 +602,27 @@ class CoinPackagesWidget extends ConsumerWidget {
           ),
           
           // Close button
-          Padding(
+          Container(
             padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: theme.surfaceColor,
+              border: Border(
+                top: BorderSide(
+                  color: theme.dividerColor!.withOpacity(0.15),
+                  width: 1,
+                ),
+              ),
+            ),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.surfaceVariantColor ?? Colors.grey[100],
-                  foregroundColor: theme.textSecondaryColor ?? Colors.grey[700],
+                  backgroundColor: theme.surfaceVariantColor,
+                  foregroundColor: theme.textColor,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   elevation: 0,
                 ),
@@ -297,159 +641,280 @@ class CoinPackagesWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildCoinPackageCard(BuildContext context, ModernThemeExtension theme, _CoinPackage package) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: package.isPopular 
-            ? const Color(0xFF4CAF50)
-            : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-          width: package.isPopular ? 2 : 1,
+  Widget _buildQuickAmountButton(String amount, ModernThemeExtension theme) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _amountController.text = amount;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.primaryColor!.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.primaryColor!.withOpacity(0.3),
+            width: 1,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: package.isPopular 
-              ? const Color(0xFF4CAF50).withOpacity(0.15)
-              : Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
+        child: Text(
+          amount,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: theme.primaryColor,
           ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
-          ),
-        ],
+        ),
       ),
-      child: Stack(
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String text,
+    required ModernThemeExtension theme,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: Colors.blue[700],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: theme.textColor,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep(String number, String text, ModernThemeExtension theme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
         children: [
-          // Popular badge
-          if (package.isPopular)
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4CAF50).withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.3),
+                  blurRadius: 6,
                 ),
-                child: const Text(
-                  'POPULAR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          
-          // Package content
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: () => _showPurchaseInstructions(context, theme, package),
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.textColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Text(message),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  static void _showPurchaseInstructions(BuildContext context, ModernThemeExtension theme, int amount, String phoneNumber) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        contentPadding: EdgeInsets.zero,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.primaryColor!.withOpacity(0.15),
+                      theme.primaryColor!.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    // Coin icon and count
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        gradient: LinearGradient(
                           colors: [
-                            Color(0xFF1B5E20), // Dark green
-                            Color(0xFF2E7D32), // Medium green
-                            Color(0xFF1976D2), // Blue accent
+                            theme.primaryColor!,
+                            theme.primaryColor!.withOpacity(0.7),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF4CAF50).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: theme.primaryColor!.withOpacity(0.4),
+                            blurRadius: 10,
                           ),
                         ],
                       ),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.account_balance_wallet_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${package.coins}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    // Package details
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            package.displayName,
+                            'Buy $amount KEST',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: theme.textColor ?? Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: theme.textColor,
+                              letterSpacing: 0.3,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
-                            '${package.coins} coins for gifts',
+                            'Payment Instructions',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: theme.textSecondaryColor ?? Colors.grey[600],
+                              fontSize: 13,
+                              color: theme.textSecondaryColor,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Amount summary
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.green.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'KES ${package.price}',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1B5E20),
+                                'KEST Amount:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: theme.textColor,
                                 ),
                               ),
-                              const SizedBox(width: 8),
                               Text(
-                                '1 coin = 1 KES',
+                                '$amount KEST',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            height: 1,
+                            color: Colors.green.withOpacity(0.2),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total Payment:',
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.textSecondaryColor ?? Colors.grey[500],
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: theme.textColor,
+                                ),
+                              ),
+                              Text(
+                                'KES $amount',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20,
+                                  color: Colors.green,
                                 ),
                               ),
                             ],
@@ -458,13 +923,166 @@ class CoinPackagesWidget extends ConsumerWidget {
                       ),
                     ),
                     
-                    // Arrow
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: theme.textTertiaryColor ?? Colors.grey[400],
-                      size: 16,
+                    const SizedBox(height: 20),
+                    
+                    // M-Pesa payment details
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.green.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.green.withOpacity(0.3),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.phone_android_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'M-Pesa Paybill',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: Colors.green[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPaymentDetail('Business:', 'Pomasoft Limited', theme),
+                          const SizedBox(height: 10),
+                          _buildCopyableDetail(context, 'Paybill:', '4146499', theme),
+                          const SizedBox(height: 10),
+                          _buildPaymentDetail('Account:', phoneNumber, theme),
+                          const SizedBox(height: 10),
+                          _buildPaymentDetail('Amount:', 'KES $amount', theme),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Payment steps
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor!.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.list_alt_rounded,
+                            color: theme.primaryColor,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Payment Steps',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: theme.textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPaymentStep('1', 'Open M-Pesa on your phone', theme),
+                    _buildPaymentStep('2', 'Select "Lipa na M-Pesa"', theme),
+                    _buildPaymentStep('3', 'Choose "Pay Bill"', theme),
+                    _buildPaymentStep('4', 'Enter Paybill: 4146499', theme),
+                    _buildPaymentStep('5', 'Account: $phoneNumber', theme),
+                    _buildPaymentStep('6', 'Amount: KES $amount', theme),
+                    _buildPaymentStep('7', 'Enter PIN and confirm', theme),
+                    _buildPaymentStep('8', 'KEST added within 10 minutes', theme),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Important note
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.blue.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.lightbulb_rounded,
+                            color: Colors.blue[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Once payment is confirmed, your KEST will be credited automatically. Use it to send amazing virtual gifts to your favorite creators!',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Got it',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
@@ -474,240 +1092,28 @@ class CoinPackagesWidget extends ConsumerWidget {
     );
   }
 
-  static void _showPurchaseInstructions(BuildContext context, ModernThemeExtension theme, _CoinPackage package) {
-    showDialog(
-      context: context,
-      builder: (context) => Consumer(
-        builder: (context, ref, child) {
-          final currentUser = ref.watch(currentUserProvider);
-          return AlertDialog(
-            backgroundColor: theme.surfaceColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF1B5E20),
-                        Color(0xFF2E7D32),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    package.displayName,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: theme.textColor ?? Colors.black,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Package summary
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4CAF50).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF4CAF50).withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Coins:',
-                              style: TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                            Text(
-                              '${package.coins} coins',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Price:',
-                              style: TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                            Text(
-                              'KES ${package.price}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1B5E20),
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // M-Pesa payment details
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4CAF50).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF4CAF50).withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.phone_android,
-                              color: Colors.green[700],
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'M-Pesa Payment Details',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _buildPaymentDetail('Business Name:', 'Pomasoft Limited'),
-                        const SizedBox(height: 8),
-                        _buildCopyableDetail(context, 'Paybill Number:', '4146499'),
-                        const SizedBox(height: 4),
-                        _buildPaymentDetail('Account Number:', currentUser?.phoneNumber ?? 'Your registered phone number'),
-                        const SizedBox(height: 8),
-                        _buildPaymentDetail('Amount:', 'KES ${package.price}'),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Payment steps
-                  const Text(
-                    'Payment Steps:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildStep('1', 'Go to M-Pesa menu on your phone'),
-                  _buildStep('2', 'Select "Pay Bill"'),
-                  _buildStep('3', 'Enter business number: 4146499'),
-                  _buildStep('4', 'Enter your phone number: ${currentUser?.phoneNumber ?? "[Your Phone Number]"}'),
-                  _buildStep('5', 'Enter amount: KES ${package.price}'),
-                  _buildStep('6', 'Enter your M-Pesa PIN and confirm'),
-                  _buildStep('7', 'Save the confirmation SMS'),
-                  _buildStep('8', 'Coins will be added within 10 minutes'),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Important note
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.orange.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.card_giftcard,
-                          color: Colors.orange[700],
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'After payment, you can use your coins to send virtual gifts like hearts, diamonds, unicorns and more!',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.orange[700],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Got it',
-                  style: TextStyle(
-                    color: const Color(0xFF1B5E20),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  static Widget _buildPaymentDetail(String label, String value) {
+  static Widget _buildPaymentDetail(String label, String value, ModernThemeExtension theme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 120,
+          width: 100,
           child: Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
               fontSize: 14,
+              color: theme.textSecondaryColor,
             ),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: theme.textColor,
             ),
           ),
         ),
@@ -715,17 +1121,18 @@ class CoinPackagesWidget extends ConsumerWidget {
     );
   }
 
-  static Widget _buildCopyableDetail(BuildContext context, String label, String value) {
+  static Widget _buildCopyableDetail(BuildContext context, String label, String value, ModernThemeExtension theme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 120,
+          width: 100,
           child: Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
               fontSize: 14,
+              color: theme.textSecondaryColor,
             ),
           ),
         ),
@@ -733,14 +1140,17 @@ class CoinPackagesWidget extends ConsumerWidget {
           child: GestureDetector(
             onTap: () => _copyToClipboard(context, value, label.replaceAll(':', '')),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Colors.grey.withOpacity(0.3),
-                  width: 1,
-                ),
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -748,15 +1158,17 @@ class CoinPackagesWidget extends ConsumerWidget {
                   Text(
                     value,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   const Icon(
-                    Icons.copy,
-                    size: 14,
-                    color: Colors.grey,
+                    Icons.copy_rounded,
+                    size: 16,
+                    color: Colors.white,
                   ),
                 ],
               ),
@@ -767,35 +1179,54 @@ class CoinPackagesWidget extends ConsumerWidget {
     );
   }
 
-  static Widget _buildStep(String number, String instruction) {
+  static Widget _buildPaymentStep(String number, String instruction, ModernThemeExtension theme) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 20,
-            height: 20,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1B5E20),
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.primaryColor!,
+                  theme.primaryColor!.withOpacity(0.7),
+                ],
+              ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: theme.primaryColor!.withOpacity(0.3),
+                  blurRadius: 6,
+                ),
+              ],
             ),
             child: Center(
               child: Text(
                 number,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              instruction,
-              style: const TextStyle(fontSize: 14),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                instruction,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.textColor,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+              ),
             ),
           ),
         ],
@@ -807,9 +1238,23 @@ class CoinPackagesWidget extends ConsumerWidget {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label copied to clipboard!'),
+        content: Row(
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Text('$label copied!'),
+          ],
+        ),
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -825,19 +1270,4 @@ class CoinPackagesWidget extends ConsumerWidget {
       builder: (context) => const CoinPackagesWidget(),
     );
   }
-}
-
-// Simple coin package class for the updated packages
-class _CoinPackage {
-  final int coins;
-  final int price;
-  final String displayName;
-  final bool isPopular;
-
-  _CoinPackage({
-    required this.coins,
-    required this.price,
-    required this.displayName,
-    required this.isPopular,
-  });
 }

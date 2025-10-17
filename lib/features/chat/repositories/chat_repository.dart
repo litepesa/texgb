@@ -1,345 +1,1582 @@
-// lib/features/chat/repositories/chat_repository.dart
-// Abstract repository interface for chat operations
-// Defines contract for WebSocket + SQLite implementation
-
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/chat/models/moment_reaction_model.dart';
+import 'package:textgb/shared/services/http_client.dart';
+import 'package:uuid/uuid.dart';
 
-/// Exception class for chat repository errors
+// ========================================
+// ABSTRACT REPOSITORY INTERFACE
+// ========================================
+
+abstract class ChatRepository {
+  // Chat operations
+  Future<String> createOrGetChat(String currentUserId, String otherUserId);
+  Stream<List<ChatModel>> getChatsStream(String userId);
+  Future<ChatModel?> getChatById(String chatId);
+  Future<void> updateChatLastMessage(ChatModel chat);
+  Future<void> markChatAsRead(String chatId, String userId);
+  Future<void> toggleChatPin(String chatId, String userId);
+  Future<void> toggleChatArchive(String chatId, String userId);
+  Future<void> toggleChatMute(String chatId, String userId);
+  Future<void> setChatWallpaper(
+      String chatId, String userId, String? wallpaperUrl);
+  Future<void> setChatFontSize(String chatId, String userId, double fontSize);
+  Future<void> deleteChat(String chatId, String userId,
+      {bool deleteForEveryone = false});
+  Future<void> clearChatHistory(String chatId, String userId);
+
+  // Message operations
+  Future<String> sendMessage(MessageModel message);
+  Future<String> sendVideoMessage({
+    required String chatId,
+    required String senderId,
+    required String videoUrl,
+    required String thumbnailUrl,
+    required String videoId,
+  });
+  Future<String> sendVideoReactionMessage({
+    required String chatId,
+    required String senderId,
+    required VideoReactionModel videoReaction,
+  });
+  Future<String> sendMomentReactionMessage({
+    required String chatId,
+    required String senderId,
+    required MomentReactionModel momentReaction,
+  });
+  Stream<List<MessageModel>> getMessagesStream(String chatId);
+  Future<void> updateMessageStatus(
+      String chatId, String messageId, MessageStatus status);
+  Future<void> markMessageAsDelivered(
+      String chatId, String messageId, String userId);
+  Future<void> markMessageAsRead(
+      String chatId, String messageId, String userId);
+  Future<void> editMessage(String chatId, String messageId, String newContent);
+  Future<void> deleteMessage(
+      String chatId, String messageId, bool deleteForEveryone);
+  Future<void> pinMessage(String chatId, String messageId);
+  Future<void> unpinMessage(String chatId, String messageId);
+  Future<List<MessageModel>> searchMessages(String chatId, String query);
+  Future<List<MessageModel>> getPinnedMessages(String chatId);
+  Future<void> addMessageReaction(
+      String chatId, String messageId, String userId, String emoji);
+  Future<void> removeMessageReaction(
+      String chatId, String messageId, String userId);
+
+  // Media operations (using R2 storage via Go backend)
+  Future<String> uploadMedia(File file, String fileName, String chatId);
+  Future<void> deleteMedia(String mediaUrl);
+
+  // User presence and status
+  Future<void> updateUserPresence(String userId, bool isOnline);
+  Future<Map<String, bool>> getUsersPresence(List<String> userIds);
+  Future<void> updateUserTypingStatus(
+      String chatId, String userId, bool isTyping);
+  Future<Map<String, bool>> getChatTypingStatus(String chatId);
+
+  // Utility
+  String generateChatId(String userId1, String userId2);
+  Future<bool> chatHasMessages(String chatId);
+  Future<List<String>> getUserChats(String userId);
+  Future<int> getUnreadMessagesCount(String userId);
+  Future<int> getChatUnreadCount(String chatId, String userId);
+
+  // Advanced features
+  Future<void> reportContent({
+    required String reporterId,
+    required String contentType,
+    required String contentId,
+    required String reason,
+    String? description,
+  });
+  Future<Map<String, dynamic>> getChatAnalytics(String chatId);
+  Future<String> exportChatMessages(String chatId, String format);
+  Future<void> backupChatData(String userId);
+  Future<void> cleanupOldData(String userId, {int daysOld = 365});
+}
+
+// ========================================
+// HTTP IMPLEMENTATION
+// ========================================
+
+class HttpChatRepository implements ChatRepository {
+  final HttpClientService _httpClient;
+  final Uuid _uuid;
+
+  HttpChatRepository({
+    HttpClientService? httpClient,
+    Uuid? uuid,
+  })  : _httpClient = httpClient ?? HttpClientService(),
+        _uuid = uuid ?? const Uuid();
+
+  // Helper method to create RFC3339 timestamps
+  String _createTimestamp() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
+  @override
+  String generateChatId(String userId1, String userId2) {
+    // Create consistent chat ID regardless of order
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
+  }
+
+  @override
+  Future<bool> chatHasMessages(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId/has-messages');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['hasMessages'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error checking chat messages: $e');
+      return false;
+    }
+  }
+
+  // ========================================
+  // CHAT OPERATIONS
+  // ========================================
+
+  @override
+  Future<String> createOrGetChat(
+      String currentUserId, String otherUserId) async {
+    try {
+      final chatId = generateChatId(currentUserId, otherUserId);
+
+      final response = await _httpClient.post('/chats', body: {
+        'participants': [currentUserId, otherUserId],
+      });
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['chatId'] ?? chatId;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to create or get chat: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error creating/getting chat: $e');
+      throw ChatRepositoryException('Failed to create or get chat: $e');
+    }
+  }
+
+  @override
+  Stream<List<ChatModel>> getChatsStream(String userId) {
+    // Since we're using HTTP instead of real-time Firebase, we'll implement polling
+    // In a production app, you might want to use WebSockets or Server-Sent Events
+    return Stream.periodic(const Duration(seconds: 3), (count) async {
+      try {
+        // FIXED: Changed from '/users/$userId/chats' to '/chats'
+        // Backend will get userId from authentication token
+        final response = await _httpClient.get('/chats');
+
+        debugPrint('Chat list response status: ${response.statusCode}');
+        debugPrint('Chat list response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          // Handle empty response body
+          if (response.body.isEmpty) {
+            debugPrint('Empty response body, returning empty list');
+            return <ChatModel>[];
+          }
+
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final List<dynamic> chatsData = data['chats'] ?? [];
+
+          debugPrint('Parsed ${chatsData.length} chats from response');
+
+          if (chatsData.isEmpty) {
+            return <ChatModel>[];
+          }
+
+          final chats = chatsData
+              .map((chatData) {
+                try {
+                  return ChatModel.fromMap(chatData as Map<String, dynamic>);
+                } catch (e) {
+                  debugPrint('Error parsing chat: $e');
+                  debugPrint('Chat data: $chatData');
+                  return null;
+                }
+              })
+              .whereType<ChatModel>()
+              .where((chat) => !chat.isArchivedForUser(userId))
+              .toList();
+
+          // REMOVED: chatHasMessages check - just show all chats
+          // The backend should only return chats that have been used (have messages or were recently created)
+
+          // Sort by last message time (most recent first)
+          chats.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
+
+          return chats;
+        } else if (response.statusCode == 404) {
+          debugPrint('Chat endpoint not found, returning empty list');
+          return <ChatModel>[];
+        } else if (response.statusCode == 401) {
+          debugPrint('Unauthorized - authentication issue');
+          return <ChatModel>[];
+        } else {
+          throw ChatRepositoryException(
+              'Failed to get chats: ${response.statusCode} - ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('Error in chats stream: $e');
+        // Return empty list instead of throwing to prevent UI crashes
+        return <ChatModel>[];
+      }
+    }).asyncMap((future) => future);
+  }
+
+  @override
+  Future<ChatModel?> getChatById(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return ChatModel.fromMap(data);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat by ID: ${response.body}');
+      }
+    } catch (e) {
+      if (e.toString().contains('404')) return null;
+      throw ChatRepositoryException('Failed to get chat by ID: $e');
+    }
+  }
+
+  @override
+  Future<void> updateChatLastMessage(ChatModel chat) async {
+    try {
+      final response =
+          await _httpClient.put('/chats/${chat.chatId}/last-message', body: {
+        'lastMessage': chat.lastMessage,
+        'lastMessageType': chat.lastMessageType.name,
+        'lastMessageSender': chat.lastMessageSender,
+        'lastMessageTime': chat.lastMessageTime.toIso8601String(),
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to update chat last message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to update chat last message: $e');
+    }
+  }
+
+  @override
+  Future<void> markChatAsRead(String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/mark-read', body: {
+        'userId': userId,
+        'readAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to mark chat as read: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to mark chat as read: $e');
+    }
+  }
+
+  @override
+  Future<void> toggleChatPin(String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/toggle-pin', body: {
+        'userId': userId,
+        'pinnedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to toggle chat pin: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to toggle chat pin: $e');
+    }
+  }
+
+  @override
+  Future<void> toggleChatArchive(String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/toggle-archive', body: {
+        'userId': userId,
+        'archivedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to toggle chat archive: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to toggle chat archive: $e');
+    }
+  }
+
+  @override
+  Future<void> toggleChatMute(String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/toggle-mute', body: {
+        'userId': userId,
+        'mutedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to toggle chat mute: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to toggle chat mute: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteChat(String chatId, String userId,
+      {bool deleteForEveryone = false}) async {
+    try {
+      final response = await _httpClient.delete(
+          '/chats/$chatId?userId=$userId&deleteForEveryone=$deleteForEveryone');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to delete chat: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to delete chat: $e');
+    }
+  }
+
+  @override
+  Future<void> clearChatHistory(String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/clear-history', body: {
+        'userId': userId,
+        'clearedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to clear chat history: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to clear chat history: $e');
+    }
+  }
+
+  @override
+  Future<void> setChatWallpaper(
+      String chatId, String userId, String? wallpaperUrl) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/wallpaper', body: {
+        'userId': userId,
+        'wallpaperUrl': wallpaperUrl,
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to set chat wallpaper: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to set chat wallpaper: $e');
+    }
+  }
+
+  @override
+  Future<void> setChatFontSize(
+      String chatId, String userId, double fontSize) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/font-size', body: {
+        'userId': userId,
+        'fontSize': fontSize,
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to set chat font size: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to set chat font size: $e');
+    }
+  }
+
+  // ========================================
+  // MESSAGE OPERATIONS
+  // ========================================
+
+  @override
+  Future<String> sendMessage(MessageModel message) async {
+    try {
+      final messageId =
+          message.messageId.isEmpty ? _uuid.v4() : message.messageId;
+      final finalMessage = message.copyWith(messageId: messageId);
+
+      final response =
+          await _httpClient.post('/chats/${message.chatId}/messages', body: {
+        'messageId': messageId,
+        'chatId': message.chatId,
+        'senderId': message.senderId,
+        'content': message.content,
+        'type': message.type.name,
+        'status': message.status.name,
+        'timestamp': message.timestamp.toIso8601String(),
+        'mediaUrl': message.mediaUrl,
+        'mediaMetadata': message.mediaMetadata,
+        'replyToMessageId': message.replyToMessageId,
+        'replyToContent': message.replyToContent,
+        'replyToSender': message.replyToSender,
+        'reactions': message.reactions,
+        'isEdited': message.isEdited,
+        'editedAt': message.editedAt?.toIso8601String(),
+        'isPinned': message.isPinned,
+        'readBy':
+            message.readBy?.map((k, v) => MapEntry(k, v.toIso8601String())),
+        'deliveredTo': message.deliveredTo
+            ?.map((k, v) => MapEntry(k, v.toIso8601String())),
+      });
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Update chat last message
+        await _updateChatWithNewMessage(message.chatId, finalMessage);
+
+        return data['messageId'] ?? messageId;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to send message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to send message: $e');
+    }
+  }
+
+  // Helper method to update chat with new message info
+  Future<void> _updateChatWithNewMessage(
+      String chatId, MessageModel message) async {
+    try {
+      await _httpClient.put('/chats/$chatId/last-message', body: {
+        'lastMessage': message.getDisplayContent(),
+        'lastMessageType': message.type.name,
+        'lastMessageSender': message.senderId,
+        'lastMessageTime': message.timestamp.toIso8601String(),
+        'updatedAt': _createTimestamp(),
+      });
+
+      // Also increment unread count for other participants
+      final chat = await getChatById(chatId);
+      if (chat != null) {
+        for (final participantId in chat.participants) {
+          if (participantId != message.senderId) {
+            await _incrementUnreadCount(chatId, participantId);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating chat last message: $e');
+      // Don't throw - message sending should still succeed
+    }
+  }
+
+  // Helper method to increment unread count
+  Future<void> _incrementUnreadCount(String chatId, String userId) async {
+    try {
+      await _httpClient.post('/chats/$chatId/increment-unread', body: {
+        'userId': userId,
+      });
+    } catch (e) {
+      debugPrint('Error incrementing unread count: $e');
+    }
+  }
+
+  @override
+  Future<String> sendVideoMessage({
+    required String chatId,
+    required String senderId,
+    required String videoUrl,
+    required String thumbnailUrl,
+    required String videoId,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+
+      final message = MessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: '',
+        type: MessageEnum.video,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: videoUrl,
+        mediaMetadata: {
+          'isSharedVideo': true,
+          'videoId': videoId,
+          'thumbnailUrl': thumbnailUrl,
+        },
+      );
+
+      await sendMessage(message);
+      return messageId;
+    } catch (e) {
+      throw ChatRepositoryException('Failed to send video message: $e');
+    }
+  }
+
+  @override
+  Future<String> sendVideoReactionMessage({
+    required String chatId,
+    required String senderId,
+    required VideoReactionModel videoReaction,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+
+      final message = MessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: videoReaction.reaction ?? '',
+        type: MessageEnum.text,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: videoReaction.videoUrl,
+        mediaMetadata: {
+          'isVideoReaction': true,
+          'videoReaction': videoReaction.toMap(),
+          'thumbnailUrl': videoReaction.thumbnailUrl,
+          'videoId': videoReaction.videoId,
+          'userName': videoReaction.userName, // Changed from channelName
+          'userImage': videoReaction.userImage, // Changed from channelImage
+        },
+      );
+
+      await sendMessage(message);
+      return messageId;
+    } catch (e) {
+      throw ChatRepositoryException(
+          'Failed to send video reaction message: $e');
+    }
+  }
+
+  @override
+  Future<String> sendMomentReactionMessage({
+    required String chatId,
+    required String senderId,
+    required MomentReactionModel momentReaction,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+
+      final message = MessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: momentReaction.reaction,
+        type: MessageEnum.text,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: momentReaction.mediaUrl,
+        mediaMetadata: {
+          'isMomentReaction': true,
+          'momentReaction': momentReaction.toMap(),
+          'thumbnailUrl': momentReaction.thumbnailUrl,
+          'momentId': momentReaction.momentId,
+          'authorName': momentReaction.authorName,
+          'authorImage': momentReaction.authorImage,
+          'mediaType': momentReaction.mediaType,
+          'momentContent': momentReaction.content,
+        },
+      );
+
+      await sendMessage(message);
+      return messageId;
+    } catch (e) {
+      throw ChatRepositoryException(
+          'Failed to send moment reaction message: $e');
+    }
+  }
+
+  @override
+  Stream<List<MessageModel>> getMessagesStream(String chatId) {
+    // Implement polling for messages since we're not using real-time Firebase
+    return Stream.periodic(const Duration(seconds: 2), (count) async {
+      try {
+        final response = await _httpClient
+            .get('/chats/$chatId/messages?limit=100&sort=desc');
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final List<dynamic> messagesData = data['messages'] ?? [];
+
+          return messagesData
+              .map((messageData) =>
+                  MessageModel.fromMap(messageData as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw ChatRepositoryException(
+              'Failed to get messages: ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('Error in messages stream: $e');
+        throw ChatRepositoryException('Failed to get messages stream: $e');
+      }
+    }).asyncMap((future) => future);
+  }
+
+  @override
+  Future<void> updateMessageStatus(
+      String chatId, String messageId, MessageStatus status) async {
+    try {
+      final response = await _httpClient
+          .put('/chats/$chatId/messages/$messageId/status', body: {
+        'status': status.name,
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to update message status: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to update message status: $e');
+    }
+  }
+
+  @override
+  Future<void> markMessageAsDelivered(
+      String chatId, String messageId, String userId) async {
+    try {
+      final response = await _httpClient
+          .post('/chats/$chatId/messages/$messageId/delivered', body: {
+        'userId': userId,
+        'deliveredAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to mark message as delivered: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to mark message as delivered: $e');
+    }
+  }
+
+  @override
+  Future<void> markMessageAsRead(
+      String chatId, String messageId, String userId) async {
+    try {
+      final response = await _httpClient
+          .post('/chats/$chatId/messages/$messageId/read', body: {
+        'userId': userId,
+        'readAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to mark message as read: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to mark message as read: $e');
+    }
+  }
+
+  @override
+  Future<void> editMessage(
+      String chatId, String messageId, String newContent) async {
+    try {
+      final response =
+          await _httpClient.put('/chats/$chatId/messages/$messageId', body: {
+        'content': newContent,
+        'isEdited': true,
+        'editedAt': _createTimestamp(),
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to edit message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to edit message: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteMessage(
+      String chatId, String messageId, bool deleteForEveryone) async {
+    try {
+      final response = await _httpClient.delete(
+          '/chats/$chatId/messages/$messageId?deleteForEveryone=$deleteForEveryone');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to delete message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to delete message: $e');
+    }
+  }
+
+  @override
+  Future<void> pinMessage(String chatId, String messageId) async {
+    try {
+      final response = await _httpClient
+          .post('/chats/$chatId/messages/$messageId/pin', body: {
+        'pinnedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to pin message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to pin message: $e');
+    }
+  }
+
+  @override
+  Future<void> unpinMessage(String chatId, String messageId) async {
+    try {
+      final response =
+          await _httpClient.delete('/chats/$chatId/messages/$messageId/pin');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to unpin message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to unpin message: $e');
+    }
+  }
+
+  @override
+  Future<List<MessageModel>> searchMessages(String chatId, String query) async {
+    try {
+      final response = await _httpClient.get(
+          '/chats/$chatId/messages/search?q=${Uri.encodeComponent(query)}&limit=100');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
+
+        return messagesData
+            .map((messageData) =>
+                MessageModel.fromMap(messageData as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to search messages: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to search messages: $e');
+    }
+  }
+
+  @override
+  Future<List<MessageModel>> getPinnedMessages(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId/messages/pinned');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
+
+        return messagesData
+            .map((messageData) =>
+                MessageModel.fromMap(messageData as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get pinned messages: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get pinned messages: $e');
+    }
+  }
+
+  @override
+  Future<void> addMessageReaction(
+      String chatId, String messageId, String userId, String emoji) async {
+    try {
+      final response = await _httpClient
+          .post('/chats/$chatId/messages/$messageId/reactions', body: {
+        'userId': userId,
+        'emoji': emoji,
+        'reactedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to add message reaction: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to add message reaction: $e');
+    }
+  }
+
+  @override
+  Future<void> removeMessageReaction(
+      String chatId, String messageId, String userId) async {
+    try {
+      final response = await _httpClient
+          .delete('/chats/$chatId/messages/$messageId/reactions/$userId');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to remove message reaction: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to remove message reaction: $e');
+    }
+  }
+
+  // ========================================
+  // MEDIA OPERATIONS (R2 via Go backend)
+  // ========================================
+
+  @override
+  Future<String> uploadMedia(File file, String fileName, String chatId) async {
+    try {
+      // Check file size
+      final fileSize = await file.length();
+      if (fileSize > 100 * 1024 * 1024) {
+        // 100MB limit
+        throw ChatRepositoryException('File size exceeds 100MB limit');
+      }
+
+      final response = await _httpClient.uploadFile(
+        '/upload',
+        file,
+        'file',
+        additionalFields: {
+          'type': 'chat_media',
+          'chatId': chatId,
+          'fileName': fileName,
+          'uploadedAt': _createTimestamp(),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['url'] as String;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to upload media: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to upload media: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteMedia(String mediaUrl) async {
+    try {
+      final response = await _httpClient
+          .delete('/media?url=${Uri.encodeComponent(mediaUrl)}');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to delete media: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to delete media: $e');
+    }
+  }
+
+  // ========================================
+  // USER PRESENCE AND STATUS
+  // ========================================
+
+  @override
+  Future<void> updateUserPresence(String userId, bool isOnline) async {
+    try {
+      final response = await _httpClient.post('/users/$userId/presence', body: {
+        'isOnline': isOnline,
+        'lastSeen': _createTimestamp(),
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to update user presence: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to update user presence: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, bool>> getUsersPresence(List<String> userIds) async {
+    try {
+      final response = await _httpClient.post('/users/presence/batch', body: {
+        'userIds': userIds,
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final presenceData = data['presence'] as Map<String, dynamic>? ?? {};
+
+        // Convert to Map<String, bool>
+        final result = <String, bool>{};
+        presenceData.forEach((userId, isOnline) {
+          result[userId] = isOnline as bool? ?? false;
+        });
+
+        return result;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get users presence: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get users presence: $e');
+    }
+  }
+
+  @override
+  Future<void> updateUserTypingStatus(
+      String chatId, String userId, bool isTyping) async {
+    try {
+      final response = await _httpClient.post('/chats/$chatId/typing', body: {
+        'userId': userId,
+        'isTyping': isTyping,
+        'timestamp': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to update typing status: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to update typing status: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, bool>> getChatTypingStatus(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId/typing');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final typingData = data['typing'] as Map<String, dynamic>? ?? {};
+
+        // Convert to Map<String, bool>
+        final result = <String, bool>{};
+        typingData.forEach((userId, isTyping) {
+          result[userId] = isTyping as bool? ?? false;
+        });
+
+        return result;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat typing status: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat typing status: $e');
+    }
+  }
+
+  // ========================================
+  // UTILITY METHODS
+  // ========================================
+
+  @override
+  Future<List<String>> getUserChats(String userId) async {
+    try {
+      // FIXED: Changed from '/users/$userId/chats/ids' to '/chats/ids'
+      // Backend will get userId from authentication token
+      final response = await _httpClient.get('/chats/ids');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> chatIds = data['chatIds'] ?? [];
+        return chatIds.cast<String>();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get user chats: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get user chats: $e');
+    }
+  }
+
+  @override
+  Future<int> getUnreadMessagesCount(String userId) async {
+    try {
+      // FIXED: Changed from '/users/$userId/unread-count' to '/chats/unread-count'
+      // Backend will get userId from authentication token
+      final response = await _httpClient.get('/chats/unread-count');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['unreadCount'] ?? 0;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get unread messages count: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get unread messages count: $e');
+    }
+  }
+
+  @override
+  Future<int> getChatUnreadCount(String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.get('/chats/$chatId/unread-count?userId=$userId');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['unreadCount'] ?? 0;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat unread count: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat unread count: $e');
+    }
+  }
+
+  // ========================================
+  // ADVANCED FEATURES
+  // ========================================
+
+  @override
+  Future<void> reportContent({
+    required String reporterId,
+    required String contentType,
+    required String contentId,
+    required String reason,
+    String? description,
+  }) async {
+    try {
+      final response = await _httpClient.post('/reports', body: {
+        'reporterId': reporterId,
+        'contentType': contentType,
+        'contentId': contentId,
+        'reason': reason,
+        'description': description,
+        'reportedAt': _createTimestamp(),
+        'status': 'pending',
+      });
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw ChatRepositoryException(
+            'Failed to report content: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to report content: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getChatAnalytics(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId/analytics');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['analytics'] ?? {};
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat analytics: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat analytics: $e');
+    }
+  }
+
+  @override
+  Future<String> exportChatMessages(String chatId, String format) async {
+    try {
+      final response =
+          await _httpClient.get('/chats/$chatId/export?format=$format');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['exportUrl'] ?? '';
+      } else {
+        throw ChatRepositoryException(
+            'Failed to export chat messages: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to export chat messages: $e');
+    }
+  }
+
+  @override
+  Future<void> backupChatData(String userId) async {
+    try {
+      // FIXED: Changed from '/users/$userId/backup-chats' to '/chats/backup'
+      // Backend will get userId from authentication token
+      final response = await _httpClient.post('/chats/backup', body: {
+        'backupAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to backup chat data: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to backup chat data: $e');
+    }
+  }
+
+  @override
+  Future<void> cleanupOldData(String userId, {int daysOld = 365}) async {
+    try {
+      // FIXED: Changed from '/users/$userId/cleanup' to '/chats/cleanup'
+      // Backend will get userId from authentication token
+      final response = await _httpClient.post('/chats/cleanup', body: {
+        'daysOld': daysOld,
+        'cleanupAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to cleanup old data: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to cleanup old data: $e');
+    }
+  }
+
+  // ========================================
+  // ADDITIONAL HELPER METHODS
+  // ========================================
+
+  // Get chat participants info
+  Future<List<Map<String, dynamic>>> getChatParticipants(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId/participants');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> participants = data['participants'] ?? [];
+        return participants.cast<Map<String, dynamic>>();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat participants: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat participants: $e');
+    }
+  }
+
+  // Block/Unblock user in chat
+  Future<void> toggleUserBlock(
+      String userId, String targetUserId, bool block) async {
+    try {
+      final response = await _httpClient
+          .post('/users/$userId/${block ? 'block' : 'unblock'}', body: {
+        'targetUserId': targetUserId,
+        'blockedAt': block ? _createTimestamp() : null,
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to ${block ? 'block' : 'unblock'} user: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException(
+          'Failed to ${block ? 'block' : 'unblock'} user: $e');
+    }
+  }
+
+  // Get blocked users list
+  Future<List<String>> getBlockedUsers(String userId) async {
+    try {
+      final response = await _httpClient.get('/users/$userId/blocked');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> blockedUsers = data['blockedUsers'] ?? [];
+        return blockedUsers.cast<String>();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get blocked users: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get blocked users: $e');
+    }
+  }
+
+  // Check if user is blocked
+  Future<bool> isUserBlocked(String userId, String targetUserId) async {
+    try {
+      final response =
+          await _httpClient.get('/users/$userId/blocked/$targetUserId');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['isBlocked'] ?? false;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Get chat settings
+  Future<Map<String, dynamic>> getChatSettings(
+      String chatId, String userId) async {
+    try {
+      final response =
+          await _httpClient.get('/chats/$chatId/settings?userId=$userId');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['settings'] ?? {};
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat settings: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat settings: $e');
+    }
+  }
+
+  // Update chat settings
+  Future<void> updateChatSettings(
+      String chatId, String userId, Map<String, dynamic> settings) async {
+    try {
+      final response = await _httpClient.put('/chats/$chatId/settings', body: {
+        'userId': userId,
+        'settings': settings,
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to update chat settings: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to update chat settings: $e');
+    }
+  }
+
+  // Get message delivery report
+  Future<Map<String, dynamic>> getMessageDeliveryReport(
+      String chatId, String messageId) async {
+    try {
+      final response = await _httpClient
+          .get('/chats/$chatId/messages/$messageId/delivery-report');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['deliveryReport'] ?? {};
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get message delivery report: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException(
+          'Failed to get message delivery report: $e');
+    }
+  }
+
+  // Get chat media files
+  Future<List<Map<String, dynamic>>> getChatMediaFiles(String chatId,
+      {String? mediaType}) async {
+    try {
+      final queryParam = mediaType != null ? '?type=$mediaType' : '';
+      final response = await _httpClient.get('/chats/$chatId/media$queryParam');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> mediaFiles = data['mediaFiles'] ?? [];
+        return mediaFiles.cast<Map<String, dynamic>>();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat media files: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat media files: $e');
+    }
+  }
+
+  // Get chat links
+  Future<List<Map<String, dynamic>>> getChatLinks(String chatId) async {
+    try {
+      final response = await _httpClient.get('/chats/$chatId/links');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> links = data['links'] ?? [];
+        return links.cast<Map<String, dynamic>>();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get chat links: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get chat links: $e');
+    }
+  }
+
+  // Schedule message (future feature)
+  Future<String> scheduleMessage(
+      MessageModel message, DateTime scheduledTime) async {
+    try {
+      final response = await _httpClient
+          .post('/chats/${message.chatId}/scheduled-messages', body: {
+        'messageId': message.messageId.isEmpty ? _uuid.v4() : message.messageId,
+        'chatId': message.chatId,
+        'senderId': message.senderId,
+        'content': message.content,
+        'type': message.type.name,
+        'mediaUrl': message.mediaUrl,
+        'mediaMetadata': message.mediaMetadata,
+        'scheduledTime': scheduledTime.toIso8601String(),
+        'createdAt': _createTimestamp(),
+      });
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['scheduledMessageId'] ?? message.messageId;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to schedule message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to schedule message: $e');
+    }
+  }
+
+  // Cancel scheduled message
+  Future<void> cancelScheduledMessage(String scheduledMessageId) async {
+    try {
+      final response =
+          await _httpClient.delete('/scheduled-messages/$scheduledMessageId');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to cancel scheduled message: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to cancel scheduled message: $e');
+    }
+  }
+
+  // Get scheduled messages for a chat
+  Future<List<Map<String, dynamic>>> getScheduledMessages(String chatId) async {
+    try {
+      final response =
+          await _httpClient.get('/chats/$chatId/scheduled-messages');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> scheduledMessages = data['scheduledMessages'] ?? [];
+        return scheduledMessages.cast<Map<String, dynamic>>();
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get scheduled messages: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get scheduled messages: $e');
+    }
+  }
+
+  // Test connection to chat service
+  Future<bool> testConnection() async {
+    try {
+      final response = await _httpClient.get('/chats/health');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Chat service connection test failed: $e');
+      return false;
+    }
+  }
+
+  // Get chat service status
+  Future<Map<String, dynamic>> getServiceStatus() async {
+    try {
+      final response = await _httpClient.get('/chats/status');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get service status: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get service status: $e');
+    }
+  }
+
+  // Migrate chat data (for future use)
+  Future<void> migrateChatData(
+      String userId, Map<String, dynamic> migrationConfig) async {
+    try {
+      // FIXED: Changed from '/users/$userId/migrate' to '/chats/migrate'
+      // Backend will get userId from authentication token
+      final response = await _httpClient.post('/chats/migrate', body: {
+        'config': migrationConfig,
+        'migratedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to migrate chat data: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to migrate chat data: $e');
+    }
+  }
+
+  // Bulk delete messages
+  Future<void> bulkDeleteMessages(
+      String chatId, List<String> messageIds, bool deleteForEveryone) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/messages/bulk-delete', body: {
+        'messageIds': messageIds,
+        'deleteForEveryone': deleteForEveryone,
+        'deletedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to bulk delete messages: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to bulk delete messages: $e');
+    }
+  }
+
+  // Get user chat statistics
+  Future<Map<String, dynamic>> getUserChatStatistics(String userId) async {
+    try {
+      // FIXED: Changed from '/users/$userId/chat-statistics' to '/chats/statistics'
+      // Backend will get userId from authentication token
+      final response = await _httpClient.get('/chats/statistics');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['statistics'] ?? {};
+      } else {
+        throw ChatRepositoryException(
+            'Failed to get user chat statistics: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to get user chat statistics: $e');
+    }
+  }
+
+  // Set auto-delete timer for chat
+  Future<void> setAutoDeleteTimer(
+      String chatId, String userId, Duration? timer) async {
+    try {
+      final response =
+          await _httpClient.post('/chats/$chatId/auto-delete', body: {
+        'userId': userId,
+        'timerSeconds': timer?.inSeconds,
+        'updatedAt': _createTimestamp(),
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException(
+            'Failed to set auto-delete timer: ${response.body}');
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to set auto-delete timer: $e');
+    }
+  }
+}
+
+// ========================================
+// REPOSITORY PROVIDER
+// ========================================
+
+final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+  return HttpChatRepository();
+});
+
+// ========================================
+// EXCEPTION CLASSES
+// ========================================
+
 class ChatRepositoryException implements Exception {
   final String message;
-  final String? code;
-  final dynamic originalError;
-
-  const ChatRepositoryException(
-    this.message, {
-    this.code,
-    this.originalError,
-  });
+  const ChatRepositoryException(this.message);
 
   @override
   String toString() => 'ChatRepositoryException: $message';
 }
 
-/// Abstract repository interface for all chat operations
-/// Implementation will use WebSocket for real-time + SQLite for local storage
-abstract class ChatRepository {
-  // ===============================
-  // CONNECTION MANAGEMENT
-  // ===============================
-  
-  /// Connect to WebSocket server
-  Future<void> connect();
-  
-  /// Disconnect from WebSocket server
-  Future<void> disconnect();
-  
-  /// Check if currently connected to WebSocket
-  bool get isConnected;
-  
-  /// Listen to connection state changes
-  Stream<bool> get connectionStateStream;
-  
-  /// Reconnect to WebSocket server
-  Future<void> reconnect();
-
-  // ===============================
-  // CHAT OPERATIONS
-  // ===============================
-  
-  /// Get all chats for current user
-  /// Returns chats from local DB immediately, then syncs with server
-  Future<List<ChatModel>> getChats();
-  
-  /// Get a specific chat by ID
-  /// Checks local DB first, then server if not found
-  Future<ChatModel?> getChatById(String chatId);
-  
-  /// Get or create one-on-one chat with another user
-  Future<ChatModel> getOrCreateOneOnOneChat({
-    required String currentUserId,
-    required String otherUserId,
-    required String otherUserName,
-    required String otherUserImage,
-  });
-  
-  /// Create a new group chat
-  Future<ChatModel> createGroupChat({
-    required String groupName,
-    required String? groupImage,
-    required String? groupDescription,
-    required String creatorId,
-    required List<String> participantIds,
-    required List<String> participantNames,
-    required List<String> participantImages,
-  });
-  
-  /// Update chat settings (mute, pin, archive, block)
-  Future<void> updateChatSettings({
-    required String chatId,
-    bool? isMuted,
-    bool? isPinned,
-    bool? isArchived,
-    bool? isBlocked,
-  });
-  
-  /// Delete chat (local only - messages remain on server)
-  Future<void> deleteChat(String chatId);
-  
-  /// Clear all messages in a chat (local only)
-  Future<void> clearChatMessages(String chatId);
-  
-  /// Search chats by name or last message
-  Future<List<ChatModel>> searchChats(String query);
-  
-  /// Listen to real-time chat updates
-  Stream<ChatModel> watchChat(String chatId);
-  
-  /// Listen to all chats updates
-  Stream<List<ChatModel>> watchAllChats();
-
-  // ===============================
-  // MESSAGE OPERATIONS
-  // ===============================
-  
-  /// Get messages for a specific chat
-  /// [limit] - number of messages to fetch
-  /// [before] - fetch messages before this message ID (for pagination)
-  Future<List<MessageModel>> getMessages({
-    required String chatId,
-    int limit = 50,
-    String? before,
-  });
-  
-  /// Get a specific message by ID
-  Future<MessageModel?> getMessageById(String messageId);
-  
-  /// Send a text message
-  Future<MessageModel> sendTextMessage({
-    required String chatId,
-    required String content,
-    String? repliedToMessageId,
-  });
-  
-  /// Send an image message
-  Future<MessageModel> sendImageMessage({
-    required String chatId,
-    required File imageFile,
-    String? caption,
-    String? repliedToMessageId,
-  });
-  
-  /// Send a video message
-  Future<MessageModel> sendVideoMessage({
-    required String chatId,
-    required File videoFile,
-    String? caption,
-    String? repliedToMessageId,
-  });
-  
-  /// Send an audio message
-  Future<MessageModel> sendAudioMessage({
-    required String chatId,
-    required File audioFile,
-    required int duration,
-    String? repliedToMessageId,
-  });
-  
-  /// Send a document message
-  Future<MessageModel> sendDocumentMessage({
-    required String chatId,
-    required File documentFile,
-    required String fileName,
-    String? repliedToMessageId,
-  });
-  
-  /// Send a location message
-  Future<MessageModel> sendLocationMessage({
-    required String chatId,
-    required double latitude,
-    required double longitude,
-    String? locationName,
-    String? repliedToMessageId,
-  });
-  
-  /// Send a contact message
-  Future<MessageModel> sendContactMessage({
-    required String chatId,
-    required String contactName,
-    required String contactPhone,
-    String? repliedToMessageId,
-  });
-  
-  /// Forward messages to another chat
-  Future<List<MessageModel>> forwardMessages({
-    required List<String> messageIds,
-    required String toChatId,
-  });
-  
-  /// Update message status (sent, delivered, read)
-  Future<void> updateMessageStatus({
-    required String messageId,
-    required MessageStatus status,
-  });
-  
-  /// Delete message (for current user only)
-  Future<void> deleteMessage(String messageId);
-  
-  /// Star/unstar a message
-  Future<void> toggleMessageStar(String messageId);
-  
-  /// Add reaction to a message
-  Future<void> addReaction({
-    required String messageId,
-    required String emoji,
-  });
-  
-  /// Remove reaction from a message
-  Future<void> removeReaction({
-    required String messageId,
-    required String emoji,
-  });
-  
-  /// Search messages within a chat
-  Future<List<MessageModel>> searchMessagesInChat({
-    required String chatId,
-    required String query,
-  });
-  
-  /// Get starred messages
-  Future<List<MessageModel>> getStarredMessages();
-  
-  /// Listen to real-time message updates for a chat
-  Stream<MessageModel> watchMessages(String chatId);
-  
-  /// Listen to new messages across all chats
-  Stream<MessageModel> watchNewMessages();
-
-  // ===============================
-  // UNREAD COUNT OPERATIONS
-  // ===============================
-  
-  /// Get unread message count for a specific chat
-  Future<int> getUnreadCount(String chatId);
-  
-  /// Get total unread count across all chats
-  Future<int> getTotalUnreadCount();
-  
-  /// Mark chat as read (reset unread count)
-  Future<void> markChatAsRead(String chatId);
-  
-  /// Mark specific message as read
-  Future<void> markMessageAsRead(String messageId);
-
-  // ===============================
-  // MEDIA OPERATIONS
-  // ===============================
-  
-  /// Upload media file to server
-  /// Returns URL of uploaded file
-  Future<String> uploadMediaFile({
-    required File file,
-    required String type, // 'image', 'video', 'audio', 'document'
-    Function(double progress)? onProgress,
-  });
-  
-  /// Download media file from server
-  /// Returns local file path
-  Future<String> downloadMediaFile({
-    required String url,
-    required String fileName,
-    Function(double progress)? onProgress,
-  });
-  
-  /// Get all media messages in a chat
-  Future<List<MessageModel>> getChatMedia({
-    required String chatId,
-    MessageType? type, // Filter by type (image, video, etc.)
-  });
-
-  // ===============================
-  // SYNC OPERATIONS
-  // ===============================
-  
-  /// Sync local database with server
-  /// Called when app comes online or periodically
-  Future<void> syncWithServer();
-  
-  /// Force refresh chat from server
-  Future<ChatModel?> refreshChat(String chatId);
-  
-  /// Force refresh messages from server
-  Future<List<MessageModel>> refreshMessages(String chatId);
-  
-  /// Get pending messages (failed to send)
-  Future<List<MessageModel>> getPendingMessages();
-  
-  /// Retry sending a failed message
-  Future<void> retryMessage(String messageId);
-
-  // ===============================
-  // CACHE OPERATIONS
-  // ===============================
-  
-  /// Clear all local cache
-  Future<void> clearCache();
-  
-  /// Clear cache for specific chat
-  Future<void> clearChatCache(String chatId);
-  
-  /// Get cache size
-  Future<int> getCacheSize();
-
-  // ===============================
-  // USER INFO OPERATIONS
-  // ===============================
-  
-  /// Get current user ID
-  String? get currentUserId;
-  
-  /// Check if user is participant in a chat
-  Future<bool> isParticipant(String chatId);
-  
-  /// Add participants to group chat
-  Future<void> addParticipants({
-    required String chatId,
-    required List<String> userIds,
-  });
-  
-  /// Remove participant from group chat
-  Future<void> removeParticipant({
-    required String chatId,
-    required String userId,
-  });
-  
-  /// Leave group chat
-  Future<void> leaveGroupChat(String chatId);
-  
-  /// Update group info (name, image, description)
-  Future<void> updateGroupInfo({
-    required String chatId,
-    String? groupName,
-    String? groupImage,
-    String? groupDescription,
-  });
-  
-  /// Promote participant to admin
-  Future<void> promoteToAdmin({
-    required String chatId,
-    required String userId,
-  });
-  
-  /// Demote admin to regular participant
-  Future<void> demoteAdmin({
-    required String chatId,
-    required String userId,
-  });
+// Additional exception classes for specific scenarios
+class ChatNotFoundException extends ChatRepositoryException {
+  const ChatNotFoundException(String chatId) : super('Chat not found: $chatId');
 }
 
-/// Implementation hint: Concrete implementation will:
-/// 1. Use WebSocket for real-time messaging
-/// 2. Use SQLite for local storage and offline support
-/// 3. Implement sync logic to keep local and server data in sync
-/// 4. Handle connection failures and retry logic
-/// 5. Provide streams for real-time updates
+class MessageNotFoundException extends ChatRepositoryException {
+  const MessageNotFoundException(String messageId)
+      : super('Message not found: $messageId');
+}
+
+class UserNotInChatException extends ChatRepositoryException {
+  const UserNotInChatException(String userId, String chatId)
+      : super('User $userId not in chat $chatId');
+}
+
+class InsufficientPermissionsException extends ChatRepositoryException {
+  const InsufficientPermissionsException(String action)
+      : super('Insufficient permissions for: $action');
+}
+
+class MediaUploadException extends ChatRepositoryException {
+  const MediaUploadException(String reason)
+      : super('Media upload failed: $reason');
+}
+
+class NetworkException extends ChatRepositoryException {
+  const NetworkException(String message) : super('Network error: $message');
+}
+
+class RateLimitException extends ChatRepositoryException {
+  const RateLimitException()
+      : super('Rate limit exceeded. Please try again later.');
+}
+
+class InvalidMessageTypeException extends ChatRepositoryException {
+  const InvalidMessageTypeException(String type)
+      : super('Invalid message type: $type');
+}
+
+class FileSizeExceededException extends ChatRepositoryException {
+  final int maxSize;
+  final int actualSize;
+  const FileSizeExceededException(this.maxSize, this.actualSize)
+      : super('File size $actualSize exceeds maximum allowed size $maxSize');
+}
+
+class UnsupportedFileTypeException extends ChatRepositoryException {
+  const UnsupportedFileTypeException(String fileType)
+      : super('Unsupported file type: $fileType');
+}
