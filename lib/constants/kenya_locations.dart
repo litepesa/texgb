@@ -410,9 +410,9 @@ class KenyaLocations {
     final List<String> wards = [];
     final constituencyData = wardsData[county];
     if (constituencyData != null) {
-      constituencyData.values.forEach((wardList) {
+      for (var wardList in constituencyData.values) {
         wards.addAll(wardList);
-      });
+      }
     }
     return wards..sort();
   }
@@ -461,9 +461,9 @@ class KenyaLocations {
     final Map<String, int> counts = {};
     wardsData.forEach((county, constituencies) {
       int countyTotal = 0;
-      constituencies.values.forEach((wards) {
+      for (var wards in constituencies.values) {
         countyTotal += wards.length;
-      });
+      }
       counts[county] = countyTotal;
     });
     return counts;

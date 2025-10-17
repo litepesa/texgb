@@ -8,7 +8,6 @@ import 'package:textgb/features/video_reactions/providers/video_reactions_provid
 import 'package:textgb/features/video_reactions/screens/video_reaction_chat_screen.dart';
 import 'package:textgb/features/video_reactions/widgets/video_reaction_input_widget.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
-import 'package:textgb/features/users/models/user_model.dart';
 
 class VideoReactionActionWidget extends ConsumerWidget {
   final Widget child;

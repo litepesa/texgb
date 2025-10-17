@@ -1,11 +1,9 @@
 // lib/features/channels/screens/recommended_posts_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:typed_data';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';

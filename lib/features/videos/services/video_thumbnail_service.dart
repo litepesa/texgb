@@ -98,7 +98,7 @@ class VideoThumbnailService {
             // Verify file size is reasonable (not corrupted)
             final fileSize = await thumbnailFile.length();
             if (fileSize > 1000) { // At least 1KB
-              debugPrint('✅ Best thumbnail generated at ${timeMs}ms (size: ${fileSize} bytes)');
+              debugPrint('✅ Best thumbnail generated at ${timeMs}ms (size: $fileSize bytes)');
               return thumbnailFile;
             } else {
               debugPrint('⚠️ Thumbnail too small at ${timeMs}ms, trying next position...');

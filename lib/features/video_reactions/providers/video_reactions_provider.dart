@@ -522,7 +522,7 @@ class VideoReactionMessages extends _$VideoReactionMessages {
       final currentState = state.valueOrNull ?? const VideoReactionMessagesState();
       
       // Create optimistic message
-      final tempMessageId = '${_messageIdPrefix}${DateTime.now().millisecondsSinceEpoch}';
+      final tempMessageId = '$_messageIdPrefix${DateTime.now().millisecondsSinceEpoch}';
       final message = VideoReactionMessageModel(
         messageId: tempMessageId,
         chatId: chatId,
@@ -587,7 +587,7 @@ class VideoReactionMessages extends _$VideoReactionMessages {
       final currentState = state.valueOrNull ?? const VideoReactionMessagesState();
       
       // Create optimistic message
-      final tempMessageId = '${_messageIdPrefix}${DateTime.now().millisecondsSinceEpoch}';
+      final tempMessageId = '$_messageIdPrefix${DateTime.now().millisecondsSinceEpoch}';
       final message = VideoReactionMessageModel(
         messageId: tempMessageId,
         chatId: chatId,
@@ -653,7 +653,7 @@ class VideoReactionMessages extends _$VideoReactionMessages {
       final currentState = state.valueOrNull ?? const VideoReactionMessagesState();
       
       // Create optimistic message
-      final tempMessageId = '${_messageIdPrefix}${DateTime.now().millisecondsSinceEpoch}';
+      final tempMessageId = '$_messageIdPrefix${DateTime.now().millisecondsSinceEpoch}';
       final message = VideoReactionMessageModel(
         messageId: tempMessageId,
         chatId: chatId,

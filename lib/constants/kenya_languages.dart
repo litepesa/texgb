@@ -2,6 +2,8 @@
 
 /// All 42 Kenyan tribes + Foreign option (43 total)
 /// Users select their tribe as their native language identifier
+library;
+
 
 class KenyaLanguages {
   /// All 42 Kenyan tribes organized by linguistic groups + Foreign

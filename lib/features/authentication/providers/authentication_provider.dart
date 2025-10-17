@@ -1215,7 +1215,9 @@ class Authentication extends _$Authentication {
   Future<void> loadFollowedUsers() async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.state != AuthState.authenticated ||
-        currentState.currentUser == null) return;
+        currentState.currentUser == null) {
+      return;
+    }
 
     try {
       final followedUsers = currentState.currentUser!.followingUIDs;

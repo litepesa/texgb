@@ -365,7 +365,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 const Text(
-                                  'Explore',
+                                  'Discover',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,

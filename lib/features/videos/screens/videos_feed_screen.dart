@@ -238,7 +238,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (!_isScreenActive ||
         !_isAppInForeground ||
         _isNavigatingAway ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     final videos = ref.read(videosProvider);
     if (videos.isEmpty) return;
@@ -283,7 +285,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isAppInForeground ||
         _isNavigatingAway ||
         _isManuallyPaused ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     debugPrint('VideosFeedScreen: Starting fresh playback');
 
@@ -380,7 +384,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isScreenActive ||
         !_isAppInForeground ||
         _isNavigatingAway ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     debugPrint('Video controller ready, setting up fresh playback');
 
@@ -407,7 +413,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         !_isAppInForeground ||
         _isNavigatingAway ||
         _isManuallyPaused ||
-        _isCommentsSheetOpen) return;
+        _isCommentsSheetOpen) {
+      return;
+    }
 
     debugPrint('VideosFeedScreen: Starting fresh video from beginning');
 

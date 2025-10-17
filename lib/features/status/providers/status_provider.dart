@@ -6,7 +6,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/repositories/status_repository.dart';
 import 'package:textgb/features/status/repositories/status_repository_impl.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 part 'status_provider.g.dart';
 

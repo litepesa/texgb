@@ -5,7 +5,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/video_reactions/models/video_reaction_message_model.dart';
-import 'package:textgb/features/video_reactions/models/video_reaction_model.dart';
 import 'package:textgb/features/video_reactions/widgets/video_thumbnail_widget.dart';
 import 'package:textgb/features/video_reactions/widgets/video_reaction_bubble_widget.dart';
 import 'package:textgb/features/video_reactions/widgets/video_reaction_reply_preview.dart';
