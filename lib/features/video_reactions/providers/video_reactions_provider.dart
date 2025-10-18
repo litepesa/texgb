@@ -1,5 +1,5 @@
 // lib/features/video_reactions/providers/video_reactions_provider.dart
-// EXTRACTED: Standalone video reactions provider
+// EXTRACTED: Standalone video reactions provider - NOW WITH WEBSOCKET SUPPORT
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -10,6 +10,7 @@ import 'package:textgb/features/video_reactions/models/video_reaction_model.dart
 import 'package:textgb/features/video_reactions/models/video_reaction_chat_model.dart';
 import 'package:textgb/features/video_reactions/models/video_reaction_message_model.dart';
 import 'package:textgb/features/video_reactions/repositories/video_reactions_repository.dart';
+import 'package:textgb/features/video_reactions/repositories/websocket_video_reactions_repository.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 
 part 'video_reactions_provider.g.dart';
@@ -967,3 +968,19 @@ class VideoReactionMessages extends _$VideoReactionMessages {
     _loadParticipantDetails(chatId);
   }
 }
+
+// ========================================
+// REPOSITORY PROVIDER - WEBSOCKET ENABLED
+// ========================================
+
+/// Main repository provider - now uses WebSocket implementation for real-time updates
+/// This automatically enables:
+/// - Instant message delivery (no polling delay)
+/// - Real-time typing indicators
+/// - Live connection status
+/// - Automatic reconnection
+/// - Lower battery usage
+final videoReactionsRepositoryProvider = Provider<VideoReactionsRepository>((ref) {
+  // Use WebSocket implementation instead of HTTP polling
+  return ref.watch(websocketVideoReactionsRepositoryProvider);
+});

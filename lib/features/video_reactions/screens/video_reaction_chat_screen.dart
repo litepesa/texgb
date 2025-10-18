@@ -1,5 +1,6 @@
 // lib/features/video_reactions/screens/video_reaction_chat_screen.dart
-// COPIED: Exact same UI as ChatScreen but specialized for video reactions
+// UPDATED: Now with WebSocket support for real-time messaging
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +19,9 @@ import 'package:textgb/features/video_reactions/widgets/video_player_overlay.dar
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+// WebSocket imports
+import 'package:textgb/shared/widgets/websocket_connection_status.dart';
+import 'package:textgb/shared/providers/websocket_provider.dart';
 
 class VideoReactionChatScreen extends ConsumerStatefulWidget {
   final String chatId;
@@ -44,6 +48,10 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
 
+  // WebSocket: Typing indicator state
+  Timer? _typingTimer;
+  bool _isUserTyping = false;
+
   // Cache manager instances
   static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
   static final DefaultCacheManager _videoCacheManager = DefaultCacheManager();
@@ -63,6 +71,7 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
     // Mark messages as read when entering chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markMessagesAsRead();
+      _subscribeToChat(); // WebSocket: Subscribe to this chat
     });
   }
 
@@ -71,6 +80,8 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    _typingTimer?.cancel();
+    _unsubscribeFromChat(); // WebSocket: Unsubscribe from chat
     super.dispose();
   }
 
@@ -78,6 +89,46 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _markMessagesAsRead();
+    }
+  }
+
+  // WebSocket: Subscribe to chat for real-time updates
+  void _subscribeToChat() {
+    final wsService = ref.read(websocketServiceProvider);
+    wsService.subscribeToChat(widget.chatId);
+    debugPrint('WebSocket: Subscribed to chat ${widget.chatId}');
+  }
+
+  // WebSocket: Unsubscribe from chat when leaving
+  void _unsubscribeFromChat() {
+    final wsService = ref.read(websocketServiceProvider);
+    wsService.unsubscribeFromChat(widget.chatId);
+    
+    // Stop typing indicator if user was typing
+    if (_isUserTyping) {
+      wsService.sendTypingIndicator(widget.chatId, false);
+    }
+    debugPrint('WebSocket: Unsubscribed from chat ${widget.chatId}');
+  }
+
+  // WebSocket: Handle typing indicator
+  void _handleTypingChange(bool isTyping) {
+    final wsService = ref.read(websocketServiceProvider);
+    
+    if (isTyping != _isUserTyping) {
+      _isUserTyping = isTyping;
+      wsService.sendTypingIndicator(widget.chatId, isTyping);
+    }
+    
+    // Auto-stop typing after 2 seconds of inactivity
+    _typingTimer?.cancel();
+    if (isTyping) {
+      _typingTimer = Timer(const Duration(seconds: 2), () {
+        if (_isUserTyping) {
+          _isUserTyping = false;
+          wsService.sendTypingIndicator(widget.chatId, false);
+        }
+      });
     }
   }
 
@@ -346,6 +397,12 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
 
     return WillPopScope(
       onWillPop: () async {
+        // WebSocket: Stop typing indicator when leaving
+        if (_isUserTyping) {
+          final wsService = ref.read(websocketServiceProvider);
+          wsService.sendTypingIndicator(widget.chatId, false);
+        }
+        
         // Close video player if open
         if (_isVideoPlayerVisible) {
           _closeVideoPlayer();
@@ -396,6 +453,10 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
                     ),
                   ),
                   
+                  // WebSocket: Typing Indicator
+                  if (!_isVideoPlayerVisible)
+                    TypingIndicator(chatId: widget.chatId),
+                  
                   // Message input (hide when video player is visible)
                   if (!_isVideoPlayerVisible)
                     messageState.maybeWhen(
@@ -406,6 +467,7 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
                         contactName: widget.contact.name,
                         replyToMessage: state.replyToMessage,
                         onCancelReply: () => _cancelReply(),
+                        onTypingChanged: _handleTypingChange, // WebSocket: Typing callback
                       ),
                       orElse: () => const SizedBox.shrink(),
                     ),
@@ -609,6 +671,9 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // WebSocket: Connection Indicator
+                          WebSocketConnectionIndicator(size: 8),
+                          const SizedBox(width: 4),
                           Icon(
                             isVerified ? Icons.verified : Icons.help_outline,
                             size: 12,
@@ -838,6 +903,11 @@ class _VideoReactionChatScreenState extends ConsumerState<VideoReactionChatScree
     final messageNotifier = ref.read(videoReactionMessagesProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
     _hasMessageBeenSent = true;
+    
+    // WebSocket: Stop typing indicator after sending
+    if (_isUserTyping) {
+      _handleTypingChange(false);
+    }
   }
 
   void _handleSendImage(File imageFile) {

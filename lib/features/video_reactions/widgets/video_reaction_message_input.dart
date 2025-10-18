@@ -1,5 +1,5 @@
 // lib/features/video_reactions/widgets/video_reaction_message_input.dart
-// COPIED: Exact same UI as chat MessageInput but for video reactions
+// UPDATED: Now with WebSocket typing indicator support
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -15,6 +15,7 @@ class VideoReactionMessageInput extends StatefulWidget {
   final String? contactName;
   final VideoReactionMessageModel? replyToMessage;
   final VoidCallback? onCancelReply;
+  final Function(bool)? onTypingChanged; // NEW: WebSocket typing callback
 
   const VideoReactionMessageInput({
     super.key,
@@ -24,6 +25,7 @@ class VideoReactionMessageInput extends StatefulWidget {
     this.contactName,
     this.replyToMessage,
     this.onCancelReply,
+    this.onTypingChanged, // NEW: WebSocket typing callback
   });
 
   @override
@@ -51,6 +53,9 @@ class _VideoReactionMessageInputState extends State<VideoReactionMessageInput> {
       setState(() {
         _isComposing = false;
       });
+      
+      // WebSocket: Stop typing indicator after sending
+      widget.onTypingChanged?.call(false);
     }
   }
 
@@ -226,9 +231,14 @@ class _VideoReactionMessageInputState extends State<VideoReactionMessageInput> {
                           isDense: true,
                         ),
                         onChanged: (text) {
+                          final isTyping = text.trim().isNotEmpty;
+                          
                           setState(() {
-                            _isComposing = text.trim().isNotEmpty;
+                            _isComposing = isTyping;
                           });
+                          
+                          // WebSocket: Notify typing state change
+                          widget.onTypingChanged?.call(isTyping);
                         },
                         onSubmitted: (text) {
                           if (_isComposing) {
@@ -402,4 +412,3 @@ class _AttachmentOption extends StatelessWidget {
     );
   }
 }
-
