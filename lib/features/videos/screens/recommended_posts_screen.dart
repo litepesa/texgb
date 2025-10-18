@@ -1,8 +1,6 @@
 // lib/features/channels/screens/recommended_posts_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'dart:typed_data';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -43,7 +41,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
   }
 
   /// Load recommended videos efficiently
-  /// This method selects videos from users with recent activity
+  /// This method loads featured videos from the backend
   Future<void> _loadRecommendedVideos({bool forceRefresh = false}) async {
     if (_isLoadingRecommendations && !forceRefresh) return;
 
@@ -70,9 +68,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         throw Exception('Authentication state not available');
       }
 
-      // Step 1: Get all videos and users
+      // Step 1: Get all videos
       final allVideos = currentAuthState.videos;
-      final allUsers = currentAuthState.users;
       
       if (allVideos.isEmpty) {
         setState(() {
@@ -82,52 +79,17 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         return;
       }
 
-      // Step 2: Filter users by activity (users with lastPostAt)
-      final activeUsers = allUsers
-          .where((user) => user.lastPostAt != null && user.videosCount > 0)
+      // Step 2: Filter featured videos
+      final featuredVideos = allVideos
+          .where((video) => video.isFeatured)
           .toList();
 
-      // Sort by most recent activity first
-      activeUsers.sort((a, b) {
-        if (a.lastPostAt == null && b.lastPostAt == null) return 0;
-        if (a.lastPostAt == null) return 1;
-        if (b.lastPostAt == null) return -1;
-        return b.lastPostAtDateTime!.compareTo(a.lastPostAtDateTime!);
-      });
+      // Step 3: Sort by creation time (most recent first)
+      featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
 
-      // Step 3: Load videos from top active users (limit to first 10-15 users)
-      final List<VideoModel> recommendedVideos = [];
-      final int maxUsersToCheck = 15; // Limit for performance
-      final int maxVideosPerUser = 3; // Get recent videos per user
-      
-      for (int i = 0; i < activeUsers.length && i < maxUsersToCheck; i++) {
-        final user = activeUsers[i];
-        
-        try {
-          // Get videos from this user
-          final userVideos = allVideos
-              .where((video) => video.userId == user.uid)
-              .toList();
-
-          // Sort by creation time (most recent first)
-          userVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
-
-          // Take only the most recent videos from this user
-          final recentVideos = userVideos.take(maxVideosPerUser).toList();
-          recommendedVideos.addAll(recentVideos);
-          
-        } catch (e) {
-          debugPrint('Error loading videos for user ${user.uid}: $e');
-          // Continue with other users
-        }
-      }
-
-      // Step 4: Sort all collected videos by creation time (most recent first)
-      recommendedVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
-
-      // Step 5: Limit total recommendations for performance
-      final maxTotalVideos = 1; // Maximum 1 thumbnail for optimal performance
-      final finalRecommendations = recommendedVideos.take(maxTotalVideos).toList();
+      // Step 4: Limit to 9 featured videos
+      final maxTotalVideos = 9;
+      final finalRecommendations = featuredVideos.take(maxTotalVideos).toList();
 
       setState(() {
         _recommendedVideos = finalRecommendations;
@@ -386,7 +348,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 ),
               ),
               
-              // Enhanced User info section (changed from Channel info)
+              // Enhanced User info section
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 child: Row(
@@ -464,7 +426,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                     
                     const SizedBox(width: 14),
                     
-                    // Enhanced user info
+                    // Enhanced user info with bio
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,35 +442,16 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: theme.surfaceVariantColor!.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: theme.dividerColor!.withOpacity(0.2),
-                                width: 1,
-                              ),
+                          Text(
+                            _getUserBio(video.userId),
+                            style: TextStyle(
+                              color: theme.textSecondaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.people_outline_rounded,
-                                  size: 14,
-                                  color: theme.textSecondaryColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${_formatCount(_getUserFollowers(video.userId))} followers',
-                                  style: TextStyle(
-                                    color: theme.textSecondaryColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -523,22 +466,52 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     );
   }
 
-  int _getUserFollowers(String userId) {
+  String _getUserBio(String userId) {
     final authState = ref.read(authenticationProvider);
     final currentAuthState = authState.value;
-    if (currentAuthState == null) return 0;
+    if (currentAuthState == null) return 'No bio available';
     
     try {
       final user = currentAuthState.users.firstWhere(
         (user) => user.uid == userId,
       );
-      return user.followers;
+      return user.bio.isNotEmpty ? user.bio : 'No bio available';
     } catch (e) {
-      return 0;
+      return 'No bio available';
     }
   }
 
   Widget _buildThumbnailContent(VideoModel video) {
+    // Use backend thumbnail for all content types
+    if (video.thumbnailUrl.isNotEmpty) {
+      return Image.network(
+        video.thumbnailUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildLoadingThumbnail();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          // Fallback to first image if thumbnail fails and it's an image post
+          if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
+            return Image.network(
+              video.imageUrls.first,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildErrorThumbnail();
+              },
+            );
+          }
+          return _buildErrorThumbnail();
+        },
+      );
+    }
+    
+    // Fallback: if no thumbnail, use first image for image posts
     if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
       return Image.network(
         video.imageUrls.first,
@@ -553,57 +526,10 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           return _buildErrorThumbnail();
         },
       );
-    } else if (video.videoUrl.isNotEmpty) {
-      return FutureBuilder<Uint8List?>(
-        future: _generateVideoThumbnail(video.videoUrl),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingThumbnail();
-          }
-          
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              snapshot.data!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            );
-          }
-          
-          if (video.thumbnailUrl.isNotEmpty) {
-            return Image.network(
-              video.thumbnailUrl,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildErrorThumbnail();
-              },
-            );
-          }
-          
-          return _buildErrorThumbnail();
-        },
-      );
-    } else {
-      return _buildErrorThumbnail();
     }
-  }
-
-  Future<Uint8List?> _generateVideoThumbnail(String videoUrl) async {
-    try {
-      final thumbnail = await VideoThumbnail.thumbnailData(
-        video: videoUrl,
-        imageFormat: ImageFormat.JPEG,
-        maxWidth: 300,
-        quality: 75,
-        timeMs: 1000,
-      );
-      return thumbnail;
-    } catch (e) {
-      debugPrint('Error generating video thumbnail: $e');
-      return null;
-    }
+    
+    // No valid content
+    return _buildErrorThumbnail();
   }
 
   Widget _buildLoadingThumbnail() {

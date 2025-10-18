@@ -1,11 +1,13 @@
 // lib/features/videos/screens/featured_videos_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:typed_data';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -531,14 +533,10 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: video.price > 0 
-                                  ? theme.primaryColor!.withOpacity(0.15)
-                                  : theme.surfaceVariantColor!.withOpacity(0.7),
+                              color: theme.surfaceVariantColor!.withOpacity(0.7),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: video.price > 0
-                                    ? theme.primaryColor!.withOpacity(0.3)
-                                    : theme.dividerColor!.withOpacity(0.2),
+                                color: theme.dividerColor!.withOpacity(0.2),
                                 width: 1,
                               ),
                             ),
@@ -546,25 +544,17 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  video.price > 0 
-                                      ? Icons.attach_money_rounded
-                                      : Icons.money_off_rounded,
+                                  Icons.people_outline_rounded,
                                   size: 14,
-                                  color: video.price > 0 
-                                      ? theme.primaryColor
-                                      : theme.textSecondaryColor,
+                                  color: theme.textSecondaryColor,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  video.price > 0 
-                                      ? video.formattedPrice
-                                      : 'Free',
+                                  '${_formatCount(_getUserFollowers(video.userId))} followers',
                                   style: TextStyle(
-                                    color: video.price > 0 
-                                        ? theme.primaryColor
-                                        : theme.textSecondaryColor,
+                                    color: theme.textSecondaryColor,
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
@@ -890,7 +880,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'All Occupied',
+              'No featured videos yet',
               style: TextStyle(
                 color: theme.textColor,
                 fontSize: 18,
@@ -899,7 +889,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Check back later for availability',
+              'Check back later for featured content',
               style: TextStyle(
                 color: theme.textSecondaryColor,
                 fontSize: 14,
