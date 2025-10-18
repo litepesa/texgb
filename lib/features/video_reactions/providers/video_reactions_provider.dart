@@ -11,7 +11,6 @@ import 'package:textgb/features/video_reactions/models/video_reaction_chat_model
 import 'package:textgb/features/video_reactions/models/video_reaction_message_model.dart';
 import 'package:textgb/features/video_reactions/repositories/video_reactions_repository.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
-import 'package:textgb/features/users/models/user_model.dart';
 
 part 'video_reactions_provider.g.dart';
 

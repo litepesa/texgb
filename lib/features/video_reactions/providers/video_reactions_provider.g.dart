@@ -25,7 +25,7 @@ final videoReactionChatsListProvider = AutoDisposeAsyncNotifierProvider<
 typedef _$VideoReactionChatsList
     = AutoDisposeAsyncNotifier<VideoReactionChatsState>;
 String _$videoReactionMessagesHash() =>
-    r'e18a6d99f9ec27402819afc9ff164ee7a6c29cb0';
+    r'ab8ce08f8aa8f3176053fc84dbd3dc85621c7e30';
 
 /// Copied from Dart SDK
 class _SystemHash {
