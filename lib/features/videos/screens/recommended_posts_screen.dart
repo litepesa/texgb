@@ -54,50 +54,47 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
       
-      // Force refresh data if needed
-      if (forceRefresh) {
-        await authNotifier.loadVideos();
-        await authNotifier.loadUsers();
-      }
-
       // Get current state
       final authState = ref.read(authenticationProvider);
-      final currentAuthState = authState.value;
+      final currentAuthState = authState.valueOrNull;
       
-      if (currentAuthState == null) {
-        throw Exception('Authentication state not available');
+      // If no data and not forcing refresh, try to load it
+      if (currentAuthState == null || currentAuthState.videos.isEmpty) {
+        debugPrint('📹 No videos in state, loading from backend...');
+        
+        // Force refresh data if needed
+        await authNotifier.loadVideos();
+        await authNotifier.loadUsers();
+        
+        // Get updated state after loading
+        final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
+        if (updatedAuthState == null) {
+          throw Exception('Authentication state not available after loading');
+        }
+        
+        // Use updated state
+        _processVideos(updatedAuthState.videos);
+      } else {
+        // Force refresh if requested
+        if (forceRefresh) {
+          debugPrint('🔄 Force refreshing videos from backend...');
+          await authNotifier.loadVideos();
+          await authNotifier.loadUsers();
+          
+          final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
+          if (updatedAuthState != null) {
+            _processVideos(updatedAuthState.videos);
+          } else {
+            _processVideos(currentAuthState.videos);
+          }
+        } else {
+          // Use existing state
+          _processVideos(currentAuthState.videos);
+        }
       }
-
-      // Step 1: Get all videos
-      final allVideos = currentAuthState.videos;
-      
-      if (allVideos.isEmpty) {
-        setState(() {
-          _recommendedVideos = [];
-          _isLoadingRecommendations = false;
-        });
-        return;
-      }
-
-      // Step 2: Filter featured videos
-      final featuredVideos = allVideos
-          .where((video) => video.isFeatured)
-          .toList();
-
-      // Step 3: Sort by creation time (most recent first)
-      featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
-
-      // Step 4: Limit to 9 featured videos
-      final maxTotalVideos = 9;
-      final finalRecommendations = featuredVideos.take(maxTotalVideos).toList();
-
-      setState(() {
-        _recommendedVideos = finalRecommendations;
-        _isLoadingRecommendations = false;
-      });
 
     } catch (e) {
-      debugPrint('Error loading recommendations: $e');
+      debugPrint('❌ Error loading recommendations: $e');
       setState(() {
         _error = e.toString();
         _isLoadingRecommendations = false;
@@ -105,9 +102,55 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     }
   }
 
+  /// Extract video processing logic into separate method
+  void _processVideos(List<VideoModel> allVideos) {
+    if (allVideos.isEmpty) {
+      setState(() {
+        _recommendedVideos = [];
+        _isLoadingRecommendations = false;
+      });
+      return;
+    }
+
+    // Filter featured videos
+    final featuredVideos = allVideos
+        .where((video) => video.isFeatured)
+        .toList();
+
+    // Sort by creation time (most recent first)
+    featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+
+    // Limit to 9 featured videos
+    const maxTotalVideos = 9;
+    final finalRecommendations = featuredVideos.take(maxTotalVideos).toList();
+
+    setState(() {
+      _recommendedVideos = finalRecommendations;
+      _isLoadingRecommendations = false;
+    });
+    
+    debugPrint('✅ Processed ${_recommendedVideos.length} featured videos');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
+    
+    // Listen to authentication provider changes and reload when data becomes available
+    ref.listen<AsyncValue<AuthenticationState>>(
+      authenticationProvider,
+      (previous, next) {
+        next.whenData((authState) {
+          // When auth state updates with new videos, reload recommendations if needed
+          if (authState.videos.isNotEmpty && 
+              _recommendedVideos.isEmpty && 
+              !_isLoadingRecommendations) {
+            debugPrint('🔄 Auth state updated with videos, reloading recommendations');
+            _loadRecommendedVideos();
+          }
+        });
+      },
+    );
     
     return Scaffold(
       backgroundColor: theme.surfaceColor,
@@ -193,7 +236,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: List.generate(
-          _recommendedVideos.length, // Show dots for all videos (max 1)
+          _recommendedVideos.length,
           (index) {
             bool isActive = index == _currentIndex;
             
@@ -468,7 +511,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   String _getUserBio(String userId) {
     final authState = ref.read(authenticationProvider);
-    final currentAuthState = authState.value;
+    final currentAuthState = authState.valueOrNull;
     if (currentAuthState == null) return 'No bio available';
     
     try {
@@ -766,7 +809,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Follow some users to see recommendations',
+              'Check back later for featured content',
               style: TextStyle(
                 color: theme.textSecondaryColor,
                 fontSize: 14,
