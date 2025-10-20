@@ -1,9 +1,7 @@
 // lib/shared/widgets/websocket_connection_status.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/providers/websocket_provider.dart';
-import 'package:textgb/shared/services/websocket_service.dart';
 
 class WebSocketConnectionStatus extends ConsumerWidget {
   final Widget child;

@@ -1,4 +1,4 @@
-// lib/main.dart (Updated with Video Caching and WebSocket Support)
+// lib/main.dart (Updated with Video Caching)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +8,10 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
 import 'package:textgb/features/users/screens/live_users_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
@@ -22,13 +26,6 @@ import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/videos/screens/my_post_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-
-// Contact screens
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -37,8 +34,6 @@ import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 // NEW: Import video cache service
 import 'package:textgb/features/videos/services/video_cache_service.dart';
-// NEW: Import WebSocket widgets
-import 'package:textgb/shared/widgets/websocket_connection_status.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -83,16 +78,14 @@ void main() async {
   );
 }
 
-// Updated MyApp to use SystemUIUpdater and WebSocket
+// Updated MyApp to use SystemUIUpdater
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return SystemUIUpdater(
-      child: WebSocketLifecycleManager(  // NEW: WebSocket wrapper
-        child: const AppRoot(),
-      ),
+      child: const AppRoot(),
     );
   }
 }
@@ -129,7 +122,7 @@ class AppRoot extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      'SpesTok',
+                      '微宝 WeiBao',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -160,9 +153,9 @@ class AppRoot extends ConsumerWidget {
       ),
       data: (themeData) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'SpesTok',
+        title: 'WeiBao',
         theme: themeData.activeTheme,
-        // Production: No banner, just silent WebSocket management
+        // Start directly with HomeScreen - no authentication required
         home: const HomeScreen(),
         // Define all your routes
         routes: {
@@ -174,6 +167,15 @@ class AppRoot extends ConsumerWidget {
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
           Constants.discoverScreen: (context) => const DiscoverScreen(),
+
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+          Constants.contactProfileScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return ContactProfileScreen(contact: args);
+          },
+
           
           // User/Profile routes with enhanced navigation support
           Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
@@ -188,15 +190,6 @@ class AppRoot extends ConsumerWidget {
           Constants.createPostScreen: (context) => const CreatePostScreen(),
           Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           Constants.managePostsScreen: (context) => const ManagePostsScreen(),
-
-          // Contact routes
-          Constants.contactsScreen: (context) => const ContactsScreen(),
-          Constants.addContactScreen: (context) => const AddContactScreen(),
-          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-          Constants.contactProfileScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
-            return ContactProfileScreen(contact: args);
-          },
           
           // NEW: Featured Videos Screen Route
           Constants.featuredVideosScreen: (context) => const FeaturedVideosScreen(),

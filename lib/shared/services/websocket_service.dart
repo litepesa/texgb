@@ -208,7 +208,7 @@ class WebSocketService {
       await completer.future;
     } finally {
       await subscription.cancel();
-      timeoutTimer?.cancel();
+      timeoutTimer.cancel();
     }
   }
 
