@@ -1,8 +1,11 @@
+// lib/features/users/screens/my_profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/users/widgets/verification_widget.dart';
-import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:textgb/features/users/widgets/verification_widget.dart';
+import 'package:textgb/features/users/widgets/seller_upgrade_widget.dart';
+import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
@@ -18,32 +21,22 @@ class MyProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
-    with TickerProviderStateMixin {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _isRefreshing = false;
   UserModel? _user;
   List<VideoModel> _userVideos = [];
   String? _error;
-  late TabController _tabController;
   bool _hasNoProfile = false;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  // Initialize screen with cached data
   void _initializeScreen() {
     final currentUser = ref.read(currentUserProvider);
     final isAuthenticated = ref.read(isAuthenticatedProvider);
@@ -59,6 +52,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     final videos = ref.read(videosProvider);
     final userVideos = videos
         .where((video) => video.userId == currentUser.uid)
+        .take(1)
         .toList();
 
     setState(() {
@@ -66,19 +60,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       _userVideos = userVideos;
       _isInitialized = true;
     });
-    
-    debugPrint('✅ Profile initialized from cache');
-    debugPrint('   - Name: ${currentUser.name}');
-    debugPrint('   - Videos: ${userVideos.length}');
-    
-    // Automatically refresh in the background to get latest data
-    if (userVideos.isEmpty) {
-      debugPrint('📋 No cached videos found, triggering background refresh...');
-      Future.microtask(() => _refreshUserData());
-    }
   }
 
-  // Refresh data from backend
   Future<void> _refreshUserData() async {
     if (_isRefreshing) return;
 
@@ -104,12 +87,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       final authNotifier = ref.read(authenticationProvider.notifier);
       
       debugPrint('🔄 Refreshing profile from backend...');
-      
-      // Get fresh user profile from backend
-      final freshUserProfile = await authNotifier.getUserProfile();
+      final freshUserProfile = await authNotifier.forceRefreshUserProfile();
 
       if (freshUserProfile == null) {
-        debugPrint('❌ User profile not found in backend');
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -119,19 +99,110 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         return;
       }
 
-      debugPrint('✅ Fresh user profile loaded: ${freshUserProfile.name}');
-      debugPrint('📸 Profile image URL: ${freshUserProfile.profileImage}');
+      // 🎉 Show success message if verification status changed
+      if (currentUser.isVerified != freshUserProfile.isVerified && freshUserProfile.isVerified) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.verified, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '✨ Your account is now verified!',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF1565C0),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
 
-      // Refresh videos from backend
-      await authNotifier.loadVideos();
+      // 🎉 Show success message if role changed to seller
+      if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.host) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.store_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '🎊 You are now a seller! Start posting products',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF2E7D32),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+
+      // 🎉 Show success message if role changed from seller to guest
+      if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.guest) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Your account role has been updated',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF1976D2),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+
+      // Reload user videos
       await authNotifier.loadUserVideos(freshUserProfile.uid);
 
       final videos = ref.read(videosProvider);
       final userVideos = videos
           .where((video) => video.userId == freshUserProfile.uid)
+          .take(1)
           .toList();
-
-      debugPrint('📹 User videos loaded: ${userVideos.length}');
 
       if (mounted) {
         setState(() {
@@ -140,6 +211,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           _isRefreshing = false;
         });
       }
+      
+      debugPrint('✅ Profile refreshed successfully:');
+      debugPrint('   - Name: ${freshUserProfile.name}');
+      debugPrint('   - Verified: ${freshUserProfile.isVerified}');
+      debugPrint('   - Role: ${freshUserProfile.role}');
     } catch (e) {
       debugPrint('❌ Error refreshing user data: $e');
       if (mounted) {
@@ -177,11 +253,22 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
 
   void _editProfile() {
     if (_user == null) return;
-    
+
     Navigator.pushNamed(
-      context, 
+      context,
       Constants.editProfileScreen,
       arguments: _user,
+    ).then((_) => _refreshUserData());
+  }
+
+  void _openVideoDetails(VideoModel video) {
+    Navigator.pushNamed(
+      context,
+      Constants.myPostScreen,
+      arguments: {
+        Constants.videoId: video.id,
+        Constants.videoModel: video,
+      },
     ).then((_) => _refreshUserData());
   }
 
@@ -199,118 +286,27 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
 
-  Future<void> _deleteVideo(String videoId) async {
-    try {
-      await ref.read(authenticationProvider.notifier).deleteVideo(
-        videoId,
-        (error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error),
-              backgroundColor: Colors.red.shade600,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-      );
-      
-      _refreshUserData();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error deleting video: ${e.toString()}'),
-          backgroundColor: Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _confirmDeleteVideo(VideoModel video) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              Icons.delete_outline,
-              color: Colors.red.shade600,
-            ),
-            const SizedBox(width: 8),
-            const Text('Delete Content'),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete "${video.caption}"? This action cannot be undone.',
-          style: const TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _deleteVideo(video.id);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openVideoDetails(VideoModel video) {
-    Navigator.pushNamed(
-      context, 
-      Constants.myPostScreen,
-      arguments: {
-        Constants.videoId: video.id,
-        Constants.videoModel: video,
-      },
-    ).then((_) => _refreshUserData());
-  }
-
   void _onProfileCreated() async {
-    debugPrint('🔄 Profile created, refreshing data...');
-    
-    // Clear any cached network images
+    debugPrint('Profile created, refreshing data...');
+
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
       await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
-    
-    // Force refresh authentication state to get latest user data
+
     final authNotifier = ref.read(authenticationProvider.notifier);
     await authNotifier.loadUserDataFromSharedPreferences();
-    
-    // Reload the screen data after profile creation
+
     await _refreshUserData();
-    
-    debugPrint('✅ Profile data refreshed');
+
+    debugPrint('Profile data refreshed');
   }
 
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       extendBodyBehindAppBar: true,
       extendBody: true,
       body: !_isInitialized
@@ -430,63 +426,217 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       onRefresh: _refreshUserData,
       color: modernTheme.primaryColor,
       backgroundColor: modernTheme.surfaceColor,
-      child: DefaultTabController(
-        length: 2,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                // Profile Header
-                _buildProfileHeader(modernTheme),
-                
-                // Profile Info Card
-                _buildProfileInfoCard(modernTheme),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            _buildProfileHeader(modernTheme),
+            
+            // Add seller upgrade card for guest users
+            if (_user!.role == UserRole.guest)
+              _buildSellerUpgradeCard(modernTheme),
+            
+            _buildProfileInfoCard(modernTheme),
+            _buildQuickActionsSection(modernTheme),
+            _buildMarketplaceInfoCard(modernTheme),
+            const SizedBox(height: 120),
+          ],
+        ),
+      ),
+    );
+  }
 
-                 _buildQuickActionsSection(modernTheme),
+  Widget _buildSellerUpgradeCard(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1B5E20),
+            Color(0xFF2E7D32),
+            Color(0xFF388E3C),
+            Color(0xFF4CAF50),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4CAF50).withOpacity(0.4),
+            blurRadius: 15,
+            spreadRadius: 2,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => SellerUpgradeWidget.show(context),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.store_rounded,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Become a Seller',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Start your business journey',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 
-                // Tab Bar
+                // Key highlights
+                _buildSellerHighlight(
+                  icon: Icons.money_off_rounded,
+                  text: '0% Commission - Keep all your earnings',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.trending_up_rounded,
+                  text: 'Unlimited products & earning potential',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  text: 'Direct WhatsApp orders from buyers',
+                ),
+                const SizedBox(height: 10),
+                _buildSellerHighlight(
+                  icon: Icons.visibility_rounded,
+                  text: 'Reach thousands of active buyers',
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // CTA Button
                 Container(
-                  color: modernTheme.surfaceColor,
-                  child: TabBar(
-                    controller: _tabController,
-                    labelColor: modernTheme.primaryColor,
-                    unselectedLabelColor: modernTheme.textSecondaryColor,
-                    indicatorColor: modernTheme.primaryColor,
-                    tabs: const [
-                      Tab(
-                        icon: Icon(Icons.grid_view),
-                        text: 'Posts',
-                      ),
-                      Tab(
-                        icon: Icon(Icons.analytics),
-                        text: 'Analytics',
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                ),
-                
-                // Tab Content
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  child: TabBarView(
-                    controller: _tabController,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildPostsTab(modernTheme),
-                      _buildAnalyticsTab(modernTheme),
+                      Icon(
+                        Icons.rocket_launch_rounded,
+                        color: Color(0xFF2E7D32),
+                        size: 22,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Upgrade Now - KES 599',
+                        style: TextStyle(
+                          color: Color(0xFF2E7D32),
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 
-                // Bottom padding
-                const SizedBox(height: 80),
+                const SizedBox(height: 12),
+                
+                // Additional info
+                const Center(
+                  child: Text(
+                    'One-time payment • Instant activation',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          extendBodyBehindAppBar: true,
         ),
       ),
+    );
+  }
+
+  Widget _buildSellerHighlight({
+    required IconData icon,
+    required String text,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -498,9 +648,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
-            modernTheme.primaryColor!.withOpacity(0.6),
+            Color(0xFFFE2C55),
+            Color(0xFFFE2C55).withOpacity(0.8),
+            Color(0xFFFE2C55).withOpacity(0.6),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -510,21 +660,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       ),
       child: Column(
         children: [
-          // Add safe area padding at the top
           SizedBox(height: MediaQuery.of(context).padding.top),
-          
-          // App bar with theme switcher
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Left side - placeholder for symmetry
                 const SizedBox(width: 40),
-                
-                // Center - Profile title
                 const Text(
-                  'Profile',
+                  'My Profile',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -532,8 +676,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     letterSpacing: 0.5,
                   ),
                 ),
-                
-                // Right side - Theme switcher
                 GestureDetector(
                   onTap: () => showThemeSelector(context),
                   child: Container(
@@ -557,17 +699,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               ],
             ),
           ),
-          
-          // Profile Content
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             child: Column(
               children: [
-                // Profile Image
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Outer glow effect
                     Container(
                       width: 120,
                       height: 120,
@@ -613,7 +751,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                   ),
                                 ),
                                 errorWidget: (context, error, stackTrace) {
-                                  debugPrint('❌ Failed to load profile image: ${_user!.profileImage}');
+                                  debugPrint('Failed to load profile image: ${_user!.profileImage}');
                                   debugPrint('Error: $error');
                                   return Container(
                                     color: Colors.grey[300],
@@ -633,7 +771,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                 },
                                 cacheKey: _user!.profileImage,
                                 imageBuilder: (context, imageProvider) {
-                                  debugPrint('✅ Profile image loaded successfully: ${_user!.profileImage}');
+                                  debugPrint('Profile image loaded successfully: ${_user!.profileImage}');
                                   return Container(
                                     decoration: BoxDecoration(
                                       image: DecorationImage(
@@ -657,8 +795,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 20),
-                
-                // User name with enhanced styling
                 Text(
                   _user!.name,
                   style: const TextStyle(
@@ -677,8 +813,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                
-                // User description
                 if (_user!.bio.isNotEmpty)
                   Text(
                     _user!.bio,
@@ -692,91 +826,126 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 const SizedBox(height: 20),
-                
-                // Side-by-side buttons: Verification and Edit Profile
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Verification status button
-                    GestureDetector(
-                      onTap: () => VerificationInfoWidget.show(context),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: _user!.isVerified
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1565C0),
-                                    Color(0xFF0D47A1),
-                                    Color(0xFF0A1E3D),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1976D2),
-                                    Color(0xFF1565C0),
-                                    Color(0xFF0D47A1),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _user!.isVerified
-                                  ? const Color(0xFF1565C0).withOpacity(0.4)
-                                  : const Color(0xFF1976D2).withOpacity(0.4),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 4),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _user!.isVerified ? Icons.verified_rounded : Icons.star_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _user!.isVerified ? 'Verified' : 'Get Verified',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black38,
-                                    blurRadius: 3,
-                                    offset: Offset(0, 1),
+                    // Show verification button only for sellers (host role)
+                    if (_user!.role == UserRole.host)
+                      GestureDetector(
+                        onTap: () => VerificationInfoWidget.show(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: _user!.isVerified
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF1565C0),
+                                      Color(0xFF0D47A1),
+                                      Color(0xFF0A1E3D),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : const LinearGradient(
+                                    colors: [
+                                      Color(0xFF1976D2),
+                                      Color(0xFF1565C0),
+                                      Color(0xFF0D47A1),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                ],
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _user!.isVerified
+                                    ? const Color(0xFF1565C0).withOpacity(0.4)
+                                    : const Color(0xFF1976D2).withOpacity(0.4),
+                                blurRadius: 12,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _user!.isVerified
+                                    ? Icons.verified_rounded
+                                    : Icons.star_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _user!.isVerified ? 'Verified' : 'Get Verified',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    
+                    // Show "Start Selling" button for guests
+                    if (_user!.role == UserRole.guest)
+                      GestureDetector(
+                        onTap: () => SellerUpgradeWidget.show(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF2E7D32),
+                                Color(0xFF388E3C),
+                                Color(0xFF4CAF50),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF4CAF50).withOpacity(0.4),
+                                blurRadius: 12,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.store_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Start Selling',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     
                     const SizedBox(width: 16),
-                    
-                    // Edit Profile Button
                     GestureDetector(
                       onTap: _editProfile,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(25),
@@ -813,7 +982,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
+        color: Color(0xFFFE2C55).withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -827,7 +996,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stats Row with 4 items
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -857,8 +1025,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               ),
             ],
           ),
-        
-          // Tags
           if (_user!.tags.isNotEmpty) ...[
             const SizedBox(height: 16),
             SizedBox(
@@ -870,10 +1036,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   final tag = _user!.tags[index];
                   return Container(
                     margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: modernTheme.primaryColor!.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -896,6 +1059,150 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMarketplaceInfoCard(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1565C0).withOpacity(0.15),
+            const Color(0xFF0D47A1).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF1565C0).withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1565C0).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xFF1565C0),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Marketplace Safety Tips',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInfoItem(
+            icon: Icons.verified_rounded,
+            iconColor: const Color(0xFF1565C0),
+            title: 'Buy from Verified Shops',
+            description: 'Shops with verified badges have been physically verified at their location',
+            modernTheme: modernTheme,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            icon: Icons.chat_bubble_outline_rounded,
+            iconColor: const Color(0xFF2E7D32),
+            title: 'WhatsApp Orders',
+            description: 'All orders are processed directly with sellers via WhatsApp',
+            modernTheme: modernTheme,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            icon: Icons.security_rounded,
+            iconColor: const Color(0xFFFF6F00),
+            title: 'Use Escrow Service',
+            description: 'For sellers you don\'t trust, use our built-in escrow service for safe transactions',
+            modernTheme: modernTheme,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            icon: Icons.place_rounded,
+            iconColor: const Color(0xFFD32F2F),
+            title: 'Verified Locations',
+            description: 'Verified shops have confirmed physical addresses and ownership',
+            modernTheme: modernTheme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required ModernThemeExtension modernTheme,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: iconColor,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -933,525 +1240,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
 
-  Widget _buildPostsTab(ModernThemeExtension modernTheme) {
-    // Show loading indicator while refreshing if we have no videos
-    if (_isRefreshing && _userVideos.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: modernTheme.primaryColor,
-              strokeWidth: 3,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading your content...',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_userVideos.isEmpty) {
-      return _buildEmptyState(modernTheme);
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.only(
-        left: 4,
-        right: 4,
-        top: 4,
-        bottom: 20,
-      ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-        childAspectRatio: 9 / 16,
-      ),
-      itemCount: _userVideos.length,
-      itemBuilder: (context, index) {
-        final video = _userVideos[index];
-        return _buildVideoCard(video, modernTheme);
-      },
-    );
-  }
-
-  Widget _buildVideoCard(VideoModel video, ModernThemeExtension modernTheme) {
-    return GestureDetector(
-      onTap: () => _openVideoDetails(video),
-      onLongPress: () => _confirmDeleteVideo(video),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Thumbnail covering the entire tile
-          if (video.isMultipleImages && video.imageUrls.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: video.imageUrls.first,
-              fit: BoxFit.cover,
-              memCacheHeight: 600,
-              maxHeightDiskCache: 600,
-              cacheKey: 'thumb_img_${video.id}',
-              placeholder: (context, url) => Container(
-                color: modernTheme.surfaceColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      modernTheme.primaryColor!,
-                    ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) {
-                debugPrint('❌ Failed to load image thumbnail: $url');
-                return Container(
-                  color: modernTheme.primaryColor!.withOpacity(0.1),
-                  child: Icon(
-                    Icons.photo_library,
-                    color: modernTheme.primaryColor,
-                    size: 48,
-                  ),
-                );
-              },
-            )
-          else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: video.thumbnailUrl,
-              fit: BoxFit.cover,
-              memCacheHeight: 600,
-              maxHeightDiskCache: 600,
-              cacheKey: 'thumb_vid_${video.id}',
-              placeholder: (context, url) => Container(
-                color: modernTheme.surfaceColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      modernTheme.primaryColor!,
-                    ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) {
-                debugPrint('❌ Failed to load video thumbnail: $url');
-                debugPrint('Error: $error');
-                return Container(
-                  color: modernTheme.primaryColor!.withOpacity(0.1),
-                  child: Icon(
-                    Icons.play_circle_fill,
-                    color: modernTheme.primaryColor,
-                    size: 48,
-                  ),
-                );
-              },
-            )
-          else
-            Container(
-              color: modernTheme.primaryColor!.withOpacity(0.1),
-              child: Icon(
-                video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
-                color: modernTheme.primaryColor,
-                size: 48,
-              ),
-            ),
-          
-          // Gradient overlay at bottom
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // View count at bottom left
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatViewCount(video.views),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        offset: Offset(0, 1),
-                        blurRadius: 3,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Multiple images indicator
-          if (video.isMultipleImages && video.imageUrls.length > 1)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.photo_library,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${video.imageUrls.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  String _formatViewCount(int views) {
-    if (views >= 1000000) {
-      return '${(views / 1000000).toStringAsFixed(1)}M';
-    } else if (views >= 1000) {
-      return '${(views / 1000).toStringAsFixed(1)}K';
-    }
-    return views.toString();
-  }
-
-  Widget _buildEmptyState(ModernThemeExtension modernTheme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.video_library_outlined,
-                color: modernTheme.primaryColor,
-                size: 64,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No content yet',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Your posts will appear here when you start sharing content',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            // Add refresh button
-            ElevatedButton.icon(
-              onPressed: _isRefreshing ? null : _refreshUserData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-              ),
-              icon: _isRefreshing
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.refresh),
-              label: Text(
-                _isRefreshing ? 'Refreshing...' : 'Refresh',
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsTab(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Overview Stats
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Profile Overview',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Total Views',
-                        _userVideos.fold<int>(0, (sum, video) => sum + video.views).toString(),
-                        Icons.visibility,
-                        modernTheme,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Total Likes',
-                        _userVideos.fold<int>(0, (sum, video) => sum + video.likes).toString(),
-                        Icons.favorite,
-                        modernTheme,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Comments',
-                        _userVideos.fold<int>(0, (sum, video) => sum + video.comments).toString(),
-                        Icons.comment,
-                        modernTheme,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Engagement',
-                        '${_calculateEngagementRate().toStringAsFixed(1)}%',
-                        Icons.trending_up,
-                        modernTheme,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Performance Tips
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor!.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: modernTheme.primaryColor!.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.lightbulb_outline,
-                      color: modernTheme.primaryColor,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Performance Tips',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildTipItem(
-                  'Post consistently to keep your audience engaged',
-                  Icons.schedule,
-                  modernTheme,
-                ),
-                const SizedBox(height: 12),
-                _buildTipItem(
-                  'Use trending hashtags to increase visibility',
-                  Icons.tag,
-                  modernTheme,
-                ),
-                const SizedBox(height: 12),
-                _buildTipItem(
-                  'Respond to comments to boost engagement',
-                  Icons.chat_bubble_outline,
-                  modernTheme,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsCard(
-    String title,
-    String value,
-    IconData icon,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: modernTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: modernTheme.primaryColor!.withOpacity(0.1),
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: modernTheme.primaryColor,
-            size: 28,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTipItem(String text, IconData icon, ModernThemeExtension modernTheme) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: modernTheme.primaryColor,
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  double _calculateEngagementRate() {
-    if (_userVideos.isEmpty) return 0.0;
-    
-    final totalEngagement = _userVideos.fold<int>(
-      0,
-      (sum, video) => sum + video.likes + video.comments,
-    );
-    final totalViews = _userVideos.fold<int>(
-      0,
-      (sum, video) => sum + video.views,
-    );
-    
-    if (totalViews == 0) return 0.0;
-    return (totalEngagement / totalViews) * 100;
-  }
   Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),

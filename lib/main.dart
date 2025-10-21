@@ -122,7 +122,7 @@ class AppRoot extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '微宝 WeiBao',
+                      'SpaceDuka',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -153,7 +153,7 @@ class AppRoot extends ConsumerWidget {
       ),
       data: (themeData) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'WeiBao',
+        title: 'SpaceDuka',
         theme: themeData.activeTheme,
         // Start directly with HomeScreen - no authentication required
         home: const HomeScreen(),

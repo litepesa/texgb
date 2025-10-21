@@ -82,7 +82,7 @@ class VerificationInfoWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Build trust & grow your audience faster',
+                          'Stand out from unverified sellers & earn buyer trust',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -131,7 +131,7 @@ class VerificationInfoWidget extends StatelessWidget {
                               SizedBox(width: 12),
                               Flexible(
                                 child: Text(
-                                  'Why Users Choose Verified',
+                                  'Why Buyers Choose Verified Shops',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -144,20 +144,20 @@ class VerificationInfoWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _buildTrustStat(
-                            '92%',
-                            'of users trust verified accounts more',
-                            Icons.favorite_rounded,
+                            '87%',
+                            'of buyers only buy from verified sellers',
+                            Icons.shopping_bag_rounded,
                           ),
                           const SizedBox(height: 10),
                           _buildTrustStat(
-                            '4X',
-                            'higher engagement on your content',
+                            '3.5X',
+                            'more orders compared to unverified shops',
                             Icons.trending_up_rounded,
                           ),
                           const SizedBox(height: 10),
                           _buildTrustStat(
                             'TOP',
-                            'Priority placement in search & feeds',
+                            'Priority placement in search results',
                             Icons.star_rounded,
                           ),
                           const SizedBox(height: 16),
@@ -168,7 +168,7 @@ class VerificationInfoWidget extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
-                              '⚠️ Verified creators get more followers, views, and gift earnings every day!',
+                              '⚠️ Unverified sellers are losing thousands in sales to verified competitors every day!',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -223,19 +223,19 @@ class VerificationInfoWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _buildMissingItem(
-                            '❌ Followers skip your content for verified creators',
+                            '❌ Buyers skip your products for verified sellers',
                           ),
                           _buildMissingItem(
-                            '❌ Lower visibility in search & recommendations',
+                            '❌ Lower search ranking = less visibility',
                           ),
                           _buildMissingItem(
-                            '❌ Missing out on brand partnerships & sponsorships',
+                            '❌ Missing out on high-value customers who only trust verified shops',
                           ),
                           _buildMissingItem(
-                            '❌ Customers hesitate to buy your products',
+                            '❌ No trust badge = lower conversion rates',
                           ),
                           _buildMissingItem(
-                            '❌ Losing competitive advantage on the platform',
+                            '❌ Losing competitive advantage in your niche',
                           ),
                         ],
                       ),
@@ -262,7 +262,7 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.verified_user_rounded,
                           title: 'Blue Verified Badge',
-                          description: 'Stand out with an official verified checkmark that builds instant trust',
+                          description: 'Stand out with an official verified checkmark that screams legitimacy and trust',
                           color: Colors.blue,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
@@ -271,8 +271,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         const SizedBox(height: 12),
                         _buildBenefitCard(
                           icon: Icons.trending_up_rounded,
-                          title: 'Priority Visibility',
-                          description: 'Appear first in search results and For You feed recommendations',
+                          title: 'Priority Search Placement',
+                          description: 'Appear first in search results - verified sellers get premium visibility',
                           color: Colors.green,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
@@ -281,8 +281,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         const SizedBox(height: 12),
                         _buildBenefitCard(
                           icon: Icons.shopping_cart_rounded,
-                          title: 'Higher Engagement',
-                          description: 'Verified accounts get 4X more followers, likes, and gift earnings',
+                          title: 'Higher Conversion Rates',
+                          description: 'Buyers are 3.5X more likely to purchase from verified sellers',
                           color: Colors.purple,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
@@ -291,8 +291,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         const SizedBox(height: 12),
                         _buildBenefitCard(
                           icon: Icons.storefront_rounded,
-                          title: 'Business Credibility',
-                          description: 'Perfect for creators selling products through your content',
+                          title: 'Physical Location Verified',
+                          description: 'Prove your shop is real with on-site verification by our team',
                           color: Colors.orange,
                           gradient: const LinearGradient(
                             colors: [Color(0xFFE65100), Color(0xFFFB8C00)],
@@ -302,7 +302,7 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.support_agent_rounded,
                           title: 'Priority Support Access',
-                          description: 'Get faster response times and dedicated creator assistance',
+                          description: 'Get faster response times and dedicated seller assistance',
                           color: Colors.teal,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF00695C), Color(0xFF26A69A)],
@@ -311,8 +311,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         const SizedBox(height: 12),
                         _buildBenefitCard(
                           icon: Icons.security_rounded,
-                          title: 'Audience Confidence Boost',
-                          description: 'Followers feel safe engaging and buying from verified creators',
+                          title: 'Buyer Confidence Boost',
+                          description: 'Customers feel safe buying from you knowing you\'re legitimate',
                           color: Colors.indigo,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
@@ -348,7 +348,7 @@ class VerificationInfoWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Verified Creators Win',
+                            'Verified Sellers Win',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -358,7 +358,7 @@ class VerificationInfoWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'In a platform where creators compete for attention, verification is your edge. Whether you\'re creating content, building a brand, or selling products - that blue checkmark proves you\'re the real deal.',
+                            'In a marketplace where buyers have hundreds of options, verification is your competitive edge. Verified sellers dominate sales because buyers simply trust them more.',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 15,
@@ -374,7 +374,7 @@ class VerificationInfoWidget extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
-                              '💡 Your verified competitors are capturing the audience you\'re losing!',
+                              '💡 Your verified competitors are capturing the customers you\'re losing!',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -427,8 +427,8 @@ class VerificationInfoWidget extends StatelessWidget {
                                 const SizedBox(height: 8),
                                 Text(
                                   '1. Pay annual verification fee\n'
-                                  '2. Submit verification documents\n'
-                                  '3. Our team reviews (3-7 days)\n'
+                                  '2. Our team schedules a visit to your shop\n'
+                                  '3. Physical verification completed (3-7 days)\n'
                                   '4. Get your verified badge instantly',
                                   style: TextStyle(
                                     fontSize: 13,
@@ -655,7 +655,7 @@ class VerificationInfoWidget extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text('Creator Verification'),
+              child: Text('Seller Verification'),
             ),
           ],
         ),
@@ -724,7 +724,7 @@ class VerificationInfoWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'M-Pesa Payment (Pomasoft Limited):',
+                      'Mpesa Payment Details (Pomasoft Limited):',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -794,14 +794,14 @@ class VerificationInfoWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      Icons.document_scanner,
+                      Icons.location_on_rounded,
                       color: Colors.purple[700],
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'After payment, submit ID/business documents for verification review',
+                        'After payment, our team will contact you to schedule a physical verification visit to your shop location',
                         style: TextStyle(
                           color: Colors.purple[700],
                           fontSize: 14,

@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -31,19 +31,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   final List<String> _tabNames = [
-    'Home',          // Index 0 - Videos Feed (hidden app bar, black background)
-    'People',       // Index 1 - Users List
-    '',            // Index 2 - Post (no label, special design)
-    'Hot',        // Index 3 - Featured
-    'Profile'    // Index 4 - Profile
+    'Home',           // Index 0 - Videos Feed (hidden app bar, black background)
+    'Vendors',       // Index 1 - Users List
+    '',             // Index 2 - Post (no label, special design)
+    'Wallet',      // Index 3 - Featured
+    'Profile'     // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                    // Home
-    CupertinoIcons.person_2,                           // Users
-    Icons.add,                           // Post 
-    CupertinoIcons.flame,               // Trending
-    CupertinoIcons.person            // Profile
+    Icons.store_mall_directory_outlined,    // Home
+    CupertinoIcons.placemark,              // Users
+    Icons.add,                            // Post 
+    CupertinoIcons.qrcode_viewfinder,    // Trending
+    Icons.person_2_outlined             // Profile
   ];
 
   final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
@@ -284,7 +284,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'WeiBao',
+                  'SpaceDuka',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -351,7 +351,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
-              child: const RecommendedPostsScreen(),
+              child: const WalletScreen(),
             ),
           ),
           // Profile tab (index 4)
@@ -377,7 +377,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       title: RichText(
         text: TextSpan(
           children: [
-            TextSpan(
+            /*TextSpan(
               text: "Wei",
               style: TextStyle(
                 color: textColor,          
@@ -385,9 +385,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 fontSize: 22,
                 letterSpacing: -0.3,
               ),
-            ),
+            ),*/
             TextSpan(
-              text: "Bao",
+              text: "Space",
               style: TextStyle(
                 color: iconColor,
                 fontWeight: FontWeight.w700,
@@ -396,11 +396,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             TextSpan(
-              text: "微宝",
+              text: "Duka",
               style: TextStyle(
                 color: const Color(0xFFFE2C55),
                 fontWeight: FontWeight.w700,
-                fontSize: 22,
+                fontSize: 26,
                 letterSpacing: -0.3,
               ),
             ),
