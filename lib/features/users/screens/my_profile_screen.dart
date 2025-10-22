@@ -1,14 +1,11 @@
-// lib/features/users/screens/my_profile_screen.dart
+// lib/features/users/screens/my_profile_screen.dart (WeChat Style)
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:textgb/features/users/widgets/verification_widget.dart';
-import 'package:textgb/features/users/widgets/seller_upgrade_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -24,7 +21,6 @@ class MyProfileScreen extends ConsumerStatefulWidget {
 class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _isRefreshing = false;
   UserModel? _user;
-  List<VideoModel> _userVideos = [];
   String? _error;
   bool _hasNoProfile = false;
   bool _isInitialized = false;
@@ -49,15 +45,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       return;
     }
 
-    final videos = ref.read(videosProvider);
-    final userVideos = videos
-        .where((video) => video.userId == currentUser.uid)
-        .take(1)
-        .toList();
-
     setState(() {
       _user = currentUser;
-      _userVideos = userVideos;
       _isInitialized = true;
     });
   }
@@ -85,8 +74,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       }
 
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
-      debugPrint('🔄 Refreshing profile from backend...');
       final freshUserProfile = await authNotifier.forceRefreshUserProfile();
 
       if (freshUserProfile == null) {
@@ -99,123 +86,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      // 🎉 Show success message if verification status changed
-      if (currentUser.isVerified != freshUserProfile.isVerified && freshUserProfile.isVerified) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.verified, color: Colors.white, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '✨ Your account is now verified!',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: const Color(0xFF1565C0),
-              duration: const Duration(seconds: 3),
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-        }
-      }
-
-      // 🎉 Show success message if role changed to seller
-      if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.host) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.store_rounded, color: Colors.white, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '🎊 You are now a seller! Start posting products',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: const Color(0xFF2E7D32),
-              duration: const Duration(seconds: 3),
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-        }
-      }
-
-      // 🎉 Show success message if role changed from seller to guest
-      if (currentUser.role != freshUserProfile.role && freshUserProfile.role == UserRole.guest) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.white, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Your account role has been updated',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: const Color(0xFF1976D2),
-              duration: const Duration(seconds: 3),
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-        }
-      }
-
-      // Reload user videos
-      await authNotifier.loadUserVideos(freshUserProfile.uid);
-
-      final videos = ref.read(videosProvider);
-      final userVideos = videos
-          .where((video) => video.userId == freshUserProfile.uid)
-          .take(1)
-          .toList();
-
       if (mounted) {
         setState(() {
           _user = freshUserProfile;
-          _userVideos = userVideos;
           _isRefreshing = false;
         });
       }
-      
-      debugPrint('✅ Profile refreshed successfully:');
-      debugPrint('   - Name: ${freshUserProfile.name}');
-      debugPrint('   - Verified: ${freshUserProfile.isVerified}');
-      debugPrint('   - Role: ${freshUserProfile.role}');
     } catch (e) {
       debugPrint('❌ Error refreshing user data: $e');
       if (mounted) {
@@ -223,30 +99,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _error = e.toString();
           _isRefreshing = false;
         });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Failed to refresh: ${e.toString()}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
       }
     }
   }
@@ -261,54 +113,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     ).then((_) => _refreshUserData());
   }
 
-  void _openVideoDetails(VideoModel video) {
-    Navigator.pushNamed(
-      context,
-      Constants.myPostScreen,
-      arguments: {
-        Constants.videoId: video.id,
-        Constants.videoModel: video,
-      },
-    ).then((_) => _refreshUserData());
-  }
-
-  void _navigateToManagePosts() {
-    Navigator.pushNamed(
-      context,
-      Constants.managePostsScreen,
-    ).then((_) => _refreshUserData());
-  }
-
-  void _navigateToWallet() {
-    Navigator.pushNamed(
-      context,
-      Constants.walletScreen,
-    );
-  }
-
-  void _onProfileCreated() async {
-    debugPrint('Profile created, refreshing data...');
-
-    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
-      await CachedNetworkImage.evictFromCache(_user!.profileImage);
-    }
-
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    await authNotifier.loadUserDataFromSharedPreferences();
-
-    await _refreshUserData();
-
-    debugPrint('Profile data refreshed');
-  }
-
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-      extendBodyBehindAppBar: true,
-      extendBody: true,
       body: !_isInitialized
           ? _buildLoadingView(modernTheme)
           : _hasNoProfile
@@ -321,22 +131,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   Widget _buildLoadingView(ModernThemeExtension modernTheme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: modernTheme.primaryColor,
-            strokeWidth: 3,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading your profile...',
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 16,
-            ),
-          ),
-        ],
+      child: CircularProgressIndicator(
+        color: modernTheme.primaryColor,
+        strokeWidth: 3,
       ),
     );
   }
@@ -346,9 +143,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       backgroundColor: modernTheme.backgroundColor,
       body: const LoginRequiredWidget(
         title: 'Sign In Required',
-        subtitle: 'Please sign in to view your profile and manage your content.',
+        subtitle: 'Please sign in to view your profile.',
         actionText: 'Sign In',
-        icon: Icons.person,
+        icon: CupertinoIcons.person_circle,
       ),
     );
   }
@@ -360,25 +157,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline,
-                color: Colors.red.shade600,
-                size: 64,
-              ),
+            Icon(
+              CupertinoIcons.exclamationmark_triangle,
+              color: Colors.red.shade600,
+              size: 64,
             ),
             const SizedBox(height: 24),
             Text(
               'Something went wrong',
               style: TextStyle(
                 color: modernTheme.textColor,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 12),
@@ -386,30 +176,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               _error!,
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
-                fontSize: 16,
+                fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: _refreshUserData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Try Again',
-                style: TextStyle(fontSize: 16),
-              ),
+              child: const Text('Try Again'),
             ),
           ],
         ),
@@ -425,917 +205,686 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     return RefreshIndicator(
       onRefresh: _refreshUserData,
       color: modernTheme.primaryColor,
-      backgroundColor: modernTheme.surfaceColor,
-      child: SingleChildScrollView(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            _buildProfileHeader(modernTheme),
-            
-            // Add seller upgrade card for guest users
-            if (_user!.role == UserRole.guest)
-              _buildSellerUpgradeCard(modernTheme),
-            
-            _buildProfileInfoCard(modernTheme),
-            _buildQuickActionsSection(modernTheme),
-            _buildMarketplaceInfoCard(modernTheme),
-            const SizedBox(height: 120),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSellerUpgradeCard(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1B5E20),
-            Color(0xFF2E7D32),
-            Color(0xFF388E3C),
-            Color(0xFF4CAF50),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4CAF50).withOpacity(0.4),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 6),
-          ),
+        children: [
+          const SizedBox(height: 20),
+          _buildProfileHeader(modernTheme),
+          const SizedBox(height: 20),
+          _buildMenuSection(modernTheme),
+          const SizedBox(height: 100),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => SellerUpgradeWidget.show(context),
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.store_rounded,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Become a Seller',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Start your business journey',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                
-                // Key highlights
-                _buildSellerHighlight(
-                  icon: Icons.money_off_rounded,
-                  text: '0% Commission - Keep all your earnings',
-                ),
-                const SizedBox(height: 10),
-                _buildSellerHighlight(
-                  icon: Icons.trending_up_rounded,
-                  text: 'Unlimited products & earning potential',
-                ),
-                const SizedBox(height: 10),
-                _buildSellerHighlight(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  text: 'Direct WhatsApp orders from buyers',
-                ),
-                const SizedBox(height: 10),
-                _buildSellerHighlight(
-                  icon: Icons.visibility_rounded,
-                  text: 'Reach thousands of active buyers',
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // CTA Button
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.rocket_launch_rounded,
-                        color: Color(0xFF2E7D32),
-                        size: 22,
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Upgrade Now - KES 599',
-                        style: TextStyle(
-                          color: Color(0xFF2E7D32),
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Additional info
-                const Center(
-                  child: Text(
-                    'One-time payment • Instant activation',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSellerHighlight({
-    required IconData icon,
-    required String text,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 16,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFE2C55),
-            Color(0xFFFE2C55).withOpacity(0.8),
-            Color(0xFFFE2C55).withOpacity(0.6),
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-      ),
-      child: Column(
-        children: [
-          SizedBox(height: MediaQuery.of(context).padding.top),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 40),
-                const Text(
-                  'My Profile',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
+    return GestureDetector(
+      onTap: _editProfile,
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        color: modernTheme.backgroundColor,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Row(
+          children: [
+            // Profile Image
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: modernTheme.dividerColor ?? Colors.grey[300]!,
+                  width: 0.5,
                 ),
-                GestureDetector(
-                  onTap: () => showThemeSelector(context),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.brightness_6,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.3),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _user!.profileImage.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: _user!.profileImage,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CupertinoActivityIndicator(),
                           ),
-                        ],
+                        ),
+                        errorWidget: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            CupertinoIcons.person_fill,
+                            size: 35,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          CupertinoIcons.person_fill,
+                          size: 35,
+                          color: Colors.grey[400],
+                        ),
                       ),
-                      child: ClipOval(
-                        child: _user!.profileImage.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: _user!.profileImage,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, error, stackTrace) {
-                                  debugPrint('Failed to load profile image: ${_user!.profileImage}');
-                                  debugPrint('Error: $error');
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.white,
-                                    ),
-                                  );
-                                },
-                                memCacheWidth: 110,
-                                memCacheHeight: 110,
-                                maxWidthDiskCache: 220,
-                                maxHeightDiskCache: 220,
-                                httpHeaders: const {
-                                  'User-Agent': 'WeiBao-App/1.0',
-                                },
-                                cacheKey: _user!.profileImage,
-                                imageBuilder: (context, imageProvider) {
-                                  debugPrint('Profile image loaded successfully: ${_user!.profileImage}');
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      image: DecorationImage(
-                                        image: imageProvider,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              )
-                            : Container(
-                                color: Colors.grey[300],
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            
+            // Name and WeChat ID
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _user!.name,
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  _user!.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black26,
-                        offset: Offset(0, 2),
-                        blurRadius: 4,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        'WeiBao ID: ',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        _user!.uid.substring(0, 8),
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                if (_user!.bio.isNotEmpty)
-                  Text(
-                    _user!.bio,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Show verification button only for sellers (host role)
-                    if (_user!.role == UserRole.host)
-                      GestureDetector(
-                        onTap: () => VerificationInfoWidget.show(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: _user!.isVerified
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFF1565C0),
-                                      Color(0xFF0D47A1),
-                                      Color(0xFF0A1E3D),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : const LinearGradient(
-                                    colors: [
-                                      Color(0xFF1976D2),
-                                      Color(0xFF1565C0),
-                                      Color(0xFF0D47A1),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                            borderRadius: BorderRadius.circular(25),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _user!.isVerified
-                                    ? const Color(0xFF1565C0).withOpacity(0.4)
-                                    : const Color(0xFF1976D2).withOpacity(0.4),
-                                blurRadius: 12,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _user!.isVerified
-                                    ? Icons.verified_rounded
-                                    : Icons.star_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _user!.isVerified ? 'Verified' : 'Get Verified',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    
-                    // Show "Start Selling" button for guests
-                    if (_user!.role == UserRole.guest)
-                      GestureDetector(
-                        onTap: () => SellerUpgradeWidget.show(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF2E7D32),
-                                Color(0xFF388E3C),
-                                Color(0xFF4CAF50),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(25),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF4CAF50).withOpacity(0.4),
-                                blurRadius: 12,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.store_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Start Selling',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    
-                    const SizedBox(width: 16),
-                    GestureDetector(
-                      onTap: _editProfile,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'Edit Profile',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Color(0xFFFE2C55).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                _user!.videosCount.toString(),
-                'Posts',
-                Icons.video_library,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.followers.toString(),
-                'Followers',
-                Icons.people,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.following.toString(),
-                'Following',
-                Icons.person_add,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.likesCount.toString(),
-                'Likes',
-                Icons.favorite,
-                modernTheme,
-              ),
-            ],
-          ),
-          if (_user!.tags.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 32,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _user!.tags.length,
-                itemBuilder: (context, index) {
-                  final tag = _user!.tags[index];
-                  return Container(
-                    margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor!.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: modernTheme.primaryColor!.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Text(
-                      '#$tag',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
-                },
-              ),
+            
+            // QR Code Icon
+            Icon(
+              CupertinoIcons.qrcode,
+              color: modernTheme.textSecondaryColor,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            
+            // Arrow
+            Icon(
+              CupertinoIcons.right_chevron,
+              color: modernTheme.textSecondaryColor,
+              size: 16,
             ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildMarketplaceInfoCard(ModernThemeExtension modernTheme) {
+  Widget _buildMenuSection(ModernThemeExtension modernTheme) {
+    return Column(
+      children: [
+        _buildMenuGroup(modernTheme, [
+          _MenuItem(
+            icon: CupertinoIcons.money_dollar_circle,
+            title: 'Services',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Services - Coming Soon'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ]),
+        
+        const SizedBox(height: 10),
+        
+        _buildMenuGroup(modernTheme, [
+          _MenuItem(
+            icon: CupertinoIcons.collections,
+            title: 'Favorites',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Favorites - Coming Soon'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          _MenuItem(
+            icon: CupertinoIcons.photo_on_rectangle,
+            title: 'Moments',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Moments - Coming Soon'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          _MenuItem(
+            icon: CupertinoIcons.creditcard,
+            title: 'Cards & Offers',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Cards & Offers - Coming Soon'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          _MenuItem(
+            icon: CupertinoIcons.smiley,
+            title: 'Stickers',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Stickers - Coming Soon'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ]),
+        
+        const SizedBox(height: 10),
+        
+        _buildMenuGroup(modernTheme, [
+          _MenuItem(
+            icon: CupertinoIcons.settings,
+            title: 'Settings',
+            onTap: () => _showSettingsSheet(modernTheme),
+          ),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildMenuGroup(ModernThemeExtension modernTheme, List<_MenuItem> items) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1565C0).withOpacity(0.15),
-            const Color(0xFF0D47A1).withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF1565C0).withOpacity(0.3),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1565C0).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: modernTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        children: List.generate(items.length, (index) {
+          final item = items[index];
+          return Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.info_outline_rounded,
-                  color: Color(0xFF1565C0),
-                  size: 24,
-                ),
+              _buildMenuItem(
+                icon: item.icon,
+                title: item.title,
+                onTap: item.onTap,
+                modernTheme: modernTheme,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Marketplace Safety Tips',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              if (index < items.length - 1)
+                Padding(
+                  padding: const EdgeInsets.only(left: 56),
+                  child: Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: modernTheme.dividerColor,
                   ),
                 ),
-              ),
             ],
-          ),
-          const SizedBox(height: 16),
-          _buildInfoItem(
-            icon: Icons.verified_rounded,
-            iconColor: const Color(0xFF1565C0),
-            title: 'Buy from Verified Shops',
-            description: 'Shops with verified badges have been physically verified at their location',
-            modernTheme: modernTheme,
-          ),
-          const SizedBox(height: 12),
-          _buildInfoItem(
-            icon: Icons.chat_bubble_outline_rounded,
-            iconColor: const Color(0xFF2E7D32),
-            title: 'WhatsApp Orders',
-            description: 'All orders are processed directly with sellers via WhatsApp',
-            modernTheme: modernTheme,
-          ),
-          const SizedBox(height: 12),
-          _buildInfoItem(
-            icon: Icons.security_rounded,
-            iconColor: const Color(0xFFFF6F00),
-            title: 'Use Escrow Service',
-            description: 'For sellers you don\'t trust, use our built-in escrow service for safe transactions',
-            modernTheme: modernTheme,
-          ),
-          const SizedBox(height: 12),
-          _buildInfoItem(
-            icon: Icons.place_rounded,
-            iconColor: const Color(0xFFD32F2F),
-            title: 'Verified Locations',
-            description: 'Verified shops have confirmed physical addresses and ownership',
-            modernTheme: modernTheme,
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildInfoItem({
+  Widget _buildMenuItem({
     required IconData icon,
-    required Color iconColor,
     required String title,
-    required String description,
+    required VoidCallback onTap,
     required ModernThemeExtension modernTheme,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            color: iconColor,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: modernTheme.textColor,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
                 title,
                 style: TextStyle(
                   color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
+            ),
+            Icon(
+              CupertinoIcons.right_chevron,
+              color: modernTheme.textSecondaryColor,
+              size: 16,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildStatItem(
-    String count,
-    String label,
-    IconData icon,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: modernTheme.primaryColor,
-          size: 24,
+  void _showSettingsSheet(ModernThemeExtension modernTheme) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: modernTheme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        const SizedBox(height: 8),
-        Text(
-          count,
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor,
-            fontSize: 14,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          Row(
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Manage My Posts Button (larger)
-              Expanded(
-                flex: 2,
-                child: GestureDetector(
-                  onTap: _navigateToManagePosts,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor!.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: modernTheme.primaryColor!.withOpacity(0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.dashboard,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          'Manage My Posts',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Settings',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               
-              const SizedBox(width: 12),
+              const SizedBox(height: 16),
               
-              // Wallet Button (smaller)
-              Expanded(
-                flex: 1,
-                child: GestureDetector(
-                  onTap: _navigateToWallet,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor!.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: modernTheme.primaryColor!.withOpacity(0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.account_balance_wallet_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Wallet',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              _buildSettingsItem(
+                icon: CupertinoIcons.person_circle,
+                title: 'Edit Profile',
+                onTap: () {
+                  Navigator.pop(context);
+                  _editProfile();
+                },
+                modernTheme: modernTheme,
               ),
+              
+              _buildSettingsItem(
+                icon: CupertinoIcons.paintbrush,
+                title: 'Theme',
+                onTap: () {
+                  Navigator.pop(context);
+                  showThemeSelector(context);
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              _buildSettingsItem(
+                icon: CupertinoIcons.lock_shield,
+                title: 'Privacy',
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Privacy Settings - Coming Soon'),
+                      backgroundColor: modernTheme.primaryColor,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              _buildSettingsItem(
+                icon: CupertinoIcons.bell,
+                title: 'Notifications',
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Notification Settings - Coming Soon'),
+                      backgroundColor: modernTheme.primaryColor,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              _buildSettingsItem(
+                icon: CupertinoIcons.info_circle,
+                title: 'About',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAboutDialog(modernTheme);
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              _buildSettingsItem(
+                icon: CupertinoIcons.arrow_2_squarepath,
+                title: 'Switch Account',
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Switch Account - Coming Soon'),
+                      backgroundColor: modernTheme.primaryColor,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              _buildSettingsItem(
+                icon: CupertinoIcons.wifi_slash,
+                title: 'Go Offline',
+                subtitle: 'Disconnect from messages and calls',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showOfflineConfirmation(modernTheme);
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              const SizedBox(height: 20),
             ],
           ),
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(height: 20),
+  Widget _buildSettingsItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required ModernThemeExtension modernTheme,
+    String? subtitle,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: modernTheme.textColor,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: modernTheme.textSecondaryColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              CupertinoIcons.right_chevron,
+              color: modernTheme.textSecondaryColor,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAboutDialog(ModernThemeExtension modernTheme) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: modernTheme.backgroundColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF07C160),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                CupertinoIcons.chat_bubble_2_fill,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'WeiBao',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Version 1.0.0',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'WeiBao is a social marketplace connecting buyers and sellers through chat.',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: modernTheme.primaryColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
+  void _showOfflineConfirmation(ModernThemeExtension modernTheme) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: modernTheme.backgroundColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                CupertinoIcons.wifi_slash,
+                color: Colors.orange,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Go Offline',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'When offline, you will:',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildOfflineFeature(
+              '• Not receive new messages or calls',
+              modernTheme,
+            ),
+            const SizedBox(height: 6),
+            _buildOfflineFeature(
+              '• Appear offline to your contacts',
+              modernTheme,
+            ),
+            const SizedBox(height: 6),
+            _buildOfflineFeature(
+              '• Still browse saved content',
+              modernTheme,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You can go back online anytime from settings.',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(CupertinoIcons.wifi_slash, color: Colors.white, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text('Offline Mode - Coming Soon'),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text(
+              'Go Offline',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineFeature(String text, ModernThemeExtension modernTheme) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: modernTheme.textColor,
+        fontSize: 14,
+        height: 1.4,
+      ),
+    );
+  }
+}
+
+class _MenuItem {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  _MenuItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 }

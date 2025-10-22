@@ -1,11 +1,14 @@
-// lib/main_screen/home_screen.dart (RESTRUCTURED VERSION)
+// lib/main_screen/home_screen.dart (WeChat-style Interface)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
+import 'package:textgb/features/chat/screens/chats_tab.dart';
+import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -22,22 +25,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool get wantKeepAlive => true;
   
   int _currentIndex = 0;
-  int _previousIndex = 0;
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
     'Chats',      // Index 0 - Chats (Coming Soon)
-    'Groups',     // Index 1 - Groups (Coming Soon)
-    'Live',       // Index 2 - Live (Coming Soon)
-    'Profile',    // Index 3 - My Profile
+    'Contacts',   // Index 1 - Contacts Screen
+    'Discover',   // Index 2 - Discover Screen
+    'Me',         // Index 3 - My Profile
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.bubble_left_bubble_right,           // Chats
-    Icons.group_outlined,                             // Groups
-    Icons.videocam_outlined,                         // Live
-    Icons.person_outline,                            // Profile
+    CupertinoIcons.chat_bubble_2_fill,              // Chats
+    CupertinoIcons.person_2_square_stack,           // Contacts
+    CupertinoIcons.compass_fill,                    // Discover
+    CupertinoIcons.person_fill,                     // Me
   ];
 
   @override
@@ -75,7 +77,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDark = mounted ? Theme.of(context).brightness == Brightness.dark : false;
     
     return ModernThemeExtension(
-      primaryColor: const Color(0xFFFE2C55),
+      primaryColor: const Color(0xFF07C160), // WeChat green
       backgroundColor: isDark ? Colors.black : Colors.white,
       surfaceColor: isDark ? Colors.grey[900] : Colors.grey[50],
       textColor: isDark ? Colors.white : Colors.black,
@@ -88,13 +90,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildComingSoonScreen(String title, ModernThemeExtension modernTheme) {
     return Container(
-      color: modernTheme.surfaceColor,
+      color: modernTheme.backgroundColor,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.construction_outlined,
+              CupertinoIcons.chat_bubble_2,
               size: 80,
               color: modernTheme.textSecondaryColor,
             ),
@@ -103,7 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               title,
               style: TextStyle(
                 fontSize: 24,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 color: modernTheme.textColor,
               ),
             ),
@@ -125,9 +127,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted || index == _currentIndex) return;
 
     debugPrint('HomeScreen: Navigating from $_currentIndex to $index');
-    
-    // Store previous index
-    _previousIndex = _currentIndex;
     
     HapticFeedback.lightImpact();
     
@@ -152,28 +151,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 3) {
-        // Profile tab - hide status bar
-        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.light,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      } else {
-        // Other tabs - use theme-based status bar
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      }
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
     } catch (e) {
       debugPrint('System UI update error: $e');
     }
@@ -182,9 +168,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _onPageChanged(int index) {
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
-    
-    // Store previous index before updating
-    _previousIndex = _currentIndex;
     
     setState(() {
       _currentIndex = index;
@@ -204,7 +187,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isProfileTab = _currentIndex == 3;
     
     // Check if app is still initializing
     final isAppInitializing = ref.watch(isAppInitializingProvider);
@@ -212,40 +194,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Show branded loading screen ONLY during initial app startup
     if (isAppInitializing) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: isDarkMode ? Colors.black : Colors.white,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App logo/branding
+              // App logo/branding - WeChat style
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFE2C55),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFF07C160),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  '微宝 WeiBao',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                  ),
+                child: const Icon(
+                  CupertinoIcons.chat_bubble_2_fill,
+                  color: Colors.white,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '微宝 WeiBao',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
               const SizedBox(height: 20),
               const CircularProgressIndicator(
-                color: Color(0xFFFE2C55),
+                color: Color(0xFF07C160),
                 strokeWidth: 3,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading...',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 16,
-                ),
               ),
             ],
           ),
@@ -254,30 +234,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     return Scaffold(
-      extendBody: true,
-      extendBodyBehindAppBar: isProfileTab,
       backgroundColor: modernTheme.backgroundColor,
-      
-      appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      appBar: _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Chats tab (index 0) - Coming Soon
+          // Chats tab (index 0) - Chats Screen
           _KeepAliveWrapper(
-            child: _buildComingSoonScreen('Chats', modernTheme),
+            child: const ChatsTab(),
           ),
-          // Groups tab (index 1) - Coming Soon
+          // Contacts tab (index 1) - Contacts Screen
           _KeepAliveWrapper(
-            child: _buildComingSoonScreen('Groups', modernTheme),
+            child: const ContactsScreen(),
           ),
-          // Live tab (index 2) - Coming Soon
+          // Discover tab (index 2) - Discover Screen
           _KeepAliveWrapper(
-            child: _buildComingSoonScreen('Live', modernTheme),
+            child: const DiscoverScreen(),
           ),
-          // Profile tab (index 3) - My Profile
+          // Me tab (index 3) - My Profile
           _KeepAliveWrapper(
             child: const MyProfileScreen(),
           ),
@@ -285,20 +262,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
-      
-      floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
     );
   }
 
-  // Show FAB on Chats, Groups, and Live tabs only (NOT on Profile tab)
-  bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2;
-  }
-
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    Color appBarColor = modernTheme.surfaceColor ?? (isDarkMode ? Colors.grey[900]! : Colors.white);
+    Color appBarColor = modernTheme.surfaceColor ?? (isDarkMode ? Colors.grey[900]! : Colors.grey[50]!);
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
-    Color iconColor = modernTheme.primaryColor ?? const Color(0xFFFE2C55);
+    Color iconColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
+
+    // Get the title based on current tab
+    String title = _tabNames[_currentIndex];
 
     return AppBar(
       backgroundColor: appBarColor,
@@ -306,42 +279,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrolledUnderElevation: 0,
       centerTitle: true,
       iconTheme: IconThemeData(color: iconColor),
-      title: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: "Wei",
-              style: TextStyle(
-                color: textColor,          
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-                letterSpacing: -0.3,
-              ),
-            ),
-            TextSpan(
-              text: "Bao",
-              style: TextStyle(
-                color: iconColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 24,
-                letterSpacing: -0.3,
-              ),
-            ),
-            TextSpan(
-              text: "微宝",
-              style: TextStyle(
-                color: const Color(0xFFFE2C55),
-                fontWeight: FontWeight.w700,
-                fontSize: 22,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
+      title: Text(
+        title,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
         ),
       ),
       actions: [
-        _buildThreeDotMenu(modernTheme),
-        const SizedBox(width: 16),
+        // Add button (visible on Chats and Contacts tabs)
+        if (_currentIndex == 0 || _currentIndex == 1)
+          IconButton(
+            icon: Icon(
+              CupertinoIcons.add_circled,
+              color: iconColor,
+              size: 26,
+            ),
+            onPressed: () {
+              if (_currentIndex == 0) {
+                // New chat action
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('New Chat - Coming Soon'),
+                    backgroundColor: modernTheme.primaryColor,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else if (_currentIndex == 1) {
+                // Add contact action
+                Navigator.pushNamed(context, Constants.addContactScreen);
+              }
+            },
+          ),
+        // Three-dot menu
+        _buildThreeDotMenu(modernTheme, iconColor),
+        const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
@@ -354,7 +328,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildThreeDotMenu(ModernThemeExtension modernTheme) {
+  Widget _buildThreeDotMenu(ModernThemeExtension modernTheme, Color iconColor) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final menuBgColor = isDark 
       ? modernTheme.surfaceColor!.withOpacity(0.98)
@@ -362,15 +336,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return PopupMenuButton<String>(
       icon: Icon(
-        Icons.more_vert,
-        color: modernTheme.textColor,
+        Icons.add,
+        color: iconColor,
+        size: 26,
       ),
       color: menuBgColor,
       elevation: 8,
       surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
       shadowColor: Colors.black.withOpacity(0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
           width: 1,
@@ -379,131 +354,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
       onSelected: (String value) {
-        if (value == 'profile') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const MyProfileScreen(),
-            ),
-          );
+        switch (value) {
+          case 'new_chat':
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('New Chat - Coming Soon'),
+                backgroundColor: modernTheme.primaryColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'add_contact':
+            Navigator.pushNamed(context, Constants.addContactScreen);
+            break;
+          case 'create_group':
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Create Group - Coming Soon'),
+                backgroundColor: modernTheme.primaryColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'scan_qr':
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Scan QR Code - Coming Soon'),
+                backgroundColor: modernTheme.primaryColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'payment':
+            Navigator.pushNamed(context, Constants.walletScreen);
+            break;
         }
       },
       itemBuilder: (BuildContext context) => [
-        PopupMenuItem<String>(
-          value: 'profile',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.person_outline,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'My Profile',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+        _buildMenuItem(
+          icon: CupertinoIcons.chat_bubble_2,
+          title: 'New Chat',
+          value: 'new_chat',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_add,
+          title: 'Add Contact',
+          value: 'add_contact',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.group,
+          title: 'Create Group',
+          value: 'create_group',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.qrcode,
+          title: 'Scan QR Code',
+          value: 'scan_qr',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.money_dollar_circle,
+          title: 'Payment',
+          value: 'payment',
+          modernTheme: modernTheme,
         ),
       ],
     );
   }
 
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 0) {
-      // Chats tab - Navigate to contacts
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-        child: const Icon(CupertinoIcons.bubble_left_bubble_right),
-      );
-    } else if (_currentIndex == 1) {
-      // Groups tab - Create group (not yet available)
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Create Group - Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-        child: const Icon(Icons.group_add),
-      );
-    } else if (_currentIndex == 2) {
-      // Live tab - Go live (not yet available)
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Go Live - Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-        child: const Icon(Icons.videocam),
-      );
-    }
-    
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildBottomNav(ModernThemeExtension modernTheme) {
-    final isProfileTab = _currentIndex == 3;
-    
-    Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
-    Color? borderColor = modernTheme.dividerColor ?? Colors.grey[300];
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required ModernThemeExtension modernTheme,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          if (borderColor != null)
-            Container(
-              height: 1,
-              width: double.infinity,
-              color: borderColor,
-            ),
-          
-          Container(
-            height: 60 + MediaQuery.of(context).padding.bottom,
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(4, (index) {
-                return _buildNavItem(
-                  index,
-                  modernTheme,
-                );
-              }),
+          Icon(
+            icon,
+            color: modernTheme.textColor,
+            size: 22,
+          ),
+          const SizedBox(width: 16),
+          Text(
+            title,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -511,54 +456,111 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildNavItem(
-    int index,
-    ModernThemeExtension modernTheme,
-  ) {
+  Widget _buildBottomNav(ModernThemeExtension modernTheme) {
+    Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
+    Color borderColor = modernTheme.dividerColor ?? Colors.grey[300]!;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(
+          top: BorderSide(
+            color: borderColor,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        child: Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(4, (index) {
+              return _buildNavItem(index, modernTheme);
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, ModernThemeExtension modernTheme) {
     final isSelected = _currentIndex == index;
     
+    // WeChat-style colors
     Color iconColor = isSelected 
-        ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
+        ? (modernTheme.primaryColor ?? const Color(0xFF07C160)) 
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
     Color textColor = isSelected 
-        ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
+        ? (modernTheme.textColor ?? Colors.black) 
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
-    return GestureDetector(
-      onTap: () => _onTabTapped(index),
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isSelected
-                  ? modernTheme.primaryColor!.withOpacity(0.2)
-                  : Colors.transparent,
-                shape: BoxShape.circle,
+    // Dummy unread count for Chats tab
+    final int unreadCount = index == 0 ? 5 : 0;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onTabTapped(index),
+        behavior: HitTestBehavior.translucent,
+        child: Container(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    _tabIcons[index],
+                    color: iconColor,
+                    size: 26,
+                  ),
+                  // Unread badge
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFA5151), // WeChat red
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              child: Icon(
-                _tabIcons[index],
-                color: iconColor,
-                size: 24,
+              const SizedBox(height: 2),
+              Text(
+                _tabNames[index],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              _tabNames[index],
-              style: TextStyle(
-                color: textColor,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
