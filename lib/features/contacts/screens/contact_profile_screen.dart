@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -26,7 +28,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
     with TickerProviderStateMixin {
   late UserModel _contact;
   bool _isLoading = false;
-  final bool _isCreatingChat = false;
+  bool _isCreatingChat = false;
   bool _isBlocked = false;
   
   late AnimationController _fadeController;
@@ -119,7 +121,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
   }
 
   // Updated navigation to chat - simplified for now until chat system is integrated
-  /*Future<void> _navigateToChat() async {
+  Future<void> _navigateToChat() async {
   final currentUser = ref.read(currentUserProvider);
   if (currentUser == null) {
     _showErrorSnackBar('User not authenticated');
@@ -156,7 +158,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
       });
     }
   }
-}*/
+}
 
   @override
   void dispose() {
@@ -395,7 +397,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                           // Message Button
                           Expanded(
                             child: _buildActionButton(
-                              onPressed: (){},
+                              onPressed: (_isLoading || _isCreatingChat) ? null : _navigateToChat,
                               icon: _isCreatingChat
                                   ? const SizedBox(
                                       width: 20,
