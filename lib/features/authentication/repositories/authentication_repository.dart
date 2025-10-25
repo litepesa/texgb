@@ -1,15 +1,17 @@
 // lib/features/authentication/repositories/authentication_repository.dart
-// SIMPLIFIED VERSION: Firebase Auth + R2 Storage + Video Support + Simple Search
+// COMPLETE VERSION: Firebase Auth + R2 Storage + Video + Series + Enhanced Comments
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/comments/models/comment_model.dart';
+import 'package:textgb/features/threads/models/comment_model.dart';
+import 'package:textgb/features/threads/models/series_model.dart';
+import 'package:textgb/features/threads/models/series_unlock_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import '../../../features/users/models/user_model.dart';
 import '../../../shared/services/http_client.dart';
 
-// Abstract repository interface (Firebase Auth + Go Backend via HTTP + Simple Search)
+// Abstract repository interface (Firebase Auth + Go Backend via HTTP)
 abstract class AuthenticationRepository {
   // Firebase Authentication only (NO storage)
   Future<bool> checkAuthenticationState();
@@ -83,20 +85,125 @@ abstract class AuthenticationRepository {
   Future<List<String>> getLikedVideos(String userId);
   Future<void> incrementViewCount(String videoId);
 
-  // Comment operations
+  // ===============================
+  // 🆕 SERIES OPERATIONS
+  // ===============================
+  
+  // Series CRUD
+  Future<SeriesModel> createSeries({
+    required String creatorId,
+    required String creatorName,
+    required String creatorImage,
+    required String title,
+    required String description,
+    required String bannerImage,
+    required List<String> episodeVideoUrls,
+    required List<String> episodeThumbnails,
+    required List<int> episodeDurations,
+    required double unlockPrice,
+    required int freeEpisodesCount,
+    bool allowReposts = true,
+    bool hasAffiliateProgram = false,
+    double affiliateCommission = 0.0,
+    List<String>? tags,
+  });
+  
+  Future<List<SeriesModel>> getAllSeries();
+  Future<List<SeriesModel>> getUserSeries(String userId);
+  Future<SeriesModel?> getSeriesById(String seriesId);
+  
+  Future<SeriesModel> updateSeries({
+    required String seriesId,
+    String? title,
+    String? description,
+    String? bannerImage,
+    List<String>? episodeVideoUrls,
+    List<String>? episodeThumbnails,
+    List<int>? episodeDurations,
+    double? unlockPrice,
+    int? freeEpisodesCount,
+    bool? allowReposts,
+    bool? hasAffiliateProgram,
+    double? affiliateCommission,
+    List<String>? tags,
+  });
+  
+  Future<void> deleteSeries(String seriesId, String userId);
+  
+  // Series interactions
+  Future<void> likeSeries(String seriesId, String userId);
+  Future<void> unlikeSeries(String seriesId, String userId);
+  Future<void> favoriteSeries(String seriesId, String userId);
+  Future<void> unfavoriteSeries(String seriesId, String userId);
+  Future<void> incrementSeriesViewCount(String seriesId);
+  
+  // Series unlock/purchase
+  Future<SeriesUnlockModel> unlockSeries({
+    required String userId,
+    required String seriesId,
+    required String originalCreatorId,
+    String? sharedByUserId,
+    bool hasAffiliateEarnings = false,
+    double affiliateCommission = 0.0,
+    double affiliateEarnings = 0.0,
+    required double unlockPrice,
+    String paymentMethod = 'M-Pesa',
+    String? transactionId,
+    required String seriesTitle,
+    required String creatorName,
+    required int totalEpisodes,
+  });
+  
+  Future<bool> hasUnlockedSeries(String userId, String seriesId);
+  Future<SeriesUnlockModel?> getSeriesUnlock(String userId, String seriesId);
+  Future<List<SeriesUnlockModel>> getUserUnlocks(String userId);
+  
+  // Episode progress tracking
+  Future<SeriesUnlockModel> updateEpisodeProgress({
+    required String unlockId,
+    required int episodeNumber,
+  });
+  
+  Future<SeriesUnlockModel> completeEpisode({
+    required String unlockId,
+    required int episodeNumber,
+  });
+  
+  // Series statistics
+  Future<Map<String, dynamic>> getSeriesStats(String seriesId);
+
+  // ===============================
+  // 🆕 ENHANCED COMMENT OPERATIONS (WITH MEDIA)
+  // ===============================
+  
   Future<CommentModel> addComment({
     required String videoId,
     required String authorId,
     required String authorName,
     required String authorImage,
     required String content,
-    String? repliedToCommentId,
-    String? repliedToAuthorName,
+    List<String>? imageUrls, // 🆕 Support 0-2 images/GIFs
+    String? parentCommentId,
+    String? replyToUserId,
+    String? replyToUserName,
   });
+  
   Future<List<CommentModel>> getVideoComments(String videoId);
+  Future<CommentModel?> getCommentById(String commentId);
+  
+  Future<CommentModel> updateComment({
+    required String commentId,
+    required String content,
+    List<String>? imageUrls,
+  });
+  
   Future<void> deleteComment(String commentId, String userId);
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
+  
+  // 🆕 Pin comment (video creator only)
+  Future<void> pinComment(String commentId, String videoId, String userId);
+  Future<void> unpinComment(String commentId, String videoId, String userId);
 
   // File operations (R2 via Go backend ONLY)
   Future<String> storeFileToStorage({
@@ -110,7 +217,7 @@ abstract class AuthenticationRepository {
   String? get currentUserPhoneNumber;
 }
 
-// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend + Simple Search
+// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend
 class FirebaseAuthenticationRepository implements AuthenticationRepository {
   final FirebaseAuth _auth;
   final HttpClientService _httpClient;
@@ -206,7 +313,6 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     try {
       debugPrint('📄 Syncing user with backend: $uid');
       
-      // First check if user exists in backend
       final userExists = await checkUserExists(uid);
       
       if (userExists) {
@@ -215,13 +321,11 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       } else {
         debugPrint('🆕 User does not exist, creating new user');
         
-        // Get Firebase user info (PHONE ONLY - no storage access)
         final firebaseUser = _auth.currentUser;
         if (firebaseUser == null) {
           throw AuthRepositoryException('No Firebase user found');
         }
 
-        // Create minimal user model (PHONE-ONLY, NO Firebase URLs)
         final newUser = UserModel.create(
           uid: uid,
           name: firebaseUser.displayName ?? 'User',
@@ -232,7 +336,6 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
 
         debugPrint('📤 Sending user data to backend: ${newUser.toMap()}');
 
-        // Create user in backend
         final response = await _httpClient.post('/auth/sync', body: newUser.toMap());
         
         if (response.statusCode == 200 || response.statusCode == 201) {
@@ -293,76 +396,62 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   @override
-Future<UserModel> createUserProfile({
-  required UserModel user,
-  required File? profileImage,
-  required File? coverImage,
-}) async {
-  try {
-    debugPrint('🗃️ Creating user profile: ${user.name}');
-    UserModel updatedUser = user;
+  Future<UserModel> createUserProfile({
+    required UserModel user,
+    required File? profileImage,
+    required File? coverImage,
+  }) async {
+    try {
+      debugPrint('🗃️ Creating user profile: ${user.name}');
+      UserModel updatedUser = user;
 
-    // Upload profile image to R2 (NOT Firebase)
-    if (profileImage != null) {
-      debugPrint('📸 Uploading profile image to R2...');
-      String profileImageUrl = await storeFileToStorage(
-        file: profileImage,
-        reference: 'profile/${user.uid}',
+      if (profileImage != null) {
+        debugPrint('📸 Uploading profile image to R2...');
+        String profileImageUrl = await storeFileToStorage(
+          file: profileImage,
+          reference: 'profile/${user.uid}',
+        );
+        updatedUser = updatedUser.copyWith(profileImage: profileImageUrl);
+        debugPrint('✅ Profile image uploaded to R2: $profileImageUrl');
+      }
+
+      if (coverImage != null) {
+        debugPrint('🖼️ Uploading cover image to R2...');
+        String coverImageUrl = await storeFileToStorage(
+          file: coverImage,
+          reference: 'cover/${user.uid}',
+        );
+        updatedUser = updatedUser.copyWith(coverImage: coverImageUrl);
+        debugPrint('✅ Cover image uploaded to R2: $coverImageUrl');
+      }
+
+      final timestamp = _createTimestamp();
+      final finalUser = updatedUser.copyWith(
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        lastSeen: timestamp,
       );
-      updatedUser = updatedUser.copyWith(profileImage: profileImageUrl);
-      debugPrint('✅ Profile image uploaded to R2: $profileImageUrl');
-    }
 
-    // Upload cover image to R2 (NOT Firebase)
-    if (coverImage != null) {
-      debugPrint('🖼️ Uploading cover image to R2...');
-      String coverImageUrl = await storeFileToStorage(
-        file: coverImage,
-        reference: 'cover/${user.uid}',
-      );
-      updatedUser = updatedUser.copyWith(coverImage: coverImageUrl);
-      debugPrint('✅ Cover image uploaded to R2: $coverImageUrl');
-    }
-
-    // Set creation and update timestamps
-    final timestamp = _createTimestamp();
-    final finalUser = updatedUser.copyWith(
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      lastSeen: timestamp,
-    );
-
-    debugPrint('📤 Creating user profile in backend...');
-    debugPrint('📋 User data being sent:');
-    debugPrint('   - Name: ${finalUser.name}');
-    debugPrint('   - UID: ${finalUser.uid}');
-    debugPrint('   - Profile Image: ${finalUser.profileImage}');
-    debugPrint('   - Cover Image: ${finalUser.coverImage}');
-    
-    final response = await _httpClient.post('/auth/sync', body: finalUser.toMap());
-    
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      // Parse and return the user from backend response
-      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-      final userData = responseData['user'] ?? responseData;
-      final createdUser = UserModel.fromMap(userData);
+      debugPrint('📤 Creating user profile in backend...');
       
-      debugPrint('✅ User profile created successfully');
-      debugPrint('✅ Backend returned user:');
-      debugPrint('   - Name: ${createdUser.name}');
-      debugPrint('   - Profile Image: ${createdUser.profileImage}');
-      debugPrint('   - Cover Image: ${createdUser.coverImage}');
+      final response = await _httpClient.post('/auth/sync', body: finalUser.toMap());
       
-      return createdUser;
-    } else {
-      debugPrint('❌ Failed to create user profile: ${response.statusCode} - ${response.body}');
-      throw AuthRepositoryException('Failed to create user profile: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final userData = responseData['user'] ?? responseData;
+        final createdUser = UserModel.fromMap(userData);
+        
+        debugPrint('✅ User profile created successfully');
+        return createdUser;
+      } else {
+        debugPrint('❌ Failed to create user profile: ${response.statusCode} - ${response.body}');
+        throw AuthRepositoryException('Failed to create user profile: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error creating user profile: $e');
+      throw AuthRepositoryException('Failed to create user profile: $e');
     }
-  } catch (e) {
-    debugPrint('❌ Error creating user profile: $e');
-    throw AuthRepositoryException('Failed to create user profile: $e');
   }
-}
 
   @override
   Future<UserModel> updateUserProfile({
@@ -373,7 +462,6 @@ Future<UserModel> createUserProfile({
     try {
       UserModel updatedUser = user;
 
-      // Upload new profile image to R2 (NOT Firebase)
       if (profileImage != null) {
         debugPrint('📸 Uploading new profile image to R2...');
         String profileImageUrl = await storeFileToStorage(
@@ -384,7 +472,6 @@ Future<UserModel> createUserProfile({
         debugPrint('✅ New profile image uploaded to R2: $profileImageUrl');
       }
 
-      // Upload new cover image to R2 (NOT Firebase)
       if (coverImage != null) {
         debugPrint('🖼️ Uploading new cover image to R2...');
         String coverImageUrl = await storeFileToStorage(
@@ -395,7 +482,6 @@ Future<UserModel> createUserProfile({
         debugPrint('✅ New cover image uploaded to R2: $coverImageUrl');
       }
 
-      // Update timestamp
       final userWithTimestamp = updatedUser.copyWith(
         updatedAt: _createTimestamp(),
       );
@@ -485,7 +571,7 @@ Future<UserModel> createUserProfile({
   }
 
   // ===============================
-  // VIDEO OPERATIONS (WITH PRICE SUPPORT)
+  // VIDEO OPERATIONS
   // ===============================
 
   @override
@@ -657,7 +743,6 @@ Future<UserModel> createUserProfile({
     try {
       debugPrint('🔄 Updating video: $videoId');
       
-      // Build update payload with only provided fields
       final Map<String, dynamic> updateData = {
         'updatedAt': _createTimestamp(),
       };
@@ -757,7 +842,439 @@ Future<UserModel> createUserProfile({
   }
 
   // ===============================
-  // COMMENT OPERATIONS
+  // 🆕 SERIES OPERATIONS
+  // ===============================
+
+  @override
+  Future<SeriesModel> createSeries({
+    required String creatorId,
+    required String creatorName,
+    required String creatorImage,
+    required String title,
+    required String description,
+    required String bannerImage,
+    required List<String> episodeVideoUrls,
+    required List<String> episodeThumbnails,
+    required List<int> episodeDurations,
+    required double unlockPrice,
+    required int freeEpisodesCount,
+    bool allowReposts = true,
+    bool hasAffiliateProgram = false,
+    double affiliateCommission = 0.0,
+    List<String>? tags,
+  }) async {
+    try {
+      final timestamp = _createTimestamp();
+      
+      final seriesData = {
+        'creatorId': creatorId,
+        'creatorName': creatorName,
+        'creatorImage': creatorImage,
+        'title': title,
+        'description': description,
+        'bannerImage': bannerImage,
+        'episodeVideoUrls': episodeVideoUrls,
+        'episodeThumbnails': episodeThumbnails,
+        'episodeDurations': episodeDurations,
+        'isPremium': true,
+        'unlockPrice': unlockPrice,
+        'freeEpisodesCount': freeEpisodesCount,
+        'allowReposts': allowReposts,
+        'hasAffiliateProgram': hasAffiliateProgram,
+        'affiliateCommission': affiliateCommission,
+        'tags': tags ?? [],
+        'viewCount': 0,
+        'unlockCount': 0,
+        'favoriteCount': 0,
+        'likes': 0,
+        'isActive': true,
+        'isFeatured': false,
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
+      };
+
+      debugPrint('📤 Creating series: $title');
+
+      final response = await _httpClient.post('/series', body: seriesData);
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final seriesMap = responseData.containsKey('series') ? responseData['series'] : responseData;
+        debugPrint('✅ Series created successfully');
+        return SeriesModel.fromJson(seriesMap);
+      } else {
+        throw AuthRepositoryException('Failed to create series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to create series: $e');
+    }
+  }
+
+  @override
+  Future<List<SeriesModel>> getAllSeries() async {
+    try {
+      final response = await _httpClient.get('/series');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> seriesData = responseData['series'] ?? [];
+        return seriesData
+            .map((data) => SeriesModel.fromJson(data as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw AuthRepositoryException('Failed to get all series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to get all series: $e');
+    }
+  }
+
+  @override
+  Future<List<SeriesModel>> getUserSeries(String userId) async {
+    try {
+      final response = await _httpClient.get('/users/$userId/series');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> seriesData = responseData['series'] ?? [];
+        return seriesData
+            .map((data) => SeriesModel.fromJson(data as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw AuthRepositoryException('Failed to get user series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to get user series: $e');
+    }
+  }
+
+  @override
+  Future<SeriesModel?> getSeriesById(String seriesId) async {
+    try {
+      final response = await _httpClient.get('/series/$seriesId');
+      
+      if (response.statusCode == 200) {
+        final seriesData = jsonDecode(response.body) as Map<String, dynamic>;
+        return SeriesModel.fromJson(seriesData);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw AuthRepositoryException('Failed to get series by ID: ${response.body}');
+      }
+    } catch (e) {
+      if (e is NotFoundException) return null;
+      throw AuthRepositoryException('Failed to get series by ID: $e');
+    }
+  }
+
+  @override
+  Future<SeriesModel> updateSeries({
+    required String seriesId,
+    String? title,
+    String? description,
+    String? bannerImage,
+    List<String>? episodeVideoUrls,
+    List<String>? episodeThumbnails,
+    List<int>? episodeDurations,
+    double? unlockPrice,
+    int? freeEpisodesCount,
+    bool? allowReposts,
+    bool? hasAffiliateProgram,
+    double? affiliateCommission,
+    List<String>? tags,
+  }) async {
+    try {
+      debugPrint('🔄 Updating series: $seriesId');
+      
+      final Map<String, dynamic> updateData = {
+        'updatedAt': _createTimestamp(),
+      };
+      
+      if (title != null) updateData['title'] = title;
+      if (description != null) updateData['description'] = description;
+      if (bannerImage != null) updateData['bannerImage'] = bannerImage;
+      if (episodeVideoUrls != null) updateData['episodeVideoUrls'] = episodeVideoUrls;
+      if (episodeThumbnails != null) updateData['episodeThumbnails'] = episodeThumbnails;
+      if (episodeDurations != null) updateData['episodeDurations'] = episodeDurations;
+      if (unlockPrice != null) updateData['unlockPrice'] = unlockPrice;
+      if (freeEpisodesCount != null) updateData['freeEpisodesCount'] = freeEpisodesCount;
+      if (allowReposts != null) updateData['allowReposts'] = allowReposts;
+      if (hasAffiliateProgram != null) updateData['hasAffiliateProgram'] = hasAffiliateProgram;
+      if (affiliateCommission != null) updateData['affiliateCommission'] = affiliateCommission;
+      if (tags != null) updateData['tags'] = tags;
+
+      final response = await _httpClient.put('/series/$seriesId', body: updateData);
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final seriesMap = responseData.containsKey('series') ? responseData['series'] : responseData;
+        debugPrint('✅ Series updated successfully');
+        return SeriesModel.fromJson(seriesMap);
+      } else {
+        throw AuthRepositoryException('Failed to update series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to update series: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteSeries(String seriesId, String userId) async {
+    try {
+      final response = await _httpClient.delete('/series/$seriesId');
+      
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to delete series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to delete series: $e');
+    }
+  }
+
+  @override
+  Future<void> likeSeries(String seriesId, String userId) async {
+    try {
+      final response = await _httpClient.post('/series/$seriesId/like', body: {});
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to like series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to like series: $e');
+    }
+  }
+
+  @override
+  Future<void> unlikeSeries(String seriesId, String userId) async {
+    try {
+      final response = await _httpClient.delete('/series/$seriesId/like');
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to unlike series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to unlike series: $e');
+    }
+  }
+
+  @override
+  Future<void> favoriteSeries(String seriesId, String userId) async {
+    try {
+      final response = await _httpClient.post('/series/$seriesId/favorite', body: {});
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to favorite series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to favorite series: $e');
+    }
+  }
+
+  @override
+  Future<void> unfavoriteSeries(String seriesId, String userId) async {
+    try {
+      final response = await _httpClient.delete('/series/$seriesId/favorite');
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to unfavorite series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to unfavorite series: $e');
+    }
+  }
+
+  @override
+  Future<void> incrementSeriesViewCount(String seriesId) async {
+    try {
+      final response = await _httpClient.post('/series/$seriesId/views', body: {});
+      
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to increment series view count: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to increment series view count: $e');
+    }
+  }
+
+  @override
+  Future<SeriesUnlockModel> unlockSeries({
+    required String userId,
+    required String seriesId,
+    required String originalCreatorId,
+    String? sharedByUserId,
+    bool hasAffiliateEarnings = false,
+    double affiliateCommission = 0.0,
+    double affiliateEarnings = 0.0,
+    required double unlockPrice,
+    String paymentMethod = 'M-Pesa',
+    String? transactionId,
+    required String seriesTitle,
+    required String creatorName,
+    required int totalEpisodes,
+  }) async {
+    try {
+      final timestamp = _createTimestamp();
+      
+      final unlockData = {
+        'userId': userId,
+        'seriesId': seriesId,
+        'originalCreatorId': originalCreatorId,
+        'sharedByUserId': sharedByUserId,
+        'hasAffiliateEarnings': hasAffiliateEarnings,
+        'affiliateCommission': affiliateCommission,
+        'affiliateEarnings': affiliateEarnings,
+        'unlockPrice': unlockPrice,
+        'paymentMethod': paymentMethod,
+        'transactionId': transactionId,
+        'purchasedAt': timestamp,
+        'seriesTitle': seriesTitle,
+        'creatorName': creatorName,
+        'totalEpisodes': totalEpisodes,
+        'currentEpisode': 1,
+        'completedEpisodes': [],
+        'totalEpisodesWatched': 0,
+        'watchProgress': 0.0,
+        'lastWatchedAt': timestamp,
+        'isActive': true,
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
+      };
+
+      debugPrint('📤 Unlocking series: $seriesTitle for user: $userId');
+
+      final response = await _httpClient.post('/series/$seriesId/unlock', body: unlockData);
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final unlockMap = responseData.containsKey('unlock') ? responseData['unlock'] : responseData;
+        debugPrint('✅ Series unlocked successfully');
+        return SeriesUnlockModel.fromJson(unlockMap);
+      } else {
+        throw AuthRepositoryException('Failed to unlock series: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to unlock series: $e');
+    }
+  }
+
+  @override
+  Future<bool> hasUnlockedSeries(String userId, String seriesId) async {
+    try {
+      final response = await _httpClient.get('/users/$userId/series/$seriesId/unlock');
+      return response.statusCode == 200;
+    } catch (e) {
+      if (e is NotFoundException) return false;
+      throw AuthRepositoryException('Failed to check series unlock status: $e');
+    }
+  }
+
+  @override
+  Future<SeriesUnlockModel?> getSeriesUnlock(String userId, String seriesId) async {
+    try {
+      final response = await _httpClient.get('/users/$userId/series/$seriesId/unlock');
+      
+      if (response.statusCode == 200) {
+        final unlockData = jsonDecode(response.body) as Map<String, dynamic>;
+        return SeriesUnlockModel.fromJson(unlockData);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw AuthRepositoryException('Failed to get series unlock: ${response.body}');
+      }
+    } catch (e) {
+      if (e is NotFoundException) return null;
+      throw AuthRepositoryException('Failed to get series unlock: $e');
+    }
+  }
+
+  @override
+  Future<List<SeriesUnlockModel>> getUserUnlocks(String userId) async {
+    try {
+      final response = await _httpClient.get('/users/$userId/unlocks');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> unlocksData = responseData['unlocks'] ?? [];
+        return unlocksData
+            .map((data) => SeriesUnlockModel.fromJson(data as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw AuthRepositoryException('Failed to get user unlocks: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to get user unlocks: $e');
+    }
+  }
+
+  @override
+  Future<SeriesUnlockModel> updateEpisodeProgress({
+    required String unlockId,
+    required int episodeNumber,
+  }) async {
+    try {
+      final updateData = {
+        'currentEpisode': episodeNumber,
+        'lastWatchedAt': _createTimestamp(),
+        'updatedAt': _createTimestamp(),
+      };
+
+      final response = await _httpClient.put('/unlocks/$unlockId/progress', body: updateData);
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final unlockMap = responseData.containsKey('unlock') ? responseData['unlock'] : responseData;
+        return SeriesUnlockModel.fromJson(unlockMap);
+      } else {
+        throw AuthRepositoryException('Failed to update episode progress: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to update episode progress: $e');
+    }
+  }
+
+  @override
+  Future<SeriesUnlockModel> completeEpisode({
+    required String unlockId,
+    required int episodeNumber,
+  }) async {
+    try {
+      final updateData = {
+        'episodeNumber': episodeNumber,
+        'lastWatchedAt': _createTimestamp(),
+        'updatedAt': _createTimestamp(),
+      };
+
+      final response = await _httpClient.post('/unlocks/$unlockId/complete-episode', body: updateData);
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final unlockMap = responseData.containsKey('unlock') ? responseData['unlock'] : responseData;
+        return SeriesUnlockModel.fromJson(unlockMap);
+      } else {
+        throw AuthRepositoryException('Failed to complete episode: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to complete episode: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSeriesStats(String seriesId) async {
+    try {
+      final response = await _httpClient.get('/series/$seriesId/stats');
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw AuthRepositoryException('Failed to get series stats: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to get series stats: $e');
+    }
+  }
+
+  // ===============================
+  // 🆕 ENHANCED COMMENT OPERATIONS (WITH MEDIA)
   // ===============================
 
   @override
@@ -767,8 +1284,10 @@ Future<UserModel> createUserProfile({
     required String authorName,
     required String authorImage,
     required String content,
-    String? repliedToCommentId,
-    String? repliedToAuthorName,
+    List<String>? imageUrls,
+    String? parentCommentId,
+    String? replyToUserId,
+    String? replyToUserName,
   }) async {
     try {
       final timestamp = _createTimestamp();
@@ -779,19 +1298,25 @@ Future<UserModel> createUserProfile({
         'authorName': authorName,
         'authorImage': authorImage,
         'content': content.trim(),
+        'imageUrls': imageUrls ?? [], // 🆕 Media support
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'likesCount': 0,
-        'isReply': repliedToCommentId != null,
-        if (repliedToCommentId != null) 'repliedToCommentId': repliedToCommentId,
-        if (repliedToAuthorName != null) 'repliedToAuthorName': repliedToAuthorName,
+        'replies': 0,
+        'isReply': parentCommentId != null,
+        'isPinned': false,
+        'isEdited': false,
+        'isActive': true,
+        if (parentCommentId != null) 'parentCommentId': parentCommentId,
+        if (replyToUserId != null) 'replyToUserId': replyToUserId,
+        if (replyToUserName != null) 'replyToUserName': replyToUserName,
       };
 
       final response = await _httpClient.post('/videos/$videoId/comments', body: commentData);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return CommentModel.fromMap(responseData, responseData['id'] ?? '');
+        return CommentModel.fromJson(responseData);
       } else {
         throw AuthRepositoryException('Failed to add comment: ${response.body}');
       }
@@ -808,15 +1333,61 @@ Future<UserModel> createUserProfile({
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final List<dynamic> commentsData = responseData['comments'] ?? [];
-        return commentsData.map((commentData) {
-          final Map<String, dynamic> data = commentData as Map<String, dynamic>;
-          return CommentModel.fromMap(data, data['id'] ?? '');
-        }).toList();
+        return commentsData
+            .map((data) => CommentModel.fromJson(data as Map<String, dynamic>))
+            .toList();
       } else {
         throw AuthRepositoryException('Failed to get video comments: ${response.body}');
       }
     } catch (e) {
       throw AuthRepositoryException('Failed to get video comments: $e');
+    }
+  }
+
+  @override
+  Future<CommentModel?> getCommentById(String commentId) async {
+    try {
+      final response = await _httpClient.get('/comments/$commentId');
+      
+      if (response.statusCode == 200) {
+        final commentData = jsonDecode(response.body) as Map<String, dynamic>;
+        return CommentModel.fromJson(commentData);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw AuthRepositoryException('Failed to get comment by ID: ${response.body}');
+      }
+    } catch (e) {
+      if (e is NotFoundException) return null;
+      throw AuthRepositoryException('Failed to get comment by ID: $e');
+    }
+  }
+
+  @override
+  Future<CommentModel> updateComment({
+    required String commentId,
+    required String content,
+    List<String>? imageUrls,
+  }) async {
+    try {
+      final updateData = {
+        'content': content.trim(),
+        'imageUrls': imageUrls ?? [],
+        'isEdited': true,
+        'editedAt': _createTimestamp(),
+        'updatedAt': _createTimestamp(),
+      };
+
+      final response = await _httpClient.put('/comments/$commentId', body: updateData);
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        return CommentModel.fromJson(responseData);
+      } else {
+        throw AuthRepositoryException('Failed to update comment: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to update comment: $e');
     }
   }
 
@@ -859,6 +1430,32 @@ Future<UserModel> createUserProfile({
     }
   }
 
+  @override
+  Future<void> pinComment(String commentId, String videoId, String userId) async {
+    try {
+      final response = await _httpClient.post('/videos/$videoId/comments/$commentId/pin', body: {});
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to pin comment: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to pin comment: $e');
+    }
+  }
+
+  @override
+  Future<void> unpinComment(String commentId, String videoId, String userId) async {
+    try {
+      final response = await _httpClient.post('/videos/$videoId/comments/$commentId/unpin', body: {});
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to unpin comment: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to unpin comment: $e');
+    }
+  }
+
   // ===============================
   // R2 STORAGE OPERATIONS (VIA GO BACKEND)
   // ===============================
@@ -895,20 +1492,20 @@ Future<UserModel> createUserProfile({
     }
   }
 
-  // Helper method to determine file type from reference for R2 storage
   String _getFileTypeFromReference(String reference) {
     if (reference.contains('profile') || reference.contains('userImages')) return 'profile';
     if (reference.contains('banner') || reference.contains('cover')) return 'banner';
     if (reference.contains('thumbnail')) return 'thumbnail';
     if (reference.contains('video')) return 'video';
-    return 'profile'; // Default to profile
+    if (reference.contains('comment')) return 'comment'; // 🆕 Comment media
+    if (reference.contains('series')) return 'series'; // 🆕 Series media
+    return 'profile';
   }
 
   // ===============================
   // ADDITIONAL HELPER METHODS
   // ===============================
 
-  // Test backend connection
   Future<bool> testBackendConnection() async {
     try {
       return await _httpClient.testConnection();
@@ -918,7 +1515,6 @@ Future<UserModel> createUserProfile({
     }
   }
 
-  // Get current user's Firebase token
   Future<String?> getCurrentUserToken() async {
     try {
       final user = _auth.currentUser;
@@ -932,12 +1528,11 @@ Future<UserModel> createUserProfile({
     }
   }
 
-  // Refresh user token
   Future<String?> refreshUserToken() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        return await user.getIdToken(true); // Force refresh
+        return await user.getIdToken(true);
       }
       return null;
     } catch (e) {
@@ -946,19 +1541,10 @@ Future<UserModel> createUserProfile({
     }
   }
 
-  // Check if current user is authenticated
   bool get isUserAuthenticated => _auth.currentUser != null;
-
-  // Get current user's email
   String? get currentUserEmail => _auth.currentUser?.email;
-
-  // Get current user's display name
   String? get currentUserDisplayName => _auth.currentUser?.displayName;
-
-  // Listen to auth state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  // Listen to user changes
   Stream<User?> get userChanges => _auth.userChanges();
 }
 
@@ -966,7 +1552,6 @@ Future<UserModel> createUserProfile({
 // EXCEPTION CLASSES
 // ===============================
 
-// Exception class for repository errors
 class AuthRepositoryException implements Exception {
   final String message;
   const AuthRepositoryException(this.message);
@@ -975,7 +1560,6 @@ class AuthRepositoryException implements Exception {
   String toString() => 'AuthRepositoryException: $message';
 }
 
-// HTTP exception classes for compatibility
 class NotFoundException extends AuthRepositoryException {
   const NotFoundException(super.message);
 }
