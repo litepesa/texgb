@@ -1,5 +1,6 @@
 // lib/features/comments/widgets/comments_bottom_sheet.dart
 // UPDATED: Enhanced comment system with media support, nested replies, pinning, and sorting
+// 🔧 FIXED: Changed imageUrls to imageFiles parameter to match provider method signature
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1755,9 +1756,21 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
     if (!isAuthenticated) return;
     
     try {
-      // TODO: Implement pin/unpin in backend
-      // For now, just show a message
-      showSnackBar(context, comment.isPinned ? 'Comment unpinned' : 'Comment pinned');
+      final authProvider = ref.read(authenticationProvider.notifier);
+      
+      if (comment.isPinned) {
+        await authProvider.unpinComment(comment.id, widget.video.id, (error) {
+          if (mounted) {
+            showSnackBar(context, error);
+          }
+        });
+      } else {
+        await authProvider.pinComment(comment.id, widget.video.id, (error) {
+          if (mounted) {
+            showSnackBar(context, error);
+          }
+        });
+      }
       
       _loadComments();
       HapticFeedback.lightImpact();
@@ -1845,6 +1858,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
     );
   }
 
+  // 🔧 FIXED: Changed to pass imageFiles instead of imageUrls, let the provider handle upload
   Future<void> _sendComment() async {
     final content = _commentController.text.trim();
     if (content.isEmpty && _selectedImages.isEmpty) return;
@@ -1868,32 +1882,21 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         _isUploadingMedia = true;
       });
 
-      // 🆕 Upload images if present
-      List<String> imageUrls = [];
-      if (_selectedImages.isNotEmpty) {
-        for (final imageFile in _selectedImages) {
-          final imageUrl = await ref.read(authenticationProvider.notifier).storeFileToStorage(
-            file: imageFile,
-            reference: 'comments/${widget.video.id}/${DateTime.now().millisecondsSinceEpoch}.jpg',
-          );
-          imageUrls.add(imageUrl);
-        }
-      }
-
-      setState(() {
-        _isUploadingMedia = false;
-      });
-
+      // 🔧 FIXED: Pass imageFiles directly to provider, which will handle the upload
       await ref.read(authenticationProvider.notifier).addComment(
         videoId: widget.video.id,
         content: content,
-        imageUrls: imageUrls, // 🆕 Pass image URLs
+        imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null, // 🔧 Changed from imageUrls to imageFiles
         repliedToCommentId: _replyingToCommentId,
         repliedToAuthorName: _replyingToAuthorName,
         onSuccess: (message) async {
+          setState(() {
+            _isUploadingMedia = false;
+          });
+          
           if (mounted) {
             _commentController.clear();
-            _selectedImages.clear(); // 🆕 Clear selected images
+            _selectedImages.clear();
             _cancelReply();
             
             _loadComments();
@@ -1912,6 +1915,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
           }
         },
         onError: (error) {
+          setState(() {
+            _isUploadingMedia = false;
+          });
+          
           if (mounted) {
             showSnackBar(context, error);
           }
@@ -1923,7 +1930,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       });
       
       if (mounted) {
-        showSnackBar(context, 'Failed to send comment');
+        showSnackBar(context, 'Failed to send comment: $e');
       }
     }
   }
