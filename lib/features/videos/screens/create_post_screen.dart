@@ -2,7 +2,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -11,10 +10,9 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
-// import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-// import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:path/path.dart' as path;
 
 // Data classes for video processing
 class VideoInfo {
@@ -232,172 +230,171 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // COMMENTED OUT - FFmpeg video processing
   // Fixed CRF 23 - excellent quality for all content
-  // int _getFixedCRF() {
-  //   return 23;
-  // }
+  int _getFixedCRF() {
+    return 23;
+  }
 
   // Get optimal preset based on video characteristics
-  // String _getOptimalPreset(VideoInfo info) {
-  //   final totalPixels = info.resolution.width * info.resolution.height;
-  //   final duration = info.duration.inSeconds;
-  //   
-  //   if (totalPixels >= 1920 * 1080 || duration > 180) {
-  //     return 'slow';
-  //   } else if (totalPixels >= 1280 * 720) {
-  //     return 'medium';
-  //   } else {
-  //     return 'fast';
-  //   }
-  // }
+  String _getOptimalPreset(VideoInfo info) {
+    final totalPixels = info.resolution.width * info.resolution.height;
+    final duration = info.duration.inSeconds;
+    
+    if (totalPixels >= 1920 * 1080 || duration > 180) {
+      return 'slow';
+    } else if (totalPixels >= 1280 * 720) {
+      return 'medium';
+    } else {
+      return 'fast';
+    }
+  }
 
   // Get optimal profile based on resolution
-  // String _getOptimalProfile(VideoInfo info) {
-  //   final totalPixels = info.resolution.width * info.resolution.height;
-  //   
-  //   if (totalPixels >= 1920 * 1080) {
-  //     return 'high';
-  //   } else {
-  //     return 'main';
-  //   }
-  // }
+  String _getOptimalProfile(VideoInfo info) {
+    final totalPixels = info.resolution.width * info.resolution.height;
+    
+    if (totalPixels >= 1920 * 1080) {
+      return 'high';
+    } else {
+      return 'main';
+    }
+  }
 
   // Build video filters for enhancement
-  // String _buildVideoFilters(VideoInfo info) {
-  //   List<String> filters = [];
-  //   
-  //   if (info.currentBitrate != null && info.currentBitrate! > 1000) {
-  //     // Subtle sharpening for better perceived quality
-  //     filters.add('unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
-  //     
-  //     // Slight saturation boost for more vivid colors
-  //     filters.add('eq=saturation=1.1');
-  //     
-  //     // Noise reduction for cleaner image
-  //     filters.add('hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
-  //   }
-  //   
-  //   return filters.join(',');
-  // }
+  String _buildVideoFilters(VideoInfo info) {
+    List<String> filters = [];
+    
+    if (info.currentBitrate != null && info.currentBitrate! > 1000) {
+      // Subtle sharpening for better perceived quality
+      filters.add('unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
+      
+      // Slight saturation boost for more vivid colors
+      filters.add('eq=saturation=1.1');
+      
+      // Noise reduction for cleaner image
+      filters.add('hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
+    }
+    
+    return filters.join(',');
+  }
 
   // Pure audio normalization/boosting without frequency manipulation
-  // String _buildEnhancedAudioFilters() {
-  //   return 'loudnorm=I=-6:TP=-0.5:LRA=11:linear=true';
-  // }
+  String _buildEnhancedAudioFilters() {
+    return 'loudnorm=I=-6:TP=-0.5:LRA=11:linear=true';
+  }
 
-  // COMMENTED OUT - Modified video processing - enhanced audio for all videos
-  // Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
-  //   try {
-  //     final tempDir = Directory.systemTemp;
-  //     final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
-  //     
-  //     await _enableWakelock();
-  //     
-  //     setState(() {
-  //       _isProcessing = true;
-  //       _processingProgress = 0.0;
-  //     });
+  // Modified video processing - enhanced audio for all videos
+  Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
+    try {
+      final tempDir = Directory.systemTemp;
+      final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      
+      await _enableWakelock();
+      
+      setState(() {
+        _isProcessing = true;
+        _processingProgress = 0.0;
+      });
 
-  //     String command;
-  //     
-  //     // Check if video is under 20MB - only process audio
-  //     if (info.fileSizeMB < 50.0) {
-  //       // Audio-only processing for videos under 50MB with enhanced audio chain
-  //       command = '-y -i "${inputFile.path}" ';
-  //       command += '-c:v copy '; // Copy video stream without re-encoding
-  //       command += '-af "${_buildEnhancedAudioFilters()}" ';
-  //       command += '-movflags +faststart ';
-  //       command += '-f mp4 "$outputPath"';
-  //     } else {
-  //       // Full video and audio processing for larger files
-  //       final crf = _getFixedCRF();
-  //       final preset = _getOptimalPreset(info);
-  //       final profile = _getOptimalProfile(info);
-  //       final videoFilters = _buildVideoFilters(info);
+      String command;
+      
+      // Check if video is under 20MB - only process audio
+      if (info.fileSizeMB < 50.0) {
+        // Audio-only processing for videos under 50MB with enhanced audio chain
+        command = '-y -i "${inputFile.path}" ';
+        command += '-c:v copy '; // Copy video stream without re-encoding
+        command += '-af "${_buildEnhancedAudioFilters()}" ';
+        command += '-movflags +faststart ';
+        command += '-f mp4 "$outputPath"';
+      } else {
+        // Full video and audio processing for larger files
+        final crf = _getFixedCRF();
+        final preset = _getOptimalPreset(info);
+        final profile = _getOptimalProfile(info);
+        final videoFilters = _buildVideoFilters(info);
 
-  //       command = '-y -i "${inputFile.path}" ';
-  //       
-  //       // Video encoding with enhancement
-  //       command += '-c:v libx264 ';
-  //       command += '-crf $crf ';
-  //       command += '-preset $preset ';
-  //       command += '-profile:v $profile ';
-  //       command += '-level 4.1 ';
-  //       command += '-pix_fmt yuv420p ';
-  //       
-  //       // Add video filters if available
-  //       if (videoFilters.isNotEmpty) {
-  //         command += '-vf "$videoFilters" ';
-  //       }
-  //       
-  //       // Enhanced audio processing with fuller sound
-  //       command += '-af "${_buildEnhancedAudioFilters()}" ';
-  //       
-  //       // Output optimization
-  //       command += '-movflags +faststart ';
-  //       command += '-f mp4 "$outputPath"';
-  //     }
+        command = '-y -i "${inputFile.path}" ';
+        
+        // Video encoding with enhancement
+        command += '-c:v libx264 ';
+        command += '-crf $crf ';
+        command += '-preset $preset ';
+        command += '-profile:v $profile ';
+        command += '-level 4.1 ';
+        command += '-pix_fmt yuv420p ';
+        
+        // Add video filters if available
+        if (videoFilters.isNotEmpty) {
+          command += '-vf "$videoFilters" ';
+        }
+        
+        // Enhanced audio processing with fuller sound
+        command += '-af "${_buildEnhancedAudioFilters()}" ';
+        
+        // Output optimization
+        command += '-movflags +faststart ';
+        command += '-f mp4 "$outputPath"';
+      }
 
-  //     final videoDurationMs = info.duration.inMilliseconds;
-  //     final Completer<void> processingCompleter = Completer<void>();
-  //     
-  //     FFmpegKit.executeAsync(
-  //       command,
-  //       (session) async {
-  //         final returnCode = await session.getReturnCode();
-  //         
-  //         if (mounted) {
-  //           setState(() {
-  //             _isProcessing = false;
-  //             _processingProgress = ReturnCode.isSuccess(returnCode) ? 1.0 : 0.0;
-  //           });
-  //         }
-  //         
-  //         final authProvider = ref.read(authenticationProvider.notifier);
-  //         if (!authProvider.isLoading) {
-  //           await _disableWakelock();
-  //         }
-  //         
-  //         if (!processingCompleter.isCompleted) {
-  //           processingCompleter.complete();
-  //         }
-  //       },
-  //       (log) {
-  //         // Silent processing - no debug logs
-  //       },
-  //       (statistics) {
-  //         if (mounted && _isProcessing && statistics.getTime() > 0 && videoDurationMs > 0) {
-  //           final encodingProgress = (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
-  //           
-  //           setState(() {
-  //             _processingProgress = encodingProgress.clamp(0.0, 1.0);
-  //           });
-  //         }
-  //       },
-  //     );
-  //     
-  //     await processingCompleter.future;
-  //     
-  //     final outputFile = File(outputPath);
-  //     if (await outputFile.exists()) {
-  //       return outputFile;
-  //     }
-  //     
-  //     await _disableWakelock();
-  //     return null;
-  //     
-  //   } catch (e) {
-  //     if (mounted) {
-  //       setState(() {
-  //         _isProcessing = false;
-  //         _processingProgress = 0.0;
-  //       });
-  //     }
-  //     await _disableWakelock();
-  //     return null;
-  //   }
-  // }
+      final videoDurationMs = info.duration.inMilliseconds;
+      final Completer<void> processingCompleter = Completer<void>();
+      
+      FFmpegKit.executeAsync(
+        command,
+        (session) async {
+          final returnCode = await session.getReturnCode();
+          
+          if (mounted) {
+            setState(() {
+              _isProcessing = false;
+              _processingProgress = ReturnCode.isSuccess(returnCode) ? 1.0 : 0.0;
+            });
+          }
+          
+          final authProvider = ref.read(authenticationProvider.notifier);
+          if (!authProvider.isLoading) {
+            await _disableWakelock();
+          }
+          
+          if (!processingCompleter.isCompleted) {
+            processingCompleter.complete();
+          }
+        },
+        (log) {
+          // Silent processing - no debug logs
+        },
+        (statistics) {
+          if (mounted && _isProcessing && statistics.getTime() > 0 && videoDurationMs > 0) {
+            final encodingProgress = (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
+            
+            setState(() {
+              _processingProgress = encodingProgress.clamp(0.0, 1.0);
+            });
+          }
+        },
+      );
+      
+      await processingCompleter.future;
+      
+      final outputFile = File(outputPath);
+      if (await outputFile.exists()) {
+        return outputFile;
+      }
+      
+      await _disableWakelock();
+      return null;
+      
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _processingProgress = 0.0;
+        });
+      }
+      await _disableWakelock();
+      return null;
+    }
+  }
 
   // Simulate upload progress
   void _startUploadSimulation() {
@@ -545,14 +542,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       File videoToUpload = _videoFile!;
       
-      // COMMENTED OUT - Video processing
-      // if (_videoInfo != null) {
-      //   final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
-      //   
-      //   if (processedVideo != null) {
-      //     videoToUpload = processedVideo;
-      //   }
-      // }
+      if (_videoInfo != null) {
+        final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
+        
+        if (processedVideo != null) {
+          videoToUpload = processedVideo;
+        }
+      }
       
       // Start upload simulation
       _startUploadSimulation();
@@ -718,62 +714,62 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 
               const SizedBox(height: 24),
               
-              // COMMENTED OUT - Processing progress UI
-              // if (_isProcessing)
-              //   Column(
-              //     children: [
-              //       Container(
-              //         padding: const EdgeInsets.all(16),
-              //         decoration: BoxDecoration(
-              //           color: modernTheme.primaryColor!.withOpacity(0.1),
-              //           borderRadius: BorderRadius.circular(12),
-              //           border: Border.all(
-              //             color: modernTheme.primaryColor!.withOpacity(0.3),
-              //           ),
-              //         ),
-              //         child: Column(
-              //           children: [
-              //             Row(
-              //               children: [
-              //                 Icon(
-              //                   Icons.video_settings,
-              //                   color: modernTheme.primaryColor,
-              //                   size: 20,
-              //                 ),
-              //                 const SizedBox(width: 8),
-              //                 Expanded(
-              //                   child: Text(
-              //                     _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
-              //                         ? 'Processing...'
-              //                         : 'Processing...',
-              //                     style: const TextStyle(
-              //                       fontSize: 14,
-              //                       fontWeight: FontWeight.w500,
-              //                     ),
-              //                   ),
-              //                 ),
-              //               ],
-              //             ),
-              //             const SizedBox(height: 12),
-              //             LinearProgressIndicator(
-              //               value: _processingProgress,
-              //               backgroundColor: modernTheme.borderColor,
-              //               valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
-              //             ),
-              //             const SizedBox(height: 8),
-              //             Text(
-              //               '${(_processingProgress * 100).toStringAsFixed(0)}% complete',
-              //               style: TextStyle(
-              //                 color: modernTheme.textSecondaryColor,
-              //                 fontSize: 12,
-              //               ),
-              //             ),
-              //           ],
-              //         ),
-              //       ),
-              //       const SizedBox(height: 16),
-              //     ],
-              //   ),
+              // Processing progress
+              if (_isProcessing)
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor!.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: modernTheme.primaryColor!.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.video_settings,
+                                color: modernTheme.primaryColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                                      ? 'Processing...'
+                                      : 'Processing...',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          LinearProgressIndicator(
+                            value: _processingProgress,
+                            backgroundColor: modernTheme.borderColor,
+                            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${(_processingProgress * 100).toStringAsFixed(0)}% complete',
+                            style: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               
               // Upload progress indicator with simulated percentage
               if (isUploading)
@@ -862,7 +858,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               const SizedBox(height: 16),
               
               // Price field (Required temporarily)
-              TextFormField(
+              /*TextFormField(
                 controller: _priceController,
                 decoration: InputDecoration(
                   labelText: 'Price (KES) *',
@@ -911,7 +907,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 enabled: !isLoading && !_isProcessing && !isUploading,
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 16),*/
               
               // Tags (Optional)
               TextFormField(

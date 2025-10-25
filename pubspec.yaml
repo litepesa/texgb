@@ -78,6 +78,7 @@ dependencies:
   flutter_contacts: ^1.1.9+2
   web_socket_channel: ^3.0.3
   path: ^1.8.3
+  ffmpeg_kit_flutter_new: ^4.0.0
 
 
 

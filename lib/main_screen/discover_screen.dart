@@ -40,10 +40,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             modernTheme: modernTheme,
           ),
           
-          _buildListItem(
-            icon: CupertinoIcons.clock,
-            title: 'Status',
-            subtitle: 'View and share status updates',
+          /*_buildListItem(
+            icon: CupertinoIcons.shopping_cart,
+            title: 'Marketplace',
+            subtitle: 'Buy and sell anything easily',
             iconColor: Colors.green,
             onTap: () {
               Navigator.push(
@@ -54,7 +54,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               );
             },
             modernTheme: modernTheme,
-          ),
+          ),*/
           
           _buildListItem(
             icon: CupertinoIcons.play_rectangle,

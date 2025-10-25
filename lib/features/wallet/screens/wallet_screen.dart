@@ -1,5 +1,5 @@
 // lib/features/wallet/screens/wallet_screen.dart
-// MARKETPLACE WALLET: Balanced escrow system for both buyers and sellers
+// VIRTUAL GIFTING WALLET: TikTok-style gift system that converts to real cash
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +23,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _isInitialized = false;
   bool _isLoadingInitial = false;
   String? _error;
-  String _selectedTab = 'Overview'; // Overview, Buying, Selling
+  String _selectedTab = 'Overview'; // Overview, Send Gifts, My Earnings
   
   // Cached data
   WalletModel? _cachedWallet;
@@ -96,7 +96,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             .toList();
       }
       
-      debugPrint('Marketplace wallet: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
+      debugPrint('Gift wallet: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
     } catch (e) {
       debugPrint('Error loading cached data: $e');
       _cachedWallet = null;
@@ -120,7 +120,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       
       await prefs.setInt(_walletCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
       
-      debugPrint('Marketplace wallet: Saved data to cache');
+      debugPrint('Gift wallet: Saved data to cache');
     } catch (e) {
       debugPrint('Error saving cached data: $e');
     }
@@ -132,7 +132,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       await prefs.remove(_walletCacheKey);
       await prefs.remove(_transactionsCacheKey);
       await prefs.remove(_walletCacheTimestampKey);
-      debugPrint('Marketplace wallet: Cache cleared');
+      debugPrint('Gift wallet: Cache cleared');
     } catch (e) {
       debugPrint('Error clearing cache: $e');
     }
@@ -146,9 +146,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       setState(() {
         _isInitialized = true;
       });
-      debugPrint('Marketplace wallet: Using cached data');
+      debugPrint('Gift wallet: Using cached data');
     } else {
-      debugPrint('Marketplace wallet: No valid cache found, loading initial data');
+      debugPrint('Gift wallet: No valid cache found, loading initial data');
       _loadInitialData();
     }
   }
@@ -187,10 +187,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           _isInitialized = true;
           _isLoadingInitial = false;
         });
-        debugPrint('Marketplace wallet: Initial data loaded and cached successfully');
+        debugPrint('Gift wallet: Initial data loaded and cached successfully');
       }
     } catch (e) {
-      debugPrint('Marketplace wallet: Error loading initial data: $e');
+      debugPrint('Gift wallet: Error loading initial data: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -226,9 +226,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       
       setState(() {});
       
-      debugPrint('Marketplace wallet: Data refreshed and cached successfully');
+      debugPrint('Gift wallet: Data refreshed and cached successfully');
     } catch (e) {
-      debugPrint('Marketplace wallet: Error refreshing data: $e');
+      debugPrint('Gift wallet: Error refreshing data: $e');
     }
   }
 
@@ -242,7 +242,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         child: Column(
           children: [
             // Enhanced App Bar
-            _buildAppBar(theme),
+            
+            //_buildAppBar(theme),
             
             // Main Content
             Expanded(
@@ -262,7 +263,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildAppBar(ModernThemeExtension theme) {
+  /*Widget _buildAppBar(ModernThemeExtension theme) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -332,7 +333,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     ),
                   ),
                   Text(
-                    'Manage your funds securely',
+                    'Send gifts & earn from your content',
                     style: TextStyle(
                       color: theme.textSecondaryColor ?? Colors.grey[600],
                       fontSize: 12,
@@ -368,7 +369,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         ],
       ),
     );
-  }
+  }*/
 
   void _showMenuOptions(BuildContext context, ModernThemeExtension theme) {
     showModalBottomSheet(
@@ -413,7 +414,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     _buildMenuItem(
                       icon: CupertinoIcons.chart_bar_square,
                       title: 'Statistics',
-                      subtitle: 'View detailed wallet analytics',
+                      subtitle: 'View gifting & earnings analytics',
                       onTap: () {
                         Navigator.pop(context);
                         _showComingSoonDialog('Statistics');
@@ -431,29 +432,29 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       theme: theme,
                     ),
                     _buildMenuItem(
-                      icon: CupertinoIcons.bell,
-                      title: 'Notifications',
-                      subtitle: 'Manage wallet alerts',
+                      icon: CupertinoIcons.gift,
+                      title: 'Gift Shop',
+                      subtitle: 'Browse available virtual gifts',
                       onTap: () {
                         Navigator.pop(context);
-                        _showComingSoonDialog('Notifications');
+                        _showComingSoonDialog('Gift Shop');
                       },
                       theme: theme,
                     ),
                     _buildMenuItem(
-                      icon: CupertinoIcons.shield,
-                      title: 'Security',
-                      subtitle: 'Wallet security settings',
+                      icon: CupertinoIcons.money_dollar_circle,
+                      title: 'Conversion Rates',
+                      subtitle: 'View gift to cash conversion rates',
                       onTap: () {
                         Navigator.pop(context);
-                        _showComingSoonDialog('Security Settings');
+                        _showComingSoonDialog('Conversion Rates');
                       },
                       theme: theme,
                     ),
                     _buildMenuItem(
                       icon: CupertinoIcons.question_circle,
                       title: 'Help & Support',
-                      subtitle: 'Get help with your wallet',
+                      subtitle: 'Get help with gifts & withdrawals',
                       onTap: () {
                         Navigator.pop(context);
                         _showComingSoonDialog('Help & Support');
@@ -697,14 +698,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      Icons.account_balance_wallet,
+                      Icons.card_giftcard,
                       color: Colors.white,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
                   const Text(
-                    'Wallet Balance',
+                    'Coins Balance',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -731,13 +732,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                'KES',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+              const Icon(
+                Icons.monetization_on,
+                color: Colors.white,
+                size: 24,
               ),
               const SizedBox(width: 8),
               Text(
@@ -755,7 +753,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               const Padding(
                 padding: EdgeInsets.only(bottom: 6),
                 child: Text(
-                  'Available',
+                  'Coins',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -764,6 +762,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _balanceVisible 
+              ? '≈ KES ${wallet?.coinsBalance ?? 0}' 
+              : '≈ KES •••',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -779,7 +788,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
-                        Icons.shopping_bag_outlined,
+                        Icons.card_giftcard,
                         color: Colors.white,
                         size: 16,
                       ),
@@ -787,8 +796,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       Flexible(
                         child: Text(
                           wallet?.hasBalance == true 
-                            ? 'Ready to buy & sell'
-                            : 'Fund wallet to start',
+                            ? 'Send gifts & earn cash'
+                            : 'Buy coins to send gifts',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -808,7 +817,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   Widget _buildTabSelector(ModernThemeExtension theme) {
-    final tabs = ['Overview', 'Buying', 'Selling'];
+    final tabs = ['Overview', 'Send Gifts', 'My Earnings'];
     
     return Container(
       padding: const EdgeInsets.all(4),
@@ -863,7 +872,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     color: isSelected 
                       ? theme.primaryColor ?? const Color(0xFFFE2C55)
                       : theme.textSecondaryColor ?? Colors.grey[600],
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
@@ -877,10 +886,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   Widget _buildTabContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
     switch (_selectedTab) {
-      case 'Buying':
-        return _buildBuyingSection(wallet, theme);
-      case 'Selling':
-        return _buildSellingSection(wallet, theme);
+      case 'Send Gifts':
+        return _buildSendGiftsSection(wallet, theme);
+      case 'My Earnings':
+        return _buildEarningsSection(wallet, theme);
       default:
         return _buildOverviewSection(wallet, transactions, theme);
     }
@@ -905,10 +914,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildBuyingSection(WalletModel? wallet, ModernThemeExtension theme) {
+  Widget _buildSendGiftsSection(WalletModel? wallet, ModernThemeExtension theme) {
     return Column(
       children: [
-        // Buying Actions
+        // Gifting Actions
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -935,18 +944,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.shopping_cart,
-                      color: Colors.blue,
+                    child: Icon(
+                      Icons.card_giftcard,
+                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Buying Activities',
+                    'Send Virtual Gifts',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -957,32 +966,32 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
               const SizedBox(height: 20),
               _buildActionButton(
-                icon: Icons.lock,
-                title: 'Funds in Escrow',
-                subtitle: 'Money held for purchases',
-                value: '0 KES',
+                icon: Icons.shopping_bag,
+                title: 'Browse Gift Shop',
+                subtitle: 'Explore available virtual gifts',
+                value: '${wallet?.coinsBalance ?? 0} coins',
+                color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                onTap: () => _showComingSoonDialog('Gift Shop'),
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              _buildActionButton(
+                icon: Icons.history,
+                title: 'Gifts Sent',
+                subtitle: 'View your gifting history',
+                value: '0 gifts',
+                color: Colors.purple,
+                onTap: () => _showComingSoonDialog('Gifts Sent History'),
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              _buildActionButton(
+                icon: Icons.people,
+                title: 'Favorite Creators',
+                subtitle: 'Support creators you follow',
+                value: '0 favorites',
                 color: Colors.blue,
-                onTap: () => _showComingSoonDialog('View Escrow Details'),
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              _buildActionButton(
-                icon: Icons.pending_actions,
-                title: 'Pending Purchases',
-                subtitle: 'Awaiting seller confirmation',
-                value: '0 orders',
-                color: Colors.orange,
-                onTap: () => _showComingSoonDialog('View Pending Orders'),
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              _buildActionButton(
-                icon: Icons.report_problem,
-                title: 'Active Disputes',
-                subtitle: 'Issues requiring resolution',
-                value: '0 disputes',
-                color: Colors.red,
-                onTap: () => _showComingSoonDialog('View Disputes'),
+                onTap: () => _showComingSoonDialog('Favorite Creators'),
                 theme: theme,
               ),
             ],
@@ -991,14 +1000,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         
         const SizedBox(height: 24),
         
-        // Buyer Protection Info
+        // Gift Info
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.05),
+            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.05),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.blue.withOpacity(0.2),
+              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.2),
               width: 1,
             ),
           ),
@@ -1007,14 +1016,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.security,
-                    color: Colors.blue,
+                  Icon(
+                    Icons.favorite,
+                    color: theme.primaryColor ?? const Color(0xFFFE2C55),
                     size: 24,
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Buyer Protection',
+                    'How Virtual Gifts Work',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -1025,7 +1034,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Your payments are held securely in escrow until you confirm receipt. If there\'s an issue, our dispute resolution team is here to help.',
+                'Send virtual gifts to creators during live streams or on their posts. Your gifts help creators earn real money and show your appreciation!',
                 style: TextStyle(
                   fontSize: 14,
                   color: theme.textSecondaryColor ?? Colors.grey[600],
@@ -1039,10 +1048,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildSellingSection(WalletModel? wallet, ModernThemeExtension theme) {
+  Widget _buildEarningsSection(WalletModel? wallet, ModernThemeExtension theme) {
     return Column(
       children: [
-        // Selling Actions
+        // Earnings Overview
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -1073,14 +1082,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      Icons.storefront,
+                      Icons.trending_up,
                       color: Colors.green,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Selling Activities',
+                    'My Earnings',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -1091,32 +1100,32 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
               const SizedBox(height: 20),
               _buildActionButton(
-                icon: Icons.pending,
-                title: 'Pending Sales',
-                subtitle: 'Orders to fulfill',
-                value: '0 orders',
-                color: Colors.orange,
-                onTap: () => _showComingSoonDialog('View Pending Sales'),
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              _buildActionButton(
-                icon: Icons.schedule,
-                title: 'Awaiting Release',
-                subtitle: 'Escrow pending buyer confirmation',
-                value: '0 KES',
+                icon: Icons.card_giftcard,
+                title: 'Gifts Received',
+                subtitle: 'Total gifts from supporters',
+                value: '0 gifts',
                 color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                onTap: () => _showComingSoonDialog('View Pending Releases'),
+                onTap: () => _showComingSoonDialog('Gifts Received'),
                 theme: theme,
               ),
               const SizedBox(height: 12),
               _buildActionButton(
-                icon: Icons.attach_money,
-                title: 'Withdraw Funds',
-                subtitle: 'Transfer to bank account',
-                value: '${wallet?.coinsBalance ?? 0} KES',
+                icon: Icons.account_balance_wallet,
+                title: 'Total Earnings',
+                subtitle: 'Lifetime earnings from gifts',
+                value: '0 KES',
                 color: Colors.green,
-                onTap: () => _showComingSoonDialog('Withdraw to Bank'),
+                onTap: () => _showComingSoonDialog('Earnings Breakdown'),
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              _buildActionButton(
+                icon: Icons.payments,
+                title: 'Withdraw',
+                subtitle: 'Transfer earnings to M-Pesa',
+                value: '${wallet?.coinsBalance ?? 0} KES',
+                color: Colors.blue,
+                onTap: () => _showComingSoonDialog('Withdraw to M-Pesa'),
                 theme: theme,
               ),
             ],
@@ -1125,7 +1134,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         
         const SizedBox(height: 24),
         
-        // Seller Guidelines Info
+        // Creator Tips
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -1142,13 +1151,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               Row(
                 children: [
                   const Icon(
-                    Icons.verified,
+                    Icons.lightbulb,
                     color: Colors.green,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Seller Guidelines',
+                    'Earning Tips',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -1159,7 +1168,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Ship items promptly and provide tracking. Funds are released to you once the buyer confirms receipt or after the auto-release period.',
+                'Create engaging content to receive more gifts! Go live regularly, interact with your audience, and thank supporters to build a loyal community.',
                 style: TextStyle(
                   fontSize: 14,
                   color: theme.textSecondaryColor ?? Colors.grey[600],
@@ -1299,7 +1308,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               Expanded(
                 child: _buildQuickActionButton(
                   icon: Icons.add_card,
-                  title: 'Add Funds',
+                  title: 'Buy Coins',
                   color: Colors.green,
                   onTap: () => EscrowFundingWidget.show(context),
                   theme: theme,
@@ -1308,10 +1317,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: _buildQuickActionButton(
-                  icon: Icons.shopping_bag,
-                  title: 'Buy',
-                  color: Colors.blue,
-                  onTap: () => _showComingSoonDialog('Browse Products'),
+                  icon: Icons.card_giftcard,
+                  title: 'Send Gift',
+                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                  onTap: () => _showComingSoonDialog('Send Gift'),
                   theme: theme,
                 ),
               ),
@@ -1322,10 +1331,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               Expanded(
                 child: _buildQuickActionButton(
-                  icon: Icons.sell,
-                  title: 'Sell',
-                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                  onTap: () => _showComingSoonDialog('List Product'),
+                  icon: Icons.payments,
+                  title: 'Withdraw',
+                  color: Colors.blue,
+                  onTap: () => _showComingSoonDialog('Withdraw'),
                   theme: theme,
                 ),
               ),
@@ -1394,6 +1403,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -1442,20 +1452,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.account_balance_wallet,
-                  title: 'Available',
-                  value: '${wallet?.coinsBalance ?? 0} KES',
-                  color: Colors.green,
+                  icon: Icons.monetization_on,
+                  title: 'Coin Balance',
+                  value: '${wallet?.coinsBalance ?? 0}',
+                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
                   theme: theme,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.lock,
-                  title: 'In Escrow',
-                  value: '0 KES',
-                  color: Colors.blue,
+                  icon: Icons.card_giftcard,
+                  title: 'Gifts Sent',
+                  value: '0',
+                  color: Colors.purple,
                   theme: theme,
                 ),
               ),
@@ -1466,8 +1476,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.shopping_cart,
-                  title: 'Purchases',
+                  icon: Icons.favorite,
+                  title: 'Gifts Received',
                   value: '0',
                   color: Colors.orange,
                   theme: theme,
@@ -1476,10 +1486,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.sell,
-                  title: 'Sales',
-                  value: '0',
-                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                  icon: Icons.account_balance_wallet,
+                  title: 'Total Earned',
+                  value: '0 KES',
+                  color: Colors.green,
                   theme: theme,
                 ),
               ),
@@ -1624,7 +1634,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.receipt_long,
+              Icons.card_giftcard,
               size: 40,
               color: theme.primaryColor ?? const Color(0xFFFE2C55),
             ),
@@ -1640,7 +1650,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Your transaction history will appear here',
+            'Your gifting history will appear here',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -1659,25 +1669,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     Color iconColor;
     
     switch (transaction.type) {
-      case 'escrow_created':
-        icon = Icons.lock;
-        iconColor = Colors.blue;
-        break;
-      case 'escrow_released':
-        icon = Icons.lock_open;
+      case 'gift_sent':
+        icon = Icons.card_giftcard;
         iconColor = theme.primaryColor ?? const Color(0xFFFE2C55);
         break;
-      case 'escrow_refunded':
-        icon = Icons.refresh;
+      case 'gift_received':
+        icon = Icons.favorite;
         iconColor = Colors.orange;
         break;
       case 'coin_purchase':
         icon = Icons.add_circle_outline;
         iconColor = Colors.green;
         break;
-      case 'dispute_created':
-        icon = Icons.report_problem;
-        iconColor = Colors.red;
+      case 'withdrawal':
+        icon = Icons.payments;
+        iconColor = Colors.blue;
         break;
       default:
         icon = Icons.swap_horiz;
@@ -1756,7 +1762,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                'KES',
+                'coins',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,

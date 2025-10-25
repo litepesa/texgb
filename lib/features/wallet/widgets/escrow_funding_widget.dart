@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class EscrowFundingWidget extends ConsumerStatefulWidget {
   const EscrowFundingWidget({super.key});
@@ -10,7 +11,7 @@ class EscrowFundingWidget extends ConsumerStatefulWidget {
   @override
   ConsumerState<EscrowFundingWidget> createState() => _EscrowFundingWidgetState();
 
-  /// Show the escrow funding widget as a modal bottom sheet
+  /// Show the gift coins purchase widget as a modal bottom sheet
   static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -27,14 +28,20 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
   final TextEditingController _amountController = TextEditingController();
   double _selectedAmount = 100.0;
 
-  // Escrow-focused Professional Colors
-  static const _escrowPrimary = Color(0xFF1E88E5);
-  static const _escrowSecondary = Color(0xFF42A5F5);
-  static const _escrowLight = Color(0xFF90CAF9);
-  static const _escrowSuccess = Color(0xFF4CAF50);
-  static const _escrowWarning = Color(0xFFFF9800);
-  static const _escrowCardBg = Color(0xFF263238);
-  static const _escrowCardBgLight = Color(0xFF37474F);
+  // Helper method to get safe theme with fallback
+  ModernThemeExtension _getSafeTheme(BuildContext context) {
+    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+        ModernThemeExtension(
+          primaryColor: const Color(0xFFFE2C55),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceColor: Theme.of(context).cardColor,
+          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          dividerColor: Theme.of(context).dividerColor,
+          textTertiaryColor: Colors.grey[400],
+          surfaceVariantColor: Colors.grey[100],
+        );
+  }
 
   @override
   void initState() {
@@ -50,16 +57,16 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = _getSafeTheme(context);
     final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final currentUser = ref.watch(currentUserProvider);
     
     return Container(
       height: screenHeight * 0.9,
-      decoration: const BoxDecoration(
-        color: _escrowCardBg,
-        borderRadius: BorderRadius.vertical(
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(24),
         ),
       ),
@@ -76,7 +83,7 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: _escrowLight.withOpacity(0.3),
+                  color: theme.textTertiaryColor ?? Colors.grey[400],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -95,34 +102,44 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [_escrowSecondary, _escrowPrimary],
+                                gradient: LinearGradient(
+                                  colors: [
+                                    theme.primaryColor ?? const Color(0xFFFE2C55),
+                                    (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.7),
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
                               child: const Icon(
-                                Icons.security,
+                                Icons.card_giftcard,
                                 color: Colors.white,
                                 size: 40,
                               ),
                             ),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Add Funds to Escrow',
+                            Text(
+                              'Buy Gift Coins',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: _escrowPrimary,
+                                color: theme.textColor ?? Colors.black,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Secure funds for marketplace transactions\nMinimum deposit: KES 100',
+                            Text(
+                              'Send virtual gifts to your favorite creators\nMinimum purchase: KES 100',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: _escrowSecondary,
+                                color: theme.textSecondaryColor ?? Colors.grey[600],
                                 height: 1.4,
                               ),
                               textAlign: TextAlign.center,
@@ -132,28 +149,28 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: _escrowCardBgLight,
+                                  color: (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: _escrowLight.withOpacity(0.3),
+                                    color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3),
                                   ),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.person,
-                                      color: _escrowLight,
+                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
                                         'Account: ${currentUser.phoneNumber}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
-                                          color: _escrowLight,
+                                          color: theme.textColor ?? Colors.black,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -172,12 +189,12 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Enter Amount',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: _escrowPrimary,
+                                color: theme.textColor ?? Colors.black,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -187,10 +204,17 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: _escrowCardBgLight,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                                    (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.05),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: _escrowLight.withOpacity(0.3),
+                                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                                   width: 1,
                                 ),
                               ),
@@ -199,12 +223,12 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                   // Amount Input
                                   Row(
                                     children: [
-                                      const Text(
+                                      Text(
                                         'KES',
                                         style: TextStyle(
                                           fontSize: 20,
                                           fontWeight: FontWeight.w600,
-                                          color: _escrowSecondary,
+                                          color: theme.textSecondaryColor ?? Colors.grey[600],
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -212,18 +236,18 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                         child: TextFormField(
                                           controller: _amountController,
                                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 32,
                                             fontWeight: FontWeight.w700,
-                                            color: _escrowPrimary,
+                                            color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                           ),
-                                          decoration: const InputDecoration(
+                                          decoration: InputDecoration(
                                             border: InputBorder.none,
                                             hintText: '100',
                                             hintStyle: TextStyle(
                                               fontSize: 32,
                                               fontWeight: FontWeight.w700,
-                                              color: _escrowLight,
+                                              color: (theme.textTertiaryColor ?? Colors.grey[400])?.withOpacity(0.5),
                                             ),
                                             contentPadding: EdgeInsets.zero,
                                           ),
@@ -247,28 +271,28 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: _escrowSuccess.withOpacity(0.2),
+                                      color: Colors.green.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
-                                        color: _escrowSuccess.withOpacity(0.3),
+                                        color: Colors.green.withOpacity(0.3),
                                       ),
                                     ),
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         const Icon(
-                                          Icons.security,
-                                          color: _escrowSuccess,
+                                          Icons.monetization_on,
+                                          color: Colors.green,
                                           size: 20,
                                         ),
                                         const SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
-                                            'KES ${_selectedAmount.toStringAsFixed(0)} will be secured in escrow',
+                                            'You\'ll receive ${_selectedAmount.toStringAsFixed(0)} gift coins',
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
-                                              color: _escrowSuccess,
+                                              color: Colors.green,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
@@ -283,12 +307,12 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                             const SizedBox(height: 16),
                             
                             // Quick Amount Buttons
-                            const Text(
+                            Text(
                               'Quick Select',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: _escrowSecondary,
+                                color: theme.textSecondaryColor ?? Colors.grey[600],
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -318,12 +342,23 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(vertical: 10),
                                           decoration: BoxDecoration(
-                                            color: isSelected ? _escrowSecondary : _escrowCardBgLight,
+                                            color: isSelected 
+                                              ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                                              : (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.5),
                                             borderRadius: BorderRadius.circular(20),
                                             border: Border.all(
-                                              color: isSelected ? _escrowSecondary : _escrowLight.withOpacity(0.3),
+                                              color: isSelected 
+                                                ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                                                : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3),
                                               width: 1,
                                             ),
+                                            boxShadow: isSelected ? [
+                                              BoxShadow(
+                                                color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ] : null,
                                           ),
                                           child: Text(
                                             'KES $amount',
@@ -331,7 +366,9 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                             style: TextStyle(
                                               fontSize: isSmallScreen ? 11 : 12,
                                               fontWeight: FontWeight.w600,
-                                              color: isSelected ? Colors.white : _escrowLight,
+                                              color: isSelected 
+                                                ? Colors.white 
+                                                : theme.textSecondaryColor ?? Colors.grey[600],
                                             ),
                                           ),
                                         ),
@@ -344,7 +381,7 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                             
                             const SizedBox(height: 24),
                             
-                            // Add Funds Button
+                            // Buy Coins Button
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
@@ -352,37 +389,45 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                   ? () => _showPaymentInstructions(context) 
                                   : null,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _escrowPrimary,
+                                  backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  disabledBackgroundColor: _escrowLight.withOpacity(0.3),
+                                  disabledBackgroundColor: (theme.textTertiaryColor ?? Colors.grey[400])?.withOpacity(0.3),
+                                  elevation: 4,
                                 ),
-                                child: Text(
-                                  _selectedAmount >= 100 
-                                    ? 'Add KES ${_selectedAmount.toStringAsFixed(0)} to Escrow'
-                                    : 'Minimum amount is KES 100',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.card_giftcard, size: 20),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _selectedAmount >= 100 
+                                        ? 'Buy ${_selectedAmount.toStringAsFixed(0)} Coins for KES ${_selectedAmount.toStringAsFixed(0)}'
+                                        : 'Minimum amount is KES 100',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                             
                             const SizedBox(height: 24),
 
-                            // How escrow works section
+                            // How gifting works section
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: _escrowWarning.withOpacity(0.2),
+                                color: Colors.blue.withOpacity(0.05),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: _escrowWarning.withOpacity(0.3),
+                                  color: Colors.blue.withOpacity(0.2),
                                 ),
                               ),
                               child: Column(
@@ -392,29 +437,29 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                     children: [
                                       Icon(
                                         Icons.info_outline,
-                                        color: _escrowWarning,
+                                        color: Colors.blue,
                                         size: 20,
                                       ),
                                       SizedBox(width: 8),
                                       Text(
-                                        'How Escrow Works',
+                                        'How Gift Coins Work',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
-                                          color: _escrowWarning,
+                                          color: Colors.blue,
                                         ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
-                                  const Text(
-                                    '1. Add funds to your escrow wallet (minimum KES 100)\n'
-                                    '2. Pay via M-Pesa using the provided details\n'
-                                    '3. Funds are securely held until transaction completion\n'
-                                    '4. Use escrow for safe marketplace purchases and sales',
+                                  Text(
+                                    '1. Buy gift coins (1 coin = KES 1)\n'
+                                    '2. Pay securely via M-Pesa\n'
+                                    '3. Send virtual gifts to creators you love\n'
+                                    '4. Creators can convert gifts to real cash',
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: _escrowWarning,
+                                      color: theme.textSecondaryColor ?? Colors.grey[600],
                                       height: 1.5,
                                     ),
                                   ),
@@ -435,21 +480,17 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                   padding: EdgeInsets.all(horizontalPadding),
                   child: SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _escrowCardBgLight,
-                        foregroundColor: _escrowLight,
+                      style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Close',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
+                          color: theme.textSecondaryColor ?? Colors.grey[600],
                         ),
                       ),
                     ),
@@ -464,13 +505,14 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
   }
 
   void _showPaymentInstructions(BuildContext context) {
+    final theme = _getSafeTheme(context);
     final currentUser = ref.read(currentUserProvider);
     final screenWidth = MediaQuery.of(context).size.width;
     
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: _escrowCardBg,
+        backgroundColor: theme.surfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -489,14 +531,17 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [_escrowSecondary, _escrowPrimary],
+                          colors: [
+                            theme.primaryColor ?? const Color(0xFFFE2C55),
+                            (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.7),
+                          ],
                         ),
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderRadius: const BorderRadius.all(Radius.circular(8)),
                       ),
                       child: const Icon(
-                        Icons.security,
+                        Icons.card_giftcard,
                         color: Colors.white,
                         size: 20,
                       ),
@@ -504,10 +549,10 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Add KES ${_selectedAmount.toStringAsFixed(0)} to Escrow',
-                        style: const TextStyle(
+                        'Buy ${_selectedAmount.toStringAsFixed(0)} Gift Coins',
+                        style: TextStyle(
                           fontSize: 18,
-                          color: _escrowPrimary,
+                          color: theme.textColor ?? Colors.black,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -523,15 +568,15 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Funding summary
+                      // Purchase summary
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _escrowSuccess.withOpacity(0.2),
+                          color: Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: _escrowSuccess.withOpacity(0.3),
+                            color: Colors.green.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
@@ -544,14 +589,14 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                                   'Amount:',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w500,
-                                    color: _escrowSuccess,
+                                    color: Colors.green,
                                   ),
                                 ),
                                 Text(
                                   'KES ${_selectedAmount.toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: _escrowSuccess,
+                                    color: Colors.green,
                                   ),
                                 ),
                               ],
@@ -561,17 +606,17 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
-                                  'Escrow Balance:',
+                                  'Gift Coins:',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w500,
-                                    color: _escrowSuccess,
+                                    color: Colors.green,
                                   ),
                                 ),
                                 Text(
-                                  '+KES ${_selectedAmount.toStringAsFixed(0)}',
+                                  '+${_selectedAmount.toStringAsFixed(0)} coins',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: _escrowSuccess,
+                                    color: Colors.green,
                                     fontSize: 16,
                                   ),
                                 ),
@@ -588,42 +633,42 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _escrowPrimary.withOpacity(0.2),
+                          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: _escrowPrimary.withOpacity(0.3),
+                            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
                             width: 1,
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
                                 Icon(
                                   Icons.phone_android,
-                                  color: _escrowPrimary,
+                                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                   size: 20,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   'M-Pesa Payment Details',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
-                                    color: _escrowPrimary,
+                                    color: theme.textColor ?? Colors.black,
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _buildPaymentDetail('Business Name:', 'Pomasoft Limited'),
+                            _buildPaymentDetail(theme, 'Business Name:', 'Pomasoft Limited'),
                             const SizedBox(height: 8),
-                            _buildCopyableDetail(context, 'Paybill Number:', '4146499'),
+                            _buildCopyableDetail(context, theme, 'Paybill Number:', '4146499'),
                             const SizedBox(height: 4),
-                            _buildPaymentDetail('Account Number:', currentUser?.phoneNumber ?? 'Your registered phone number'),
+                            _buildPaymentDetail(theme, 'Account Number:', currentUser?.phoneNumber ?? 'Your registered phone number'),
                             const SizedBox(height: 8),
-                            _buildPaymentDetail('Amount:', 'KES ${_selectedAmount.toStringAsFixed(0)}'),
+                            _buildPaymentDetail(theme, 'Amount:', 'KES ${_selectedAmount.toStringAsFixed(0)}'),
                           ],
                         ),
                       ),
@@ -631,23 +676,23 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                       const SizedBox(height: 16),
                       
                       // Payment steps
-                      const Text(
+                      Text(
                         'Payment Steps:',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: _escrowPrimary,
+                          color: theme.textColor ?? Colors.black,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      _buildStep('1', 'Go to M-Pesa menu on your phone'),
-                      _buildStep('2', 'Select "Pay Bill"'),
-                      _buildStep('3', 'Enter business number: 4146499'),
-                      _buildStep('4', 'Enter your phone number: ${currentUser?.phoneNumber ?? "[Your Phone Number]"}'),
-                      _buildStep('5', 'Enter amount: KES ${_selectedAmount.toStringAsFixed(0)}'),
-                      _buildStep('6', 'Enter your M-Pesa PIN and confirm'),
-                      _buildStep('7', 'Save the confirmation SMS'),
-                      _buildStep('8', 'Funds will be added to escrow within 10 minutes'),
+                      _buildStep(theme, '1', 'Go to M-Pesa menu on your phone'),
+                      _buildStep(theme, '2', 'Select "Pay Bill"'),
+                      _buildStep(theme, '3', 'Enter business number: 4146499'),
+                      _buildStep(theme, '4', 'Enter your phone number: ${currentUser?.phoneNumber ?? "[Your Phone Number]"}'),
+                      _buildStep(theme, '5', 'Enter amount: KES ${_selectedAmount.toStringAsFixed(0)}'),
+                      _buildStep(theme, '6', 'Enter your M-Pesa PIN and confirm'),
+                      _buildStep(theme, '7', 'Save the confirmation SMS'),
+                      _buildStep(theme, '8', 'Coins will be added within 10 minutes'),
                       
                       const SizedBox(height: 16),
                       
@@ -656,27 +701,27 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: _escrowWarning.withOpacity(0.2),
+                          color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: _escrowWarning.withOpacity(0.3),
+                            color: Colors.blue.withOpacity(0.3),
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.security,
-                              color: _escrowWarning,
+                            const Icon(
+                              Icons.card_giftcard,
+                              color: Colors.blue,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Your funds will be securely held in escrow and can be used for safe marketplace transactions, purchases, and payments.',
+                                'Use your coins to send virtual gifts to creators and show your support. Creators can convert gifts to real cash!',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: _escrowWarning,
+                                  color: theme.textSecondaryColor ?? Colors.grey[600],
                                 ),
                               ),
                             ),
@@ -700,7 +745,7 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                     child: const Text(
                       'Got it',
                       style: TextStyle(
-                        color: _escrowSuccess,
+                        color: Colors.green,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),
@@ -715,7 +760,7 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
     );
   }
 
-  Widget _buildPaymentDetail(String label, String value) {
+  Widget _buildPaymentDetail(ModernThemeExtension theme, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -723,19 +768,20 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w500,
               fontSize: 14,
-              color: _escrowLight,
+              color: theme.textSecondaryColor ?? Colors.grey[600],
             ),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: _escrowPrimary,
+              fontWeight: FontWeight.w600,
+              color: theme.textColor ?? Colors.black,
             ),
           ),
         ),
@@ -743,7 +789,7 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
     );
   }
 
-  Widget _buildCopyableDetail(BuildContext context, String label, String value) {
+  Widget _buildCopyableDetail(BuildContext context, ModernThemeExtension theme, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -751,10 +797,10 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w500,
               fontSize: 14,
-              color: _escrowLight,
+              color: theme.textSecondaryColor ?? Colors.grey[600],
             ),
           ),
         ),
@@ -764,10 +810,10 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _escrowCardBgLight,
+                color: (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.5),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: _escrowLight.withOpacity(0.3),
+                  color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3),
                   width: 1,
                 ),
               ),
@@ -776,17 +822,17 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
                 children: [
                   Text(
                     value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _escrowPrimary,
+                      fontWeight: FontWeight.w700,
+                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Icon(
+                  Icon(
                     Icons.copy,
                     size: 14,
-                    color: _escrowLight,
+                    color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
                 ],
               ),
@@ -797,7 +843,7 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
     );
   }
 
-  Widget _buildStep(String number, String instruction) {
+  Widget _buildStep(ModernThemeExtension theme, String number, String instruction) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -806,8 +852,8 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
           Container(
             width: 20,
             height: 20,
-            decoration: const BoxDecoration(
-              color: _escrowSecondary,
+            decoration: BoxDecoration(
+              color: theme.primaryColor ?? const Color(0xFFFE2C55),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -825,9 +871,9 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
           Expanded(
             child: Text(
               instruction,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: _escrowLight,
+                color: theme.textSecondaryColor ?? Colors.grey[600],
               ),
             ),
           ),
@@ -841,9 +887,13 @@ class _EscrowFundingWidgetState extends ConsumerState<EscrowFundingWidget> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('$label copied to clipboard!'),
-        backgroundColor: _escrowSuccess,
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
