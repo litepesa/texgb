@@ -1,13 +1,16 @@
-// lib/features/authentication/screens/profile_setup_screen.dart (ENHANCED)
+// lib/features/authentication/screens/profile_setup_screen.dart (go_router VERSION)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/constants/kenya_languages.dart';
 import 'package:textgb/constants/kenya_locations.dart';
+import 'package:textgb/core/router/route_paths.dart';
+import 'package:textgb/core/router/app_router.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -24,7 +27,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _aboutController = TextEditingController();
   
-  // NEW: Additional profile fields
   String? _selectedGender;
   String? _selectedLanguage;
   LocationData? _selectedLocation;
@@ -38,7 +40,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     super.dispose();
   }
 
-  // Pick profile image
   Future<void> _pickProfileImage() async {
     final imagePicker = ImagePicker();
     final pickedImage = await imagePicker.pickImage(
@@ -46,189 +47,173 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       imageQuality: 70,
     );
     
-    if (pickedImage != null) {
+    if (pickedImage != null && mounted) {
       setState(() {
         _profileImage = File(pickedImage.path);
       });
     }
   }
 
-  // Show gender selection dialog
   Future<void> _showGenderSelector() async {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => const GenderSelectorDialog(),
     );
     
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
         _selectedGender = result;
       });
     }
   }
 
-  // Show language/tribe selection dialog
   Future<void> _showLanguageSelector() async {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => const LanguageSelectorDialog(),
     );
     
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
         _selectedLanguage = result;
       });
     }
   }
 
-  // Show location selection dialog
   Future<void> _showLocationSelector() async {
     final result = await showDialog<LocationData>(
       context: context,
       builder: (context) => const LocationSelectorDialog(),
     );
     
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
         _selectedLocation = result;
       });
     }
   }
 
-  // Submit the form to create user profile
-  void _submitForm() async {
+  void _submitForm() {
     if (_isSubmitting) {
-      debugPrint('⚠️ Form already submitting, ignoring duplicate submission');
+      debugPrint('⚠️ Form already submitting');
       return;
     }
     
-    if (_formKey.currentState!.validate()) {
-      if (_profileImage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a profile picture'),
-            backgroundColor: Color(0xFFE53E3E),
-          ),
-        );
-        return;
-      }
-
-      // Validate additional fields
-      if (_selectedGender == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select your gender'),
-            backgroundColor: Color(0xFFE53E3E),
-          ),
-        );
-        return;
-      }
-
-      if (_selectedLocation == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select your location'),
-            backgroundColor: Color(0xFFE53E3E),
-          ),
-        );
-        return;
-      }
-
-      if (_selectedLanguage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select your native language'),
-            backgroundColor: Color(0xFFE53E3E),
-          ),
-        );
-        return;
-      }
-      
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      final repository = ref.read(authenticationRepositoryProvider);
-      final currentUserId = repository.currentUserId;
-      final phoneNumber = repository.currentUserPhoneNumber;
-      
-      if (currentUserId == null || phoneNumber == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Authentication error. Please try again.'),
-            backgroundColor: Color(0xFFE53E3E),
-          ),
-        );
-        return;
-      }
-      
-      // Store context and navigator in variables BEFORE async operation
-      final navigator = Navigator.of(context);
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      
-      setState(() {
-        _isSubmitting = true;
-      });
-      
-      // Create user model with new fields
-      final userModel = UserModel.create(
-        uid: currentUserId,
-        name: _nameController.text.trim(),
-        phoneNumber: phoneNumber,
-        profileImage: '',
-        bio: _aboutController.text.trim(),
-        gender: _selectedGender,
-        location: _selectedLocation!.fullLocation,
-        language: _selectedLanguage,
-      );
-      
-      debugPrint('🏗️ Creating profile with enhanced data:');
-      debugPrint('   - Name: ${userModel.name}');
-      debugPrint('   - Gender: ${userModel.gender}');
-      debugPrint('   - Location: ${userModel.location}');
-      debugPrint('   - Language: ${userModel.language}');
-      
-      authNotifier.createUserProfile(
-        user: userModel,
-        profileImage: _profileImage,
-        coverImage: null,
-        onSuccess: () {
-          debugPrint('✅ Profile created successfully - Starting navigation');
-          
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(
-              content: Text('Profile created successfully!'),
-              backgroundColor: Color(0xFF10B981),
-              duration: Duration(seconds: 1),
-            ),
-          );
-          
-          debugPrint('🚀 Navigating to home screen...');
-          
-          navigator.pushNamedAndRemoveUntil(
-            Constants.homeScreen,
-            (route) => false,
-          ).then((_) {
-            debugPrint('✅ Navigation to home screen completed');
-          }).catchError((error) {
-            debugPrint('❌ Navigation error: $error');
-          });
-        },
-        onFail: () {
-          debugPrint('❌ Profile creation failed');
-          
-          if (mounted) {
-            setState(() {
-              _isSubmitting = false;
-            });
-            
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(
-                content: Text('Failed to create profile. Please try again.'),
-                backgroundColor: Color(0xFFE53E3E),
-              ),
-            );
-          }
-        },
-      );
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+    
+    if (_profileImage == null) {
+      _showError('Please select a profile picture');
+      return;
+    }
+
+    if (_selectedGender == null) {
+      _showError('Please select your gender');
+      return;
+    }
+
+    if (_selectedLocation == null) {
+      _showError('Please select your location');
+      return;
+    }
+
+    if (_selectedLanguage == null) {
+      _showError('Please select your native language');
+      return;
+    }
+    
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    final repository = ref.read(authenticationRepositoryProvider);
+    final currentUserId = repository.currentUserId;
+    final phoneNumber = repository.currentUserPhoneNumber;
+    
+    if (currentUserId == null || phoneNumber == null) {
+      _showError('Authentication error. Please try again.');
+      return;
+    }
+    
+    setState(() {
+      _isSubmitting = true;
+    });
+    
+    final userModel = UserModel.create(
+      uid: currentUserId,
+      name: _nameController.text.trim(),
+      phoneNumber: phoneNumber,
+      profileImage: '',
+      bio: _aboutController.text.trim(),
+      gender: _selectedGender,
+      location: _selectedLocation!.fullLocation,
+      language: _selectedLanguage,
+    );
+    
+    debugPrint('🏗️ Creating profile with data:');
+    debugPrint('   - Name: ${userModel.name}');
+    debugPrint('   - Gender: ${userModel.gender}');
+    debugPrint('   - Location: ${userModel.location}');
+    debugPrint('   - Language: ${userModel.language}');
+    
+    // THE PROFESSIONAL WAY: Use callbacks but navigate with go_router
+    authNotifier.createUserProfile(
+      user: userModel,
+      profileImage: _profileImage,
+      coverImage: null,
+      onSuccess: () {
+        debugPrint('✅ Profile created successfully');
+        if (mounted) {
+          _handleSuccess();
+        }
+      },
+      onFail: () {
+        debugPrint('❌ Profile creation failed');
+        if (mounted) {
+          _handleFailure();
+        }
+      },
+    );
+  }
+  
+  void _handleSuccess() {
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profile created successfully!'),
+        backgroundColor: Color(0xFF10B981),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    // THE MAGIC: Use go_router navigation
+    // This is 100% reliable because go_router handles context properly
+    debugPrint('🚀 Navigating to home with go_router');
+    
+    // Method 1: Using extension (recommended)
+    context.goToHome();
+    
+    // Method 2: Using direct go_router (alternative)
+    // context.go(RoutePaths.home);
+    
+    // Method 3: Using helper to clear stack (if needed)
+    // AppNavigation.goToHomeAndClearStack(context);
+  }
+  
+  void _handleFailure() {
+    setState(() {
+      _isSubmitting = false;
+    });
+    _showError('Failed to create profile. Please try again.');
+  }
+  
+  void _showError(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFE53E3E),
+      ),
+    );
   }
 
   @override
@@ -312,7 +297,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome to WeiBao!',
+                      'Welcome to SpaceTok!',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -321,7 +306,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Set up your profile to start sharing videos and discover amazing content from your community',
+                      'Set up your profile to start sharing videos and discover amazing content',
                       style: TextStyle(
                         color: Color(0xFFF3F4F6),
                         fontSize: 16,
@@ -429,7 +414,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 32),
               
-              // Basic Info Section
               const Text(
                 'Basic Information',
                 style: TextStyle(
@@ -485,7 +469,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 32),
               
-              // Additional Info Section with explanation
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -552,7 +535,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               ),
               const SizedBox(height: 16),
               
-              // Gender Selection
               _buildSelectionTile(
                 label: 'Gender',
                 value: _selectedGender != null 
@@ -566,11 +548,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 16),
               
-              // Location Selection
               _buildSelectionTile(
                 label: 'Location (Ward)',
                 value: _selectedLocation?.ward,
-                hint: 'Where are you from?',
+                hint: 'Know what is happening around you in real time',
                 icon: Icons.location_on_outlined,
                 onTap: _isSubmitting ? null : _showLocationSelector,
                 isRequired: true,
@@ -581,22 +562,20 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 16),
               
-              // Native Language/Tribe Selection
               _buildSelectionTile(
-                label: 'Native Language',
+                label: 'Native Content Language',
                 value: _selectedLanguage,
-                hint: 'Your preferred language',
+                hint: 'Your preferred native content language',
                 icon: Icons.language_outlined,
                 onTap: _isSubmitting ? null : _showLanguageSelector,
                 isRequired: true,
                 subtitle: _selectedLanguage == null 
-                    ? 'Watch videos in your language'
+                    ? 'Watch videos in your native language'
                     : null,
               ),
               
               const SizedBox(height: 40),
               
-              // Submit Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -646,7 +625,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               
               const SizedBox(height: 20),
               
-              // Privacy note
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -664,7 +642,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Your information is secure and helps us show you relevant content from your community.',
+                        'Your information is secure and helps us show you relevant content for you.',
                         style: TextStyle(
                           color: Color(0xFF92400E),
                           fontSize: 13,
@@ -691,7 +669,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     bool isRequired = false,
     bool enabled = true,
     String? Function(String?)? validator,
-    String? helperText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,9 +685,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(
-                    color: Color(0xFFEF4444),
-                  ),
+                  style: TextStyle(color: Color(0xFFEF4444)),
                 ),
             ],
           ),
@@ -727,25 +702,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 16,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
             filled: true,
             fillColor: enabled ? Colors.white : const Color(0xFFF3F4F6),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
             ),
@@ -756,15 +721,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFEF4444)),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
-            ),
-            helperText: helperText,
-            helperStyle: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 12,
             ),
           ),
         ),
@@ -796,9 +752,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(
-                    color: Color(0xFFEF4444),
-                  ),
+                  style: TextStyle(color: Color(0xFFEF4444)),
                 ),
             ],
           ),
@@ -847,11 +801,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: const Color(0xFF9CA3AF),
-                  size: 16,
-                ),
+                const Icon(Icons.arrow_forward_ios, color: Color(0xFF9CA3AF), size: 16),
               ],
             ),
           ),
@@ -861,7 +811,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 }
 
-// Gender Selector Dialog
+// Dialogs remain the same...
 class GenderSelectorDialog extends StatelessWidget {
   const GenderSelectorDialog({super.key});
 
@@ -888,7 +838,6 @@ class GenderSelectorDialog extends StatelessWidget {
   }
 }
 
-// Language/Tribe Selector Dialog
 class LanguageSelectorDialog extends StatefulWidget {
   const LanguageSelectorDialog({super.key});
 
@@ -915,7 +864,7 @@ class _LanguageSelectorDialogState extends State<LanguageSelectorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Select Native Language'),
+      title: const Text('Select Native Content Language'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -924,11 +873,9 @@ class _LanguageSelectorDialogState extends State<LanguageSelectorDialog> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search tribes...',
+                hintText: 'Search languages...',
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onChanged: _filterTribes,
             ),
@@ -955,7 +902,6 @@ class _LanguageSelectorDialogState extends State<LanguageSelectorDialog> {
   }
 }
 
-// Location Selector Dialog
 class LocationSelectorDialog extends StatefulWidget {
   const LocationSelectorDialog({super.key});
 
@@ -987,30 +933,16 @@ class _LocationSelectorDialogState extends State<LocationSelectorDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // County Dropdown
-            const Text(
-              'County',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
+            const Text('County', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _selectedCounty,
               decoration: InputDecoration(
                 hintText: 'Select County',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              items: counties.map((county) {
-                return DropdownMenuItem(
-                  value: county,
-                  child: Text(county),
-                );
-              }).toList(),
+              items: counties.map((county) => DropdownMenuItem(value: county, child: Text(county))).toList(),
               onChanged: (value) {
                 setState(() {
                   _selectedCounty = value;
@@ -1019,33 +951,17 @@ class _LocationSelectorDialogState extends State<LocationSelectorDialog> {
                 });
               },
             ),
-            
             const SizedBox(height: 16),
-            
-            // Constituency Dropdown
-            const Text(
-              'Constituency',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
+            const Text('Constituency', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _selectedConstituency,
               decoration: InputDecoration(
                 hintText: 'Select Constituency',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              items: constituencies.map((constituency) {
-                return DropdownMenuItem(
-                  value: constituency,
-                  child: Text(constituency),
-                );
-              }).toList(),
+              items: constituencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
               onChanged: _selectedCounty == null ? null : (value) {
                 setState(() {
                   _selectedConstituency = value;
@@ -1053,43 +969,22 @@ class _LocationSelectorDialogState extends State<LocationSelectorDialog> {
                 });
               },
             ),
-            
             const SizedBox(height: 16),
-            
-            // Ward Dropdown
-            const Text(
-              'Ward',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
+            const Text('Ward', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _selectedWard,
               decoration: InputDecoration(
                 hintText: 'Select Ward',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              items: wards.map((ward) {
-                return DropdownMenuItem(
-                  value: ward,
-                  child: Text(ward),
-                );
-              }).toList(),
+              items: wards.map((w) => DropdownMenuItem(value: w, child: Text(w))).toList(),
               onChanged: _selectedConstituency == null ? null : (value) {
-                setState(() {
-                  _selectedWard = value;
-                });
+                setState(() => _selectedWard = value);
               },
             ),
-            
             const SizedBox(height: 24),
-            
-            // Summary
             if (_selectedCounty != null || _selectedConstituency != null || _selectedWard != null)
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1101,23 +996,13 @@ class _LocationSelectorDialogState extends State<LocationSelectorDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Selected Location:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                        color: Color(0xFF1E40AF),
-                      ),
-                    ),
+                    const Text('Selected Location:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF1E40AF))),
                     const SizedBox(height: 4),
                     Text(
                       _selectedWard != null && _selectedConstituency != null && _selectedCounty != null
                           ? '$_selectedWard, $_selectedConstituency, $_selectedCounty'
                           : 'Please select all fields',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF1E40AF),
-                      ),
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E40AF)),
                     ),
                   ],
                 ),
@@ -1126,14 +1011,9 @@ class _LocationSelectorDialogState extends State<LocationSelectorDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         ElevatedButton(
-          onPressed: _selectedCounty != null && 
-                     _selectedConstituency != null && 
-                     _selectedWard != null
+          onPressed: _selectedCounty != null && _selectedConstituency != null && _selectedWard != null
               ? () {
                   final location = LocationData(
                     ward: _selectedWard!,

@@ -1,4 +1,7 @@
-// lib/features/authentication/screens/login_screen.dart
+// lib/features/authentication/screens/login_screen.dart (go_router VERSION)
+// NOTE: This screen doesn't need changes because navigation is handled by the authentication provider
+// The provider navigates to OTP screen after successful phone verification
+
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -73,15 +76,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Wei',
+                          text: 'Space',
                           style: TextStyle(
                             fontSize: 40,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
                             color: Colors.black,
                             letterSpacing: -0.3,
                           ),
                         ),
-                        TextSpan(
+                        /*TextSpan(
                           text: 'Bao',
                           style: TextStyle(
                             fontSize: 45,
@@ -89,9 +92,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             color: wechatGreen,
                             letterSpacing: -1.0,
                           ),
-                        ),
+                        ),*/
                         TextSpan(
-                          text: "微宝",
+                          text: "Tok",
                           style: TextStyle(
                             color: const Color(0xFFFE2C55),
                             fontWeight: FontWeight.w700,
@@ -297,6 +300,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? () {
                               final formattedNumber =
                                   formatPhoneNumber(_phoneNumberController.text);
+                              // Navigation is handled by the authentication provider
                               authNotifier.signInWithPhoneNumber(
                                 phoneNumber: formattedNumber,
                                 context: context,

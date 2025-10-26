@@ -377,7 +377,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       title: RichText(
         text: TextSpan(
           children: [
-            TextSpan(
+            /*TextSpan(
               text: "Wei",
               style: TextStyle(
                 color: textColor,          
@@ -385,9 +385,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 fontSize: 22,
                 letterSpacing: -0.3,
               ),
-            ),
+            ),*/
             TextSpan(
-              text: "Bao",
+              text: "Space",
               style: TextStyle(
                 color: iconColor,
                 fontWeight: FontWeight.w700,
@@ -396,11 +396,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             TextSpan(
-              text: "微宝",
+              text: "Tok",
               style: TextStyle(
                 color: const Color(0xFFFE2C55),
                 fontWeight: FontWeight.w700,
-                fontSize: 22,
+                fontSize: 26,
                 letterSpacing: -0.3,
               ),
             ),

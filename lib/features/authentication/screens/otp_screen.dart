@@ -1,10 +1,13 @@
+// lib/features/authentication/screens/otp_screen.dart (go_router VERSION)
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/constants.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/core/router/route_paths.dart';
+import 'package:textgb/core/router/app_router.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
@@ -44,12 +47,13 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
   void didChangeDependencies() {
     super.didChangeDependencies();
     
-    // Get arguments safely in didChangeDependencies, not initState
+    // Get arguments from go_router
+    // go_router passes arguments via state.extra
     if (_verificationId == null || _phoneNumber == null) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map?;
-      if (args != null) {
-        _verificationId = args[Constants.verificationId] as String?;
-        _phoneNumber = args[Constants.phoneNumber] as String?;
+      final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+      if (extra != null) {
+        _verificationId = extra['verificationId'] as String?;
+        _phoneNumber = extra['phoneNumber'] as String?;
       }
     }
   }
@@ -145,9 +149,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
             }
           }
           
-          // Navigate based on profile completeness
-          // If user has complete profile -> go to home
-          // If user doesn't have complete profile -> go to user info
+          // Navigate based on profile completeness using go_router
           _navigate(hasCompleteProfile: hasCompleteProfile);
           
         } catch (e) {
@@ -167,10 +169,15 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
 
   void _navigate({required bool hasCompleteProfile}) {
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      hasCompleteProfile ? Constants.homeScreen : Constants.createProfileScreen,
-      (route) => false,
-    );
+    
+    // THE MAGIC: Use go_router for navigation
+    if (hasCompleteProfile) {
+      // User has profile, go to home
+      context.goToHome();
+    } else {
+      // User needs to create profile
+      context.goToCreateProfile();
+    }
   }
 
   @override
@@ -201,7 +208,8 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
           onPressed: () {
             _animationController.stop();
             _resendTimerInstance?.cancel();
-            Navigator.pop(context);
+            // THE MAGIC: Use go_router to go back
+            context.pop();
           },
         ),
       ),
@@ -339,7 +347,7 @@ class _PhoneNumberDisplay extends StatelessWidget {
         ),
         IconButton(
           icon: const Icon(Icons.edit, size: 16, color: Color(0xFF09BB07)),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(), // Use go_router pop
         ),
       ],
     );

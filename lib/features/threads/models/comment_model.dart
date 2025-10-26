@@ -11,6 +11,11 @@
 // 6. Edit tracking
 // 7. Pin comments (thread author can pin)
 // 8. Sort options (Top, Latest, Oldest)
+// 
+// ANTI-SPAM MEASURES:
+// - Character limit: 150 characters (TikTok-style)
+// - Image limit: 0-1 image per comment (single image only)
+// - User banning: Handled at user model level (canComment field)
 // ===============================
 
 import 'dart:convert';
@@ -28,7 +33,7 @@ class CommentModel {
   final String content;
   
   // Media (optional - comments can have images like Twitter)
-  final List<String> imageUrls;      // 0-2 images for comments
+  final List<String> imageUrls;      // 0-1 image for comments (single image only)
   
   // Engagement metrics
   final int likes;
@@ -227,10 +232,13 @@ class CommentModel {
     if (value == null) return [];
     
     if (value is List) {
-      return value
+      final parsed = value
           .map((e) => e?.toString() ?? '')
           .where((s) => s.isNotEmpty)
           .toList();
+      
+      // Enforce single image limit
+      return parsed.isEmpty ? [] : [parsed.first];
     }
     
     if (value is String && value.isNotEmpty) {
@@ -241,7 +249,7 @@ class CommentModel {
         final content = trimmed.substring(1, trimmed.length - 1);
         if (content.isEmpty) return [];
         
-        return content
+        final items = content
             .split(',')
             .map((item) {
               final cleaned = item.trim();
@@ -252,6 +260,9 @@ class CommentModel {
             })
             .where((s) => s.isNotEmpty)
             .toList();
+        
+        // Enforce single image limit
+        return items.isEmpty ? [] : [items.first];
       }
       
       // JSON array format
@@ -259,16 +270,20 @@ class CommentModel {
         try {
           final decoded = json.decode(trimmed);
           if (decoded is List) {
-            return decoded
+            final parsed = decoded
                 .map((e) => e?.toString() ?? '')
                 .where((s) => s.isNotEmpty)
                 .toList();
+            
+            // Enforce single image limit
+            return parsed.isEmpty ? [] : [parsed.first];
           }
         } catch (e) {
           print('⚠️ Warning: Could not parse JSON array: $trimmed');
         }
       }
       
+      // Single string - treat as single image URL
       return [trimmed];
     }
     
@@ -577,8 +592,8 @@ class CommentModel {
            userId.isNotEmpty &&
            userName.isNotEmpty &&
            content.isNotEmpty &&
-           content.length <= 500 &&
-           imageUrls.length <= 2 &&
+           content.length <= 150 &&
+           imageUrls.length <= 1 &&
            depth <= 5;
   }
 
@@ -590,8 +605,8 @@ class CommentModel {
     if (userId.isEmpty) errors.add('User ID is required');
     if (userName.isEmpty) errors.add('User name is required');
     if (content.isEmpty) errors.add('Content is required');
-    if (content.length > 500) errors.add('Content exceeds 500 characters');
-    if (imageUrls.length > 2) errors.add('Maximum 2 images allowed per comment');
+    if (content.length > 150) errors.add('Content exceeds 150 characters');
+    if (imageUrls.length > 1) errors.add('Maximum 1 image allowed per comment');
     if (depth > 5) errors.add('Maximum reply depth is 5 levels');
     if (isReply && parentCommentId == null) errors.add('Parent comment ID required for replies');
     

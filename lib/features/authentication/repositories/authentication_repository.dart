@@ -1,9 +1,12 @@
 // lib/features/authentication/repositories/authentication_repository.dart
 // COMPLETE VERSION: Firebase Auth + R2 Storage + Video + Series + Enhanced Comments
+// 🆕 UPDATED FOR go_router NAVIGATION
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/threads/models/comment_model.dart';
 import 'package:textgb/features/threads/models/series_model.dart';
 import 'package:textgb/features/threads/models/series_unlock_model.dart';
@@ -85,11 +88,7 @@ abstract class AuthenticationRepository {
   Future<List<String>> getLikedVideos(String userId);
   Future<void> incrementViewCount(String videoId);
 
-  // ===============================
-  // 🆕 SERIES OPERATIONS
-  // ===============================
-  
-  // Series CRUD
+  // Series operations
   Future<SeriesModel> createSeries({
     required String creatorId,
     required String creatorName,
@@ -129,15 +128,12 @@ abstract class AuthenticationRepository {
   });
   
   Future<void> deleteSeries(String seriesId, String userId);
-  
-  // Series interactions
   Future<void> likeSeries(String seriesId, String userId);
   Future<void> unlikeSeries(String seriesId, String userId);
   Future<void> favoriteSeries(String seriesId, String userId);
   Future<void> unfavoriteSeries(String seriesId, String userId);
   Future<void> incrementSeriesViewCount(String seriesId);
   
-  // Series unlock/purchase
   Future<SeriesUnlockModel> unlockSeries({
     required String userId,
     required String seriesId,
@@ -158,7 +154,6 @@ abstract class AuthenticationRepository {
   Future<SeriesUnlockModel?> getSeriesUnlock(String userId, String seriesId);
   Future<List<SeriesUnlockModel>> getUserUnlocks(String userId);
   
-  // Episode progress tracking
   Future<SeriesUnlockModel> updateEpisodeProgress({
     required String unlockId,
     required int episodeNumber,
@@ -169,20 +164,16 @@ abstract class AuthenticationRepository {
     required int episodeNumber,
   });
   
-  // Series statistics
   Future<Map<String, dynamic>> getSeriesStats(String seriesId);
 
-  // ===============================
-  // 🆕 ENHANCED COMMENT OPERATIONS (WITH MEDIA)
-  // ===============================
-  
+  // Comment operations
   Future<CommentModel> addComment({
     required String videoId,
     required String authorId,
     required String authorName,
     required String authorImage,
     required String content,
-    List<String>? imageUrls, // 🆕 Support 0-2 images/GIFs
+    List<String>? imageUrls,
     String? parentCommentId,
     String? replyToUserId,
     String? replyToUserName,
@@ -200,19 +191,17 @@ abstract class AuthenticationRepository {
   Future<void> deleteComment(String commentId, String userId);
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
-  
-  // 🆕 Pin comment (video creator only)
   Future<void> pinComment(String commentId, String videoId, String userId);
   Future<void> unpinComment(String commentId, String videoId, String userId);
 
-  // File operations (R2 via Go backend ONLY)
+  // File operations
   Future<String> storeFileToStorage({
     required File file, 
     required String reference,
     Function(double)? onProgress,
   });
 
-  // Current user info (Firebase Auth only)
+  // Current user info
   String? get currentUserId;
   String? get currentUserPhoneNumber;
 }
@@ -240,7 +229,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // FIREBASE AUTH METHODS ONLY (NO STORAGE)
+  // FIREBASE AUTH METHODS (UPDATED FOR go_router)
   // ===============================
 
   @override
@@ -263,13 +252,12 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         throw AuthRepositoryException('Phone verification failed: ${e.message}');
       },
       codeSent: (String verificationId, int? resendToken) async {
-        Navigator.of(context).pushNamed(
-          '/otp',
-          arguments: {
-            'verificationId': verificationId,
-            'phoneNumber': phoneNumber,
-          },
-        );
+        // 🆕 UPDATED: Use go_router navigation
+        debugPrint('✅ Code sent, navigating to OTP screen with go_router');
+        context.go(RoutePaths.otp, extra: {
+          'verificationId': verificationId,
+          'phoneNumber': phoneNumber,
+        });
       },
       codeAutoRetrievalTimeout: (String verificationId) {},
     );
@@ -289,6 +277,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       );
 
       await _auth.signInWithCredential(credential);
+      debugPrint('✅ OTP verified successfully');
       onSuccess();
     } on FirebaseAuthException catch (e) {
       throw AuthRepositoryException('OTP verification failed: ${e.message}');
@@ -305,7 +294,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // USER SYNC OPERATIONS (GO BACKEND + R2 STORAGE)
+  // USER SYNC OPERATIONS
   // ===============================
 
   @override
@@ -842,8 +831,10 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // 🆕 SERIES OPERATIONS
+  // SERIES OPERATIONS (REST OF THE FILE - UNCHANGED)
   // ===============================
+  // Note: I'll include the rest of the methods here to keep the file complete
+  // The series, comments, and storage methods remain the same as your original
 
   @override
   Future<SeriesModel> createSeries({
@@ -1274,7 +1265,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // 🆕 ENHANCED COMMENT OPERATIONS (WITH MEDIA)
+  // COMMENT OPERATIONS
   // ===============================
 
   @override
@@ -1298,7 +1289,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'authorName': authorName,
         'authorImage': authorImage,
         'content': content.trim(),
-        'imageUrls': imageUrls ?? [], // 🆕 Media support
+        'imageUrls': imageUrls ?? [],
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'likesCount': 0,
@@ -1457,7 +1448,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // R2 STORAGE OPERATIONS (VIA GO BACKEND)
+  // STORAGE OPERATIONS
   // ===============================
 
   @override
@@ -1497,13 +1488,13 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     if (reference.contains('banner') || reference.contains('cover')) return 'banner';
     if (reference.contains('thumbnail')) return 'thumbnail';
     if (reference.contains('video')) return 'video';
-    if (reference.contains('comment')) return 'comment'; // 🆕 Comment media
-    if (reference.contains('series')) return 'series'; // 🆕 Series media
+    if (reference.contains('comment')) return 'comment';
+    if (reference.contains('series')) return 'series';
     return 'profile';
   }
 
   // ===============================
-  // ADDITIONAL HELPER METHODS
+  // HELPER METHODS
   // ===============================
 
   Future<bool> testBackendConnection() async {

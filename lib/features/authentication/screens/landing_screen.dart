@@ -1,10 +1,12 @@
-// lib/features/authentication/screens/landing_screen.dart
+// lib/features/authentication/screens/landing_screen.dart (go_router VERSION)
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/constants.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
+import 'package:textgb/core/router/route_paths.dart';
+import 'package:textgb/core/router/app_router.dart';
 
 // State provider for loading state
 final landingLoadingProvider = StateProvider.autoDispose<bool>((ref) => true);
@@ -38,10 +40,11 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
         final userProfile = await authNotifier.getUserProfile();
         if (userProfile != null) {
           // User is fully authenticated with profile
-          Navigator.pushReplacementNamed(context, Constants.homeScreen);
+          // THE MAGIC: Use go_router for navigation
+          context.goToHome();
         } else {
           // User is authenticated but needs to create profile
-          Navigator.pushReplacementNamed(context, Constants.createProfileScreen);
+          context.goToCreateProfile();
         }
       }
     } catch (e) {
@@ -55,7 +58,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
   }
 
   void _navigateToLogin() {
-    Navigator.pushReplacementNamed(context, Constants.loginScreen);
+    // THE MAGIC: Use go_router navigation
+    context.goToLogin();
   }
 
   @override
@@ -206,7 +210,7 @@ class _AppLogo extends StatelessWidget {
             text: const TextSpan(
               children: [
                 TextSpan(
-                  text: 'Wei',
+                  text: 'Space',
                   style: TextStyle(
                     fontSize: 50,
                     fontWeight: FontWeight.w400,
@@ -214,7 +218,7 @@ class _AppLogo extends StatelessWidget {
                     letterSpacing: -1.0,
                   ),
                 ),
-                TextSpan(
+                /*TextSpan(
                   text: 'Bao',
                   style: TextStyle(
                     fontSize: 50,
@@ -222,9 +226,9 @@ class _AppLogo extends StatelessWidget {
                     color: wechatGreen,
                     letterSpacing: -1.0,
                   ),
-                ),
+                ),*/
                 TextSpan(
-                  text: "微宝",
+                  text: "Tok",
                   style: TextStyle(
                     color: Color(0xFFFE2C55),
                     fontWeight: FontWeight.w700,
