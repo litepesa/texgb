@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 
 class VirtualGiftsBottomSheet extends ConsumerStatefulWidget {
+  final String? recipientId; // Required for API call
   final String? recipientName;
   final String? recipientImage;
   final Function(VirtualGift gift)? onGiftSelected;
@@ -11,6 +14,7 @@ class VirtualGiftsBottomSheet extends ConsumerStatefulWidget {
 
   const VirtualGiftsBottomSheet({
     super.key,
+    this.recipientId,
     this.recipientName,
     this.recipientImage,
     this.onGiftSelected,
@@ -25,7 +29,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
     with TickerProviderStateMixin {
   late TabController _tabController;
   VirtualGift? _selectedGift;
-  final bool _isProcessing = false;
+  bool _isProcessing = false;
 
   final List<GiftCategory> _giftCategories = [
     GiftCategory(
@@ -37,7 +41,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'heart',
           name: 'Heart',
           emoji: '❤️',
-          price: 10, // coins
+          price: 10,
           color: const Color(0xFFE91E63),
           rarity: GiftRarity.common,
         ),
@@ -45,7 +49,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'thumbs_up',
           name: 'Thumbs Up',
           emoji: '👍',
-          price: 15, // coins
+          price: 15,
           color: const Color(0xFF2196F3),
           rarity: GiftRarity.common,
         ),
@@ -53,7 +57,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'clap',
           name: 'Applause',
           emoji: '👏',
-          price: 25, // coins
+          price: 25,
           color: const Color(0xFFFFC107),
           rarity: GiftRarity.uncommon,
         ),
@@ -61,7 +65,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'fire',
           name: 'Fire',
           emoji: '🔥',
-          price: 50, // coins
+          price: 50,
           color: const Color(0xFFFF5722),
           rarity: GiftRarity.rare,
         ),
@@ -69,7 +73,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'star',
           name: 'Star',
           emoji: '⭐',
-          price: 75, // coins
+          price: 75,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.rare,
         ),
@@ -77,7 +81,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'crown',
           name: 'Crown',
           emoji: '👑',
-          price: 150, // coins
+          price: 150,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.epic,
         ),
@@ -85,7 +89,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'kiss',
           name: 'Kiss',
           emoji: '💋',
-          price: 35, // coins
+          price: 35,
           color: const Color(0xFFE91E63),
           rarity: GiftRarity.uncommon,
         ),
@@ -93,7 +97,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'muscle',
           name: 'Strong',
           emoji: '💪',
-          price: 40, // coins
+          price: 40,
           color: const Color(0xFF8BC34A),
           rarity: GiftRarity.uncommon,
         ),
@@ -108,7 +112,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'love_eyes',
           name: 'Love Eyes',
           emoji: '😍',
-          price: 20, // coins
+          price: 20,
           color: const Color(0xFFE91E63),
           rarity: GiftRarity.common,
         ),
@@ -116,7 +120,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'laugh',
           name: 'Laughing',
           emoji: '😂',
-          price: 15, // coins
+          price: 15,
           color: const Color(0xFFFFC107),
           rarity: GiftRarity.common,
         ),
@@ -124,7 +128,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'cool',
           name: 'Cool',
           emoji: '😎',
-          price: 30, // coins
+          price: 30,
           color: const Color(0xFF607D8B),
           rarity: GiftRarity.uncommon,
         ),
@@ -132,7 +136,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'shocked',
           name: 'Shocked',
           emoji: '😱',
-          price: 25, // coins
+          price: 25,
           color: const Color(0xFF9C27B0),
           rarity: GiftRarity.uncommon,
         ),
@@ -140,7 +144,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'party',
           name: 'Party',
           emoji: '🥳',
-          price: 40, // coins
+          price: 40,
           color: const Color(0xFF4CAF50),
           rarity: GiftRarity.rare,
         ),
@@ -148,7 +152,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'mind_blown',
           name: 'Mind Blown',
           emoji: '🤯',
-          price: 60, // coins
+          price: 60,
           color: const Color(0xFFFF5722),
           rarity: GiftRarity.rare,
         ),
@@ -156,7 +160,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'crying_laugh',
           name: 'Crying Laugh',
           emoji: '🤣',
-          price: 35, // coins
+          price: 35,
           color: const Color(0xFFFFC107),
           rarity: GiftRarity.uncommon,
         ),
@@ -164,7 +168,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'wink',
           name: 'Wink',
           emoji: '😉',
-          price: 20, // coins
+          price: 20,
           color: const Color(0xFF795548),
           rarity: GiftRarity.common,
         ),
@@ -172,7 +176,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'angel',
           name: 'Angel',
           emoji: '😇',
-          price: 45, // coins
+          price: 45,
           color: const Color(0xFFFFFFFF),
           rarity: GiftRarity.rare,
         ),
@@ -180,7 +184,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'devil',
           name: 'Devil',
           emoji: '😈',
-          price: 45, // coins
+          price: 45,
           color: const Color(0xFFD32F2F),
           rarity: GiftRarity.rare,
         ),
@@ -195,7 +199,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'cat',
           name: 'Cat',
           emoji: '🐱',
-          price: 25, // coins
+          price: 25,
           color: const Color(0xFF795548),
           rarity: GiftRarity.common,
         ),
@@ -203,7 +207,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'dog',
           name: 'Dog',
           emoji: '🐶',
-          price: 25, // coins
+          price: 25,
           color: const Color(0xFF8D6E63),
           rarity: GiftRarity.common,
         ),
@@ -211,7 +215,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'bear',
           name: 'Bear',
           emoji: '🐻',
-          price: 40, // coins
+          price: 40,
           color: const Color(0xFF5D4037),
           rarity: GiftRarity.uncommon,
         ),
@@ -219,7 +223,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'lion',
           name: 'Lion',
           emoji: '🦁',
-          price: 65, // coins
+          price: 65,
           color: const Color(0xFFFF9800),
           rarity: GiftRarity.rare,
         ),
@@ -227,7 +231,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'elephant',
           name: 'Elephant',
           emoji: '🐘',
-          price: 55, // coins
+          price: 55,
           color: const Color(0xFF607D8B),
           rarity: GiftRarity.rare,
         ),
@@ -235,7 +239,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'eagle',
           name: 'Eagle',
           emoji: '🦅',
-          price: 70, // coins
+          price: 70,
           color: const Color(0xFF3F51B5),
           rarity: GiftRarity.rare,
         ),
@@ -243,7 +247,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'dragon',
           name: 'Dragon',
           emoji: '🐉',
-          price: 180, // coins
+          price: 180,
           color: const Color(0xFF4CAF50),
           rarity: GiftRarity.epic,
         ),
@@ -251,7 +255,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'phoenix',
           name: 'Phoenix',
           emoji: '🔥🦅',
-          price: 350, // coins
+          price: 350,
           color: const Color(0xFFFF5722),
           rarity: GiftRarity.legendary,
         ),
@@ -266,7 +270,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'diamond',
           name: 'Diamond',
           emoji: '💎',
-          price: 200, // coins
+          price: 200,
           color: const Color(0xFF00BCD4),
           rarity: GiftRarity.epic,
         ),
@@ -274,7 +278,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'trophy',
           name: 'Trophy',
           emoji: '🏆',
-          price: 100, // coins
+          price: 100,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.rare,
         ),
@@ -282,7 +286,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'rocket',
           name: 'Rocket',
           emoji: '🚀',
-          price: 120, // coins
+          price: 120,
           color: const Color(0xFF2196F3),
           rarity: GiftRarity.epic,
         ),
@@ -290,7 +294,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'money_bag',
           name: 'Money Bag',
           emoji: '💰',
-          price: 250, // coins
+          price: 250,
           color: const Color(0xFF4CAF50),
           rarity: GiftRarity.epic,
         ),
@@ -298,7 +302,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'unicorn',
           name: 'Unicorn',
           emoji: '🦄',
-          price: 300, // coins
+          price: 300,
           color: const Color(0xFF9C27B0),
           rarity: GiftRarity.legendary,
         ),
@@ -306,7 +310,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'rainbow',
           name: 'Rainbow',
           emoji: '🌈',
-          price: 500, // coins
+          price: 500,
           color: const Color(0xFFFF6B35),
           rarity: GiftRarity.legendary,
         ),
@@ -314,7 +318,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'sports_car',
           name: 'Sports Car',
           emoji: '🏎️',
-          price: 800, // coins
+          price: 800,
           color: const Color(0xFFD32F2F),
           rarity: GiftRarity.legendary,
         ),
@@ -322,7 +326,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'mansion',
           name: 'Mansion',
           emoji: '🏰',
-          price: 1200, // coins
+          price: 1200,
           color: const Color(0xFF795548),
           rarity: GiftRarity.legendary,
         ),
@@ -330,7 +334,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'yacht',
           name: 'Yacht',
           emoji: '🛥️',
-          price: 2500, // coins
+          price: 2500,
           color: const Color(0xFF2196F3),
           rarity: GiftRarity.mythic,
         ),
@@ -338,7 +342,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'private_jet',
           name: 'Private Jet',
           emoji: '🛩️',
-          price: 5000, // coins
+          price: 5000,
           color: const Color(0xFF607D8B),
           rarity: GiftRarity.mythic,
         ),
@@ -353,7 +357,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'coffee',
           name: 'Coffee',
           emoji: '☕',
-          price: 35, // coins
+          price: 35,
           color: const Color(0xFF8D6E63),
           rarity: GiftRarity.uncommon,
         ),
@@ -361,7 +365,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'pizza',
           name: 'Pizza',
           emoji: '🍕',
-          price: 45, // coins
+          price: 45,
           color: const Color(0xFFFF5722),
           rarity: GiftRarity.uncommon,
         ),
@@ -369,7 +373,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'cake',
           name: 'Birthday Cake',
           emoji: '🎂',
-          price: 55, // coins
+          price: 55,
           color: const Color(0xFFE91E63),
           rarity: GiftRarity.rare,
         ),
@@ -377,7 +381,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'champagne',
           name: 'Champagne',
           emoji: '🍾',
-          price: 80, // coins
+          price: 80,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.rare,
         ),
@@ -385,7 +389,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'donut',
           name: 'Donut',
           emoji: '🍩',
-          price: 25, // coins
+          price: 25,
           color: const Color(0xFFFF9800),
           rarity: GiftRarity.common,
         ),
@@ -393,7 +397,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'ice_cream',
           name: 'Ice Cream',
           emoji: '🍦',
-          price: 30, // coins
+          price: 30,
           color: const Color(0xFF00BCD4),
           rarity: GiftRarity.uncommon,
         ),
@@ -401,7 +405,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'burger',
           name: 'Burger',
           emoji: '🍔',
-          price: 40, // coins
+          price: 40,
           color: const Color(0xFF8BC34A),
           rarity: GiftRarity.uncommon,
         ),
@@ -409,7 +413,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'sushi',
           name: 'Sushi',
           emoji: '🍣',
-          price: 60, // coins
+          price: 60,
           color: const Color(0xFF4CAF50),
           rarity: GiftRarity.rare,
         ),
@@ -417,7 +421,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'lobster',
           name: 'Lobster',
           emoji: '🦞',
-          price: 120, // coins
+          price: 120,
           color: const Color(0xFFD32F2F),
           rarity: GiftRarity.epic,
         ),
@@ -425,7 +429,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'caviar',
           name: 'Caviar',
           emoji: '🥄',
-          price: 300, // coins
+          price: 300,
           color: const Color(0xFF212121),
           rarity: GiftRarity.legendary,
         ),
@@ -440,7 +444,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'beach',
           name: 'Beach Vacation',
           emoji: '🏖️',
-          price: 400, // coins
+          price: 400,
           color: const Color(0xFF00BCD4),
           rarity: GiftRarity.legendary,
         ),
@@ -448,7 +452,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'mountain',
           name: 'Mountain Trip',
           emoji: '🏔️',
-          price: 350, // coins
+          price: 350,
           color: const Color(0xFF607D8B),
           rarity: GiftRarity.legendary,
         ),
@@ -456,7 +460,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'city_break',
           name: 'City Break',
           emoji: '🏙️',
-          price: 300, // coins
+          price: 300,
           color: const Color(0xFF9C27B0),
           rarity: GiftRarity.legendary,
         ),
@@ -464,7 +468,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'safari',
           name: 'Safari Adventure',
           emoji: '🦓',
-          price: 800, // coins
+          price: 800,
           color: const Color(0xFF8BC34A),
           rarity: GiftRarity.legendary,
         ),
@@ -472,7 +476,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'cruise',
           name: 'Luxury Cruise',
           emoji: '🛳️',
-          price: 1500, // coins
+          price: 1500,
           color: const Color(0xFF3F51B5),
           rarity: GiftRarity.mythic,
         ),
@@ -480,7 +484,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'space_trip',
           name: 'Space Trip',
           emoji: '🚀🌌',
-          price: 15000, // coins
+          price: 15000,
           color: const Color(0xFF673AB7),
           rarity: GiftRarity.ultimate,
         ),
@@ -495,7 +499,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'golden_crown',
           name: 'Golden Crown',
           emoji: '👑✨',
-          price: 1000, // coins
+          price: 1000,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.mythic,
         ),
@@ -503,7 +507,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'diamond_ring',
           name: 'Diamond Ring',
           emoji: '💍',
-          price: 2000, // coins
+          price: 2000,
           color: const Color(0xFF00BCD4),
           rarity: GiftRarity.mythic,
         ),
@@ -511,7 +515,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'golden_statue',
           name: 'Golden Statue',
           emoji: '🗿✨',
-          price: 3500, // coins
+          price: 3500,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.mythic,
         ),
@@ -519,7 +523,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'treasure_chest',
           name: 'Treasure Chest',
           emoji: '💰⭐',
-          price: 5000, // coins
+          price: 5000,
           color: const Color(0xFFFF9800),
           rarity: GiftRarity.ultimate,
         ),
@@ -527,7 +531,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'palace',
           name: 'Royal Palace',
           emoji: '🏰👑',
-          price: 8000, // coins
+          price: 8000,
           color: const Color(0xFF9C27B0),
           rarity: GiftRarity.ultimate,
         ),
@@ -535,7 +539,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'island',
           name: 'Private Island',
           emoji: '🏝️🌴',
-          price: 12000, // coins
+          price: 12000,
           color: const Color(0xFF00BCD4),
           rarity: GiftRarity.ultimate,
         ),
@@ -543,7 +547,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'galaxy',
           name: 'Own a Galaxy',
           emoji: '🌌⭐',
-          price: 25000, // coins
+          price: 25000,
           color: const Color(0xFF673AB7),
           rarity: GiftRarity.ultimate,
         ),
@@ -551,7 +555,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'universe',
           name: 'The Universe',
           emoji: '🌌✨🪐',
-          price: 50000, // coins
+          price: 50000,
           color: const Color(0xFF000000),
           rarity: GiftRarity.ultimate,
         ),
@@ -566,7 +570,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'flower',
           name: 'Flower',
           emoji: '🌸',
-          price: 20, // coins
+          price: 20,
           color: const Color(0xFFE91E63),
           rarity: GiftRarity.common,
         ),
@@ -574,7 +578,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'rose',
           name: 'Rose',
           emoji: '🌹',
-          price: 45, // coins
+          price: 45,
           color: const Color(0xFFD32F2F),
           rarity: GiftRarity.uncommon,
         ),
@@ -582,7 +586,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'bouquet',
           name: 'Bouquet',
           emoji: '💐',
-          price: 85, // coins
+          price: 85,
           color: const Color(0xFFE91E63),
           rarity: GiftRarity.rare,
         ),
@@ -590,7 +594,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'tree',
           name: 'Tree',
           emoji: '🌳',
-          price: 60, // coins
+          price: 60,
           color: const Color(0xFF4CAF50),
           rarity: GiftRarity.rare,
         ),
@@ -598,7 +602,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'forest',
           name: 'Forest',
           emoji: '🌲🌳',
-          price: 200, // coins
+          price: 200,
           color: const Color(0xFF2E7D32),
           rarity: GiftRarity.epic,
         ),
@@ -606,7 +610,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'garden',
           name: 'Garden Paradise',
           emoji: '🌺🌸🌼',
-          price: 400, // coins
+          price: 400,
           color: const Color(0xFF8BC34A),
           rarity: GiftRarity.legendary,
         ),
@@ -614,7 +618,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'aurora',
           name: 'Aurora Borealis',
           emoji: '🌌💚',
-          price: 800, // coins
+          price: 800,
           color: const Color(0xFF00E676),
           rarity: GiftRarity.legendary,
         ),
@@ -629,7 +633,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'soccer_ball',
           name: 'Soccer Ball',
           emoji: '⚽',
-          price: 30, // coins
+          price: 30,
           color: const Color(0xFF4CAF50),
           rarity: GiftRarity.uncommon,
         ),
@@ -637,7 +641,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'basketball',
           name: 'Basketball',
           emoji: '🏀',
-          price: 35, // coins
+          price: 35,
           color: const Color(0xFFFF9800),
           rarity: GiftRarity.uncommon,
         ),
@@ -645,7 +649,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'volleyball',
           name: 'Volleyball',
           emoji: '🏐',
-          price: 25, // coins
+          price: 25,
           color: const Color(0xFFFFC107),
           rarity: GiftRarity.common,
         ),
@@ -653,7 +657,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'tennis',
           name: 'Tennis',
           emoji: '🎾',
-          price: 40, // coins
+          price: 40,
           color: const Color(0xFF8BC34A),
           rarity: GiftRarity.uncommon,
         ),
@@ -661,7 +665,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'medal',
           name: 'Gold Medal',
           emoji: '🥇',
-          price: 150, // coins
+          price: 150,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.epic,
         ),
@@ -669,7 +673,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'championship',
           name: 'Championship',
           emoji: '🏆⭐',
-          price: 500, // coins
+          price: 500,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.legendary,
         ),
@@ -677,7 +681,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'olympics',
           name: 'Olympic Victory',
           emoji: '🥇🌟',
-          price: 1000, // coins
+          price: 1000,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.mythic,
         ),
@@ -692,7 +696,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'moon',
           name: 'Moon',
           emoji: '🌙',
-          price: 100, // coins
+          price: 100,
           color: const Color(0xFFFFFFFF),
           rarity: GiftRarity.rare,
         ),
@@ -700,7 +704,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'sun',
           name: 'Sun',
           emoji: '☀️',
-          price: 150, // coins
+          price: 150,
           color: const Color(0xFFFFC107),
           rarity: GiftRarity.epic,
         ),
@@ -708,7 +712,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'shooting_star',
           name: 'Shooting Star',
           emoji: '💫',
-          price: 250, // coins
+          price: 250,
           color: const Color(0xFFFFD700),
           rarity: GiftRarity.epic,
         ),
@@ -716,7 +720,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'constellation',
           name: 'Constellation',
           emoji: '✨⭐✨',
-          price: 600, // coins
+          price: 600,
           color: const Color(0xFF3F51B5),
           rarity: GiftRarity.legendary,
         ),
@@ -724,7 +728,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'supernova',
           name: 'Supernova',
           emoji: '💥⭐',
-          price: 1500, // coins
+          price: 1500,
           color: const Color(0xFFFF5722),
           rarity: GiftRarity.mythic,
         ),
@@ -732,7 +736,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'black_hole',
           name: 'Black Hole',
           emoji: '🕳️✨',
-          price: 3000, // coins
+          price: 3000,
           color: const Color(0xFF000000),
           rarity: GiftRarity.mythic,
         ),
@@ -740,7 +744,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           id: 'big_bang',
           name: 'Big Bang',
           emoji: '💥🌌',
-          price: 10000, // coins
+          price: 10000,
           color: const Color(0xFFFF6B35),
           rarity: GiftRarity.ultimate,
         ),
@@ -780,7 +784,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
             child: _buildTabBarView(),
           ),
           if (_selectedGift != null) _buildConfirmationBar(),
-          // Add bottom padding to account for system navigation
           SizedBox(height: bottomPadding),
         ],
       ),
@@ -792,7 +795,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          // Close button
           GestureDetector(
             onTap: () {
               widget.onClose?.call();
@@ -815,7 +817,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           
           const SizedBox(width: 16),
           
-          // Recipient info
           if (widget.recipientImage != null) ...[
             Container(
               width: 40,
@@ -865,7 +866,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
             ),
           ),
           
-          // Balance display with coins
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -967,7 +967,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   ),
                   child: Stack(
                     children: [
-                      // Unavailable overlay
                       if (!canAfford)
                         Positioned.fill(
                           child: Container(
@@ -988,7 +987,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Gift emoji with rarity glow
                           Stack(
                             alignment: Alignment.center,
                             children: [
@@ -1019,7 +1017,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                           
                           const SizedBox(height: 6),
                           
-                          // Gift name
                           Text(
                             gift.name,
                             style: TextStyle(
@@ -1034,7 +1031,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                           
                           const SizedBox(height: 3),
                           
-                          // Price with coins
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
@@ -1062,7 +1058,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                             ),
                           ),
                           
-                          // Rarity indicator
                           if (gift.rarity != GiftRarity.common) ...[
                             const SizedBox(height: 2),
                             Row(
@@ -1097,8 +1092,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   }
 
   Widget _buildConfirmationBar() {
-    final currentCoins = ref.watch(coinsBalanceProvider) ?? 0;
-    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.all(16),
@@ -1120,7 +1113,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
       ),
       child: Row(
         children: [
-          // Selected gift preview
           Container(
             width: 50,
             height: 50,
@@ -1195,7 +1187,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
             ),
           ),
           
-          // Send button
           GestureDetector(
             onTap: _isProcessing ? null : _sendGift,
             child: AnimatedContainer(
@@ -1300,6 +1291,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
     }
   }
 
+  // ✅ UPDATED _sendGift METHOD WITH BACKEND API INTEGRATION
   void _sendGift() async {
     if (_selectedGift == null || _isProcessing) return;
     
@@ -1311,11 +1303,70 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
       return;
     }
     
-    // Show "not available" message since backend logic is not implemented yet
-    _showNotAvailableMessage();
+    // Check if recipient ID is provided
+    if (widget.recipientId == null || widget.recipientId!.isEmpty) {
+      _showErrorMessage('Recipient information is missing');
+      return;
+    }
+    
+    setState(() {
+      _isProcessing = true;
+    });
+    
+    try {
+      // TODO: Replace with your actual API base URL
+      const apiBaseUrl = 'YOUR_API_URL'; // e.g., 'https://api.example.com/api/v1'
+      
+      // TODO: Get the auth token from your auth provider
+      final authToken = 'YOUR_AUTH_TOKEN'; // Get from your auth state/provider
+      
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/gifts/send'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        body: jsonEncode({
+          'recipientId': widget.recipientId!,
+          'giftId': _selectedGift!.id,
+          'message': 'Sent you a gift!',
+          'context': 'profile', // Can be 'video', 'live_stream', etc.
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Refresh wallet balance
+        ref.refresh(walletProvider);
+        
+        // Call onGiftSelected callback if provided
+        widget.onGiftSelected?.call(_selectedGift!);
+        
+        // Show success animation
+        _showSuccessAnimation();
+        
+        // Close after delay
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      } else {
+        final error = jsonDecode(response.body);
+        _showErrorMessage(error['error'] ?? 'Failed to send gift');
+      }
+    } catch (e) {
+      _showErrorMessage('Network error: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+    }
   }
 
-  void _showNotAvailableMessage() {
+  void _showErrorMessage(String message) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -1327,7 +1378,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A1A),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF9C27B0), width: 2),
+            border: Border.all(color: const Color(0xFFD32F2F), width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.5),
@@ -1339,17 +1390,16 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Info icon
               Container(
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF9C27B0).withOpacity(0.2),
+                  color: const Color(0xFFD32F2F).withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.info_outline,
-                  color: Color(0xFF9C27B0),
+                  Icons.error_outline,
+                  color: Color(0xFFD32F2F),
                   size: 30,
                 ),
               ),
@@ -1357,7 +1407,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               const SizedBox(height: 16),
               
               const Text(
-                'Coming Soon!',
+                'Error',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -1368,9 +1418,9 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               
               const SizedBox(height: 8),
               
-              const Text(
-                'Gift sending feature is not available yet. We\'re working on it!',
-                style: TextStyle(
+              Text(
+                message,
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                 ),
@@ -1379,7 +1429,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               
               const SizedBox(height: 20),
               
-              // OK button
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child: Container(
@@ -1387,12 +1436,12 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF9C27B0), Color(0xFFBA68C8)],
+                      colors: [Color(0xFFD32F2F), Color(0xFFE57373)],
                     ),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF9C27B0).withOpacity(0.3),
+                        color: const Color(0xFFD32F2F).withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1400,7 +1449,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   ),
                   child: const Center(
                     child: Text(
-                      'Got it',
+                      'OK',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -1441,7 +1490,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Warning icon
               Container(
                 width: 60,
                 height: 60,
@@ -1481,7 +1529,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               
               const SizedBox(height: 20),
               
-              // Buy coins button
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).pop();
@@ -1524,7 +1571,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               
               const SizedBox(height: 12),
               
-              // Cancel button
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child: Container(
@@ -1637,7 +1683,7 @@ class VirtualGift {
   final String id;
   final String name;
   final String emoji;
-  final int price; // Price in coins
+  final int price;
   final Color color;
   final GiftRarity rarity;
 

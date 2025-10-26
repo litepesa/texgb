@@ -163,8 +163,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  void _showGoLiveMessage() {
-    _showMessage('Unavailable');
+  void _navigateToCreateSeries() {
+    Navigator.of(context).pushNamed('/create-series');
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
@@ -1021,7 +1021,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
+              onPressed: (!_isProcessing && !_isUploading) ? _navigateToCreateSeries : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -1032,12 +1032,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.video_camera_back,
+                    Icons.playlist_play,
                     color: Colors.white,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Go Live'),
+                  const Text('Create Series'),
                 ],
               ),
             ),
