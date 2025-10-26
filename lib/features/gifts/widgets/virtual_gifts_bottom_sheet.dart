@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
+import 'package:textgb/shared/services/http_client.dart';
 
 class VirtualGiftsBottomSheet extends ConsumerStatefulWidget {
   final String? recipientId; // Required for API call
@@ -30,6 +30,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   late TabController _tabController;
   VirtualGift? _selectedGift;
   bool _isProcessing = false;
+  final HttpClientService _httpClient = HttpClientService();
 
   final List<GiftCategory> _giftCategories = [
     GiftCategory(
@@ -756,6 +757,17 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   void initState() {
     super.initState();
     _tabController = TabController(length: _giftCategories.length, vsync: this);
+    
+    // ✅ Debug: Log wallet state on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final walletAsync = ref.read(walletProvider);
+      print('🎁 Gift Bottom Sheet Initialized');
+      print('🎁 Wallet State: ${walletAsync.value?.wallet?.coinsBalance ?? "null"}');
+      
+      walletAsync.whenData((walletState) {
+        print('🎁 Wallet Balance: ${walletState.wallet?.coinsBalance ?? 0} coins');
+      });
+    });
   }
 
   @override
@@ -768,7 +780,9 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final availableHeight = MediaQuery.of(context).size.height * 0.85;
-    final currentCoins = ref.watch(coinsBalanceProvider) ?? 0;
+    
+    // ✅ Watch the wallet provider directly to handle loading state
+    final walletAsync = ref.watch(walletProvider);
     
     return Container(
       height: availableHeight,
@@ -776,16 +790,81 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
         color: Color(0xFF1A1A1A),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        children: [
-          _buildHeader(currentCoins),
-          _buildTabBar(),
-          Expanded(
-            child: _buildTabBarView(),
+      child: walletAsync.when(
+        data: (walletState) {
+          final currentCoins = walletState.wallet?.coinsBalance ?? 0;
+          
+          return Column(
+            children: [
+              _buildHeader(currentCoins),
+              _buildTabBar(),
+              Expanded(
+                child: _buildTabBarView(currentCoins),
+              ),
+              if (_selectedGift != null) _buildConfirmationBar(),
+              SizedBox(height: bottomPadding),
+            ],
+          );
+        },
+        loading: () => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B35)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading wallet...',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
-          if (_selectedGift != null) _buildConfirmationBar(),
-          SizedBox(height: bottomPadding),
-        ],
+        ),
+        error: (error, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFD32F2F),
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Failed to load wallet',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error.toString(),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => ref.refresh(walletProvider),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6B35),
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -921,9 +1000,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
     );
   }
 
-  Widget _buildTabBarView() {
-    final currentCoins = ref.watch(coinsBalanceProvider) ?? 0;
-    
+  Widget _buildTabBarView(int currentCoins) {
     return TabBarView(
       controller: _tabController,
       children: _giftCategories.map((category) {
@@ -1291,20 +1368,28 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
     }
   }
 
-  // ✅ UPDATED _sendGift METHOD WITH BACKEND API INTEGRATION
+  // ✅ UPDATED _sendGift METHOD USING HttpClientService
   void _sendGift() async {
     if (_selectedGift == null || _isProcessing) return;
     
-    final currentCoins = ref.read(coinsBalanceProvider) ?? 0;
+    // ✅ Get balance from wallet state directly
+    final walletAsync = ref.read(walletProvider);
+    final currentCoins = walletAsync.value?.wallet?.coinsBalance ?? 0;
+    
+    print('🎁 Attempting to send gift: ${_selectedGift!.name}');
+    print('🎁 Gift price: ${_selectedGift!.price} coins');
+    print('🎁 Current balance: $currentCoins coins');
     
     // Check if user has enough coins
     if (currentCoins < _selectedGift!.price) {
+      print('❌ Insufficient coins: need ${_selectedGift!.price}, have $currentCoins');
       _showInsufficientCoinsMessage();
       return;
     }
     
     // Check if recipient ID is provided
     if (widget.recipientId == null || widget.recipientId!.isEmpty) {
+      print('❌ Missing recipient ID');
       _showErrorMessage('Recipient information is missing');
       return;
     }
@@ -1314,28 +1399,24 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
     });
     
     try {
-      // TODO: Replace with your actual API base URL
-      const apiBaseUrl = 'YOUR_API_URL'; // e.g., 'https://api.example.com/api/v1'
+      print('📤 Sending gift to: ${widget.recipientId}');
       
-      // TODO: Get the auth token from your auth provider
-      final authToken = 'YOUR_AUTH_TOKEN'; // Get from your auth state/provider
+      // Use HttpClientService which handles auth token and base URL automatically
+      final response = await _httpClient.post('/gifts/send', body: {
+        'recipientId': widget.recipientId!,
+        'giftId': _selectedGift!.id,
+        'message': 'Sent you a gift!',
+        'context': 'profile', // Can be 'video', 'live_stream', etc.
+      });
       
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/gifts/send'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: jsonEncode({
-          'recipientId': widget.recipientId!,
-          'giftId': _selectedGift!.id,
-          'message': 'Sent you a gift!',
-          'context': 'profile', // Can be 'video', 'live_stream', etc.
-        }),
-      );
+      print('📥 Response status: ${response.statusCode}');
+      print('📥 Response body: ${response.body}');
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        
+        print('✅ Gift sent successfully!');
+        print('✅ New sender balance: ${data['senderNewBalance']}');
         
         // Refresh wallet balance
         ref.refresh(walletProvider);
@@ -1353,9 +1434,11 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
         }
       } else {
         final error = jsonDecode(response.body);
+        print('❌ Gift send failed: ${error['error']}');
         _showErrorMessage(error['error'] ?? 'Failed to send gift');
       }
     } catch (e) {
+      print('❌ Gift send exception: $e');
       _showErrorMessage('Network error: ${e.toString()}');
     } finally {
       if (mounted) {
