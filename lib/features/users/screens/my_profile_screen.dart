@@ -1503,7 +1503,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               const SizedBox(width: 12),
               
               // Wallet Button (smaller)
-              /*Expanded(
+              Expanded(
                 flex: 1,
                 child: GestureDetector(
                   onTap: _navigateToWallet,
@@ -1541,7 +1541,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     ),
                   ),
                 ),
-              ),*/
+              ),
             ],
           ),
 

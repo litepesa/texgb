@@ -1,7 +1,12 @@
 // lib/features/users/screens/live_users_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/constants.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/users/models/user_model.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'dart:math' as math;
 
@@ -14,13 +19,11 @@ class LiveUsersScreen extends ConsumerStatefulWidget {
 
 class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     with TickerProviderStateMixin {
+  final ScrollController _scrollController = ScrollController();
   bool _isInitialized = false;
   late AnimationController _pulseController;
   late AnimationController _rotationController;
   late AnimationController _shimmerController;
-  late AnimationController _orbitController;
-  late AnimationController _floatController;
-  late AnimationController _particleController;
 
   @override
   void initState() {
@@ -31,27 +34,12 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     )..repeat(reverse: true);
     
     _rotationController = AnimationController(
-      duration: const Duration(seconds: 15),
+      duration: const Duration(seconds: 20),
       vsync: this,
     )..repeat();
     
     _shimmerController = AnimationController(
-      duration: const Duration(milliseconds: 2500),
-      vsync: this,
-    )..repeat();
-    
-    _orbitController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    )..repeat();
-    
-    _floatController = AnimationController(
-      duration: const Duration(milliseconds: 3000),
-      vsync: this,
-    )..repeat(reverse: true);
-    
-    _particleController = AnimationController(
-      duration: const Duration(seconds: 8),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat();
     
@@ -62,12 +50,10 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _pulseController.dispose();
     _rotationController.dispose();
     _shimmerController.dispose();
-    _orbitController.dispose();
-    _floatController.dispose();
-    _particleController.dispose();
     super.dispose();
   }
 
@@ -77,21 +63,93 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     });
   }
 
+  Future<void> _refreshLiveUsers() async {
+    HapticFeedback.lightImpact();
+    await ref.read(authenticationProvider.notifier).loadUsers();
+  }
+
+  List<UserModel> get liveUsers {
+    final users = ref.watch(usersProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    
+    List<UserModel> filteredList = users.where((user) => user.isLive).toList();
+
+    if (currentUser != null) {
+      filteredList.removeWhere((user) => user.id == currentUser.id);
+    }
+    
+    filteredList.sort((a, b) {
+      if (a.isVerified && !b.isVerified) return -1;
+      if (!a.isVerified && b.isVerified) return 1;
+      return b.followers.compareTo(a.followers);
+    });
+    
+    return filteredList;
+  }
+
+  Future<void> _navigateToLiveStream(UserModel user) async {
+    try {
+      HapticFeedback.lightImpact();
+      Navigator.pushNamed(
+        context,
+        Constants.userProfileScreen,
+        arguments: user.id,
+      );
+    } catch (e) {
+      _showSnackBar('Unable to join live stream');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    final theme = context.modernTheme;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        backgroundColor: theme.surfaceVariantColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: theme.surfaceColor,
+      backgroundColor: theme.backgroundColor,
       body: !_isInitialized 
         ? _buildLoadingView(theme)
-        : _buildAntAIScreen(theme),
+        : _buildContent(theme),
+    );
+  }
+
+  Widget _buildContent(ModernThemeExtension theme) {
+    final users = liveUsers;
+    
+    return RefreshIndicator(
+      onRefresh: _refreshLiveUsers,
+      color: theme.primaryColor,
+      backgroundColor: theme.surfaceColor,
+      child: users.isEmpty 
+        ? _buildPremiumEmptyState(theme)
+        : _buildLiveUsersGrid(users, theme),
     );
   }
 
   Widget _buildLoadingView(ModernThemeExtension theme) {
     return Container(
-      color: theme.surfaceColor,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            theme.primaryColor!.withOpacity(0.05),
+            theme.backgroundColor!,
+          ],
+        ),
+      ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -103,13 +161,13 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                   animation: _pulseController,
                   builder: (context, child) {
                     return Container(
-                      width: 120 + (40 * _pulseController.value),
-                      height: 120 + (40 * _pulseController.value),
+                      width: 100 + (30 * _pulseController.value),
+                      height: 100 + (30 * _pulseController.value),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            theme.primaryColor!.withOpacity(0.4 * (1 - _pulseController.value)),
+                            theme.primaryColor!.withOpacity(0.3 * (1 - _pulseController.value)),
                             Colors.transparent,
                           ],
                         ),
@@ -118,50 +176,34 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                   },
                 ),
                 Container(
-                  width: 90,
-                  height: 90,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        theme.primaryColor!,
-                        theme.primaryColor!.withOpacity(0.7),
-                      ],
-                    ),
+                    color: theme.primaryColor,
                     boxShadow: [
                       BoxShadow(
-                        color: theme.primaryColor!.withOpacity(0.5),
-                        blurRadius: 40,
-                        spreadRadius: 8,
+                        color: theme.primaryColor!.withOpacity(0.4),
+                        blurRadius: 30,
+                        spreadRadius: 5,
                       ),
                     ],
                   ),
                   child: const Icon(
-                    CupertinoIcons.ant,
+                    Icons.videocam_rounded,
                     color: Colors.white,
-                    size: 45,
+                    size: 40,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 32),
-            ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [
-                  theme.primaryColor!,
-                  theme.primaryColor!.withOpacity(0.6),
-                ],
-              ).createShader(bounds),
-              child: Text(
-                'Initializing AI',
-                style: TextStyle(
-                  color: theme.textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
+            Text(
+              'Loading Live Streams',
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -170,7 +212,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     );
   }
 
-  Widget _buildAntAIScreen(ModernThemeExtension theme) {
+  Widget _buildPremiumEmptyState(ModernThemeExtension theme) {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
@@ -178,629 +220,708 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
           hasScrollBody: false,
           child: Container(
             decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 0.8,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  theme.primaryColor!.withOpacity(0.25),
-                  theme.primaryColor!.withOpacity(0.12),
-                  theme.surfaceColor!.withOpacity(0.95),
-                  theme.surfaceColor!,
+                  theme.primaryColor!.withOpacity(0.05),
+                  theme.backgroundColor!,
+                  theme.backgroundColor!,
                 ],
-                stops: const [0.0, 0.25, 0.6, 1.0],
               ),
             ),
-            child: Stack(
-              children: [
-                // Animated particles background
-                _buildAnimatedParticles(theme),
-                
-                // Main content
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 120),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Main animated icon
+                  Stack(
+                    alignment: Alignment.center,
                     children: [
-                      // Main futuristic AI icon
-                      _buildFuturisticAIIcon(theme),
-                      
-                      const SizedBox(height: 56),
-                      
-                      // Title with glitch effect
-                      _buildGlitchTitle(theme),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Status badge
-                      _buildStatusBadge(theme),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Description
-                      _buildDescription(theme),
-                      
-                      const SizedBox(height: 56),
-                      
-                      // Feature showcase
-                      _buildFeatureShowcase(theme),
-                      
-                      const SizedBox(height: 40),
-                      
-                      // Coming soon indicator
-                      _buildComingSoonIndicator(theme),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAnimatedParticles(ModernThemeExtension theme) {
-    return AnimatedBuilder(
-      animation: _particleController,
-      builder: (context, child) {
-        return Stack(
-          children: List.generate(20, (index) {
-            final angle = (index / 20) * 2 * math.pi;
-            final distance = 100 + (index * 15);
-            final x = MediaQuery.of(context).size.width / 2 + 
-                     math.cos(angle + _particleController.value * 2 * math.pi) * distance;
-            final y = MediaQuery.of(context).size.height / 2 + 
-                     math.sin(angle + _particleController.value * 2 * math.pi) * distance;
-            
-            return Positioned(
-              left: x,
-              top: y,
-              child: Container(
-                width: 3 + (index % 3),
-                height: 3 + (index % 3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.primaryColor!.withOpacity(0.3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.primaryColor!.withOpacity(0.5),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
-
-  Widget _buildFuturisticAIIcon(ModernThemeExtension theme) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_rotationController, _orbitController, _floatController]),
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, -15 * _floatController.value),
-          child: SizedBox(
-            width: 280,
-            height: 280,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Outer rotating ring
-                Transform.rotate(
-                  angle: _rotationController.value * 2 * math.pi,
-                  child: Container(
-                    width: 240,
-                    height: 240,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        width: 2,
-                        color: theme.primaryColor!.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Orbiting nodes
-                        for (int i = 0; i < 4; i++)
-                          Transform.rotate(
-                            angle: (i * math.pi / 2) + (_orbitController.value * 2 * math.pi),
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: theme.primaryColor,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: theme.primaryColor!,
-                                      blurRadius: 15,
-                                      spreadRadius: 2,
-                                    ),
+                      // Rotating gradient rings
+                      AnimatedBuilder(
+                        animation: _rotationController,
+                        builder: (context, child) {
+                          return Transform.rotate(
+                            angle: _rotationController.value * 2 * math.pi,
+                            child: Container(
+                              width: 200,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: SweepGradient(
+                                  colors: [
+                                    theme.primaryColor!.withOpacity(0.2),
+                                    theme.primaryColor!.withOpacity(0.1),
+                                    theme.primaryColor!.withOpacity(0.05),
+                                    theme.primaryColor!.withOpacity(0.1),
+                                    theme.primaryColor!.withOpacity(0.2),
                                   ],
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                // Middle ring
-                Transform.rotate(
-                  angle: -_rotationController.value * 1.5 * math.pi,
-                  child: Container(
-                    width: 180,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: SweepGradient(
-                        colors: [
-                          theme.primaryColor!.withOpacity(0.5),
-                          Colors.transparent,
-                          theme.primaryColor!.withOpacity(0.3),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 1.0],
+                          );
+                        },
                       ),
-                    ),
-                  ),
-                ),
-                
-                // Pulsing inner glow
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Container(
-                      width: 150 + (25 * _pulseController.value),
-                      height: 150 + (25 * _pulseController.value),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            theme.primaryColor!.withOpacity(0.4 * (1 - _pulseController.value)),
-                            Colors.transparent,
+                      
+                      // Pulsing circle
+                      AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          return Container(
+                            width: 160 + (20 * _pulseController.value),
+                            height: 160 + (20 * _pulseController.value),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: theme.primaryColor!.withOpacity(
+                                  0.3 * (1 - _pulseController.value),
+                                ),
+                                width: 3,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      
+                      // Main container
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: theme.surfaceColor,
+                          border: Border.all(
+                            color: theme.primaryColor!.withOpacity(0.3),
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.primaryColor!.withOpacity(0.2),
+                              blurRadius: 40,
+                              spreadRadius: 10,
+                            ),
                           ],
                         ),
+                        child: Icon(
+                          Icons.videocam_off_rounded,
+                          color: theme.primaryColor,
+                          size: 56,
+                        ),
                       ),
-                    );
-                  },
-                ),
-                
-                // Central AI core
-                Container(
-                  width: 130,
-                  height: 130,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 48),
+                  
+                  // Title
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
                       colors: [
                         theme.primaryColor!,
-                        theme.primaryColor!.withOpacity(0.8),
+                        theme.primaryColor!.withOpacity(0.7),
                       ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.primaryColor!.withOpacity(0.6),
-                        blurRadius: 50,
-                        spreadRadius: 10,
+                    ).createShader(bounds),
+                    child: Text(
+                      'No Live Streams',
+                      style: TextStyle(
+                        color: theme.textColor,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
                       ),
-                    ],
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Neural network pattern
-                      CustomPaint(
-                        size: const Size(130, 130),
-                        painter: NeuralNetworkPainter(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      // Ant icon
-                      const Icon(
-                        CupertinoIcons.ant,
-                        color: Colors.white,
-                        size: 60,
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Corner accents
-                for (int i = 0; i < 4; i++)
-                  Transform.rotate(
-                    angle: (i * math.pi / 2),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Transform.translate(
-                        offset: const Offset(0, -140),
-                        child: Container(
-                          width: 3,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: theme.primaryColor,
-                            borderRadius: BorderRadius.circular(2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.primaryColor!,
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-              ],
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Description
+                  Text(
+                    'There are no active live streams at the moment.\nCheck back soon for exciting shopping experiences!',
+                    style: TextStyle(
+                      color: theme.textSecondaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  
+                  const SizedBox(height: 48),
+                  
+                  // Feature cards
+                  _buildFeatureCards(theme),
+                  
+                  const SizedBox(height: 48),
+                  
+                  // CTA Button
+                  _buildNotifyButton(theme),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGlitchTitle(ModernThemeExtension theme) {
-    return AnimatedBuilder(
-      animation: _shimmerController,
-      builder: (context, child) {
-        return ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.primaryColor!,
-              Colors.white,
-              theme.primaryColor!,
-            ],
-            stops: [
-              _shimmerController.value - 0.3,
-              _shimmerController.value,
-              _shimmerController.value + 0.3,
-            ],
-          ).createShader(bounds),
-          child: const Text(
-            'ANT AI',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 48,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatusBadge(ModernThemeExtension theme) {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            color: theme.primaryColor!.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: theme.primaryColor!.withOpacity(0.3 * _pulseController.value),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.primaryColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.primaryColor!,
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'GENERATIVE SOCIAL ENGINE',
-                style: TextStyle(
-                  color: theme.primaryColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDescription(ModernThemeExtension theme) {
-    return Column(
-      children: [
-        Text(
-          'Where AI Meets Viral Content Creation',
-          style: TextStyle(
-            color: theme.textColor!.withOpacity(0.9),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            height: 1.4,
-            letterSpacing: 0.2,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Available for verified selected users only',
-          style: TextStyle(
-            color: theme.textSecondaryColor,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-            letterSpacing: 0.3,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: theme.surfaceColor!.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                CupertinoIcons.sparkles,
-                color: theme.textSecondaryColor,
-                size: 14,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Next-Gen Creator Tools',
-                style: TextStyle(
-                  color: theme.textSecondaryColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFeatureShowcase(ModernThemeExtension theme) {
-    return Column(
+  Widget _buildFeatureCards(ModernThemeExtension theme) {
+    return Row(
       children: [
-        _buildFeatureItem(
-          icon: CupertinoIcons.film_fill,
-          title: 'AI Video Generator',
-          description: 'Text-to-video magic. Describe it, AI creates it in HD',
-          theme: theme,
-          delay: 0,
+        Expanded(
+          child: _buildFeatureCard(
+            icon: Icons.notifications_active_rounded,
+            title: 'Get Notified',
+            description: 'Never miss a stream',
+            theme: theme,
+          ),
         ),
-        const SizedBox(height: 16),
-        _buildFeatureItem(
-          icon: CupertinoIcons.scissors,
-          title: 'Smart Edit Assistant',
-          description: 'Auto-cuts, transitions, effects - viral-ready in seconds',
-          theme: theme,
-          delay: 200,
-        ),
-        const SizedBox(height: 16),
-        _buildFeatureItem(
-          icon: CupertinoIcons.wand_stars_inverse,
-          title: 'Remix & Transform',
-          description: 'AI reimagines any video in different styles & scenarios',
-          theme: theme,
-          delay: 400,
-        ),
-        const SizedBox(height: 16),
-        _buildFeatureItem(
-          icon: CupertinoIcons.chat_bubble_text_fill,
-          title: 'Conversational Creator',
-          description: 'Chat with AI to refine your content until it\'s perfect',
-          theme: theme,
-          delay: 600,
-        ),
-        const SizedBox(height: 16),
-        _buildFeatureItem(
-          icon: CupertinoIcons.flame_fill,
-          title: 'Viral Optimization',
-          description: 'AI analyzes trends and optimizes for maximum engagement',
-          theme: theme,
-          delay: 800,
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildFeatureCard(
+            icon: Icons.local_offer_rounded,
+            title: 'Exclusive Deals',
+            description: 'Limited time offers',
+            theme: theme,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFeatureItem({
+  Widget _buildFeatureCard({
     required IconData icon,
     required String title,
     required String description,
     required ModernThemeExtension theme,
-    required int delay,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.surfaceColor!.withOpacity(0.6),
+        color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: theme.primaryColor!.withOpacity(0.2),
-          width: 1.5,
+          width: 2,
         ),
         boxShadow: [
           BoxShadow(
             color: theme.primaryColor!.withOpacity(0.1),
             blurRadius: 20,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  theme.primaryColor!,
-                  theme.primaryColor!.withOpacity(0.7),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.primaryColor!.withOpacity(0.4),
-                  blurRadius: 15,
-                ),
-              ],
+              color: theme.primaryColor,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
               color: Colors.white,
-              size: 26,
+              size: 28,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: theme.textColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: theme.textSecondaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildComingSoonIndicator(ModernThemeExtension theme) {
-    return AnimatedBuilder(
-      animation: _shimmerController,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.primaryColor!.withOpacity(0.2),
-                theme.primaryColor!.withOpacity(0.1),
+  Widget _buildNotifyButton(ModernThemeExtension theme) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          _showSnackBar('You\'ll be notified when streams go live!');
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedBuilder(
+          animation: _shimmerController,
+          builder: (context, child) {
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(
+                color: theme.primaryColor!.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                /*boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryColor!.withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],*/
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.notifications_active_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Notify Me When Live',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveUsersGrid(List<UserModel> users, ModernThemeExtension theme) {
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        // Header with count
+        SliverToBoxAdapter(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  theme.primaryColor!,
+                  theme.primaryColor!.withOpacity(0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.primaryColor!.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.primaryColor!.withOpacity(0.4),
-              width: 2,
+            child: Row(
+              children: [
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(
+                              0.6 * _pulseController.value,
+                            ),
+                            blurRadius: 15 * _pulseController.value,
+                            spreadRadius: 3 * _pulseController.value,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.fiber_manual_record,
+                        color: theme.primaryColor,
+                        size: 12,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  '${users.length} ${users.length == 1 ? 'Stream' : 'Streams'} Live Now',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text(
+                        'HOT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                CupertinoIcons.rocket_fill,
-                color: theme.primaryColor,
-                size: 18,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'THE FUTURE OF CONTENT IS HERE',
-                style: TextStyle(
-                  color: theme.primaryColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+        ),
+        
+        // Grid of live users
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.75,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                return _buildLiveUserCard(users[index], theme, index);
+              },
+              childCount: users.length,
+            ),
+          ),
+        ),
+        
+        // Bottom padding to avoid bottom nav bar
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 100),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLiveUserCard(UserModel user, ModernThemeExtension theme, int index) {
+    final isTopSeller = index < 3;
+    
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () => _navigateToLiveStream(user),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isTopSeller 
+                  ? theme.primaryColor! 
+                  : theme.dividerColor!.withOpacity(0.3),
+              width: isTopSeller ? 2 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isTopSeller 
+                    ? theme.primaryColor!.withOpacity(0.3)
+                    : Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-        );
-      },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Background
+                user.profileImage.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: user.profileImage,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: theme.surfaceVariantColor,
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: theme.surfaceVariantColor,
+                          child: Center(
+                            child: Text(
+                              user.name[0].toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w900,
+                                color: theme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: theme.surfaceVariantColor,
+                        child: Center(
+                          child: Text(
+                            user.name[0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w900,
+                              color: theme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                
+                // Gradient overlay
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.1),
+                        Colors.black.withOpacity(0.7),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top row
+                      Row(
+                        children: [
+                          // LIVE badge
+                          AnimatedBuilder(
+                            animation: _pulseController,
+                            builder: (context, child) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: theme.primaryColor!.withOpacity(
+                                        0.6 * _pulseController.value,
+                                      ),
+                                      blurRadius: 10 * _pulseController.value,
+                                      spreadRadius: 2 * _pulseController.value,
+                                    ),
+                                  ],
+                                ),
+                                child: const Text(
+                                  'LIVE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const Spacer(),
+                          // Viewers
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.visibility_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatViewers(user.followers),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      // Top seller badge
+                      if (isTopSeller) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.emoji_events_rounded,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Top ${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      
+                      const Spacer(),
+                      
+                      // Bottom info
+                      Row(
+                        children: [
+                          // Avatar
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: user.profileImage.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: user.profileImage,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      color: theme.primaryColor,
+                                      child: Center(
+                                        child: Text(
+                                          user.name[0].toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Name
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        user.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (user.isVerified) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.verified_rounded,
+                                        color: Colors.blue,
+                                        size: 14,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: const Text(
+                                    'Shopping Live',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
-}
 
-// Custom painter for neural network pattern
-class NeuralNetworkPainter extends CustomPainter {
-  final Color color;
-
-  NeuralNetworkPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 3;
-
-    // Draw interconnected nodes
-    for (int i = 0; i < 6; i++) {
-      final angle = (i * math.pi / 3);
-      final point = Offset(
-        center.dx + radius * math.cos(angle),
-        center.dy + radius * math.sin(angle),
-      );
-      
-      // Draw line from center
-      canvas.drawLine(center, point, paint);
-      
-      // Draw node
-      canvas.drawCircle(point, 3, Paint()..color = color..style = PaintingStyle.fill);
-    }
-    
-    // Draw center node
-    canvas.drawCircle(center, 4, Paint()..color = color..style = PaintingStyle.fill);
+  String _formatViewers(int followers) {
+    final viewers = (followers * 0.1).toInt().clamp(10, 10000);
+    if (viewers < 1000) return viewers.toString();
+    if (viewers < 1000000) return '${(viewers / 1000).toStringAsFixed(1)}K';
+    return '${(viewers / 1000000).toStringAsFixed(1)}M';
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

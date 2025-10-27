@@ -1253,7 +1253,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       child: Column(
         children: [
           // WhatsApp button
-          GestureDetector(
+          /*GestureDetector(
             onTap: () => _openWhatsAppWithVideo(currentVideo),
             child: Column(
               children: [
@@ -1270,7 +1270,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Like button
           _buildRightMenuItem(
@@ -1332,8 +1332,47 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Gift button
+          // Share button
+          /*_buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.arrowshape_turn_up_right,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: '0',
+            onTap: () => _showShareOptions(),
+          ),
+          
+          const SizedBox(height: 10),
+
+          // DM button - custom white rounded square with 'DM' text
           _buildRightMenuItem(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            label: 'Inbox',
+            onTap: () {
+              // TODO: Add DM functionality
+            },
+          ),*/
+
+          // Gift button
+          /*_buildRightMenuItem(
             child: const Text(
               '🎁',
               style: TextStyle(
@@ -1349,7 +1388,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             onTap: () => _showVirtualGifts(currentVideo),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Profile avatar
           _buildRightMenuItem(

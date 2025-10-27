@@ -92,11 +92,11 @@ class AppRoot extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
-                      'SpaceDuka',
+                      'SpaceTok',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 1.0,
                       ),
                     ),
@@ -139,7 +139,7 @@ class AppRoot extends ConsumerWidget {
       data: (themeData) => MaterialApp.router(
         // ==================== APP CONFIGURATION ====================
         debugShowCheckedModeBanner: false,
-        title: 'SpaceDuka',
+        title: 'SpaceTok',
         
         // ==================== THEME ====================
         theme: themeData.activeTheme,

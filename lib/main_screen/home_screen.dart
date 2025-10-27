@@ -6,11 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
+import 'package:textgb/features/users/screens/live_users_screen.dart';
+import 'package:textgb/features/video_reactions/screens/video_reactions_list_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -31,19 +32,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   final List<String> _tabNames = [
-    'Home',         // Index 0 - Videos Feed (hidden app bar, black background)
-    'People',       // Index 1 - Users List
+    'Live',       // Index 0 - Users List (with app bar)
+    'Moments',         // Index 1 - Videos Feed (hidden app bar, black background)
     '',             // Index 2 - Post (no label, special design)
-    'Wallet',       // Index 3 - Featured
+    'People',        // Index 3 - Featured
     'Profile'       // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                    // Home
-    Icons.radio_button_checked_rounded,    // Users
-    Icons.add,                             // Post 
-    CupertinoIcons.qrcode_viewfinder,      // Trending
-    CupertinoIcons.person                  // Profile
+    CupertinoIcons.dot_radiowaves_left_right,     // Live
+    Icons.donut_large_rounded,                       // Moments
+    Icons.add,                                // Post 
+    CupertinoIcons.person_2_square_stack,  // Trending
+    Icons.person_outline                      // Profile
   ];
 
   final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
@@ -165,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     HapticFeedback.lightImpact();
     
-    if (_currentIndex == 0) {
+    if (_currentIndex == 1) {
       try {
         _feedScreenKey.currentState?.onScreenBecameInactive();
       } catch (e) {
@@ -179,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     _setSystemUIOverlayStyle();
     
-    if (_currentIndex == 0) {
+    if (_currentIndex == 1) {
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           try {
@@ -196,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 0) {
+      if (_currentIndex == 1) {
         SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
@@ -226,7 +227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     HapticFeedback.lightImpact();
     
-    if (_currentIndex == 0) {
+    if (_currentIndex == 1) {
       try {
         _feedScreenKey.currentState?.onScreenBecameInactive();
       } catch (e) {
@@ -241,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
 
-    if (result == true && _currentIndex == 0 && mounted) {
+    if (result == true && _currentIndex == 1 && mounted) {
       try {
         _feedScreenKey.currentState?.onScreenBecameActive();
       } catch (e) {
@@ -262,7 +263,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isHomeTab = _currentIndex == 0;
+    final isMomentsTab = _currentIndex == 1;
     final isProfileTab = _currentIndex == 4;
     
     // ✅ Check if app is still initializing
@@ -284,7 +285,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'WeiBao',
+                  'SpaceTok',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -314,28 +315,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isHomeTab || isProfileTab,
-      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isMomentsTab || isProfileTab,
+      backgroundColor: isMomentsTab ? Colors.black : modernTheme.backgroundColor,
       
-      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
+      appBar: (isMomentsTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          // Home tab (index 0) - Videos Feed
+          // Live tab (index 0) - Users List (with app bar)
+          _KeepAliveWrapper(
+            child: Container(
+              color: modernTheme.backgroundColor,
+              child: const LiveUsersScreen(),
+            ),
+          ),
+          // Moments tab (index 1) - Videos Feed (no app bar, black background)
           _KeepAliveWrapper(
             child: Container(
               color: Colors.black,
               child: VideosFeedScreen(
                 key: _feedScreenKey,
               ),
-            ),
-          ),
-          // Sellers tab (index 1) - Users List
-          _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const UsersListScreen(),
             ),
           ),
           // Post tab (index 2) - Never shown (navigates directly)
@@ -347,11 +348,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // Live tab (index 3)
+          // People tab (index 3)
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
-              child: const WalletScreen(),
+              child: const UsersListScreen(),
             ),
           ),
           // Profile tab (index 4)
@@ -377,30 +378,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       title: RichText(
         text: TextSpan(
           children: [
-            /*TextSpan(
-              text: "Wei",
-              style: TextStyle(
-                color: textColor,          
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-                letterSpacing: -0.3,
-              ),
-            ),*/
             TextSpan(
               text: "Space",
+              style: TextStyle(
+                color: textColor,          
+                fontWeight: FontWeight.w700,
+                fontSize: 24,
+                letterSpacing: -0.3,
+              ),
+            ),
+            /*TextSpan(
+              text: "Bao",
               style: TextStyle(
                 color: iconColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 24,
                 letterSpacing: -0.3,
               ),
-            ),
+            ),*/
             TextSpan(
               text: "Tok",
               style: TextStyle(
                 color: const Color(0xFFFE2C55),
                 fontWeight: FontWeight.w700,
-                fontSize: 26,
+                fontSize: 24,
                 letterSpacing: -0.3,
               ),
             ),
@@ -419,12 +420,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
-    final isHomeTab = _currentIndex == 0;
+    final isMomentsTab = _currentIndex == 1;
     
     Color backgroundColor;
     Color? borderColor;
     
-    if (isHomeTab) {
+    if (isMomentsTab) {
       backgroundColor = Colors.black;
       borderColor = null;
     } else {
@@ -435,7 +436,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor,
-        border: (isHomeTab || borderColor == null) ? null : Border(
+        border: (isMomentsTab || borderColor == null) ? null : Border(
           top: BorderSide(
             color: borderColor,
             width: 0.5,
@@ -445,7 +446,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isHomeTab)
+          if (isMomentsTab)
             _buildVideoProgressIndicator(),
           
           SafeArea(
@@ -457,13 +458,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(5, (index) {
                   if (index == 2) {
-                    return _buildPostButton(modernTheme, isHomeTab);
+                    return _buildPostButton(modernTheme, isMomentsTab);
                   }
                   
                   return _buildNavItem(
                     index,
                     modernTheme,
-                    isHomeTab,
+                    isMomentsTab,
                   );
                 }),
               ),
@@ -505,7 +506,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
+  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isMomentsTab) {
     return GestureDetector(
       onTap: () => _navigateToCreatePost(),
       child: Container(
@@ -574,14 +575,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildNavItem(
     int index,
     ModernThemeExtension modernTheme,
-    bool isHomeTab,
+    bool isMomentsTab,
   ) {
     final isSelected = _currentIndex == index;
     
     Color iconColor;
     Color textColor;
     
-    if (isHomeTab) {
+    if (isMomentsTab) {
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
     } else {

@@ -241,9 +241,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Enhanced App Bar
-            
-            //_buildAppBar(theme),
+            // Enhanced App Bar            
+            _buildAppBar(theme),
             
             // Main Content
             Expanded(
@@ -263,7 +262,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  /*Widget _buildAppBar(ModernThemeExtension theme) {
+  Widget _buildAppBar(ModernThemeExtension theme) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -369,7 +368,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         ],
       ),
     );
-  }*/
+  }
 
   void _showMenuOptions(BuildContext context, ModernThemeExtension theme) {
     showModalBottomSheet(

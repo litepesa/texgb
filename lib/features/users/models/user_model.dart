@@ -1,6 +1,41 @@
 // lib/features/users/models/user_model.dart
 
-// User gender enum
+// User role enum
+enum UserRole {
+  admin('admin'),
+  host('host'), 
+  guest('guest');
+
+  const UserRole(this.value);
+  final String value;
+
+  static UserRole fromString(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'admin':
+        return UserRole.admin;
+      case 'host':
+        return UserRole.host;
+      case 'guest':
+      default:
+        return UserRole.guest;
+    }
+  }
+
+  bool get canPost => this == UserRole.admin || this == UserRole.host;
+
+  String get displayName {
+    switch (this) {
+      case UserRole.admin:
+        return 'Admin';
+      case UserRole.host:
+        return 'Host';
+      case UserRole.guest:
+        return 'Guest';
+    }
+  }
+}
+
+// NEW: User gender enum
 enum UserGender {
   male('male'),
   female('female');
@@ -87,12 +122,7 @@ class UserModel {
   final int videosCount;
   final int likesCount;
   final bool isVerified;
-  
-  // ===============================
-  // PERMISSION FIELDS (Staff roles)
-  // ===============================
-  final bool isAdmin;       // Platform administrator (full control)
-  final bool isModerator;   // Content moderator (can moderate content, ban users)
+  final UserRole role;
   
   // ===============================
   // NEW PROFILE FIELDS
@@ -100,12 +130,6 @@ class UserModel {
   final String? gender;      // NEW: User gender (male/female)
   final String? location;    // NEW: User location (e.g., "Nairobi, Kenya")
   final String? language;    // NEW: User native language (e.g., "English", "Swahili")
-  
-  // ===============================
-  // BAN/RESTRICTION FIELDS (Admin controlled)
-  // ===============================
-  final bool canComment;     // NEW: Can user comment on threads? (true = yes, false = banned from commenting)
-  final bool canPost;        // NEW: Can user post videos? (true = yes, false = banned from posting)
   
   // ===============================
   // OTHER FIELDS
@@ -136,13 +160,10 @@ class UserModel {
     required this.videosCount,
     required this.likesCount,
     required this.isVerified,
-    this.isAdmin = false,       // NEW: Default = false (not admin)
-    this.isModerator = false,   // NEW: Default = false (not moderator)
+    this.role = UserRole.guest,
     this.gender,      // NEW
     this.location,    // NEW
     this.language,    // NEW
-    this.canComment = true,  // NEW: Default = true (not banned)
-    this.canPost = true,     // NEW: Default = true (not banned)
     required this.tags,
     required this.followerUIDs,
     required this.followingUIDs,
@@ -172,16 +193,11 @@ class UserModel {
       videosCount: _extractInt(map['videosCount'] ?? map['videos_count']) ?? 0,
       likesCount: _extractInt(map['likesCount'] ?? map['likes_count']) ?? 0,
       isVerified: _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
-      // NEW: Extract admin/moderator flags
-      isAdmin: _extractBool(map['isAdmin'] ?? map['is_admin']) ?? false,
-      isModerator: _extractBool(map['isModerator'] ?? map['is_moderator']) ?? false,
+      role: UserRole.fromString(map['role'] ?? map['userRole'] ?? map['user_role']),
       // NEW: Extract profile fields
       gender: _extractString(map['gender']),
       location: _extractString(map['location']),
       language: _extractString(map['language']),
-      // NEW: Extract ban/restriction fields
-      canComment: _extractBool(map['canComment'] ?? map['can_comment']) ?? true,
-      canPost: _extractBool(map['canPost'] ?? map['can_post']) ?? true,
       tags: _parseStringArray(map['tags']),
       followerUIDs: _parseStringArray(map['followerUIDs'] ?? map['follower_uids'] ?? map['follower_UIDs']),
       followingUIDs: _parseStringArray(map['followingUIDs'] ?? map['following_uids'] ?? map['following_UIDs']),
@@ -277,13 +293,10 @@ class UserModel {
     String? whatsappNumber,
     required String profileImage,
     required String bio,
-    bool isAdmin = false,      // NEW: Default false
-    bool isModerator = false,  // NEW: Default false
+    UserRole role = UserRole.guest,
     String? gender,
     String? location,
     String? language,
-    bool canComment = true,  // NEW: Default true
-    bool canPost = true,     // NEW: Default true
   }) {
     final now = DateTime.now().toUtc().toIso8601String();
     return UserModel(
@@ -299,13 +312,10 @@ class UserModel {
       videosCount: 0,
       likesCount: 0,
       isVerified: false,
-      isAdmin: isAdmin,          // NEW
-      isModerator: isModerator,  // NEW
+      role: role,
       gender: gender,        // NEW
       location: location,    // NEW
       language: language,    // NEW
-      canComment: canComment,  // NEW
-      canPost: canPost,        // NEW
       tags: [],
       followerUIDs: [],
       followingUIDs: [],
@@ -332,13 +342,10 @@ class UserModel {
       'coverImage': coverImage,
       'bio': bio,
       'userType': 'user',
-      'isAdmin': isAdmin,          // NEW
-      'isModerator': isModerator,  // NEW
-      'gender': gender,        // NEW
-      'location': location,    // NEW
-      'language': language,    // NEW
-      'canComment': canComment,  // NEW
-      'canPost': canPost,        // NEW
+      'role': role.value,
+      'gender': gender,      // NEW
+      'location': location,  // NEW
+      'language': language,  // NEW
       'followersCount': followers,
       'followingCount': following,
       'videosCount': videosCount,
@@ -346,7 +353,7 @@ class UserModel {
       'isVerified': isVerified,
       'isActive': isActive,
       'isFeatured': isFeatured,
-      'isLive': isLive,        // NEW
+      'isLive': isLive,      // NEW
       'tags': _formatArrayForPostgreSQL(tags),
       'createdAt': createdAt,
       'updatedAt': updatedAt,
@@ -377,13 +384,10 @@ class UserModel {
     int? videosCount,
     int? likesCount,
     bool? isVerified,
-    bool? isAdmin,         // NEW
-    bool? isModerator,     // NEW
-    String? gender,        // NEW
-    String? location,      // NEW
-    String? language,      // NEW
-    bool? canComment,      // NEW
-    bool? canPost,         // NEW
+    UserRole? role,
+    String? gender,      // NEW
+    String? location,    // NEW
+    String? language,    // NEW
     List<String>? tags,
     List<String>? followerUIDs,
     List<String>? followingUIDs,
@@ -393,7 +397,7 @@ class UserModel {
     String? lastSeen,
     bool? isActive,
     bool? isFeatured,
-    bool? isLive,          // NEW
+    bool? isLive,        // NEW
     String? lastPostAt,
     UserPreferences? preferences,
   }) {
@@ -410,13 +414,10 @@ class UserModel {
       videosCount: videosCount ?? this.videosCount,
       likesCount: likesCount ?? this.likesCount,
       isVerified: isVerified ?? this.isVerified,
-      isAdmin: isAdmin ?? this.isAdmin,              // NEW
-      isModerator: isModerator ?? this.isModerator,  // NEW
-      gender: gender ?? this.gender,              // NEW
-      location: location ?? this.location,        // NEW
-      language: language ?? this.language,        // NEW
-      canComment: canComment ?? this.canComment,  // NEW
-      canPost: canPost ?? this.canPost,           // NEW
+      role: role ?? this.role,
+      gender: gender ?? this.gender,        // NEW
+      location: location ?? this.location,  // NEW
+      language: language ?? this.language,  // NEW
       tags: tags ?? this.tags,
       followerUIDs: followerUIDs ?? this.followerUIDs,
       followingUIDs: followingUIDs ?? this.followingUIDs,
@@ -426,7 +427,7 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
-      isLive: isLive ?? this.isLive,              // NEW
+      isLive: isLive ?? this.isLive,        // NEW
       lastPostAt: lastPostAt ?? this.lastPostAt,
       preferences: preferences ?? this.preferences,
     );
@@ -437,34 +438,12 @@ class UserModel {
   // ===============================
   String get id => uid;
 
-  // NEW: Staff/Permission helper methods
-  bool get isStaff => isAdmin || isModerator;
-  bool get isSuperUser => isAdmin && isModerator;
-  bool get canModerate => isAdmin || isModerator;
-  bool get canAccessAdminPanel => isAdmin;
-  bool get canManageUsers => isAdmin;
-  bool get canManageContent => isAdmin || isModerator;
-  
-  String get userTypeDisplay {
-    if (isAdmin && isModerator) return 'Super Admin';
-    if (isAdmin) return 'Administrator';
-    if (isModerator) return 'Moderator';
-    if (isVerified) return 'Verified User';
-    return 'User';
-  }
-
-  // NEW: Ban status helper methods
-  bool get isBannedFromCommenting => !canComment;
-  bool get isBannedFromPosting => !canPost;
-  bool get isFullyBanned => !canComment && !canPost;
-  bool get hasAnyRestrictions => !canComment || !canPost;
-  
-  String get banStatusDescription {
-    if (isFullyBanned) return 'Banned from commenting and posting';
-    if (isBannedFromCommenting) return 'Banned from commenting';
-    if (isBannedFromPosting) return 'Banned from posting';
-    return 'No restrictions';
-  }
+  // Role-based helper methods
+  bool get canPost => role.canPost;
+  bool get isAdmin => role == UserRole.admin;
+  bool get isHost => role == UserRole.host;
+  bool get isGuest => role == UserRole.guest;
+  String get roleDisplayName => role.displayName;
 
   // WhatsApp helper methods
   bool get hasWhatsApp => whatsappNumber != null && whatsappNumber!.isNotEmpty;
@@ -552,7 +531,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, isAdmin: $isAdmin, isModerator: $isModerator, phoneNumber: $phoneNumber, isLive: $isLive, canComment: $canComment, canPost: $canPost)';
+    return 'UserModel(uid: $uid, name: $name, role: ${role.value}, phoneNumber: $phoneNumber, isLive: $isLive)';
   }
 
   // ===============================
@@ -569,16 +548,10 @@ class UserModel {
         'lastPostAt_value': lastPostAt,
         'hasPostedVideos': hasPostedVideos,
         'lastPostTimeAgo': lastPostTimeAgo,
-        'staff_info': {
-          'is_admin': isAdmin,
-          'is_moderator': isModerator,
-          'is_staff': isStaff,
-          'is_super_user': isSuperUser,
-          'can_moderate': canModerate,
-          'can_access_admin_panel': canAccessAdminPanel,
-          'can_manage_users': canManageUsers,
-          'can_manage_content': canManageContent,
-          'user_type_display': userTypeDisplay,
+        'role_info': {
+          'role_value': role.value,
+          'role_display': role.displayName,
+          'can_post': canPost,
         },
         'whatsapp_info': {
           'has_whatsapp': hasWhatsApp,
@@ -594,15 +567,6 @@ class UserModel {
         },
         'live_status': {
           'is_live': isLive,
-        },
-        'ban_status': {
-          'can_comment': canComment,
-          'can_post': canPost,
-          'is_banned_from_commenting': isBannedFromCommenting,
-          'is_banned_from_posting': isBannedFromPosting,
-          'is_fully_banned': isFullyBanned,
-          'has_any_restrictions': hasAnyRestrictions,
-          'ban_status_description': banStatusDescription,
         },
       },
     };

@@ -2,17 +2,20 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/videos/services/video_thumbnail_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path/path.dart' as path;
 
 // Data classes for video processing
 class VideoInfo {
@@ -163,8 +166,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  void _navigateToCreateSeries() {
-    Navigator.of(context).pushNamed('/create-series');
+  void _showGoLiveMessage() {
+    _showMessage('Unavailable');
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
@@ -540,6 +543,30 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         price = double.tryParse(_priceController.text) ?? 0.0;
       }
       
+      // STEP 1: Generate thumbnail FIRST from the original, unprocessed video
+      debugPrint('🎬 Step 1: Generating thumbnail from original video...');
+      File? thumbnailFile;
+      try {
+        final thumbnailService = VideoThumbnailService();
+        thumbnailFile = await thumbnailService.generateBestThumbnailFile(
+          videoFile: _videoFile!,
+          maxWidth: 400,
+          maxHeight: 600,
+          quality: 85,
+        );
+        
+        if (thumbnailFile == null) {
+          debugPrint('⚠️ Warning: Failed to generate thumbnail, continuing without it');
+        } else {
+          debugPrint('✅ Thumbnail generated successfully from original video: ${thumbnailFile.path}');
+        }
+      } catch (e) {
+        debugPrint('❌ Error generating thumbnail: $e');
+        // Continue without thumbnail
+      }
+      
+      // STEP 2: Process video (audio enhancement, etc.) AFTER thumbnail generation
+      debugPrint('🔧 Step 2: Processing video (audio enhancement)...');
       File videoToUpload = _videoFile!;
       
       if (_videoInfo != null) {
@@ -547,14 +574,20 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         
         if (processedVideo != null) {
           videoToUpload = processedVideo;
+          debugPrint('✅ Video processed successfully');
+        } else {
+          debugPrint('⚠️ Video processing failed, using original video');
         }
       }
       
       // Start upload simulation
       _startUploadSimulation();
       
+      // STEP 3: Upload with pre-generated thumbnail
+      debugPrint('☁️ Step 3: Uploading video and thumbnail...');
       authProvider.createVideo(
         videoFile: videoToUpload,
+        thumbnailFile: thumbnailFile, // Pass pre-generated thumbnail
         caption: _captionController.text,
         tags: tags,
         price: price,
@@ -1021,7 +1054,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _navigateToCreateSeries : null,
+              onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -1032,12 +1065,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.playlist_play,
+                    Icons.video_camera_back,
                     color: Colors.white,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Create Series'),
+                  const Text('Go Live'),
                 ],
               ),
             ),

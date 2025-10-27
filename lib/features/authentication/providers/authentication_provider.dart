@@ -1,6 +1,7 @@
 // lib/features/authentication/providers/authentication_provider.dart
-// Video-focused authentication provider with instant auth recognition, caching, video updates, and SERIES support
-// FIXED: All method signatures corrected to match repository interface
+// Video-focused authentication provider with instant auth recognition, caching, and video updates
+// OPTIMIZED: Videos load during app initialization for instant feed display
+// ENHANCED: Simple force refresh solution for backend updates
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -9,9 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/features/authentication/repositories/authentication_repository.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
-import 'package:textgb/features/threads/models/comment_model.dart';
-import 'package:textgb/features/threads/models/series_model.dart';
-import 'package:textgb/features/threads/models/series_unlock_model.dart';
+import 'package:textgb/features/comments/models/comment_model.dart';
 import 'package:textgb/features/videos/services/video_thumbnail_service.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -19,14 +18,14 @@ part 'authentication_provider.g.dart';
 
 // Authentication states
 enum AuthState {
-  guest,
-  authenticated,
-  partial,
+  guest, // Can browse videos only
+  authenticated, // Firebase user + profile exists
+  partial, // Firebase authenticated but no backend profile
   loading,
   error
 }
 
-// State class for authentication (video-focused + series support)
+// State class for authentication (video-focused)
 class AuthenticationState {
   final AuthState state;
   final bool isLoading;
@@ -43,12 +42,6 @@ class AuthenticationState {
   final bool isUploading;
   final double uploadProgress;
 
-  // Series-related state
-  final List<SeriesModel> series;
-  final List<SeriesUnlockModel> unlockedSeries;
-  final List<String> likedSeries;
-  final List<String> favoritedSeries;
-
   const AuthenticationState({
     this.state = AuthState.guest,
     this.isLoading = false,
@@ -62,10 +55,6 @@ class AuthenticationState {
     this.followedUsers = const [],
     this.isUploading = false,
     this.uploadProgress = 0.0,
-    this.series = const [],
-    this.unlockedSeries = const [],
-    this.likedSeries = const [],
-    this.favoritedSeries = const [],
   });
 
   AuthenticationState copyWith({
@@ -81,10 +70,6 @@ class AuthenticationState {
     List<String>? followedUsers,
     bool? isUploading,
     double? uploadProgress,
-    List<SeriesModel>? series,
-    List<SeriesUnlockModel>? unlockedSeries,
-    List<String>? likedSeries,
-    List<String>? favoritedSeries,
   }) {
     return AuthenticationState(
       state: state ?? this.state,
@@ -99,10 +84,6 @@ class AuthenticationState {
       followedUsers: followedUsers ?? this.followedUsers,
       isUploading: isUploading ?? this.isUploading,
       uploadProgress: uploadProgress ?? this.uploadProgress,
-      series: series ?? this.series,
-      unlockedSeries: unlockedSeries ?? this.unlockedSeries,
-      likedSeries: likedSeries ?? this.likedSeries,
-      favoritedSeries: favoritedSeries ?? this.favoritedSeries,
     );
   }
 }
@@ -125,33 +106,37 @@ class Authentication extends _$Authentication {
 
   @override
   FutureOr<AuthenticationState> build() async {
+    // INSTANT AUTH CHECK: Check Firebase Auth immediately (synchronous)
     final firebaseUser = _repository.currentUserId;
 
     if (firebaseUser != null) {
+      // User is authenticated in Firebase - try to load cached data
       final cachedUser = await _loadCachedUserProfile();
       final cachedUsers = await _loadCachedUsers();
 
       if (cachedUser != null) {
+        // Return authenticated state IMMEDIATELY with cached data
         final immediateState = AuthenticationState(
           state: AuthState.authenticated,
           isSuccessful: true,
           currentUser: cachedUser,
           phoneNumber: _repository.currentUserPhoneNumber,
           users: cachedUsers,
-          videos: [],
-          series: [],
+          videos: [], // Empty initially, will load below
         );
 
+        // Set state immediately for instant UI
         state = AsyncValue.data(immediateState);
 
+        // ✅ Load videos AND refresh user data in parallel (non-blocking)
         await Future.wait([
           _loadVideosInBackground(),
-          _loadSeriesInBackground(),
           _refreshDataInBackground(),
         ]);
 
         return state.value ?? immediateState;
       } else {
+        // Firebase authenticated but no cached profile - check backend
         final userExists = await checkUserExists();
 
         if (userExists) {
@@ -160,9 +145,9 @@ class Authentication extends _$Authentication {
           if (userProfile != null) {
             await _saveCachedUserProfile(userProfile);
             
+            // ✅ Load videos AND users in parallel
             await Future.wait([
               loadVideos(),
-              loadSeries(),
               loadUsers(),
             ]);
             
@@ -175,13 +160,13 @@ class Authentication extends _$Authentication {
               phoneNumber: _repository.currentUserPhoneNumber,
               users: state.value?.users ?? [],
               videos: state.value?.videos ?? [],
-              series: state.value?.series ?? [],
             );
           }
         } else {
+          // Authenticated but no backend profile
+          // ✅ Still load videos for browsing
           await Future.wait([
             loadVideos(),
-            loadSeries(),
             loadUsers(),
           ]);
 
@@ -191,17 +176,16 @@ class Authentication extends _$Authentication {
             phoneNumber: _repository.currentUserPhoneNumber,
             users: state.value?.users ?? [],
             videos: state.value?.videos ?? [],
-            series: state.value?.series ?? [],
           );
         }
       }
     }
 
-    debugPrint('🎬 Loading videos and series for guest user...');
+    // ✅ User not authenticated - load videos immediately for guest browsing
+    debugPrint('🎬 Loading videos for guest user...');
     
     await Future.wait([
       loadVideos(),
-      loadSeries(),
       loadUsers(),
     ]);
 
@@ -209,7 +193,6 @@ class Authentication extends _$Authentication {
       state: AuthState.guest,
       users: state.value?.users ?? [],
       videos: state.value?.videos ?? [],
-      series: state.value?.series ?? [],
     );
   }
 
@@ -285,11 +268,14 @@ class Authentication extends _$Authentication {
     }
   }
 
+  // Check if cache is fresh (optional optimization)
   Future<bool> _isCacheFresh() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastSync = prefs.getInt(_lastSyncCacheKey) ?? 0;
       final timeDiff = DateTime.now().millisecondsSinceEpoch - lastSync;
+
+      // Cache valid for 1 hour (3600000 milliseconds)
       return timeDiff < 3600000;
     } catch (e) {
       debugPrint('Error checking cache freshness: $e');
@@ -297,6 +283,7 @@ class Authentication extends _$Authentication {
     }
   }
 
+  // ✅ NEW: Load videos in background and update state
   Future<void> _loadVideosInBackground() async {
     try {
       debugPrint('🎬 Loading videos in background...');
@@ -304,33 +291,28 @@ class Authentication extends _$Authentication {
       debugPrint('✅ Videos loaded in background');
     } catch (e) {
       debugPrint('❌ Background video loading failed (non-critical): $e');
+      // Don't throw - this is non-critical background operation
     }
   }
 
-  Future<void> _loadSeriesInBackground() async {
-    try {
-      debugPrint('📺 Loading series in background...');
-      await loadSeries();
-      debugPrint('✅ Series loaded in background');
-    } catch (e) {
-      debugPrint('❌ Background series loading failed (non-critical): $e');
-    }
-  }
-
+  // Background refresh without blocking UI
   Future<void> _refreshDataInBackground() async {
     try {
       debugPrint('Starting background data refresh...');
 
+      // Refresh user profile
       final freshUserProfile = await getUserProfile();
       if (freshUserProfile != null) {
         await _saveCachedUserProfile(freshUserProfile);
 
+        // Update state with fresh profile
         final currentState = state.value ?? const AuthenticationState();
         state = AsyncValue.data(currentState.copyWith(
           currentUser: freshUserProfile,
         ));
       }
 
+      // Refresh users list
       await loadUsers();
       final currentState = state.value ?? const AuthenticationState();
       if (currentState.users.isNotEmpty) {
@@ -340,13 +322,16 @@ class Authentication extends _$Authentication {
       debugPrint('Background data refresh completed');
     } catch (e) {
       debugPrint('Background refresh failed (non-critical): $e');
+      // Don't update UI on background refresh failure
     }
   }
 
   // ===============================
-  // FORCE REFRESH METHODS
+  // 🆕 SIMPLE FORCE REFRESH METHODS
   // ===============================
 
+  /// Force refresh user profile from backend, bypassing all caches
+  /// This is the SIMPLE solution for pull-to-refresh
   Future<UserModel?> forceRefreshUserProfile() async {
     final userId = _repository.currentUserId;
     if (userId == null) return null;
@@ -354,11 +339,17 @@ class Authentication extends _$Authentication {
     try {
       debugPrint('🔄 Force refreshing user profile from backend...');
       
+      // 1. Fetch fresh data from backend (ignore cache completely)
       final freshProfile = await _repository.getUserProfile(userId);
       
       if (freshProfile != null) {
-        debugPrint('✅ Fresh profile retrieved');
+        debugPrint('✅ Fresh profile retrieved:');
+        debugPrint('   - Name: ${freshProfile.name}');
+        debugPrint('   - Verified: ${freshProfile.isVerified}');
+        debugPrint('   - Role: ${freshProfile.role}');
+        debugPrint('   - UID: ${freshProfile.uid}');
         
+        // 2. Update state immediately with fresh data
         final currentState = state.value ?? const AuthenticationState();
         state = AsyncValue.data(currentState.copyWith(
           currentUser: freshProfile,
@@ -366,8 +357,10 @@ class Authentication extends _$Authentication {
           isSuccessful: true,
         ));
         
+        // 3. Update all caches with fresh data
         await _saveCachedUserProfile(freshProfile);
         
+        // Also update SharedPreferences userModel
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('userModel', jsonEncode(freshProfile.toMap()));
         
@@ -381,6 +374,7 @@ class Authentication extends _$Authentication {
     }
   }
 
+  /// Clear only user-specific cache (not videos/users cache)
   Future<void> _clearUserCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -423,6 +417,7 @@ class Authentication extends _$Authentication {
           isSuccessful: true,
         ));
 
+        // Cache the fresh user profile
         await _saveCachedUserProfile(userModel);
       }
 
@@ -519,9 +514,9 @@ class Authentication extends _$Authentication {
         if (userModel != null) {
           await _saveCachedUserProfile(userModel);
           
+          // ✅ Load videos and users in parallel
           await Future.wait([
             loadVideos(),
-            loadSeries(),
             loadUsers(),
           ]);
           
@@ -534,13 +529,12 @@ class Authentication extends _$Authentication {
             phoneNumber: _repository.currentUserPhoneNumber,
             users: state.value?.users ?? [],
             videos: state.value?.videos ?? [],
-            series: state.value?.series ?? [],
           ));
         }
       } else {
+        // ✅ Still load videos for browsing even without profile
         await Future.wait([
           loadVideos(),
-          loadSeries(),
           loadUsers(),
         ]);
 
@@ -550,15 +544,14 @@ class Authentication extends _$Authentication {
           phoneNumber: _repository.currentUserPhoneNumber,
           users: state.value?.users ?? [],
           videos: state.value?.videos ?? [],
-          series: state.value?.series ?? [],
         ));
       }
     } on AuthRepositoryException catch (e) {
       debugPrint('Failed to handle post-OTP verification: ${e.message}');
       
+      // ✅ Still load videos even on error
       await Future.wait([
         loadVideos(),
-        loadSeries(),
         loadUsers(),
       ]);
 
@@ -568,7 +561,6 @@ class Authentication extends _$Authentication {
         phoneNumber: _repository.currentUserPhoneNumber,
         users: state.value?.users ?? [],
         videos: state.value?.videos ?? [],
-        series: state.value?.series ?? [],
       ));
     }
   }
@@ -592,11 +584,12 @@ class Authentication extends _$Authentication {
         coverImage: coverImage,
       );
 
+      // Cache the new user profile
       await _saveCachedUserProfile(createdUser);
       
+      // ✅ Load videos and users in parallel
       await Future.wait([
         loadVideos(),
-        loadSeries(),
         loadUsers(),
       ]);
       
@@ -609,7 +602,6 @@ class Authentication extends _$Authentication {
         phoneNumber: _repository.currentUserPhoneNumber,
         users: state.value?.users ?? [],
         videos: state.value?.videos ?? [],
-        series: state.value?.series ?? [],
       ));
 
       onSuccess();
@@ -643,6 +635,7 @@ class Authentication extends _$Authentication {
         isLoading: false,
       ));
 
+      // Cache the updated profile
       await _saveCachedUserProfile(updatedUser);
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
@@ -659,15 +652,17 @@ class Authentication extends _$Authentication {
     try {
       await _repository.signOut();
 
+      // Clear all cached data on sign out
       await _clearCache();
 
+      // Also clear SharedPreferences userModel (your existing logic)
       SharedPreferences sharedPreferences =
           await SharedPreferences.getInstance();
       await sharedPreferences.remove('userModel');
 
+      // ✅ Reload videos for guest browsing
       await Future.wait([
         loadVideos(),
-        loadSeries(),
         loadUsers(),
       ]);
 
@@ -675,7 +670,6 @@ class Authentication extends _$Authentication {
         state: AuthState.guest,
         users: state.value?.users ?? [],
         videos: state.value?.videos ?? [],
-        series: state.value?.series ?? [],
       ));
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
@@ -705,8 +699,10 @@ class Authentication extends _$Authentication {
       
     } on AuthRepositoryException catch (e) {
       debugPrint('❌ Error loading videos: ${e.message}');
+      // ✅ Don't set error state - just log it to keep UI functional
     } catch (e) {
       debugPrint('❌ Unexpected error loading videos: $e');
+      // ✅ Don't set error state - just log it to keep UI functional
     }
   }
 
@@ -760,6 +756,7 @@ class Authentication extends _$Authentication {
 
   Future<void> createVideo({
     required File videoFile,
+    File? thumbnailFile, // Accept pre-generated thumbnail
     required String caption,
     List<String>? tags,
     double? price,
@@ -778,30 +775,25 @@ class Authentication extends _$Authentication {
       uploadProgress: 0.0,
     ));
 
-    File? thumbnailFile;
-
     try {
       final user = currentState.currentUser!;
 
-      debugPrint('🎬 Step 1/4: Generating thumbnail from video...');
-      final thumbnailService = VideoThumbnailService();
-      thumbnailFile = await thumbnailService.generateBestThumbnailFile(
-        videoFile: videoFile,
-        maxWidth: 400,
-        maxHeight: 600,
-        quality: 85,
-      );
-
+      // Thumbnail is now pre-generated and passed as parameter
+      // No thumbnail generation here - it happens in the UI layer before video processing
+      debugPrint('🎬 Step 1/4: Using pre-generated thumbnail...');
+      
       if (thumbnailFile == null) {
-        debugPrint('⚠️ Warning: Failed to generate thumbnail, continuing without it');
+        debugPrint('⚠️ Warning: No thumbnail provided, continuing without it');
       } else {
-        debugPrint('✅ Thumbnail generated successfully: ${thumbnailFile.path}');
+        debugPrint('✅ Pre-generated thumbnail received: ${thumbnailFile.path}');
       }
 
+      // Update progress: Thumbnail ready (10%)
       state = AsyncValue.data(currentState.copyWith(
         uploadProgress: 0.1,
       ));
 
+      // Upload thumbnail to Cloudflare R2 (if provided)
       String thumbnailUrl = '';
       if (thumbnailFile != null) {
         debugPrint('☁️ Step 2/4: Uploading thumbnail to Cloudflare R2...');
@@ -812,26 +804,34 @@ class Authentication extends _$Authentication {
           );
           debugPrint('✅ Thumbnail uploaded to R2: $thumbnailUrl');
           
+          // Clean up temporary thumbnail file after successful upload
+          final thumbnailService = VideoThumbnailService();
           await thumbnailService.deleteThumbnailFile(thumbnailFile);
         } catch (e) {
           debugPrint('⚠️ Warning: Failed to upload thumbnail: $e');
+          // Continue without thumbnail - don't fail the entire upload
           thumbnailUrl = '';
           
+          // Try to clean up the file anyway
           try {
+            final thumbnailService = VideoThumbnailService();
             await thumbnailService.deleteThumbnailFile(thumbnailFile);
           } catch (_) {}
         }
       }
 
+      // Update progress: Thumbnail uploaded (20%)
       state = AsyncValue.data(currentState.copyWith(
         uploadProgress: 0.2,
       ));
 
+      // Upload video to Cloudflare R2
       debugPrint('📹 Step 3/4: Uploading video to Cloudflare R2...');
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
         reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
+          // Map video upload progress from 20% to 90%
           final mappedProgress = 0.2 + (progress * 0.7);
           final currentState = state.value ?? const AuthenticationState();
           state = AsyncValue.data(currentState.copyWith(
@@ -841,10 +841,12 @@ class Authentication extends _$Authentication {
       );
       debugPrint('✅ Video uploaded to R2: $videoUrl');
 
+      // Update progress: Video uploaded (90%)
       state = AsyncValue.data(currentState.copyWith(
         uploadProgress: 0.9,
       ));
 
+      // Create video record in database with price
       debugPrint('💾 Step 4/4: Creating video record in database...');
       debugPrint('💰 Video price: ${price ?? 0.0} KES');
       
@@ -865,6 +867,7 @@ class Authentication extends _$Authentication {
         ...currentState.videos,
       ];
 
+      // Update progress: Complete (100%)
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 1.0,
@@ -876,6 +879,7 @@ class Authentication extends _$Authentication {
     } on AuthRepositoryException catch (e) {
       debugPrint('❌ Error uploading video: ${e.message}');
       
+      // Clean up thumbnail file if it exists
       if (thumbnailFile != null) {
         try {
           final thumbnailService = VideoThumbnailService();
@@ -891,6 +895,7 @@ class Authentication extends _$Authentication {
     } catch (e) {
       debugPrint('❌ Unexpected error uploading video: $e');
       
+      // Clean up thumbnail file if it exists
       if (thumbnailFile != null) {
         try {
           final thumbnailService = VideoThumbnailService();
@@ -988,6 +993,7 @@ class Authentication extends _$Authentication {
     }
 
     try {
+      // Call repository to update video
       final updatedVideo = await _repository.updateVideo(
         videoId: videoId,
         caption: caption,
@@ -996,6 +1002,7 @@ class Authentication extends _$Authentication {
         tags: tags,
       );
 
+      // Update local state with the updated video
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
           return updatedVideo;
@@ -1132,581 +1139,6 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // SERIES METHODS
-  // ===============================
-
-  Future<void> loadSeries() async {
-    try {
-      debugPrint('📺 Loading series from backend...');
-      
-      final series = await _repository.getAllSeries();
-      
-      debugPrint('✅ Loaded ${series.length} series successfully');
-
-      final currentState = state.value ?? const AuthenticationState();
-      
-      final seriesWithStatus = series.map((s) {
-        final isLiked = currentState.likedSeries.contains(s.id);
-        final isFavorited = currentState.favoritedSeries.contains(s.id);
-        return s.copyWith(
-          isLiked: isLiked,
-          isFavorited: isFavorited,
-        );
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(series: seriesWithStatus));
-      
-    } on AuthRepositoryException catch (e) {
-      debugPrint('❌ Error loading series: ${e.message}');
-    } catch (e) {
-      debugPrint('❌ Unexpected error loading series: $e');
-    }
-  }
-
-  Future<List<SeriesModel>> loadUserSeries(String userId) async {
-    try {
-      return await _repository.getUserSeries(userId);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error loading user series: ${e.message}');
-      return [];
-    }
-  }
-
-  Future<SeriesModel?> getSeriesById(String seriesId) async {
-    try {
-      return await _repository.getSeriesById(seriesId);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error getting series by ID: ${e.message}');
-      return null;
-    }
-  }
-
-  // 🔧 FIXED: Updated method signature to match repository
-  Future<void> createSeries({
-    required String title,
-    required String description,
-    required File bannerImage,
-    required List<File> episodeVideos,
-    List<File>? episodeThumbnails,
-    List<int>? episodeDurations, // 🔧 FIXED: Added missing parameter
-    required double unlockPrice,
-    required int freeEpisodesCount,
-    bool allowReposts = true,
-    bool hasAffiliateProgram = false,
-    double affiliateCommission = 0.0,
-    List<String>? tags,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated ||
-        currentState.currentUser == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    state = AsyncValue.data(currentState.copyWith(
-      isUploading: true,
-      uploadProgress: 0.0,
-    ));
-
-    try {
-      final user = currentState.currentUser!;
-
-      debugPrint('📸 Step 1/4: Uploading series banner...');
-      final bannerUrl = await _repository.storeFileToStorage(
-        file: bannerImage,
-        reference: 'series/banners/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      
-      state = AsyncValue.data(currentState.copyWith(uploadProgress: 0.1));
-
-      debugPrint('🎬 Step 2/4: Uploading ${episodeVideos.length} episodes...');
-      final List<String> episodeUrls = [];
-      
-      for (int i = 0; i < episodeVideos.length; i++) {
-        final videoUrl = await _repository.storeFileToStorage(
-          file: episodeVideos[i],
-          reference: 'series/episodes/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_ep$i.mp4',
-          onProgress: (progress) {
-            final episodeProgress = (i + progress) / episodeVideos.length;
-            final mappedProgress = 0.1 + (episodeProgress * 0.5);
-            state = AsyncValue.data(currentState.copyWith(uploadProgress: mappedProgress));
-          },
-        );
-        episodeUrls.add(videoUrl);
-      }
-
-      state = AsyncValue.data(currentState.copyWith(uploadProgress: 0.6));
-
-      debugPrint('🖼️ Step 3/4: Uploading episode thumbnails...');
-      final List<String> thumbnailUrls = [];
-      
-      if (episodeThumbnails != null && episodeThumbnails.length == episodeVideos.length) {
-        for (int i = 0; i < episodeThumbnails.length; i++) {
-          final thumbnailUrl = await _repository.storeFileToStorage(
-            file: episodeThumbnails[i],
-            reference: 'series/thumbnails/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_ep$i.jpg',
-          );
-          thumbnailUrls.add(thumbnailUrl);
-        }
-      } else {
-        final thumbnailService = VideoThumbnailService();
-        for (int i = 0; i < episodeVideos.length; i++) {
-          final thumbnailFile = await thumbnailService.generateBestThumbnailFile(
-            videoFile: episodeVideos[i],
-            maxWidth: 400,
-            maxHeight: 600,
-            quality: 85,
-          );
-          
-          if (thumbnailFile != null) {
-            final thumbnailUrl = await _repository.storeFileToStorage(
-              file: thumbnailFile,
-              reference: 'series/thumbnails/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_ep$i.jpg',
-            );
-            thumbnailUrls.add(thumbnailUrl);
-            await thumbnailService.deleteThumbnailFile(thumbnailFile);
-          } else {
-            thumbnailUrls.add('');
-          }
-        }
-      }
-
-      state = AsyncValue.data(currentState.copyWith(uploadProgress: 0.8));
-
-      debugPrint('💾 Step 4/4: Creating series record...');
-      
-      // 🔧 FIXED: Pass episodeDurations to repository
-      final seriesData = await _repository.createSeries(
-        creatorId: user.uid,
-        creatorName: user.name,
-        creatorImage: user.profileImage,
-        title: title,
-        description: description,
-        bannerImage: bannerUrl,
-        episodeVideoUrls: episodeUrls,
-        episodeThumbnails: thumbnailUrls,
-        episodeDurations: episodeDurations ?? List.filled(episodeUrls.length, 0), // 🔧 FIXED
-        unlockPrice: unlockPrice,
-        freeEpisodesCount: freeEpisodesCount,
-        allowReposts: allowReposts,
-        hasAffiliateProgram: hasAffiliateProgram,
-        affiliateCommission: affiliateCommission,
-        tags: tags ?? [],
-      );
-
-      final updatedSeries = [seriesData, ...currentState.series];
-
-      state = AsyncValue.data(currentState.copyWith(
-        isUploading: false,
-        uploadProgress: 1.0,
-        series: updatedSeries,
-      ));
-
-      debugPrint('✅ Series created successfully!');
-      onSuccess('Series created successfully');
-      
-    } on AuthRepositoryException catch (e) {
-      debugPrint('❌ Error creating series: ${e.message}');
-      state = AsyncValue.data(currentState.copyWith(
-        isUploading: false,
-        uploadProgress: 0.0,
-      ));
-      onError(e.message);
-    } catch (e) {
-      debugPrint('❌ Unexpected error creating series: $e');
-      state = AsyncValue.data(currentState.copyWith(
-        isUploading: false,
-        uploadProgress: 0.0,
-      ));
-      onError('Failed to create series: $e');
-    }
-  }
-
-  Future<void> updateSeries({
-    required String seriesId,
-    String? title,
-    String? description,
-    File? bannerImage,
-    double? unlockPrice,
-    int? freeEpisodesCount,
-    bool? allowReposts,
-    bool? hasAffiliateProgram,
-    double? affiliateCommission,
-    List<String>? tags,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) {
-      onError('User not authenticated');
-      return;
-    }
-
-    try {
-      String? bannerUrl;
-      if (bannerImage != null) {
-        final user = currentState.currentUser!;
-        bannerUrl = await _repository.storeFileToStorage(
-          file: bannerImage,
-          reference: 'series/banners/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg',
-        );
-      }
-
-      final updatedSeries = await _repository.updateSeries(
-        seriesId: seriesId,
-        title: title,
-        description: description,
-        bannerImage: bannerUrl,
-        unlockPrice: unlockPrice,
-        freeEpisodesCount: freeEpisodesCount,
-        allowReposts: allowReposts,
-        hasAffiliateProgram: hasAffiliateProgram,
-        affiliateCommission: affiliateCommission,
-        tags: tags,
-      );
-
-      final updatedSeriesList = currentState.series.map((s) {
-        if (s.id == seriesId) {
-          return updatedSeries;
-        }
-        return s;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(series: updatedSeriesList));
-
-      onSuccess('Series updated successfully');
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error updating series: ${e.message}');
-      onError(e.message);
-    }
-  }
-
-  Future<void> deleteSeries(String seriesId, Function(String) onError) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final userId = _repository.currentUserId;
-    if (userId == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    try {
-      await _repository.deleteSeries(seriesId, userId);
-
-      final updatedSeries =
-          currentState.series.where((s) => s.id != seriesId).toList();
-      state = AsyncValue.data(currentState.copyWith(series: updatedSeries));
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error deleting series: ${e.message}');
-      onError(e.message);
-    }
-  }
-
-  Future<void> likeSeries(String seriesId) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) return;
-
-    final userId = _repository.currentUserId;
-    if (userId == null) return;
-
-    try {
-      List<String> likedSeries = List.from(currentState.likedSeries);
-      bool isCurrentlyLiked = likedSeries.contains(seriesId);
-
-      if (isCurrentlyLiked) {
-        likedSeries.remove(seriesId);
-        await _repository.unlikeSeries(seriesId, userId);
-      } else {
-        likedSeries.add(seriesId);
-        await _repository.likeSeries(seriesId, userId);
-      }
-
-      final updatedSeries = currentState.series.map((s) {
-        if (s.id == seriesId) {
-          return s.copyWith(
-            isLiked: !isCurrentlyLiked,
-            likes: isCurrentlyLiked ? s.likes - 1 : s.likes + 1,
-          );
-        }
-        return s;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(
-        series: updatedSeries,
-        likedSeries: likedSeries,
-      ));
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error toggling series like: ${e.message}');
-      await loadSeries();
-    }
-  }
-
-  Future<void> favoriteSeries(String seriesId) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) return;
-
-    final userId = _repository.currentUserId;
-    if (userId == null) return;
-
-    try {
-      List<String> favoritedSeries = List.from(currentState.favoritedSeries);
-      bool isCurrentlyFavorited = favoritedSeries.contains(seriesId);
-
-      if (isCurrentlyFavorited) {
-        favoritedSeries.remove(seriesId);
-        await _repository.unfavoriteSeries(seriesId, userId);
-      } else {
-        favoritedSeries.add(seriesId);
-        await _repository.favoriteSeries(seriesId, userId);
-      }
-
-      final updatedSeries = currentState.series.map((s) {
-        if (s.id == seriesId) {
-          return s.copyWith(
-            isFavorited: !isCurrentlyFavorited,
-            favoriteCount: isCurrentlyFavorited ? s.favoriteCount - 1 : s.favoriteCount + 1,
-          );
-        }
-        return s;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(
-        series: updatedSeries,
-        favoritedSeries: favoritedSeries,
-      ));
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error toggling series favorite: ${e.message}');
-      await loadSeries();
-    }
-  }
-
-  // 🔧 FIXED: Corrected method signature to match repository
-  Future<void> unlockSeries({
-    required String seriesId,
-    required double price,
-    String? sharedByUserId,
-    String paymentMethod = 'M-Pesa',
-    String? transactionId,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated ||
-        currentState.currentUser == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final userId = _repository.currentUserId;
-    if (userId == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    try {
-      final series = currentState.series.firstWhere((s) => s.id == seriesId);
-
-      // 🔧 FIXED: Pass all required parameters to repository
-      final unlock = await _repository.unlockSeries(
-        userId: userId,
-        seriesId: seriesId,
-        originalCreatorId: series.creatorId, // 🔧 FIXED: Added required parameter
-        unlockPrice: price,
-        sharedByUserId: sharedByUserId,
-        paymentMethod: paymentMethod,
-        transactionId: transactionId,
-        seriesTitle: series.title,
-        creatorName: series.creatorName,
-        totalEpisodes: series.totalEpisodes,
-        hasAffiliateEarnings: series.hasAffiliateProgram && sharedByUserId != null, // 🔧 FIXED
-        affiliateCommission: series.hasAffiliateProgram ? series.affiliateCommission : 0.0, // 🔧 FIXED
-        affiliateEarnings: series.hasAffiliateProgram && sharedByUserId != null 
-            ? price * series.affiliateCommission 
-            : 0.0, // 🔧 FIXED
-      );
-
-      final updatedUnlocks = [unlock, ...currentState.unlockedSeries];
-
-      final updatedSeries = currentState.series.map((s) {
-        if (s.id == seriesId) {
-          return s.copyWith(
-            hasUnlocked: true,
-            unlockCount: s.unlockCount + 1,
-          );
-        }
-        return s;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(
-        unlockedSeries: updatedUnlocks,
-        series: updatedSeries,
-      ));
-
-      onSuccess('Series unlocked successfully');
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error unlocking series: ${e.message}');
-      onError(e.message);
-    }
-  }
-
-  Future<bool> hasUnlockedSeries(String seriesId) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) return false;
-
-    return currentState.unlockedSeries.any((u) => u.seriesId == seriesId && u.isActive);
-  }
-
-  Future<SeriesUnlockModel?> getSeriesUnlock(String seriesId) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) return null;
-
-    try {
-      return currentState.unlockedSeries.firstWhere(
-        (u) => u.seriesId == seriesId && u.isActive,
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<void> loadUnlockedSeries() async {
-    final userId = _repository.currentUserId;
-    if (userId == null) return;
-
-    try {
-      final unlocks = await _repository.getUserUnlocks(userId);
-      final currentState = state.value ?? const AuthenticationState();
-
-      state = AsyncValue.data(currentState.copyWith(unlockedSeries: unlocks));
-
-      final updatedSeries = currentState.series.map((s) {
-        final isUnlocked = unlocks.any((u) => u.seriesId == s.id && u.isActive);
-        return s.copyWith(hasUnlocked: isUnlocked);
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(series: updatedSeries));
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error loading unlocked series: ${e.message}');
-    }
-  }
-
-  // 🔧 FIXED: Corrected method signature to match repository
-  Future<void> updateEpisodeProgress({
-    required String seriesId,
-    required int episodeNumber,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final userId = _repository.currentUserId;
-    if (userId == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    try {
-      // 🔧 FIXED: Get unlock ID first
-      final unlock = currentState.unlockedSeries.firstWhere(
-        (u) => u.seriesId == seriesId && u.isActive,
-      );
-
-      await _repository.updateEpisodeProgress(
-        unlockId: unlock.id, // 🔧 FIXED: Pass unlockId instead of userId
-        episodeNumber: episodeNumber,
-      );
-
-      final updatedUnlocks = currentState.unlockedSeries.map((u) {
-        if (u.seriesId == seriesId) {
-          return u.updateCurrentEpisode(episodeNumber);
-        }
-        return u;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(unlockedSeries: updatedUnlocks));
-
-      onSuccess('Progress updated');
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error updating episode progress: ${e.message}');
-      onError(e.message);
-    }
-  }
-
-  // 🔧 FIXED: Corrected method signature to match repository
-  Future<void> completeEpisode({
-    required String seriesId,
-    required int episodeNumber,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final userId = _repository.currentUserId;
-    if (userId == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    try {
-      // 🔧 FIXED: Get unlock ID first
-      final unlock = currentState.unlockedSeries.firstWhere(
-        (u) => u.seriesId == seriesId && u.isActive,
-      );
-
-      await _repository.completeEpisode(
-        unlockId: unlock.id, // 🔧 FIXED: Pass unlockId instead of userId
-        episodeNumber: episodeNumber,
-      );
-
-      final updatedUnlocks = currentState.unlockedSeries.map((u) {
-        if (u.seriesId == seriesId) {
-          return u.completeEpisode(episodeNumber);
-        }
-        return u;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(unlockedSeries: updatedUnlocks));
-
-      onSuccess('Episode completed');
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error completing episode: ${e.message}');
-      onError(e.message);
-    }
-  }
-
-  Future<void> incrementSeriesViews(String seriesId) async {
-    try {
-      await _repository.incrementSeriesViewCount(seriesId);
-
-      final currentState = state.value ?? const AuthenticationState();
-      final updatedSeries = currentState.series.map((s) {
-        if (s.id == seriesId) {
-          return s.copyWith(viewCount: s.viewCount + 1);
-        }
-        return s;
-      }).toList();
-
-      state = AsyncValue.data(currentState.copyWith(series: updatedSeries));
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error incrementing series views: ${e.message}');
-    }
-  }
-
-  // ===============================
   // USER/SOCIAL METHODS
   // ===============================
 
@@ -1719,6 +1151,7 @@ class Authentication extends _$Authentication {
 
       state = AsyncValue.data(currentState.copyWith(users: users));
 
+      // Cache users list after loading
       if (users.isNotEmpty) {
         await _saveCachedUsers(users);
       }
@@ -1765,6 +1198,7 @@ class Authentication extends _$Authentication {
         followedUsers: followedUsers,
       ));
 
+      // Update cached users with new follow state
       await _saveCachedUsers(updatedUsers);
     } on AuthRepositoryException catch (e) {
       debugPrint('Error toggling follow: ${e.message}');
@@ -1811,11 +1245,9 @@ class Authentication extends _$Authentication {
   // COMMENT METHODS
   // ===============================
 
-  // 🔧 FIXED: Corrected method signature to match repository
   Future<void> addComment({
     required String videoId,
     required String content,
-    List<File>? imageFiles,
     String? repliedToCommentId,
     String? repliedToAuthorName,
     required Function(String) onSuccess,
@@ -1831,33 +1263,14 @@ class Authentication extends _$Authentication {
     try {
       final user = currentState.currentUser!;
 
-      List<String> imageUrls = [];
-      if (imageFiles != null && imageFiles.isNotEmpty) {
-        if (imageFiles.length > 2) {
-          onError('Maximum 2 images allowed per comment');
-          return;
-        }
-
-        for (int i = 0; i < imageFiles.length; i++) {
-          final imageUrl = await _repository.storeFileToStorage(
-            file: imageFiles[i],
-            reference: 'comments/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
-          );
-          imageUrls.add(imageUrl);
-        }
-      }
-
-      // 🔧 FIXED: Updated parameter names to match repository
       await _repository.addComment(
         videoId: videoId,
         authorId: user.uid,
         authorName: user.name,
         authorImage: user.profileImage,
         content: content,
-        imageUrls: imageUrls,
-        parentCommentId: repliedToCommentId, // 🔧 FIXED: Changed parameter name
-        replyToUserId: repliedToCommentId != null ? user.uid : null, // 🔧 FIXED
-        replyToUserName: repliedToAuthorName, // 🔧 FIXED
+        repliedToCommentId: repliedToCommentId,
+        repliedToAuthorName: repliedToAuthorName,
       );
 
       onSuccess('Comment added successfully');
@@ -1922,54 +1335,6 @@ class Authentication extends _$Authentication {
       await _repository.unlikeComment(commentId, userId);
     } on AuthRepositoryException catch (e) {
       debugPrint('Error unliking comment: ${e.message}');
-    }
-  }
-
-  Future<void> pinComment(String commentId, String videoId, Function(String) onError) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final userId = _repository.currentUserId;
-    if (userId == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final video = currentState.videos.firstWhere((v) => v.id == videoId);
-    if (video.userId != userId) {
-      onError('Only video creator can pin comments');
-      return;
-    }
-
-    try {
-      await _repository.pinComment(commentId, videoId, userId);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error pinning comment: ${e.message}');
-      onError(e.message);
-    }
-  }
-
-  Future<void> unpinComment(String commentId, String videoId, Function(String) onError) async {
-    final currentState = state.value ?? const AuthenticationState();
-    if (currentState.state != AuthState.authenticated) {
-      onError('User not authenticated');
-      return;
-    }
-
-    final userId = _repository.currentUserId;
-    if (userId == null) {
-      onError('User not authenticated');
-      return;
-    }
-
-    try {
-      await _repository.unpinComment(commentId, videoId, userId);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error unpinning comment: ${e.message}');
-      onError(e.message);
     }
   }
 
@@ -2056,16 +1421,6 @@ class Authentication extends _$Authentication {
     return currentState?.users ?? [];
   }
 
-  List<SeriesModel> get series {
-    final currentState = state.value;
-    return currentState?.series ?? [];
-  }
-
-  List<SeriesUnlockModel> get unlockedSeries {
-    final currentState = state.value;
-    return currentState?.unlockedSeries ?? [];
-  }
-
   bool isVideoLiked(String videoId) {
     final currentState = state.value;
     return currentState?.likedVideos.contains(videoId) ?? false;
@@ -2076,21 +1431,12 @@ class Authentication extends _$Authentication {
     return currentState?.followedUsers.contains(userId) ?? false;
   }
 
-  bool isSeriesLiked(String seriesId) {
-    final currentState = state.value;
-    return currentState?.likedSeries.contains(seriesId) ?? false;
-  }
-
-  bool isSeriesFavorited(String seriesId) {
-    final currentState = state.value;
-    return currentState?.favoritedSeries.contains(seriesId) ?? false;
-  }
-
   UserPreferences get userPreferences {
     final user = currentUser;
     return user?.preferences ?? const UserPreferences();
   }
 
+  // File operations
   Future<String> storeFileToStorage(
       {required File file, required String reference}) async {
     try {
