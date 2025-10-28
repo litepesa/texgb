@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/comments/models/comment_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import '../../../features/users/models/user_model.dart';
@@ -156,13 +158,10 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         throw AuthRepositoryException('Phone verification failed: ${e.message}');
       },
       codeSent: (String verificationId, int? resendToken) async {
-        Navigator.of(context).pushNamed(
-          '/otp',
-          arguments: {
-            'verificationId': verificationId,
-            'phoneNumber': phoneNumber,
-          },
-        );
+        context.go(RoutePaths.otp, extra: {
+          'verificationId': verificationId,
+          'phoneNumber': phoneNumber,
+        });
       },
       codeAutoRetrievalTimeout: (String verificationId) {},
     );

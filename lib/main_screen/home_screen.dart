@@ -32,16 +32,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   final List<String> _tabNames = [
-    'Live',       // Index 0 - Users List (with app bar)
-    'Moments',         // Index 1 - Videos Feed (hidden app bar, black background)
+    'Moments',      // Index 0 - Videos Feed (hidden app bar, black background)
+    'Live',         // Index 1 - Users List
     '',             // Index 2 - Post (no label, special design)
-    'People',        // Index 3 - Featured
+    'People',       // Index 3 - Featured
     'Profile'       // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.dot_radiowaves_left_right,     // Live
-    Icons.donut_large_rounded,                       // Moments
+    Icons.donut_large_rounded,                       // Home
+    CupertinoIcons.dot_radiowaves_left_right,     // Users
     Icons.add,                                // Post 
     CupertinoIcons.person_2_square_stack,  // Trending
     Icons.person_outline                      // Profile
@@ -166,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     HapticFeedback.lightImpact();
     
-    if (_currentIndex == 1) {
+    if (_currentIndex == 0) {
       try {
         _feedScreenKey.currentState?.onScreenBecameInactive();
       } catch (e) {
@@ -180,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     _setSystemUIOverlayStyle();
     
-    if (_currentIndex == 1) {
+    if (_currentIndex == 0) {
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           try {
@@ -197,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 1) {
+      if (_currentIndex == 0) {
         SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
@@ -227,7 +227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     HapticFeedback.lightImpact();
     
-    if (_currentIndex == 1) {
+    if (_currentIndex == 0) {
       try {
         _feedScreenKey.currentState?.onScreenBecameInactive();
       } catch (e) {
@@ -242,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
 
-    if (result == true && _currentIndex == 1 && mounted) {
+    if (result == true && _currentIndex == 0 && mounted) {
       try {
         _feedScreenKey.currentState?.onScreenBecameActive();
       } catch (e) {
@@ -263,7 +263,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isMomentsTab = _currentIndex == 1;
+    final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
     
     // ✅ Check if app is still initializing
@@ -315,28 +315,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isMomentsTab || isProfileTab,
-      backgroundColor: isMomentsTab ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isHomeTab || isProfileTab,
+      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
       
-      appBar: (isMomentsTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
+      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          // Live tab (index 0) - Users List (with app bar)
-          _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const LiveUsersScreen(),
-            ),
-          ),
-          // Moments tab (index 1) - Videos Feed (no app bar, black background)
+          // Home tab (index 0) - Videos Feed
           _KeepAliveWrapper(
             child: Container(
               color: Colors.black,
               child: VideosFeedScreen(
                 key: _feedScreenKey,
               ),
+            ),
+          ),
+          // Sellers tab (index 1) - Users List
+          _KeepAliveWrapper(
+            child: Container(
+              color: modernTheme.backgroundColor,
+              child: const LiveUsersScreen(),
             ),
           ),
           // Post tab (index 2) - Never shown (navigates directly)
@@ -348,7 +348,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // People tab (index 3)
+          // Live tab (index 3)
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
@@ -420,12 +420,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
-    final isMomentsTab = _currentIndex == 1;
+    final isHomeTab = _currentIndex == 0;
     
     Color backgroundColor;
     Color? borderColor;
     
-    if (isMomentsTab) {
+    if (isHomeTab) {
       backgroundColor = Colors.black;
       borderColor = null;
     } else {
@@ -436,7 +436,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor,
-        border: (isMomentsTab || borderColor == null) ? null : Border(
+        border: (isHomeTab || borderColor == null) ? null : Border(
           top: BorderSide(
             color: borderColor,
             width: 0.5,
@@ -446,7 +446,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isMomentsTab)
+          if (isHomeTab)
             _buildVideoProgressIndicator(),
           
           SafeArea(
@@ -458,13 +458,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(5, (index) {
                   if (index == 2) {
-                    return _buildPostButton(modernTheme, isMomentsTab);
+                    return _buildPostButton(modernTheme, isHomeTab);
                   }
                   
                   return _buildNavItem(
                     index,
                     modernTheme,
-                    isMomentsTab,
+                    isHomeTab,
                   );
                 }),
               ),
@@ -506,7 +506,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isMomentsTab) {
+  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
     return GestureDetector(
       onTap: () => _navigateToCreatePost(),
       child: Container(
@@ -575,14 +575,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildNavItem(
     int index,
     ModernThemeExtension modernTheme,
-    bool isMomentsTab,
+    bool isHomeTab,
   ) {
     final isSelected = _currentIndex == index;
     
     Color iconColor;
     Color textColor;
     
-    if (isMomentsTab) {
+    if (isHomeTab) {
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
     } else {

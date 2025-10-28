@@ -1156,7 +1156,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       child: Column(
         children: [
           // WhatsApp button - UPDATED: Now directly opens WhatsApp instead of VideoReactionWidget
-          GestureDetector(
+          /*GestureDetector(
             onTap: () => _openWhatsAppWithVideo(currentVideo),
             child: Column(
               children: [
@@ -1173,7 +1173,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Like button
           _buildRightMenuItem(
@@ -1247,7 +1247,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             onTap: () => _showShareOptions(),
           ),
           
-          const SizedBox(height: 10),*/
+          const SizedBox(height: 10),
 
           // DM button - custom white rounded square with 'DM' text
           _buildRightMenuItem(
@@ -1292,7 +1292,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             onTap: () => _showVirtualGifts(currentVideo),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Profile avatar with red border - SIMPLIFIED: Use video metadata directly
           _buildRightMenuItem(

@@ -3,13 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class UsersListScreen extends ConsumerStatefulWidget {
@@ -156,28 +156,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       final userVideos = ref.read(videosProvider).where((video) => video.userId == user.id).toList();
       
       if (userVideos.isNotEmpty) {
-        Navigator.pushNamed(
-          context,
-          Constants.singleVideoScreen,
-          arguments: {
-            Constants.startVideoId: userVideos.first.id,
-            Constants.userId: user.id,
-          },
-        );
+        context.push(RoutePaths.singleVideo(userVideos.first.id), extra: {
+          Constants.startVideoId: userVideos.first.id,
+          Constants.userId: user.id,
+        });
       } else {
         _showSnackBar('${user.name} hasn\'t posted any videos yet');
-        Navigator.pushNamed(
-          context,
-          Constants.userProfileScreen,
-          arguments: user.id,
-        );
+        context.push(RoutePaths.userProfile(user.id));
       }
     } catch (e) {
-      Navigator.pushNamed(
-        context,
-        Constants.userProfileScreen,
-        arguments: user.id,
-      );
+      context.push(RoutePaths.userProfile(user.id));
     }
   }
 
@@ -306,12 +294,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ManagePostsScreen(),
-                          ),
-                        );
+                        context.push(RoutePaths.managePosts);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -337,12 +320,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                         child: InkWell(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const VideosFeedScreen(),
-                              ),
-                            );
+                            context.push(RoutePaths.videosFeed);
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
@@ -660,7 +638,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.pushNamed(context, Constants.createProfileScreen);
+                context.push(RoutePaths.createProfile);
               },
               icon: const Icon(Icons.person_add),
               label: const Text('Join WeiBao'),
@@ -1333,11 +1311,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                 child: InkWell(
                   onTap: () {
                     close(context, user);
-                    Navigator.pushNamed(
-                      context,
-                      Constants.userProfileScreen,
-                      arguments: user.id,
-                    );
+                    context.push(RoutePaths.userProfile(user.id));
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Row(
