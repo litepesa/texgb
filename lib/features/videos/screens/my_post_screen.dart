@@ -198,18 +198,221 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     }
   }
 
-  void _boostPost() {
-    _rocketAnimationController.forward().then((_) {
-      _rocketAnimationController.reset();
-    });
+  void _boostPost(String boostTier) async {
+    if (_video == null) return;
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('🚀 Post boost feature coming soon!'),
-        backgroundColor: context.modernTheme.primaryColor,
-        behavior: SnackBarBehavior.floating,
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final tierInfo = _getBoostTierInfo(boostTier);
+        final modernTheme = context.modernTheme;
+        
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.rocket_launch,
+                color: modernTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              const Text('Confirm Boost'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Boost this post with ${tierInfo['name']}?',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildInfoRow('View Target:', tierInfo['viewRange'], Icons.visibility),
+              _buildInfoRow('Duration:', tierInfo['duration'], Icons.schedule),
+              _buildInfoRow('Cost:', 'KES ${tierInfo['price']}', Icons.payments),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: modernTheme.primaryColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Coins will be deducted from your wallet',
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Boost Now'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+    
+    if (!confirmed) return;
+    
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  color: context.modernTheme.primaryColor,
+                ),
+                const SizedBox(height: 16),
+                const Text('Boosting your post...'),
+              ],
+            ),
+          ),
+        ),
       ),
     );
+    
+    // Call boost function
+    await ref.read(authenticationProvider.notifier).boostVideo(
+      videoId: _video!.id,
+      boostTier: boostTier,
+      onSuccess: (message) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        // Reload video data
+        _loadVideoData();
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      },
+      onError: (error) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method for info rows in dialog
+  Widget _buildInfoRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to get boost tier info
+  Map<String, dynamic> _getBoostTierInfo(String boostTier) {
+    switch (boostTier.toLowerCase()) {
+      case 'basic':
+        return {
+          'name': 'Basic Boost',
+          'price': 99,
+          'viewRange': '1,713 - 10K views',
+          'duration': '72 hours',
+        };
+      case 'standard':
+        return {
+          'name': 'Standard Boost',
+          'price': 999,
+          'viewRange': '17,138 - 100K views',
+          'duration': '72 hours',
+        };
+      case 'advanced':
+        return {
+          'name': 'Advanced Boost',
+          'price': 9999,
+          'viewRange': '171,388 - 1M views',
+          'duration': '72 hours',
+        };
+      default:
+        return {
+          'name': 'Unknown',
+          'price': 0,
+          'viewRange': 'N/A',
+          'duration': '0 hours',
+        };
+    }
   }
 
   void _editPost() {
@@ -987,7 +1190,10 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
         children: [
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: _boostPost,
+              onPressed: () {
+                // Navigate to the Boost tab
+                _tabController.animateTo(2); // Index 2 is the Boost tab
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,

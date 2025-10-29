@@ -1,11 +1,14 @@
 // lib/features/videos/widgets/boost_tab_widget.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/features/wallet/providers/wallet_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 
-class BoostTabWidget extends StatelessWidget {
+class BoostTabWidget extends ConsumerStatefulWidget {
   final AnimationController rocketAnimationController;
   final Animation<double> rocketAnimation;
-  final VoidCallback onBoostPost;
+  final Function(String boostTier) onBoostPost; // Now accepts boost tier parameter
 
   const BoostTabWidget({
     super.key,
@@ -15,14 +18,100 @@ class BoostTabWidget extends StatelessWidget {
   });
 
   @override
+  ConsumerState<BoostTabWidget> createState() => _BoostTabWidgetState();
+}
+
+class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
+  String? _selectedTier;
+  bool _isProcessing = false;
+
+  @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
+    
+    // Watch wallet balance
+    final walletState = ref.watch(walletProvider);
+    final coinsBalance = walletState.value?.wallet?.coinsBalance ?? 0;
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Wallet Balance Card
+          if (isAuthenticated) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    modernTheme.primaryColor!.withOpacity(0.1),
+                    modernTheme.primaryColor!.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: modernTheme.primaryColor!.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.account_balance_wallet,
+                      color: modernTheme.primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Wallet Balance',
+                          style: TextStyle(
+                            color: modernTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'KES $coinsBalance',
+                          style: TextStyle(
+                            color: modernTheme.textColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      // Navigate to wallet top-up
+                      Navigator.pushNamed(context, '/wallet');
+                    },
+                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                    label: const Text('Top Up'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: modernTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          
           // Enhanced Boost Header
           Container(
             padding: const EdgeInsets.all(32),
@@ -48,19 +137,19 @@ class BoostTabWidget extends StatelessWidget {
             child: Column(
               children: [
                 AnimatedBuilder(
-                  animation: rocketAnimation,
+                  animation: widget.rocketAnimation,
                   builder: (context, child) {
                     return Transform.translate(
-                      offset: Offset(0, -rocketAnimation.value * 30),
+                      offset: Offset(0, -widget.rocketAnimation.value * 30),
                       child: Transform.rotate(
-                        angle: rocketAnimation.value * 0.8,
+                        angle: widget.rocketAnimation.value * 0.8,
                         child: Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.rocket_launch,
                             color: Colors.white,
                             size: 64,
@@ -72,7 +161,7 @@ class BoostTabWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  '🚀 BOOST POST',
+                  '🚀 BOOST YOUR POST',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -82,7 +171,7 @@ class BoostTabWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Increase visibility and reach more audience',
+                  'Get maximum visibility in 72 hours',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -97,7 +186,7 @@ class BoostTabWidget extends StatelessWidget {
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(25),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
@@ -105,62 +194,13 @@ class BoostTabWidget extends StatelessWidget {
                         color: Colors.white,
                         size: 20,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text(
-                        'Up to 10x more views',
+                        'Reach millions of viewers',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 32),
-          
-          // Special Offer Banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.orange.shade400,
-                  Colors.orange.shade600,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.local_offer,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'LIMITED TIME OFFER',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      Text(
-                        'Get 20% off on all boost packages',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
                         ),
                       ),
                     ],
@@ -182,35 +222,41 @@ class BoostTabWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           
-          // Boost Options with enhanced styling
+          // Boost Options with CORRECT pricing and view ranges
           _buildBoostOption(
-            'Quick Boost',
-            '24 hours',
-            'KES 599',
-            'Get 2x more views for 24 hours',
-            Icons.flash_on,
-            Colors.orange,
-            modernTheme,
+            tier: 'basic',
+            title: 'Basic Boost',
+            duration: '72 hours',
+            price: 'KES 99',
+            viewRange: '1,713 - 10K views',
+            icon: Icons.flash_on,
+            color: Colors.orange,
+            modernTheme: modernTheme,
+            coinsBalance: coinsBalance,
             isPopular: false,
           ),
           _buildBoostOption(
-            'Power Boost',
-            '7 days',
-            'KES 1,999',
-            'Get 5x more views for a week',
-            Icons.rocket_launch,
-            Colors.red,
-            modernTheme,
+            tier: 'standard',
+            title: 'Standard Boost',
+            duration: '72 hours',
+            price: 'KES 999',
+            viewRange: '17,138 - 100K views',
+            icon: Icons.rocket_launch,
+            color: Colors.red,
+            modernTheme: modernTheme,
+            coinsBalance: coinsBalance,
             isPopular: true,
           ),
           _buildBoostOption(
-            'Mega Boost',
-            '30 days',
-            'KES 4,999',
-            'Get 10x more views for a month',
-            Icons.star,
-            Colors.purple,
-            modernTheme,
+            tier: 'advanced',
+            title: 'Advanced Boost',
+            duration: '72 hours',
+            price: 'KES 9,999',
+            viewRange: '171,388 - 1M views',
+            icon: Icons.star,
+            color: Colors.purple,
+            modernTheme: modernTheme,
+            coinsBalance: coinsBalance,
             isPopular: false,
           ),
           
@@ -249,7 +295,7 @@ class BoostTabWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _buildBenefitItem(
-                  'Reach more viewers instantly',
+                  'Reach guaranteed view targets',
                   Icons.visibility,
                   modernTheme,
                 ),
@@ -268,13 +314,18 @@ class BoostTabWidget extends StatelessWidget {
                   Icons.search,
                   modernTheme,
                 ),
+                _buildBenefitItem(
+                  'Active for full 72 hours',
+                  Icons.schedule,
+                  modernTheme,
+                ),
               ],
             ),
           ),
           
           const SizedBox(height: 24),
           
-          // Current Boost Status
+          // Payment secured notice
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -284,41 +335,35 @@ class BoostTabWidget extends StatelessWidget {
                 color: modernTheme.primaryColor!.withOpacity(0.3),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Current Status',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.bold,
+                Icon(
+                  Icons.security,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Secure Payment',
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'No active boost',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start boosting now to maximize your post\'s potential!',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 12,
-                    height: 1.4,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Coins will be deducted from your wallet balance',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -351,11 +396,13 @@ class BoostTabWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 14,
+              ),
             ),
           ),
         ],
@@ -363,16 +410,23 @@ class BoostTabWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBoostOption(
-    String title,
-    String duration,
-    String price,
-    String description,
-    IconData icon,
-    Color color,
-    ModernThemeExtension modernTheme,
-    {bool isPopular = false}
-  ) {
+  Widget _buildBoostOption({
+    required String tier,
+    required String title,
+    required String duration,
+    required String price,
+    required String viewRange,
+    required IconData icon,
+    required Color color,
+    required ModernThemeExtension modernTheme,
+    required int coinsBalance,
+    bool isPopular = false,
+  }) {
+    // Extract price value for comparison
+    final priceValue = int.parse(price.replaceAll(RegExp(r'[^0-9]'), ''));
+    final canAfford = coinsBalance >= priceValue;
+    final isSelected = _selectedTier == tier;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Stack(
@@ -383,8 +437,12 @@ class BoostTabWidget extends StatelessWidget {
               color: modernTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isPopular ? color.withOpacity(0.5) : Colors.transparent,
-                width: 2,
+                color: isSelected 
+                    ? color.withOpacity(0.5)
+                    : isPopular 
+                        ? color.withOpacity(0.3)
+                        : Colors.transparent,
+                width: isSelected ? 2 : (isPopular ? 2 : 1),
               ),
               boxShadow: [
                 BoxShadow(
@@ -441,23 +499,44 @@ class BoostTabWidget extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          // Description
-                          Text(
-                            description,
-                            style: TextStyle(
-                              color: modernTheme.textColor,
-                              fontSize: 14,
+                          const SizedBox(height: 8),
+                          // View Range
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              viewRange,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 4),
                           // Duration
-                          Text(
-                            'Duration: $duration',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
-                            ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                color: modernTheme.textSecondaryColor,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Duration: $duration',
+                                style: TextStyle(
+                                  color: modernTheme.textSecondaryColor,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -465,13 +544,71 @@ class BoostTabWidget extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                
+                // Insufficient balance warning
+                if (!canAfford)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.orange.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.orange.shade700,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Insufficient balance. Top up your wallet.',
+                            style: TextStyle(
+                              color: Colors.orange.shade700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
                 // Select button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: onBoostPost,
+                    onPressed: canAfford && !_isProcessing
+                        ? () {
+                            setState(() {
+                              _selectedTier = tier;
+                              _isProcessing = true;
+                            });
+                            
+                            // Trigger rocket animation
+                            widget.rocketAnimationController.forward().then((_) {
+                              widget.rocketAnimationController.reset();
+                            });
+                            
+                            // Call the boost function
+                            widget.onBoostPost(tier);
+                            
+                            // Reset processing state after a delay
+                            Future.delayed(const Duration(seconds: 2), () {
+                              if (mounted) {
+                                setState(() {
+                                  _isProcessing = false;
+                                });
+                              }
+                            });
+                          }
+                        : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: color,
+                      backgroundColor: canAfford ? color : Colors.grey,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -480,8 +617,22 @@ class BoostTabWidget extends StatelessWidget {
                         horizontal: 24,
                         vertical: 12,
                       ),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      disabledForegroundColor: Colors.grey.shade600,
                     ),
-                    child: const Text('Select'),
+                    child: _isProcessing && isSelected
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            canAfford ? 'Select & Boost' : 'Insufficient Balance',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                   ),
                 ),
               ],
@@ -499,7 +650,7 @@ class BoostTabWidget extends StatelessWidget {
                   color: color,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
+                child: const Text(
                   'MOST POPULAR',
                   style: TextStyle(
                     color: Colors.white,

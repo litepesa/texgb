@@ -1,5 +1,5 @@
 // lib/features/authentication/repositories/authentication_repository.dart
-// SIMPLIFIED VERSION: Firebase Auth + R2 Storage + Video Support + Simple Search
+// SIMPLIFIED VERSION: Firebase Auth + R2 Storage + Video Support + Simple Search + Boost
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -99,6 +99,14 @@ abstract class AuthenticationRepository {
   Future<void> deleteComment(String commentId, String userId);
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
+
+  // Boost operations
+  Future<VideoModel> boostVideo({
+    required String videoId,
+    required String userId,
+    required String boostTier,
+    required int coinAmount,
+  });
 
   // File operations (R2 via Go backend ONLY)
   Future<String> storeFileToStorage({
@@ -203,7 +211,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<UserModel?> syncUserWithBackend(String uid) async {
     try {
-      debugPrint('📄 Syncing user with backend: $uid');
+      debugPrint('🔄 Syncing user with backend: $uid');
       
       // First check if user exists in backend
       final userExists = await checkUserExists(uid);
@@ -221,6 +229,9 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         }
 
         // Create minimal user model (PHONE-ONLY, NO Firebase URLs)
+        // Note: UserModel.create sets default permission flags:
+        // - isAdmin: false, isModerator: false (regular user)
+        // - canPost: true, canComment: true (full access)
         final newUser = UserModel.create(
           uid: uid,
           name: firebaseUser.displayName ?? 'User',
@@ -272,7 +283,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<UserModel?> getUserProfile(String uid) async {
     try {
-      debugPrint('🔥 Getting user profile: $uid');
+      debugPrint('📥 Getting user profile: $uid');
       final response = await _httpClient.get('/users/$uid');
       
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -855,6 +866,56 @@ Future<UserModel> createUserProfile({
       }
     } catch (e) {
       throw AuthRepositoryException('Failed to unlike comment: $e');
+    }
+  }
+
+  // ===============================
+  // BOOST OPERATIONS
+  // ===============================
+
+  @override
+  Future<VideoModel> boostVideo({
+    required String videoId,
+    required String userId,
+    required String boostTier,
+    required int coinAmount,
+  }) async {
+    try {
+      debugPrint('🚀 Boosting video: $videoId with tier: $boostTier');
+      debugPrint('💰 Coin amount: $coinAmount');
+      
+      final response = await _httpClient.post('/videos/$videoId/boost', body: {
+        'userId': userId,
+        'boostTier': boostTier,
+        'coinAmount': coinAmount,
+      });
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
+        debugPrint('✅ Video boosted successfully');
+        return VideoModel.fromJson(videoMap);
+      } else {
+        debugPrint('❌ Failed to boost video: ${response.statusCode} - ${response.body}');
+        
+        // Parse error message if available
+        try {
+          final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+          final errorMessage = errorData['error'] ?? errorData['message'] ?? 'Unknown error';
+          throw AuthRepositoryException('Failed to boost video: $errorMessage');
+        } catch (_) {
+          throw AuthRepositoryException('Failed to boost video: ${response.body}');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error boosting video: $e');
+      
+      // Re-throw if already an AuthRepositoryException
+      if (e is AuthRepositoryException) {
+        rethrow;
+      }
+      
+      throw AuthRepositoryException('Failed to boost video: $e');
     }
   }
 

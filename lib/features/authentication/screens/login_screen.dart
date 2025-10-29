@@ -76,7 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Space',
+                          text: 'Wema',
                           style: TextStyle(
                             fontSize: 40,
                             fontWeight: FontWeight.w700,
@@ -85,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         /*TextSpan(
-                          text: 'Bao',
+                          text: 'Chat',
                           style: TextStyle(
                             fontSize: 45,
                             fontWeight: FontWeight.w700,
@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),*/
                         TextSpan(
-                          text: "Tok",
+                          text: "聊",
                           style: TextStyle(
                             color: const Color(0xFFFE2C55),
                             fontWeight: FontWeight.w700,

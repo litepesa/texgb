@@ -2,6 +2,7 @@
 // Video-focused authentication provider with instant auth recognition, caching, and video updates
 // OPTIMIZED: Videos load during app initialization for instant feed display
 // ENHANCED: Simple force refresh solution for backend updates
+// NEW: Video boost functionality integrated
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -346,7 +347,10 @@ class Authentication extends _$Authentication {
         debugPrint('✅ Fresh profile retrieved:');
         debugPrint('   - Name: ${freshProfile.name}');
         debugPrint('   - Verified: ${freshProfile.isVerified}');
-        debugPrint('   - Role: ${freshProfile.role}');
+        debugPrint('   - Admin: ${freshProfile.isAdmin}');
+        debugPrint('   - Moderator: ${freshProfile.isModerator}');
+        debugPrint('   - Can Post: ${freshProfile.canPost}');
+        debugPrint('   - Can Comment: ${freshProfile.canComment}');
         debugPrint('   - UID: ${freshProfile.uid}');
         
         // 2. Update state immediately with fresh data
@@ -826,7 +830,7 @@ class Authentication extends _$Authentication {
       ));
 
       // Upload video to Cloudflare R2
-      debugPrint('📹 Step 3/4: Uploading video to Cloudflare R2...');
+      debugPrint('🎹 Step 3/4: Uploading video to Cloudflare R2...');
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
         reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
@@ -1135,6 +1139,170 @@ class Authentication extends _$Authentication {
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } on AuthRepositoryException catch (e) {
       debugPrint('Error loading liked videos: ${e.message}');
+    }
+  }
+
+  // ===============================
+  // BOOST METHODS
+  // ===============================
+
+  /// Purchase video boost using wallet coins
+  Future<void> boostVideo({
+    required String videoId,
+    required String boostTier,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    final currentState = state.value ?? const AuthenticationState();
+    if (currentState.state != AuthState.authenticated ||
+        currentState.currentUser == null) {
+      onError('User not authenticated');
+      return;
+    }
+
+    try {
+      debugPrint('🚀 Starting boost purchase for video: $videoId');
+      debugPrint('   - Boost Tier: $boostTier');
+      debugPrint('   - User: ${currentState.currentUser!.name}');
+      
+      // Determine coin amount based on boost tier
+      final int coinAmount;
+      switch (boostTier.toLowerCase()) {
+        case 'basic':
+          coinAmount = 99;
+          break;
+        case 'standard':
+          coinAmount = 999;
+          break;
+        case 'advanced':
+          coinAmount = 9999;
+          break;
+        default:
+          onError('Invalid boost tier');
+          return;
+      }
+      
+      debugPrint('   - Coin Amount: $coinAmount');
+      
+      // Call repository to boost video (backend will handle wallet deduction)
+      final boostedVideo = await _repository.boostVideo(
+        videoId: videoId,
+        userId: currentState.currentUser!.uid,
+        boostTier: boostTier.toLowerCase(),
+        coinAmount: coinAmount,
+      );
+      
+      debugPrint('✅ Boost purchase successful');
+      debugPrint('   - Video now boosted: ${boostedVideo.isBoosted}');
+      debugPrint('   - Boost tier: ${boostedVideo.boostTier}');
+      
+      // Update video in local state
+      final updatedVideos = currentState.videos.map((video) {
+        if (video.id == videoId) {
+          return boostedVideo;
+        }
+        return video;
+      }).toList();
+      
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
+      
+      onSuccess('Video boosted successfully! 🚀');
+      
+    } on AuthRepositoryException catch (e) {
+      debugPrint('❌ Boost purchase failed: ${e.message}');
+      
+      // Handle specific error cases
+      if (e.message.toLowerCase().contains('insufficient')) {
+        onError('Insufficient wallet balance. Please top up your wallet.');
+      } else if (e.message.toLowerCase().contains('already boosted')) {
+        onError('This video is already boosted.');
+      } else {
+        onError(e.message);
+      }
+    } catch (e) {
+      debugPrint('❌ Unexpected error during boost purchase: $e');
+      onError('Failed to boost video: $e');
+    }
+  }
+
+  /// Check if user can afford a specific boost tier
+  bool canAffordBoost(String boostTier) {
+    final currentState = state.value;
+    if (currentState == null || currentState.currentUser == null) {
+      return false;
+    }
+    
+    // This is a simple check - actual wallet balance check should be done via wallet provider
+    // But we can provide this helper method for UI decisions
+    final int requiredCoins;
+    switch (boostTier.toLowerCase()) {
+      case 'basic':
+        requiredCoins = 99;
+        break;
+      case 'standard':
+        requiredCoins = 999;
+        break;
+      case 'advanced':
+        requiredCoins = 9999;
+        break;
+      default:
+        return false;
+    }
+    
+    // Note: This is a placeholder - real implementation should check wallet balance
+    // For now, we'll always return true and let the backend handle the actual check
+    return true;
+  }
+
+  /// Get boost tier price
+  int getBoostTierPrice(String boostTier) {
+    switch (boostTier.toLowerCase()) {
+      case 'basic':
+        return 99;
+      case 'standard':
+        return 999;
+      case 'advanced':
+        return 9999;
+      default:
+        return 0;
+    }
+  }
+
+  /// Get boost tier display info
+  Map<String, dynamic> getBoostTierInfo(String boostTier) {
+    switch (boostTier.toLowerCase()) {
+      case 'basic':
+        return {
+          'name': 'Basic Boost',
+          'price': 99,
+          'viewRange': '1,713 - 10K views',
+          'duration': '72 hours',
+          'icon': '⚡',
+        };
+      case 'standard':
+        return {
+          'name': 'Standard Boost',
+          'price': 999,
+          'viewRange': '17,138 - 100K views',
+          'duration': '72 hours',
+          'icon': '🚀',
+        };
+      case 'advanced':
+        return {
+          'name': 'Advanced Boost',
+          'price': 9999,
+          'viewRange': '171,388 - 1M views',
+          'duration': '72 hours',
+          'icon': '⭐',
+        };
+      default:
+        return {
+          'name': 'Unknown',
+          'price': 0,
+          'viewRange': 'N/A',
+          'duration': '0 hours',
+          'icon': '',
+        };
     }
   }
 

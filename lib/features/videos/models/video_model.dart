@@ -1,7 +1,7 @@
 // ===============================
 // lib/features/videos/models/video_model.dart
 // Complete Video Model for PostgreSQL Backend (100% Compatible)
-// Enhanced with Verified Field
+// Enhanced with Verified Field + BOOST FIELDS
 // ===============================
 
 import 'dart:convert';
@@ -14,7 +14,7 @@ class VideoModel {
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
-  final double price; // NEW: Price field for business posts 
+  final double price; // Price field for business posts 
   
   // 🔧 CRITICAL FIX: Use correct field names that match backend database
   final int views;        // Backend: views_count -> Frontend: views
@@ -25,11 +25,16 @@ class VideoModel {
   final List<String> tags;
   final bool isActive;
   final bool isFeatured;
-  final bool isVerified;  // 🆕 NEW: Verified status from database
+  final bool isVerified;  // Verified status from database
   final bool isMultipleImages;
   final List<String> imageUrls;
   final String createdAt; // RFC3339 string format from PostgreSQL
   final String updatedAt; // RFC3339 string format from PostgreSQL
+
+  // 🆕 BOOST FIELDS
+  final bool isBoosted;           // Is video currently boosted?
+  final String boostTier;         // 'none', 'basic', 'standard', 'advanced'
+  final bool superBoost;          // For future custom boost features
 
   // Runtime fields (not stored in DB)
   final bool isLiked;
@@ -51,16 +56,19 @@ class VideoModel {
     required this.tags,
     required this.isActive,
     required this.isFeatured,
-    this.isVerified = false, // 🆕 Default verified status is false
+    this.isVerified = false, // Default verified status is false
     required this.isMultipleImages,
     required this.imageUrls,
     required this.createdAt,
     required this.updatedAt,
+    this.isBoosted = false,         // 🆕 Default not boosted
+    this.boostTier = 'none',        // 🆕 Default no boost tier
+    this.superBoost = false,        // 🆕 Default no super boost
     this.isLiked = false,
     this.isFollowing = false,
   });
 
-  // 🔧 CRITICAL FIX: fromJson method with PostgreSQL-compatible field mapping
+  // 🔧 CRITICAL FIX: fromJson method with PostgreSQL-compatible field mapping + BOOST FIELDS
   factory VideoModel.fromJson(Map<String, dynamic> json) {
     try {
       return VideoModel(
@@ -71,10 +79,9 @@ class VideoModel {
         videoUrl: _parseString(json['videoUrl'] ?? json['video_url']),
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url']),
         caption: _parseString(json['caption']),
-        price: _parsePrice(json['price']), // NEW: Parse price field
+        price: _parsePrice(json['price']),
         
         // 🔧 CRITICAL FIX: Map backend field names to frontend names
-        // Try multiple possible field name variations from your backend
         views: _parseCount(
           json['views'] ?? 
           json['viewsCount'] ?? 
@@ -107,11 +114,17 @@ class VideoModel {
         tags: _parseStringList(json['tags']),
         isActive: _parseBool(json['isActive'] ?? json['is_active'] ?? true),
         isFeatured: _parseBool(json['isFeatured'] ?? json['is_featured'] ?? false),
-        isVerified: _parseBool(json['isVerified'] ?? json['is_verified'] ?? false), // 🆕 Parse verified status
+        isVerified: _parseBool(json['isVerified'] ?? json['is_verified'] ?? false),
         isMultipleImages: _parseBool(json['isMultipleImages'] ?? json['is_multiple_images'] ?? false),
         imageUrls: _parseStringList(json['imageUrls'] ?? json['image_urls']),
         createdAt: _parseTimestamp(json['createdAt'] ?? json['created_at']),
         updatedAt: _parseTimestamp(json['updatedAt'] ?? json['updated_at']),
+        
+        // 🆕 PARSE BOOST FIELDS
+        isBoosted: _parseBool(json['isBoosted'] ?? json['is_boosted'] ?? false),
+        boostTier: _parseBoostTier(json['boostTier'] ?? json['boost_tier']),
+        superBoost: _parseBool(json['superBoost'] ?? json['super_boost'] ?? false),
+        
         isLiked: _parseBool(json['isLiked'] ?? false),
         isFollowing: _parseBool(json['isFollowing'] ?? false),
       );
@@ -128,7 +141,7 @@ class VideoModel {
         videoUrl: _parseString(json['videoUrl'] ?? json['video_url'] ?? ''),
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url'] ?? ''),
         caption: _parseString(json['caption'] ?? 'No caption'),
-        price: 0.0, // Default price
+        price: 0.0,
         views: 0,
         likes: 0,
         comments: 0,
@@ -136,11 +149,14 @@ class VideoModel {
         tags: [],
         isActive: true,
         isFeatured: false,
-        isVerified: false, // 🆕 Default verified status
+        isVerified: false,
         isMultipleImages: false,
         imageUrls: [],
         createdAt: DateTime.now().toIso8601String(),
         updatedAt: DateTime.now().toIso8601String(),
+        isBoosted: false,
+        boostTier: 'none',
+        superBoost: false,
         isLiked: false,
         isFollowing: false,
       );
@@ -180,6 +196,22 @@ class VideoModel {
     
     print('⚠️ Warning: Could not parse price value: $value (type: ${value.runtimeType})');
     return 0.0;
+  }
+
+  // 🆕 NEW HELPER: Safely parse boost tier
+  static String _parseBoostTier(dynamic value) {
+    if (value == null) return 'none';
+    
+    final tierStr = value.toString().toLowerCase().trim();
+    
+    // Validate boost tier
+    const validTiers = ['none', 'basic', 'standard', 'advanced'];
+    if (validTiers.contains(tierStr)) {
+      return tierStr;
+    }
+    
+    print('⚠️ Warning: Invalid boost tier: $value, defaulting to "none"');
+    return 'none';
   }
 
   // 🔧 HELPER: Safely parse count fields with enhanced error handling
@@ -362,6 +394,98 @@ class VideoModel {
     }
   }
 
+  // 🆕 BOOST HELPER METHODS
+  
+  /// Returns true if video has any boost tier active
+  bool get hasBoost => isBoosted && boostTier != 'none';
+  
+  /// Returns true if video has basic boost
+  bool get hasBasicBoost => isBoosted && boostTier == 'basic';
+  
+  /// Returns true if video has standard boost
+  bool get hasStandardBoost => isBoosted && boostTier == 'standard';
+  
+  /// Returns true if video has advanced boost
+  bool get hasAdvancedBoost => isBoosted && boostTier == 'advanced';
+  
+  /// Returns boost tier display name
+  String get boostTierDisplayName {
+    switch (boostTier) {
+      case 'basic':
+        return 'Basic Boost';
+      case 'standard':
+        return 'Standard Boost';
+      case 'advanced':
+        return 'Advanced Boost';
+      default:
+        return 'No Boost';
+    }
+  }
+  
+  /// Returns boost tier view range
+  String get boostViewRange {
+    switch (boostTier) {
+      case 'basic':
+        return '1,713 - 10K views';
+      case 'standard':
+        return '17,138 - 100K views';
+      case 'advanced':
+        return '171,388 - 1M views';
+      default:
+        return 'No boost active';
+    }
+  }
+  
+  /// Returns boost tier price in KES
+  int get boostPrice {
+    switch (boostTier) {
+      case 'basic':
+        return 99;
+      case 'standard':
+        return 999;
+      case 'advanced':
+        return 9999;
+      default:
+        return 0;
+    }
+  }
+  
+  /// Returns formatted boost price
+  String get formattedBoostPrice {
+    if (boostPrice == 0) return 'KES 0';
+    return 'KES ${boostPrice.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    )}';
+  }
+  
+  /// Returns boost tier icon
+  String get boostTierIcon {
+    switch (boostTier) {
+      case 'basic':
+        return '⚡';
+      case 'standard':
+        return '🚀';
+      case 'advanced':
+        return '⭐';
+      default:
+        return '';
+    }
+  }
+  
+  /// Returns boost status text
+  String get boostStatusText {
+    if (!isBoosted || boostTier == 'none') {
+      return 'Not Boosted';
+    }
+    
+    String status = boostTierDisplayName;
+    if (superBoost) {
+      status += ' + Super Boost';
+    }
+    return status;
+  }
+
   // 🔧 ENHANCED: Helper methods for display formatting
   String get formattedViews => _formatCount(views);
   String get formattedLikes => _formatCount(likes);
@@ -427,11 +551,14 @@ class VideoModel {
     return 1; // Single video
   }
 
-  /// Returns content quality tier based on verification, featured status, and engagement
+  /// Returns content quality tier based on verification, featured status, boost, and engagement
   String get contentTier {
+    if (isVerified && isFeatured && hasAdvancedBoost) return 'Premium++';
     if (isVerified && isFeatured) return 'Premium+';
+    if (isVerified && hasBoost) return 'Premium Boosted';
     if (isVerified) return 'Premium';
     if (isFeatured) return 'Featured';
+    if (hasBoost) return 'Boosted';
     if (engagementRate > 5.0) return 'Popular';
     return 'Standard';
   }
@@ -469,7 +596,7 @@ class VideoModel {
     }
   }
 
-  // 🔧 ENHANCED: toJson method
+  // 🔧 ENHANCED: toJson method with boost fields
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -479,7 +606,7 @@ class VideoModel {
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
       'caption': caption,
-      'price': price, // Include price in JSON
+      'price': price,
       'views': views,
       'likes': likes,
       'comments': comments,
@@ -487,17 +614,20 @@ class VideoModel {
       'tags': tags,
       'isActive': isActive,
       'isFeatured': isFeatured,
-      'isVerified': isVerified, // 🆕 Include verification status in JSON
+      'isVerified': isVerified,
       'isMultipleImages': isMultipleImages,
       'imageUrls': imageUrls,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'isBoosted': isBoosted,           // 🆕 Include boost fields
+      'boostTier': boostTier,           // 🆕
+      'superBoost': superBoost,         // 🆕
       'isLiked': isLiked,
       'isFollowing': isFollowing,
     };
   }
 
-  // 🔧 NEW: copyWith method for state updates
+  // 🔧 NEW: copyWith method for state updates with boost fields
   VideoModel copyWith({
     String? id,
     String? userId,
@@ -506,7 +636,7 @@ class VideoModel {
     String? videoUrl,
     String? thumbnailUrl,
     String? caption,
-    double? price, // Add price to copyWith
+    double? price,
     int? views,
     int? likes,
     int? comments,
@@ -514,11 +644,14 @@ class VideoModel {
     List<String>? tags,
     bool? isActive,
     bool? isFeatured,
-    bool? isVerified, // 🆕 Add verification status to copyWith
+    bool? isVerified,
     bool? isMultipleImages,
     List<String>? imageUrls,
     String? createdAt,
     String? updatedAt,
+    bool? isBoosted,          // 🆕 Add boost fields to copyWith
+    String? boostTier,        // 🆕
+    bool? superBoost,         // 🆕
     bool? isLiked,
     bool? isFollowing,
   }) {
@@ -530,7 +663,7 @@ class VideoModel {
       videoUrl: videoUrl ?? this.videoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       caption: caption ?? this.caption,
-      price: price ?? this.price, // Include price in copyWith
+      price: price ?? this.price,
       views: views ?? this.views,
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
@@ -538,11 +671,14 @@ class VideoModel {
       tags: tags ?? this.tags,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
-      isVerified: isVerified ?? this.isVerified, // 🆕 Include verification in copyWith
+      isVerified: isVerified ?? this.isVerified,
       isMultipleImages: isMultipleImages ?? this.isMultipleImages,
       imageUrls: imageUrls ?? this.imageUrls,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isBoosted: isBoosted ?? this.isBoosted,         // 🆕
+      boostTier: boostTier ?? this.boostTier,         // 🆕
+      superBoost: superBoost ?? this.superBoost,      // 🆕
       isLiked: isLiked ?? this.isLiked,
       isFollowing: isFollowing ?? this.isFollowing,
     );
@@ -585,6 +721,39 @@ class VideoModel {
   VideoModel setVerified(bool verified) {
     return copyWith(
       isVerified: verified,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Set boost status
+  VideoModel setBoost({
+    required bool isBoosted,
+    required String boostTier,
+    bool? superBoost,
+  }) {
+    return copyWith(
+      isBoosted: isBoosted,
+      boostTier: boostTier,
+      superBoost: superBoost ?? this.superBoost,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Activate boost
+  VideoModel activateBoost(String tier) {
+    return copyWith(
+      isBoosted: true,
+      boostTier: tier,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  // 🆕 NEW: Deactivate boost
+  VideoModel deactivateBoost() {
+    return copyWith(
+      isBoosted: false,
+      boostTier: 'none',
+      superBoost: false,
       updatedAt: DateTime.now().toIso8601String(),
     );
   }
@@ -652,7 +821,7 @@ class VideoModel {
   // 🔧 DEBUGGING: toString method
   @override
   String toString() {
-    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, verified: $isVerified, user: $userName)';
+    return 'VideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, verified: $isVerified, boosted: $isBoosted, boostTier: $boostTier, user: $userName)';
   }
 
   // 🔧 DEBUGGING: Detailed debug string
@@ -678,11 +847,15 @@ VideoModel {
   thumbnailUrl: $thumbnailUrl
   createdAt: $createdAt
   updatedAt: $updatedAt
+  isBoosted: $isBoosted 🚀
+  boostTier: $boostTier
+  superBoost: $superBoost
   isLiked: $isLiked
   isFollowing: $isFollowing
   engagementRate: ${engagementRate.toStringAsFixed(2)}%
   contentTier: $contentTier
   verificationStatus: $verificationStatus
+  boostStatus: $boostStatusText
   isValid: $isValid
 }''';
   }
@@ -701,12 +874,20 @@ VideoModel {
 extension VideoModelList on List<VideoModel> {
   List<VideoModel> get activeVideos => where((video) => video.isActive).toList();
   List<VideoModel> get featuredVideos => where((video) => video.isFeatured).toList();
-  List<VideoModel> get verifiedVideos => where((video) => video.isVerified).toList(); // 🆕 Get verified videos
-  List<VideoModel> get unverifiedVideos => where((video) => !video.isVerified).toList(); // 🆕 Get unverified videos
-  List<VideoModel> get premiumVideos => where((video) => video.isPremiumContent).toList(); // 🆕 Get premium videos
-  List<VideoModel> get verifiedFreeVideos => where((video) => video.isVerifiedFreeContent).toList(); // 🆕 Get verified free videos
+  List<VideoModel> get verifiedVideos => where((video) => video.isVerified).toList();
+  List<VideoModel> get unverifiedVideos => where((video) => !video.isVerified).toList();
+  List<VideoModel> get premiumVideos => where((video) => video.isPremiumContent).toList();
+  List<VideoModel> get verifiedFreeVideos => where((video) => video.isVerifiedFreeContent).toList();
   List<VideoModel> get imageVideos => where((video) => video.isImageContent).toList();
   List<VideoModel> get videoContent => where((video) => video.isVideoContent).toList();
+  
+  // 🆕 NEW: Boost filtering
+  List<VideoModel> get boostedVideos => where((video) => video.isBoosted).toList();
+  List<VideoModel> get unboostedVideos => where((video) => !video.isBoosted).toList();
+  List<VideoModel> get basicBoostedVideos => where((video) => video.hasBasicBoost).toList();
+  List<VideoModel> get standardBoostedVideos => where((video) => video.hasStandardBoost).toList();
+  List<VideoModel> get advancedBoostedVideos => where((video) => video.hasAdvancedBoost).toList();
+  List<VideoModel> get superBoostedVideos => where((video) => video.superBoost).toList();
   
   List<VideoModel> sortByViews({bool descending = true}) {
     final sorted = List<VideoModel>.from(this);
@@ -742,33 +923,62 @@ extension VideoModelList on List<VideoModel> {
     return sorted;
   }
 
-  // 🆕 NEW: Sort by verification status (verified first)
   List<VideoModel> sortByVerification({bool verifiedFirst = true}) {
     final sorted = List<VideoModel>.from(this);
     sorted.sort((a, b) {
       if (verifiedFirst) {
-        // Verified videos first
         if (a.isVerified && !b.isVerified) return -1;
         if (!a.isVerified && b.isVerified) return 1;
-        return 0; // Same verification status
+        return 0;
       } else {
-        // Unverified videos first
         if (!a.isVerified && b.isVerified) return -1;
         if (a.isVerified && !b.isVerified) return 1;
-        return 0; // Same verification status
+        return 0;
       }
     });
     return sorted;
   }
 
-  // 🆕 NEW: Sort by content tier
+  // 🆕 NEW: Sort by boost status
+  List<VideoModel> sortByBoost({bool boostedFirst = true}) {
+    final sorted = List<VideoModel>.from(this);
+    sorted.sort((a, b) {
+      if (boostedFirst) {
+        if (a.isBoosted && !b.isBoosted) return -1;
+        if (!a.isBoosted && b.isBoosted) return 1;
+        // If both boosted, sort by tier
+        if (a.isBoosted && b.isBoosted) {
+          final tierOrder = {'advanced': 0, 'standard': 1, 'basic': 2, 'none': 3};
+          final aTier = tierOrder[a.boostTier] ?? 4;
+          final bTier = tierOrder[b.boostTier] ?? 4;
+          return aTier.compareTo(bTier);
+        }
+        return 0;
+      } else {
+        if (!a.isBoosted && b.isBoosted) return -1;
+        if (a.isBoosted && !b.isBoosted) return 1;
+        return 0;
+      }
+    });
+    return sorted;
+  }
+
   List<VideoModel> sortByContentTier() {
     final sorted = List<VideoModel>.from(this);
-    final tierOrder = {'Premium+': 0, 'Premium': 1, 'Featured': 2, 'Popular': 3, 'Standard': 4};
+    final tierOrder = {
+      'Premium++': 0, 
+      'Premium+': 1, 
+      'Premium Boosted': 2,
+      'Premium': 3, 
+      'Featured': 4,
+      'Boosted': 5,
+      'Popular': 6, 
+      'Standard': 7
+    };
     
     sorted.sort((a, b) {
-      final aTier = tierOrder[a.contentTier] ?? 5;
-      final bTier = tierOrder[b.contentTier] ?? 5;
+      final aTier = tierOrder[a.contentTier] ?? 8;
+      final bTier = tierOrder[b.contentTier] ?? 8;
       return aTier.compareTo(bTier);
     });
     return sorted;
@@ -786,20 +996,21 @@ extension VideoModelList on List<VideoModel> {
     return where((video) => video.price >= minPrice && video.price <= maxPrice).toList();
   }
 
-  // 🆕 NEW: Filter by verification status
   List<VideoModel> filterByVerification(bool isVerified) {
     return where((video) => video.isVerified == isVerified).toList();
   }
 
-  // 🆕 NEW: Filter by content tier
+  // 🆕 NEW: Filter by boost tier
+  List<VideoModel> filterByBoostTier(String tier) {
+    return where((video) => video.boostTier == tier).toList();
+  }
+
   List<VideoModel> filterByContentTier(String tier) {
     return where((video) => video.contentTier == tier).toList();
   }
 
-  // 🆕 NEW: Filter premium content (verified + priced)
   List<VideoModel> get premiumContent => where((video) => video.isPremiumContent).toList();
 
-  // 🆕 NEW: Filter free verified content
   List<VideoModel> get freeVerifiedContent => where((video) => video.isVerifiedFreeContent).toList();
   
   List<VideoModel> search(String query) {
@@ -812,7 +1023,6 @@ extension VideoModelList on List<VideoModel> {
   int get totalShares => fold<int>(0, (sum, video) => sum + video.shares);
   double get totalPrice => fold<double>(0.0, (sum, video) => sum + video.price);
 
-  // 🆕 NEW: Verification statistics
   int get verifiedCount => where((video) => video.isVerified).length;
   int get unverifiedCount => where((video) => !video.isVerified).length;
   double get verificationPercentage {
@@ -820,7 +1030,28 @@ extension VideoModelList on List<VideoModel> {
     return (verifiedCount / length) * 100;
   }
 
-  // 🆕 NEW: Content tier statistics
+  // 🆕 NEW: Boost statistics
+  int get boostedCount => where((video) => video.isBoosted).length;
+  int get unboostedCount => where((video) => !video.isBoosted).length;
+  double get boostPercentage {
+    if (isEmpty) return 0.0;
+    return (boostedCount / length) * 100;
+  }
+
+  int get basicBoostCount => where((video) => video.hasBasicBoost).length;
+  int get standardBoostCount => where((video) => video.hasStandardBoost).length;
+  int get advancedBoostCount => where((video) => video.hasAdvancedBoost).length;
+  int get superBoostCount => where((video) => video.superBoost).length;
+
+  Map<String, int> get boostTierBreakdown {
+    final breakdown = <String, int>{};
+    for (final video in this) {
+      final tier = video.boostTier;
+      breakdown[tier] = (breakdown[tier] ?? 0) + 1;
+    }
+    return breakdown;
+  }
+
   Map<String, int> get contentTierBreakdown {
     final breakdown = <String, int>{};
     for (final video in this) {
@@ -830,7 +1061,6 @@ extension VideoModelList on List<VideoModel> {
     return breakdown;
   }
 
-  // 🆕 NEW: Premium content statistics
   int get premiumContentCount => where((video) => video.isPremiumContent).length;
   double get premiumContentPercentage {
     if (isEmpty) return 0.0;
@@ -848,7 +1078,6 @@ extension VideoModelList on List<VideoModel> {
     return totalPrice / length;
   }
 
-  // 🆕 NEW: Average engagement rate for verified vs unverified content
   double get verifiedAverageEngagement {
     final verified = verifiedVideos;
     if (verified.isEmpty) return 0.0;
@@ -863,11 +1092,27 @@ extension VideoModelList on List<VideoModel> {
     return totalEngagement / unverified.length;
   }
 
-  // 🆕 NEW: Top performers by category
+  // 🆕 NEW: Boost engagement comparison
+  double get boostedAverageEngagement {
+    final boosted = boostedVideos;
+    if (boosted.isEmpty) return 0.0;
+    final totalEngagement = boosted.fold<double>(0.0, (sum, video) => sum + video.engagementRate);
+    return totalEngagement / boosted.length;
+  }
+
+  double get unboostedAverageEngagement {
+    final unboosted = unboostedVideos;
+    if (unboosted.isEmpty) return 0.0;
+    final totalEngagement = unboosted.fold<double>(0.0, (sum, video) => sum + video.engagementRate);
+    return totalEngagement / unboosted.length;
+  }
+
   List<VideoModel> get topVerifiedVideos => verifiedVideos.sortByEngagement().take(10).toList();
   List<VideoModel> get topPremiumVideos => premiumVideos.sortByEngagement().take(10).toList();
   
-  // 🆕 NEW: Content quality score
+  // 🆕 NEW: Top boosted videos
+  List<VideoModel> get topBoostedVideos => boostedVideos.sortByEngagement().take(10).toList();
+  
   double get overallQualityScore {
     if (isEmpty) return 0.0;
     
@@ -884,15 +1129,24 @@ extension VideoModelList on List<VideoModel> {
       // Featured bonus (0-15 points)
       if (video.isFeatured) videoScore += 15;
       
+      // Boost bonus (0-15 points)
+      if (video.hasAdvancedBoost) {
+        videoScore += 15;
+      } else if (video.hasStandardBoost) {
+        videoScore += 10;
+      } else if (video.hasBasicBoost) {
+        videoScore += 5;
+      }
+      
       // Premium content bonus (0-10 points)
       if (video.isPremiumContent) videoScore += 10;
       
-      // Activity bonus (0-15 points)
-      if (video.isActive) videoScore += 15;
+      // Activity bonus (0-5 points)
+      if (video.isActive) videoScore += 5;
       
       score += videoScore;
     }
     
-    return score / length; // Average quality score per video (0-100)
+    return score / length; // Average quality score per video (0-100+)
   }
 }

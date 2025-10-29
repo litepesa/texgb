@@ -297,7 +297,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome to SpaceTok!',
+                      'Welcome to WemaChat!',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
