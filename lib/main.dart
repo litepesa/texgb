@@ -92,7 +92,7 @@ class AppRoot extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
-                      'Wema聊',
+                      'WemaChat',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -139,7 +139,7 @@ class AppRoot extends ConsumerWidget {
       data: (themeData) => MaterialApp.router(
         // ==================== APP CONFIGURATION ====================
         debugShowCheckedModeBanner: false,
-        title: 'Wema',
+        title: 'WemaChat',
         
         // ==================== THEME ====================
         theme: themeData.activeTheme,

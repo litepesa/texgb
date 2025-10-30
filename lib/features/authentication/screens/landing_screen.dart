@@ -209,7 +209,7 @@ class _AppLogo extends StatelessWidget {
           RichText(
             text: const TextSpan(
               children: [
-                TextSpan(
+                /*TextSpan(
                   text: 'Wema',
                   style: TextStyle(
                     fontSize: 50,
@@ -217,18 +217,18 @@ class _AppLogo extends StatelessWidget {
                     color: Colors.white,
                     letterSpacing: -1.0,
                   ),
-                ),
-                /*TextSpan(
-                  text: 'Chat',
+                ),*/
+                TextSpan(
+                  text: 'Wema',
                   style: TextStyle(
-                    fontSize: 50,
+                    fontSize: 45,
                     fontWeight: FontWeight.w700,
                     color: wechatGreen,
                     letterSpacing: -1.0,
                   ),
-                ),*/
+                ),
                 TextSpan(
-                  text: "聊",
+                  text: "Chat",
                   style: TextStyle(
                     color: Color(0xFFFE2C55),
                     fontWeight: FontWeight.w700,

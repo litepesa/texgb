@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Pomasoft/Desktop/TExGB/Final/textgb/**)",
+      "Bash(flutter --version:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(dart analyze:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

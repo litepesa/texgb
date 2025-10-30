@@ -381,12 +381,15 @@ extension AppNavigationExtension on BuildContext {
   void goToWallet() => go(RoutePaths.wallet);
   
   // ==================== PUSH VARIANTS (for modal navigation) ====================
-  
+
   void pushToUserProfile(String userId) => push(RoutePaths.userProfile(userId));
   void pushToVideo(String videoId, {String? userId}) {
     push(RoutePaths.singleVideo(videoId), extra: {'userId': userId});
   }
   void pushToEditProfile(UserModel user) => push(RoutePaths.editProfile, extra: user);
+  void pushToWallet() => push(RoutePaths.wallet);
+  void pushToManagePosts() => push(RoutePaths.managePosts);
+  void pushToMyPost(String videoId) => push(RoutePaths.myPost(videoId));
 }
 
 // ==================== ROUTER HELPERS ====================

@@ -5,14 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/users/screens/users_list_screen.dart';
-import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
+import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -32,17 +29,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Chats',      // Index 0 - Chats Screen
-    'Groups',     // Index 1 - Groups (Coming Soon)
-    'Status',     // Index 2 - Status (Coming Soon)
-    'Shops',      // Index 3 - Shops (User List)
+    'Chats',      // Index 0 - Chats (Coming Soon)
+    'Moments',   // Index 1 - Contacts Screen
+    'Live',   // Index 2 - Discover Screen
+    'Profile',         // Index 3 - My Profile
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_2_fill,       // Chats
-    Icons.group,                             // Groups
-    Icons.radio_button_checked_rounded,      // Status
-    Icons.store_outlined,                    // Shops
+    CupertinoIcons.chat_bubble_2,              // Chats
+    CupertinoIcons.rays,      // Contacts
+    CupertinoIcons.dot_radiowaves_left_right,                    // Discover
+    CupertinoIcons.person,                     // Me
   ];
 
   @override
@@ -93,13 +90,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildComingSoonScreen(String title, ModernThemeExtension modernTheme) {
     return Container(
-      color: modernTheme.surfaceColor,
+      color: modernTheme.backgroundColor,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              title == 'Groups' ? Icons.group : Icons.donut_large_rounded,
+              CupertinoIcons.chat_bubble_2,
               size: 80,
               color: modernTheme.textSecondaryColor,
             ),
@@ -217,7 +214,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'Wema聊',
+                'WemaChat',
                 style: TextStyle(
                   color: isDarkMode ? Colors.white : Colors.black,
                   fontSize: 24,
@@ -238,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      appBar: _buildAppBar(modernTheme, isDarkMode),
+      appBar: _currentIndex == 3 ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -249,102 +246,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const ChatsTab(),
           ),
-          // Groups tab (index 1) - Coming Soon
+          // Contacts tab (index 1) - Contacts Screen
           _KeepAliveWrapper(
-            child: _buildComingSoonScreen('Groups', modernTheme),
+            child: const RecommendedPostsScreen(),
           ),
-          // Status tab (index 2) - Coming Soon
+          // Discover tab (index 2) - Discover Screen
           _KeepAliveWrapper(
-            child: _buildComingSoonScreen('Status', modernTheme),
+            child: const DiscoverScreen(),
           ),
-          // Shops tab (index 3) - User List Screen
+          // Me tab (index 3) - My Profile
           _KeepAliveWrapper(
-            child: const UsersListScreen(),
+            child: const MyProfileScreen(),
           ),
         ],
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
-      
-      floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
     );
-  }
-
-  // Show FAB on all tabs
-  bool _shouldShowFab() {
-    return true;
-  }
-
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 0) {
-      // Chats tab - Navigate to contacts screen
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ContactsScreen(),
-            ),
-          );
-        },
-        child: const Icon(CupertinoIcons.person_add),
-      );
-    } else if (_currentIndex == 1) {
-      // Groups tab - Coming soon
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-        child: const Icon(Icons.group_add),
-      );
-    } else if (_currentIndex == 2) {
-      // Status tab - Coming soon
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-        child: const Icon(Icons.camera_alt),
-      );
-    } else if (_currentIndex == 3) {
-      // Shops tab - Navigate to manage posts screen
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ManagePostsScreen(),
-            ),
-          );
-        },
-        child: const Icon(CupertinoIcons.square_list),
-      );
-    }
-    
-    return const SizedBox.shrink();
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -353,8 +271,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color iconColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
 
     // Get the title based on current tab
-    // For Chats tab (index 0), show "SpexChat" instead of "Chats"
-    String title = _currentIndex == 0 ? 'WemaChat' : _tabNames[_currentIndex];
+    String title = _tabNames[_currentIndex];
 
     return AppBar(
       backgroundColor: appBarColor,
@@ -372,8 +289,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
       actions: [
-        // Add button (visible on Chats tab only)
-        if (_currentIndex == 0)
+        // Add button (visible on Chats and Contacts tabs)
+        if (_currentIndex == 0 || _currentIndex == 1)
           IconButton(
             icon: Icon(
               CupertinoIcons.add_circled,
@@ -381,14 +298,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               size: 26,
             ),
             onPressed: () {
-              // New chat action
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('New Chat - Coming Soon'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              if (_currentIndex == 0) {
+                // New chat action
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('New Chat - Coming Soon'),
+                    backgroundColor: modernTheme.primaryColor,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else if (_currentIndex == 1) {
+                // Add contact action
+                Navigator.pushNamed(context, Constants.addContactScreen);
+              }
             },
           ),
         // Three-dot menu
@@ -414,7 +336,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return PopupMenuButton<String>(
       icon: Icon(
-        Icons.more_vert,
+        Icons.add,
         color: iconColor,
         size: 26,
       ),
@@ -466,14 +388,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           case 'payment':
             Navigator.pushNamed(context, Constants.walletScreen);
             break;
-          case 'my_profile':
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const MyProfileScreen(),
-              ),
-            );
-            break;
         }
       },
       itemBuilder: (BuildContext context) => [
@@ -505,12 +419,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           icon: CupertinoIcons.money_dollar_circle,
           title: 'Payment',
           value: 'payment',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.person_fill,
-          title: 'My Profile',
-          value: 'my_profile',
           modernTheme: modernTheme,
         ),
       ],
@@ -588,8 +496,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ? (modernTheme.textColor ?? Colors.black) 
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
-    // Dummy unread count for Chats (index 0) and Groups (index 1)
-    final int unreadCount = index == 0 ? 5 : (index == 1 ? 3 : 0);
+    // Dummy unread count for Chats tab
+    final int unreadCount = index == 0 ? 5 : 0;
 
     return Expanded(
       child: GestureDetector(

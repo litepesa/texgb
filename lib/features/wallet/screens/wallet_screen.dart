@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
@@ -296,7 +297,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
               },
               borderRadius: BorderRadius.circular(12),
               child: Container(
@@ -415,7 +416,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       title: 'Statistics',
                       subtitle: 'View gifting & earnings analytics',
                       onTap: () {
-                        Navigator.pop(context);
+                        context.pop();
                         _showComingSoonDialog('Statistics');
                       },
                       theme: theme,
@@ -425,7 +426,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       title: 'Statements',
                       subtitle: 'Download transaction statements',
                       onTap: () {
-                        Navigator.pop(context);
+                        context.pop();
                         _showComingSoonDialog('Statements');
                       },
                       theme: theme,
@@ -435,7 +436,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       title: 'Gift Shop',
                       subtitle: 'Browse available virtual gifts',
                       onTap: () {
-                        Navigator.pop(context);
+                        context.pop();
                         _showComingSoonDialog('Gift Shop');
                       },
                       theme: theme,
@@ -445,7 +446,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       title: 'Conversion Rates',
                       subtitle: 'View gift to cash conversion rates',
                       onTap: () {
-                        Navigator.pop(context);
+                        context.pop();
                         _showComingSoonDialog('Conversion Rates');
                       },
                       theme: theme,
@@ -455,7 +456,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       title: 'Help & Support',
                       subtitle: 'Get help with gifts & withdrawals',
                       onTap: () {
-                        Navigator.pop(context);
+                        context.pop();
                         _showComingSoonDialog('Help & Support');
                       },
                       theme: theme,
@@ -1811,7 +1812,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => context.pop(),
                     icon: Icon(
                       Icons.close,
                       color: theme.textSecondaryColor ?? Colors.grey[600],
@@ -1960,7 +1961,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
               child: const Text(
                 'Got it',
                 style: TextStyle(
