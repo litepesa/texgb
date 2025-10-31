@@ -27,6 +27,8 @@ import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 // Import search overlay
 import 'package:textgb/features/videos/widgets/search_overlay.dart';
+// Import video progress provider
+import 'package:textgb/features/videos/providers/video_progress_provider.dart';
 
 class VideosFeedScreen extends ConsumerStatefulWidget {
   final String? startVideoId; // For direct video navigation
@@ -391,6 +393,19 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     setState(() {
       _currentVideoController = controller;
+    });
+
+    // Add listener to track video progress
+    controller.addListener(() {
+      if (mounted && controller.value.isInitialized) {
+        final position = controller.value.position.inMilliseconds;
+        final duration = controller.value.duration.inMilliseconds;
+        if (duration > 0) {
+          final progress = position / duration;
+          ref.read(videoProgressProvider.notifier).state = progress.clamp(0.0, 1.0);
+        }
+        ref.read(isVideoPlayingProvider.notifier).state = controller.value.isPlaying;
+      }
     });
 
     controller.seekTo(Duration.zero);

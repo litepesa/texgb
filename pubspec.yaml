@@ -81,7 +81,8 @@ dependencies:
   go_router: ^16.1.0
   fc_native_video_thumbnail: ^0.17.2
 
-
+  # Live Streaming
+  agora_rtc_engine: ^6.3.2          # Agora SDK for live streaming
 
 
 

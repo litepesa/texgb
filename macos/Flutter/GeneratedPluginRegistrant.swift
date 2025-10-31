@@ -5,6 +5,7 @@
 import FlutterMacOS
 import Foundation
 
+import agora_rtc_engine
 import device_info_plus
 import fc_native_video_thumbnail
 import ffmpeg_kit_flutter_new
@@ -14,6 +15,7 @@ import firebase_auth
 import firebase_core
 import flutter_image_compress_macos
 import gal
+import iris_method_channel
 import package_info_plus
 import path_provider_foundation
 import share_plus
@@ -24,6 +26,7 @@ import video_player_avfoundation
 import wakelock_plus
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
+  AgoraRtcNgPlugin.register(with: registry.registrar(forPlugin: "AgoraRtcNgPlugin"))
   DeviceInfoPlusMacosPlugin.register(with: registry.registrar(forPlugin: "DeviceInfoPlusMacosPlugin"))
   FcNativeVideoThumbnailPlugin.register(with: registry.registrar(forPlugin: "FcNativeVideoThumbnailPlugin"))
   FFmpegKitFlutterPlugin.register(with: registry.registrar(forPlugin: "FFmpegKitFlutterPlugin"))
@@ -33,6 +36,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FLTFirebaseCorePlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseCorePlugin"))
   FlutterImageCompressMacosPlugin.register(with: registry.registrar(forPlugin: "FlutterImageCompressMacosPlugin"))
   GalPlugin.register(with: registry.registrar(forPlugin: "GalPlugin"))
+  IrisMethodChannelPlugin.register(with: registry.registrar(forPlugin: "IrisMethodChannelPlugin"))
   FPPPackageInfoPlusPlugin.register(with: registry.registrar(forPlugin: "FPPPackageInfoPlusPlugin"))
   PathProviderPlugin.register(with: registry.registrar(forPlugin: "PathProviderPlugin"))
   SharePlusMacosPlugin.register(with: registry.registrar(forPlugin: "SharePlusMacosPlugin"))
