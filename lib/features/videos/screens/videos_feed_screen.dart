@@ -1268,7 +1268,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       child: Column(
         children: [
           // WhatsApp button
-          /*GestureDetector(
+          GestureDetector(
             onTap: () => _openWhatsAppWithVideo(currentVideo),
             child: Column(
               children: [
@@ -1285,7 +1285,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
           ),
 
-          const SizedBox(height: 10),*/
+          const SizedBox(height: 10),
 
           // Like button
           _buildRightMenuItem(
@@ -1387,7 +1387,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           ),*/
 
           // Gift button
-          /*_buildRightMenuItem(
+          _buildRightMenuItem(
             child: const Text(
               '🎁',
               style: TextStyle(
@@ -1403,7 +1403,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             onTap: () => _showVirtualGifts(currentVideo),
           ),
 
-          const SizedBox(height: 10),*/
+          const SizedBox(height: 10),
 
           // Profile avatar
           _buildRightMenuItem(

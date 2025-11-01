@@ -82,7 +82,7 @@ dependencies:
   fc_native_video_thumbnail: ^0.17.2
 
   # Live Streaming
-  agora_rtc_engine: ^6.3.2          # Agora SDK for live streaming
+  agora_rtc_engine: ^6.5.3          # Agora SDK for live streaming
 
 
 
