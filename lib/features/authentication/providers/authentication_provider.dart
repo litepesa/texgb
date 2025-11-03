@@ -2,7 +2,8 @@
 // Video-focused authentication provider with instant auth recognition, caching, and video updates
 // OPTIMIZED: Videos load during app initialization for instant feed display
 // ENHANCED: Simple force refresh solution for backend updates
-// NEW: Video boost functionality integrated
+// UPGRADED: Enhanced comment system with media support and pinning
+// 🆕 NEW: Comment media upload, pin/unpin functionality, and improved comment management
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -146,7 +147,7 @@ class Authentication extends _$Authentication {
           if (userProfile != null) {
             await _saveCachedUserProfile(userProfile);
             
-            // ✅ Load videos AND users in parallel
+            // ✅ Load videos and users in parallel
             await Future.wait([
               loadVideos(),
               loadUsers(),
@@ -783,7 +784,6 @@ class Authentication extends _$Authentication {
       final user = currentState.currentUser!;
 
       // Thumbnail is now pre-generated and passed as parameter
-      // No thumbnail generation here - it happens in the UI layer before video processing
       debugPrint('🎬 Step 1/4: Using pre-generated thumbnail...');
       
       if (thumbnailFile == null) {
@@ -1410,12 +1410,15 @@ class Authentication extends _$Authentication {
   }
 
   // ===============================
-  // COMMENT METHODS
+  // 🆕 ENHANCED COMMENT METHODS WITH MEDIA SUPPORT
   // ===============================
 
+  /// 🆕 ENHANCED: Add comment with optional image attachments
+  /// Now accepts imageFiles parameter to upload images before creating comment
   Future<void> addComment({
     required String videoId,
     required String content,
+    List<File>? imageFiles,  // 🆕 NEW parameter for image uploads
     String? repliedToCommentId,
     String? repliedToAuthorName,
     required Function(String) onSuccess,
@@ -1430,29 +1433,62 @@ class Authentication extends _$Authentication {
 
     try {
       final user = currentState.currentUser!;
+      
+      debugPrint('💬 Adding comment to video: $videoId');
+      if (imageFiles != null && imageFiles.isNotEmpty) {
+        debugPrint('📸 Comment includes ${imageFiles.length} image(s)');
+      }
 
+      // 🆕 Upload images if provided (max 2 images)
+      List<String>? imageUrls;
+      if (imageFiles != null && imageFiles.isNotEmpty) {
+        try {
+          // Limit to 2 images
+          final filesToUpload = imageFiles.take(2).toList();
+          
+          debugPrint('☁️ Uploading ${filesToUpload.length} comment images to R2...');
+          
+          imageUrls = await _repository.storeFilesToStorage(
+            files: filesToUpload,
+            referencePrefix: 'comments/${user.uid}/${DateTime.now().millisecondsSinceEpoch}',
+          );
+          
+          debugPrint('✅ Comment images uploaded successfully');
+        } catch (e) {
+          debugPrint('⚠️ Warning: Failed to upload comment images: $e');
+          // Continue without images rather than failing the entire comment
+          imageUrls = null;
+        }
+      }
+
+      // Create comment with uploaded image URLs
       await _repository.addComment(
         videoId: videoId,
         authorId: user.uid,
         authorName: user.name,
         authorImage: user.profileImage,
         content: content,
+        imageUrls: imageUrls,  // 🆕 Pass uploaded URLs
         repliedToCommentId: repliedToCommentId,
         repliedToAuthorName: repliedToAuthorName,
       );
 
+      debugPrint('✅ Comment added successfully');
       onSuccess('Comment added successfully');
     } catch (e) {
-      debugPrint('Error adding comment: $e');
-      onError('Failed to add comment');
+      debugPrint('❌ Error adding comment: $e');
+      onError('Failed to add comment: $e');
     }
   }
 
   Future<List<CommentModel>> getVideoComments(String videoId) async {
     try {
-      return await _repository.getVideoComments(videoId);
+      debugPrint('📥 Fetching comments for video: $videoId');
+      final comments = await _repository.getVideoComments(videoId);
+      debugPrint('✅ Retrieved ${comments.length} comments');
+      return comments;
     } on AuthRepositoryException catch (e) {
-      debugPrint('Error getting video comments: ${e.message}');
+      debugPrint('❌ Error getting video comments: ${e.message}');
       return [];
     }
   }
@@ -1471,9 +1507,11 @@ class Authentication extends _$Authentication {
     }
 
     try {
+      debugPrint('🗑️ Deleting comment: $commentId');
       await _repository.deleteComment(commentId, userId);
+      debugPrint('✅ Comment deleted successfully');
     } on AuthRepositoryException catch (e) {
-      debugPrint('Error deleting comment: ${e.message}');
+      debugPrint('❌ Error deleting comment: ${e.message}');
       onError(e.message);
     }
   }
@@ -1486,9 +1524,11 @@ class Authentication extends _$Authentication {
     if (userId == null) return;
 
     try {
+      debugPrint('❤️ Liking comment: $commentId');
       await _repository.likeComment(commentId, userId);
+      debugPrint('✅ Comment liked successfully');
     } on AuthRepositoryException catch (e) {
-      debugPrint('Error liking comment: ${e.message}');
+      debugPrint('❌ Error liking comment: ${e.message}');
     }
   }
 
@@ -1500,9 +1540,67 @@ class Authentication extends _$Authentication {
     if (userId == null) return;
 
     try {
+      debugPrint('💔 Unliking comment: $commentId');
       await _repository.unlikeComment(commentId, userId);
+      debugPrint('✅ Comment unliked successfully');
     } on AuthRepositoryException catch (e) {
-      debugPrint('Error unliking comment: ${e.message}');
+      debugPrint('❌ Error unliking comment: ${e.message}');
+    }
+  }
+
+  // 🆕 NEW: Pin comment (video creator only)
+  Future<void> pinComment(
+    String commentId, 
+    String videoId,
+    Function(String) onError,
+  ) async {
+    final currentState = state.value ?? const AuthenticationState();
+    if (currentState.state != AuthState.authenticated) {
+      onError('User not authenticated');
+      return;
+    }
+
+    final userId = _repository.currentUserId;
+    if (userId == null) {
+      onError('User not authenticated');
+      return;
+    }
+
+    try {
+      debugPrint('📌 Pinning comment: $commentId');
+      await _repository.pinComment(commentId, videoId, userId);
+      debugPrint('✅ Comment pinned successfully');
+    } on AuthRepositoryException catch (e) {
+      debugPrint('❌ Error pinning comment: ${e.message}');
+      onError(e.message);
+    }
+  }
+
+  // 🆕 NEW: Unpin comment (video creator only)
+  Future<void> unpinComment(
+    String commentId,
+    String videoId,
+    Function(String) onError,
+  ) async {
+    final currentState = state.value ?? const AuthenticationState();
+    if (currentState.state != AuthState.authenticated) {
+      onError('User not authenticated');
+      return;
+    }
+
+    final userId = _repository.currentUserId;
+    if (userId == null) {
+      onError('User not authenticated');
+      return;
+    }
+
+    try {
+      debugPrint('📍 Unpinning comment: $commentId');
+      await _repository.unpinComment(commentId, videoId, userId);
+      debugPrint('✅ Comment unpinned successfully');
+    } on AuthRepositoryException catch (e) {
+      debugPrint('❌ Error unpinning comment: ${e.message}');
+      onError(e.message);
     }
   }
 
