@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/videos/providers/video_search_provider.dart';
+import 'package:textgb/features/channels/providers/video_search_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class SearchOverlay extends ConsumerStatefulWidget {

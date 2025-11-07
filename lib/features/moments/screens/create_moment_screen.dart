@@ -1,11 +1,13 @@
 // ===============================
 // Create Moment Screen
 // Create and post new moments with media, text, and privacy
+// Uses GoRouter for navigation
 // ===============================
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/models/moment_enums.dart';
 import 'package:textgb/features/moments/models/moment_constants.dart';
@@ -31,6 +33,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   MomentMediaType _mediaType = MomentMediaType.text;
   MomentVisibility _visibility = MomentVisibility.all;
   String? _location;
+  List<String> _visibleTo = [];
+  List<String> _hiddenFrom = [];
   bool _isUploading = false;
   double _uploadProgress = 0.0;
 
@@ -133,11 +137,60 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   }
 
   // Select location
-  void _selectLocation() {
-    // TODO: Implement location picker
-    setState(() {
-      _location = 'Nairobi, Kenya'; // Placeholder
-    });
+  Future<void> _selectLocation() async {
+    final locations = [
+      'Nairobi, Kenya',
+      'Mombasa, Kenya',
+      'Kisumu, Kenya',
+      'Nakuru, Kenya',
+      'Eldoret, Kenya',
+      'Thika, Kenya',
+      'Malindi, Kenya',
+      'Kitale, Kenya',
+      'Garissa, Kenya',
+      'Kakamega, Kenya',
+    ];
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Location'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: locations.length,
+            itemBuilder: (context, index) {
+              return ListTile(
+                title: Text(locations[index]),
+                leading: const Icon(Icons.location_on),
+                onTap: () => context.pop(locations[index]),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(),
+            child: const Text('Cancel'),
+          ),
+          if (_location != null)
+            TextButton(
+              onPressed: () {
+                setState(() => _location = null);
+                context.pop();
+              },
+              child: const Text('Remove'),
+            ),
+        ],
+      ),
+    );
+
+    if (selected != null) {
+      setState(() {
+        _location = selected;
+      });
+    }
   }
 
   // Select privacy
@@ -185,8 +238,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         mediaType: _mediaType,
         location: _location,
         visibility: _visibility,
-        visibleTo: [], // TODO: Implement custom privacy lists
-        hiddenFrom: [], // TODO: Implement custom privacy lists
+        visibleTo: _visibleTo,
+        hiddenFrom: _hiddenFrom,
       );
 
       // Post moment
@@ -194,7 +247,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
       // Success
       if (mounted) {
-        Navigator.pop(context);
+        context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Moment posted successfully!'),
@@ -513,7 +566,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
               leading: const Icon(Icons.photo_library),
               title: const Text('Choose from gallery'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _pickImages();
               },
             ),
@@ -521,7 +574,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
               leading: const Icon(Icons.camera_alt),
               title: const Text('Take photo'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _takePhoto();
               },
             ),
@@ -542,7 +595,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
               leading: const Icon(Icons.video_library),
               title: const Text('Choose from gallery'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _pickVideo();
               },
             ),
@@ -550,7 +603,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
               leading: const Icon(Icons.videocam),
               title: const Text('Record video'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _recordVideo();
               },
             ),

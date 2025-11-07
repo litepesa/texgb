@@ -10,9 +10,9 @@ import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/videos/widgets/video_item.dart';
+import 'package:textgb/features/channels/widgets/video_item.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
@@ -225,13 +225,13 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       final allUsers = ref.read(usersProvider);
       final author = allUsers.firstWhere(
         (user) =>
-            user.uid == targetVideo.userId, // Changed from user.id to user.uid
+            user.uid == targetVideo.channelId, // Changed from user.id to user.uid
         orElse: () => throw Exception('User not found'),
       );
 
       // Load all user videos
       final userVideos = allVideos
-          .where((video) => video.userId == targetVideo.userId)
+          .where((video) => video.channelId == targetVideo.channelId)
           .toList();
 
       // Sort by newest first - UPDATED to handle string timestamps
@@ -251,10 +251,10 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           userVideos.indexWhere((video) => video.id == widget.videoId);
 
       final followedUsers = ref.read(followedUsersProvider);
-      final isFollowing = followedUsers.contains(targetVideo.userId);
+      final isFollowing = followedUsers.contains(targetVideo.channelId);
       final currentUser = ref.read(currentUserProvider);
       final isOwner = currentUser != null &&
-          currentUser.uid == targetVideo.userId; // Changed from id to uid
+          currentUser.uid == targetVideo.channelId; // Changed from id to uid
 
       if (mounted) {
         setState(() {
@@ -397,7 +397,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if user is trying to message their own video
-    if (video.userId == currentUser!.uid) {
+    if (video.channelId == currentUser!.uid) {
       _showCannotMessageOwnVideoMessage();
       return;
     }
@@ -408,7 +408,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
       // Get the video creator's user data from the database
       final authNotifier = ref.read(authenticationProvider.notifier);
-      final videoCreator = await authNotifier.getUserById(video.userId);
+      final videoCreator = await authNotifier.getUserById(video.channelId);
 
       if (videoCreator == null) {
         _showUserNotFoundMessage();
@@ -1305,9 +1305,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(22), // Slightly smaller radius for the image
-                child: currentVideo?.userImage.isNotEmpty == true
+                child: currentVideo?.channelAvatar.isNotEmpty == true
                     ? Image.network(
-                        currentVideo!.userImage,
+                        currentVideo!.channelAvatar,
                         width: 44,
                         height: 44,
                         fit: BoxFit.cover,
@@ -1342,8 +1342,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                             ),
                             child: Center(
                               child: Text(
-                                currentVideo.userName.isNotEmpty == true
-                                    ? currentVideo.userName[0].toUpperCase()
+                                currentVideo.channelName.isNotEmpty == true
+                                    ? currentVideo.channelName[0].toUpperCase()
                                     : 'U',
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -1364,8 +1364,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                         ),
                         child: Center(
                           child: Text(
-                            currentVideo?.userName.isNotEmpty == true
-                                ? currentVideo!.userName[0].toUpperCase()
+                            currentVideo?.channelName.isNotEmpty == true
+                                ? currentVideo!.channelName[0].toUpperCase()
                                 : 'U',
                             style: const TextStyle(
                               color: Colors.white,
@@ -1544,7 +1544,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       if (shareText.isNotEmpty) {
         shareText += '\n\n';
       }
-      shareText += 'Check out this video by ${video.userName}!';
+      shareText += 'Check out this video by ${video.channelName}!';
 
       // Add hashtags if available
       if (video.tags.isNotEmpty) {
@@ -1596,7 +1596,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
     // At this point we know user is authenticated
     // Check if user is trying to gift their own video - UPDATED to use uid
-    if (video.userId == currentUser!.uid) {
+    if (video.channelId == currentUser!.uid) {
       // Changed from id to uid
       _showCannotGiftOwnVideoMessage();
       return;
@@ -1610,8 +1610,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => VirtualGiftsBottomSheet(
-        recipientName: video.userName,
-        recipientImage: video.userImage,
+        recipientName: video.channelName,
+        recipientImage: video.channelAvatar,
         onGiftSelected: (gift) {
           _handleGiftSent(video, gift);
         },
@@ -1635,10 +1635,10 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     // 4. Optionally sending a notification to the user owner
 
     debugPrint(
-        'Gift sent: ${gift.name} (KES ${gift.price}) to ${video.userName}');
+        'Gift sent: ${gift.name} (KES ${gift.price}) to ${video.channelName}');
 
     // Show success message
-    _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.userName}!');
+    _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.channelName}!');
 
     // TODO: You might want to also send this as a chat message like video reactions
     // or create a separate gifts system

@@ -1,11 +1,15 @@
 // ===============================
 // Moment Card Widget
 // Single moment display in feed
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 import 'package:textgb/features/moments/services/moments_time_service.dart';
@@ -13,6 +17,7 @@ import 'package:textgb/features/moments/widgets/moment_media_grid.dart';
 import 'package:textgb/features/moments/widgets/moment_interactions.dart';
 import 'package:textgb/features/moments/widgets/comment_list.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class MomentCard extends ConsumerStatefulWidget {
   final MomentModel moment;
@@ -268,18 +273,14 @@ class _MomentCardState extends ConsumerState<MomentCard> {
 
   // Navigate to user profile
   void _navigateToUserProfile() {
-    // TODO: Navigate to user profile
-    // Navigator.push(context, MaterialPageRoute(
-    //   builder: (context) => UserMomentsScreen(userId: widget.moment.userId),
-    // ));
+    context.push('${RoutePaths.userProfile}/${widget.moment.userId}');
   }
 
   // Navigate to comments
   void _navigateToComments() {
-    // TODO: Navigate to moment detail with comments
-    // Navigator.push(context, MaterialPageRoute(
-    //   builder: (context) => MomentDetailScreen(momentId: widget.moment.id),
-    // ));
+    // For now, navigate to user's moments feed with this moment highlighted
+    // In future, create a dedicated MomentDetailScreen
+    context.push('${RoutePaths.userProfile}/${widget.moment.userId}');
   }
 
   // Show more options
@@ -291,19 +292,27 @@ class _MomentCardState extends ConsumerState<MomentCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share'),
+              onTap: () {
+                context.pop();
+                _shareMoment();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.link),
               title: const Text('Copy link'),
               onTap: () {
-                Navigator.pop(context);
-                // TODO: Copy link
+                context.pop();
+                _copyMomentLink();
               },
             ),
             ListTile(
               leading: const Icon(Icons.report_outlined),
               title: const Text('Report'),
               onTap: () {
-                Navigator.pop(context);
-                // TODO: Report moment
+                context.pop();
+                _reportMoment();
               },
             ),
             // Show delete if owner
@@ -317,5 +326,88 @@ class _MomentCardState extends ConsumerState<MomentCard> {
         ),
       ),
     );
+  }
+
+  // Share moment
+  void _shareMoment() {
+    final text = '''
+Check out this moment from ${widget.moment.userName}!
+
+${widget.moment.content ?? ''}
+
+View on WemaChat: wemachat://moment/${widget.moment.id}
+    '''.trim();
+
+    Share.share(text, subject: 'Moment from ${widget.moment.userName}');
+  }
+
+  // Copy moment link
+  void _copyMomentLink() {
+    final link = 'wemachat://moment/${widget.moment.id}';
+    Clipboard.setData(ClipboardData(text: link));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Link copied to clipboard')),
+      );
+    }
+  }
+
+  // Report moment
+  Future<void> _reportMoment() async {
+    final reasons = [
+      'Spam or misleading',
+      'Harassment or hate speech',
+      'Violence or dangerous content',
+      'Nudity or sexual content',
+      'False information',
+      'Other',
+    ];
+
+    String? selectedReason;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Moment'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Why are you reporting this moment?'),
+              const SizedBox(height: 16),
+              ...reasons.map((reason) => RadioListTile<String>(
+                    title: Text(reason),
+                    value: reason,
+                    groupValue: selectedReason,
+                    onChanged: (value) {
+                      setState(() => selectedReason = value);
+                    },
+                    contentPadding: EdgeInsets.zero,
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && selectedReason != null && mounted) {
+      // In a real app, send report to backend
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Moment reported: $selectedReason')),
+      );
+    }
   }
 }

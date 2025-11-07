@@ -8,13 +8,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/features/videos/widgets/boost_tab_widget.dart';
-import 'package:textgb/features/videos/widgets/edit_tab_widget.dart';
-import 'package:textgb/features/videos/widgets/analytics_tab_widget.dart';
+import 'package:textgb/features/channels/widgets/boost_tab_widget.dart';
+import 'package:textgb/features/channels/widgets/edit_tab_widget.dart';
+import 'package:textgb/features/channels/widgets/analytics_tab_widget.dart';
 import 'package:intl/intl.dart';
 
 class MyPostScreen extends ConsumerStatefulWidget {
@@ -974,13 +974,13 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             backgroundColor: Colors.white,
                             child: CircleAvatar(
                               radius: 15,
-                              backgroundImage: video.userImage.isNotEmpty
-                                  ? CachedNetworkImageProvider(video.userImage)
+                              backgroundImage: video.channelAvatar.isNotEmpty
+                                  ? CachedNetworkImageProvider(video.channelAvatar)
                                   : null,
-                              child: video.userImage.isEmpty
+                              child: video.channelAvatar.isEmpty
                                   ? Text(
-                                      video.userName.isNotEmpty
-                                          ? video.userName[0].toUpperCase()
+                                      video.channelName.isNotEmpty
+                                          ? video.channelName[0].toUpperCase()
                                           : 'U',
                                       style: TextStyle(
                                         color: Colors.white,
@@ -996,7 +996,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  video.userName,
+                                  video.channelName,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,

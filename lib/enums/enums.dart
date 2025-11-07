@@ -17,6 +17,7 @@ enum MessageEnum {
   location,    // For location sharing
   contact,     // For contact sharing
   videoReaction, // NEW: For video reaction messages
+  gift,        // For virtual gift messages
 }
 
 // New enum for message status with detailed states
@@ -24,7 +25,7 @@ enum MessageStatus {
   sending,    // Message is being sent (local only)
   sent,       // Message has been sent to server
   delivered,  // Message has been delivered to receiver's device
-  read,       // Message has been read by receiver
+  read,       // ⚠️ INTENTIONALLY UNUSED - WeChat-like privacy: no read receipts shown to senders
   failed;     // Message failed to send
   
   String get name {
@@ -142,9 +143,11 @@ extension MessageEnumHelper on MessageEnum {
         return 'contact';
       case MessageEnum.videoReaction:
         return 'videoReaction';
+      case MessageEnum.gift:
+        return 'gift';
     }
   }
-  
+
   String get displayName {
     switch (this) {
       case MessageEnum.text:
@@ -163,9 +166,11 @@ extension MessageEnumHelper on MessageEnum {
         return 'Contact';
       case MessageEnum.videoReaction:
         return 'Video reaction';
+      case MessageEnum.gift:
+        return 'Gift';
     }
   }
-  
+
   String get emoji {
     switch (this) {
       case MessageEnum.text:
@@ -184,9 +189,11 @@ extension MessageEnumHelper on MessageEnum {
         return '👤';
       case MessageEnum.videoReaction:
         return '❤️';
+      case MessageEnum.gift:
+        return '🎁';
     }
   }
-  
+
   IconData get icon {
     switch (this) {
       case MessageEnum.text:
@@ -205,9 +212,11 @@ extension MessageEnumHelper on MessageEnum {
         return Icons.person;
       case MessageEnum.videoReaction:
         return Icons.favorite;
+      case MessageEnum.gift:
+        return Icons.card_giftcard;
     }
   }
-  
+
   bool get isMedia {
     return this == MessageEnum.image || 
            this == MessageEnum.video || 

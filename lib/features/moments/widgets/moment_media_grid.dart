@@ -1,17 +1,18 @@
 // ===============================
 // Moment Media Grid Widget
 // Display images/video in grid layout (up to 9 images)
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/models/moment_enums.dart';
 import 'package:textgb/features/moments/models/moment_constants.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 import 'package:textgb/features/moments/services/moments_media_service.dart';
-import 'package:textgb/features/moments/widgets/media_viewer_screen.dart';
-import 'package:textgb/features/moments/widgets/video_viewer_screen.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class MomentMediaGrid extends StatelessWidget {
   final MomentModel moment;
@@ -224,27 +225,17 @@ class MomentMediaGrid extends StatelessWidget {
 
   // Open image viewer
   void _openImageViewer(BuildContext context, int initialIndex) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MediaViewerScreen(
-          imageUrls: moment.mediaUrls,
-          initialIndex: initialIndex,
-        ),
-      ),
+    context.push(
+      RoutePaths.momentMediaViewer(moment.id, initialIndex),
+      extra: {'imageUrls': moment.mediaUrls},
     );
   }
 
   // Open video viewer
   void _openVideoViewer(BuildContext context, int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VideoViewerScreen(
-          videoUrl: moment.mediaUrls[index],
-          moment: moment,
-        ),
-      ),
+    context.push(
+      RoutePaths.momentVideoViewer(moment.id),
+      extra: {'videoUrl': moment.mediaUrls[index], 'moment': moment},
     );
   }
 }

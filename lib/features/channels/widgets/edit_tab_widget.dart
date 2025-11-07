@@ -1,6 +1,6 @@
 // lib/features/videos/widgets/edit_tab_widget.dart
 import 'package:flutter/material.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class EditTabWidget extends StatelessWidget {

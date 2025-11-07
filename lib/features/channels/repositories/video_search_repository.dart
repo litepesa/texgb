@@ -5,7 +5,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/shared/services/http_client.dart';
 
 // ===============================

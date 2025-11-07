@@ -346,12 +346,14 @@ class _WebSocketLifecycleManagerState extends ConsumerState<WebSocketLifecycleMa
         if (!wsService.isConnected && !wsService.isConnecting) {
           wsService.connect();
         }
-        wsService.updatePresence(true);
+        // ⚠️ PRIVACY: Disabled for WeChat-like privacy (no online status tracking)
+        // wsService.updatePresence(true);
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
+        // ⚠️ PRIVACY: Disabled for WeChat-like privacy (no online status tracking)
         // Update presence to offline when app goes to background
-        wsService.updatePresence(false);
+        // wsService.updatePresence(false);
         break;
       case AppLifecycleState.detached:
         // Disconnect when app is being terminated

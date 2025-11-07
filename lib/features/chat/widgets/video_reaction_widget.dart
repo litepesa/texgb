@@ -9,7 +9,7 @@ import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 
 class VideoReactionWidget extends ConsumerWidget {
@@ -73,7 +73,7 @@ class VideoReactionWidget extends ConsumerWidget {
     }
 
     // Check if user is trying to react to their own video
-    if (video!.userId == currentUser.uid) {
+    if (video!.channelId == currentUser.uid) {
       _showCannotReactToOwnVideoMessage(context);
       return;
     }
@@ -84,7 +84,7 @@ class VideoReactionWidget extends ConsumerWidget {
     try {
       // Get video owner's user data using authentication provider
       final authNotifier = ref.read(authenticationProvider.notifier);
-      final videoOwner = await authNotifier.getUserById(video!.userId);
+      final videoOwner = await authNotifier.getUserById(video!.channelId);
       
       if (videoOwner == null) {
         throw Exception('Video owner not found');

@@ -55,13 +55,64 @@ class RoutePaths {
   static String contactProfile(String userId) => '/contact/$userId';
   static const String contactProfilePattern = '/contact/:userId';
   
+  // ==================== CHAT ROUTES ====================
+  static const String chats = '/chats';
+  static const String chatList = '/chat-list';
+
+  // Dynamic chat routes
+  static String chat(String chatId) => '/chat/$chatId';
+  static const String chatPattern = '/chat/:chatId';
+
+  static String chatWithUser(String userId) => '/chat/user/$userId';
+  static const String chatWithUserPattern = '/chat/user/:userId';
+
+  // ==================== CALL ROUTES ====================
+  static const String incomingCall = '/incoming-call';
+  static const String outgoingCall = '/outgoing-call';
+  static const String activeCall = '/active-call';
+
+  // Dynamic call routes
+  static String call(String callId) => '/call/$callId';
+  static const String callPattern = '/call/:callId';
+
   // ==================== WALLET ROUTES ====================
   static const String wallet = '/wallet';
   static const String gifts = '/gifts';
   static const String coins = '/coins';
   static const String withdraw = '/withdraw';
   static const String earnings = '/earnings';
-  
+
+  // ==================== CHANNELS ROUTES ====================
+  static const String channelsFeed = '/channels-feed';
+  static const String discoverChannels = '/discover-channels';
+  static const String createChannel = '/create-channel';
+  static const String editChannel = '/edit-channel';
+  static const String myChannel = '/my-channel';
+
+  // Dynamic channel routes
+  static String channelProfile(String channelId) => '/channel/$channelId';
+  static const String channelProfilePattern = '/channel/:channelId';
+
+  static String channelVideo(String videoId) => '/channel-video/$videoId';
+  static const String channelVideoPattern = '/channel-video/:videoId';
+
+  // ==================== MOMENTS ROUTES ====================
+  static const String momentsFeed = '/moments-feed';
+  static const String createMoment = '/create-moment';
+
+  // Dynamic moments routes
+  static String userMoments(String userId) => '/moments/user/$userId';
+  static const String userMomentsPattern = '/moments/user/:userId';
+
+  static String momentDetail(String momentId) => '/moment/$momentId';
+  static const String momentDetailPattern = '/moment/:momentId';
+
+  static String momentMediaViewer(String momentId, int index) => '/moment/$momentId/media/$index';
+  static const String momentMediaViewerPattern = '/moment/:momentId/media/:index';
+
+  static String momentVideoViewer(String momentId) => '/moment/$momentId/video';
+  static const String momentVideoViewerPattern = '/moment/:momentId/video';
+
   // ==================== SEARCH ROUTES ====================
   static const String search = '/search';
   static const String videoSearch = '/video-search';
@@ -111,7 +162,16 @@ class RoutePaths {
     if (path == wallet) return 'wallet';
     if (path == contacts) return 'contacts';
     if (path == search) return 'search';
-    
+    if (path == channelsFeed) return 'channels_feed';
+    if (path == createChannel) return 'create_channel';
+    if (path == momentsFeed) return 'moments_feed';
+    if (path == createMoment) return 'create_moment';
+    if (path == chats) return 'chats';
+    if (path == chatList) return 'chat_list';
+    if (path == incomingCall) return 'incoming_call';
+    if (path == outgoingCall) return 'outgoing_call';
+    if (path == activeCall) return 'active_call';
+
     // Pattern matching for dynamic routes
     if (path.startsWith('/user/')) return 'user_profile';
     if (path.startsWith('/video/')) return 'single_video';
@@ -119,7 +179,13 @@ class RoutePaths {
     if (path.startsWith('/my-post/')) return 'my_post';
     if (path.startsWith('/contact/')) return 'contact_profile';
     if (path.startsWith('/hashtag/')) return 'hashtag';
-    
+    if (path.startsWith('/channel/')) return 'channel_profile';
+    if (path.startsWith('/channel-video/')) return 'channel_video';
+    if (path.startsWith('/moments/user/')) return 'user_moments';
+    if (path.startsWith('/moment/')) return 'moment_detail';
+    if (path.startsWith('/chat/')) return 'chat';
+    if (path.startsWith('/call/')) return 'call';
+
     return 'unknown';
   }
   
@@ -171,4 +237,26 @@ class RouteNames {
   static const String contactProfile = 'contactProfile';
   static const String wallet = 'wallet';
   static const String search = 'search';
+  static const String channelsFeed = 'channelsFeed';
+  static const String channelProfile = 'channelProfile';
+  static const String channelVideo = 'channelVideo';
+  static const String createChannel = 'createChannel';
+  static const String editChannel = 'editChannel';
+  static const String myChannel = 'myChannel';
+  static const String discoverChannels = 'discoverChannels';
+  static const String momentsFeed = 'momentsFeed';
+  static const String createMoment = 'createMoment';
+  static const String userMoments = 'userMoments';
+  static const String momentDetail = 'momentDetail';
+  static const String momentMediaViewer = 'momentMediaViewer';
+  static const String momentVideoViewer = 'momentVideoViewer';
+  static const String chats = 'chats';
+  static const String chatList = 'chatList';
+  static const String chat = 'chat';
+  static const String chatWithUser = 'chatWithUser';
+  static const String incomingCall = 'incomingCall';
+  static const String outgoingCall = 'outgoingCall';
+  static const String activeCall = 'activeCall';
+  static const String call = 'call';
+  static const String gifts = 'gifts';
 }

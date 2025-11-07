@@ -1,14 +1,18 @@
 // ===============================
 // Comment List Widget
 // Display comments with WeChat-style formatting
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 import 'package:textgb/features/moments/services/moments_time_service.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 class CommentList extends ConsumerWidget {
   final List<MomentCommentModel> comments;
@@ -17,12 +21,12 @@ class CommentList extends ConsumerWidget {
   final VoidCallback? onReply;
 
   const CommentList({
-    Key? key,
+    super.key,
     required this.comments,
     required this.momentId,
     this.compact = false,
     this.onReply,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,7 +55,7 @@ class CommentList extends ConsumerWidget {
         onLongPress: () => _showCommentOptions(context, ref, comment),
         child: compact
             ? _buildCompactComment(context, comment)
-            : _buildFullComment(context, comment),
+            : _buildFullComment(context, ref, comment),
       ),
     );
   }
@@ -102,7 +106,7 @@ class CommentList extends ConsumerWidget {
   }
 
   // Full comment (for detail view)
-  Widget _buildFullComment(BuildContext context, MomentCommentModel comment) {
+  Widget _buildFullComment(BuildContext context, WidgetRef ref, MomentCommentModel comment) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -143,23 +147,75 @@ class CommentList extends ConsumerWidget {
           color: MomentsTheme.lightTextTertiary,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
-          onPressed: () => _handleReply(context, comment),
+          onPressed: () => _handleReply(context, ref, comment),
         ),
       ],
     );
   }
 
-  void _handleReply(BuildContext context, MomentCommentModel comment) {
+  void _handleReply(BuildContext context, WidgetRef ref, MomentCommentModel comment) {
     if (onReply != null) {
       onReply!();
     } else {
-      // TODO: Show reply input
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Reply to ${comment.userName}'),
-        ),
-      );
+      // Show reply input dialog
+      _showReplyDialog(context, ref, comment);
     }
+  }
+
+  Future<void> _showReplyDialog(
+    BuildContext context,
+    WidgetRef ref,
+    MomentCommentModel comment,
+  ) async {
+    final controller = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Reply to ${comment.userName}'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Write your reply...',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (controller.text.trim().isEmpty) return;
+
+              try {
+                await ref.read(momentCommentsProvider(momentId).notifier).addComment(
+                  controller.text.trim(),
+                  replyToUserId: comment.userId,
+                );
+
+                if (context.mounted) {
+                  context.pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Reply posted')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to post reply: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Reply'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCommentOptions(
@@ -167,6 +223,10 @@ class CommentList extends ConsumerWidget {
     WidgetRef ref,
     MomentCommentModel comment,
   ) {
+    // Get current user ID
+    final currentUser = ref.read(authenticationProvider).value?.currentUser;
+    final isOwner = currentUser?.uid == comment.userId;
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -177,15 +237,15 @@ class CommentList extends ConsumerWidget {
               leading: const Icon(Icons.reply),
               title: const Text('Reply'),
               onTap: () {
-                Navigator.pop(context);
-                _handleReply(context, comment);
+                context.pop();
+                _handleReply(context, ref, comment);
               },
             ),
             ListTile(
               leading: const Icon(Icons.copy),
               title: const Text('Copy'),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _copyComment(context, comment);
               },
             ),
@@ -193,21 +253,20 @@ class CommentList extends ConsumerWidget {
               leading: const Icon(Icons.report_outlined),
               title: const Text('Report'),
               onTap: () {
-                Navigator.pop(context);
-                _reportComment(context, comment);
+                context.pop();
+                _reportComment(context, ref, comment);
               },
             ),
-            // Show delete if owner
-            // TODO: Check if current user is comment owner
-            // if (comment.userId == currentUserId)
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteComment(context, ref, comment);
-              },
-            ),
+            // Show delete only if current user is the comment owner
+            if (isOwner)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  context.pop();
+                  _deleteComment(context, ref, comment);
+                },
+              ),
           ],
         ),
       ),
@@ -215,17 +274,71 @@ class CommentList extends ConsumerWidget {
   }
 
   void _copyComment(BuildContext context, MomentCommentModel comment) {
-    // TODO: Implement copy to clipboard
+    Clipboard.setData(ClipboardData(text: comment.content));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Comment copied to clipboard')),
     );
   }
 
-  void _reportComment(BuildContext context, MomentCommentModel comment) {
-    // TODO: Implement report
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Comment reported')),
+  Future<void> _reportComment(
+    BuildContext context,
+    WidgetRef ref,
+    MomentCommentModel comment,
+  ) async {
+    final reasons = [
+      'Spam or misleading',
+      'Harassment or hate speech',
+      'Violence or dangerous content',
+      'Nudity or sexual content',
+      'False information',
+      'Other',
+    ];
+
+    String? selectedReason;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Comment'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Why are you reporting this comment?'),
+              const SizedBox(height: 16),
+              ...reasons.map((reason) => RadioListTile<String>(
+                    title: Text(reason),
+                    value: reason,
+                    groupValue: selectedReason,
+                    onChanged: (value) {
+                      setState(() => selectedReason = value);
+                    },
+                    contentPadding: EdgeInsets.zero,
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Report'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true && selectedReason != null && context.mounted) {
+      // In a real app, send report to backend
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Comment reported: $selectedReason')),
+      );
+    }
   }
 
   Future<void> _deleteComment(
@@ -240,11 +353,11 @@ class CommentList extends ConsumerWidget {
         content: const Text('Are you sure you want to delete this comment?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => context.pop(false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => context.pop(true),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),

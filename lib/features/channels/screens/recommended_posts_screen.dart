@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -419,9 +419,9 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(24),
-                            child: video.userImage.isNotEmpty
+                            child: video.channelAvatar.isNotEmpty
                                 ? Image.network(
-                                    video.userImage,
+                                    video.channelAvatar,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
@@ -431,8 +431,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                                         ),
                                         child: Center(
                                           child: Text(
-                                            video.userName.isNotEmpty 
-                                                ? video.userName[0].toUpperCase()
+                                            video.channelName.isNotEmpty
+                                                ? video.channelName[0].toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -451,8 +451,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                                     ),
                                     child: Center(
                                       child: Text(
-                                        video.userName.isNotEmpty 
-                                            ? video.userName[0].toUpperCase()
+                                        video.channelName.isNotEmpty
+                                            ? video.channelName[0].toUpperCase()
                                             : "U",
                                         style: TextStyle(
                                           color: theme.primaryColor,
@@ -475,7 +475,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            video.userName,
+                            video.channelName,
                             style: TextStyle(
                               color: theme.textColor,
                               fontSize: 16,
@@ -486,7 +486,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            _getUserBio(video.userId),
+                            _getUserBio(video.channelId),
                             style: TextStyle(
                               color: theme.textSecondaryColor,
                               fontSize: 12,
@@ -873,7 +873,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       Constants.videosFeedScreen,
       arguments: {
         'startVideoId': video.id,
-        'userId': video.userId, 
+        'userId': video.channelId,
       },
     );
   }

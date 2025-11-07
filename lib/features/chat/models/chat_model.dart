@@ -16,6 +16,13 @@ class ChatModel {
   final Map<String, String>? chatWallpapers; // userId -> wallpaper URL
   final Map<String, double>? fontSizes; // userId -> font size
 
+  // Video reaction chat fields (optional - only for video reaction chats)
+  final String? originalVideoId;
+  final String? originalVideoUrl;
+  final String? originalVideoThumbnail;
+  final String? originalVideoCaption;
+  final DateTime? updatedAt;
+
   const ChatModel({
     required this.chatId,
     required this.participants,
@@ -30,6 +37,11 @@ class ChatModel {
     required this.createdAt,
     this.chatWallpapers,
     this.fontSizes,
+    this.originalVideoId,
+    this.originalVideoUrl,
+    this.originalVideoThumbnail,
+    this.originalVideoCaption,
+    this.updatedAt,
   });
 
   factory ChatModel.fromMap(Map<String, dynamic> map) {
@@ -93,12 +105,17 @@ class ChatModel {
       isPinned: parseBoolMap(map['isPinned']),
       isMuted: parseBoolMap(map['isMuted']),
       createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
-      chatWallpapers: map['chatWallpapers'] != null 
+      chatWallpapers: map['chatWallpapers'] != null
         ? parseStringMap(map['chatWallpapers'])
         : null,
-      fontSizes: map['fontSizes'] != null 
+      fontSizes: map['fontSizes'] != null
         ? parseDoubleMap(map['fontSizes'])
         : null,
+      originalVideoId: map['originalVideoId'],
+      originalVideoUrl: map['originalVideoUrl'],
+      originalVideoThumbnail: map['originalVideoThumbnail'],
+      originalVideoCaption: map['originalVideoCaption'],
+      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
     );
   }
 
@@ -117,6 +134,11 @@ class ChatModel {
       'createdAt': createdAt.toUtc().toIso8601String(),
       'chatWallpapers': chatWallpapers,
       'fontSizes': fontSizes,
+      if (originalVideoId != null) 'originalVideoId': originalVideoId,
+      if (originalVideoUrl != null) 'originalVideoUrl': originalVideoUrl,
+      if (originalVideoThumbnail != null) 'originalVideoThumbnail': originalVideoThumbnail,
+      if (originalVideoCaption != null) 'originalVideoCaption': originalVideoCaption,
+      if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
     };
   }
 
@@ -134,6 +156,11 @@ class ChatModel {
     DateTime? createdAt,
     Map<String, String>? chatWallpapers,
     Map<String, double>? fontSizes,
+    String? originalVideoId,
+    String? originalVideoUrl,
+    String? originalVideoThumbnail,
+    String? originalVideoCaption,
+    DateTime? updatedAt,
   }) {
     return ChatModel(
       chatId: chatId ?? this.chatId,
@@ -149,6 +176,11 @@ class ChatModel {
       createdAt: createdAt ?? this.createdAt,
       chatWallpapers: chatWallpapers ?? this.chatWallpapers,
       fontSizes: fontSizes ?? this.fontSizes,
+      originalVideoId: originalVideoId ?? this.originalVideoId,
+      originalVideoUrl: originalVideoUrl ?? this.originalVideoUrl,
+      originalVideoThumbnail: originalVideoThumbnail ?? this.originalVideoThumbnail,
+      originalVideoCaption: originalVideoCaption ?? this.originalVideoCaption,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 

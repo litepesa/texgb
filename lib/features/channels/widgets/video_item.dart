@@ -2,9 +2,9 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/videos/services/video_cache_service.dart';
+import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -169,7 +169,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
     try {
       return users.firstWhere(
-        (user) => user.uid == widget.video.userId,
+        (user) => user.uid == widget.video.channelId,
       );
     } catch (e) {
       return null;
@@ -389,7 +389,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (!canInteract) return;
 
     final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.followUser(widget.video.userId);
+    authNotifier.followUser(widget.video.channelId);
 
     if (mounted) {
       setState(() {});
@@ -819,7 +819,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           children: [
             Flexible(
               child: Text(
-                widget.video.userName,
+                widget.video.channelName,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -934,11 +934,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
       return const SizedBox.shrink();
     }
 
-    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.channelId;
     if (isOwner) return const SizedBox.shrink();
 
     final followedUsers = ref.watch(followedUsersProvider);
-    final isFollowing = followedUsers.contains(widget.video.userId);
+    final isFollowing = followedUsers.contains(widget.video.channelId);
 
     final topPosition = MediaQuery.of(context).padding.top + 8;
 

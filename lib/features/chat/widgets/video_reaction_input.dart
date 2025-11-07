@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -118,7 +118,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
     final users = ref.watch(usersProvider);
     try {
       return users.firstWhere(
-        (user) => user.uid == widget.video.userId,
+        (user) => user.uid == widget.video.channelId,
         orElse: () => null as UserModel,
       );
     } catch (e) {
@@ -403,10 +403,10 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                                 : null,
                                             child: (videoCreator?.profileImage.isEmpty != false)
                                                 ? Text(
-                                                    (videoCreator?.name.isNotEmpty == true) 
+                                                    (videoCreator?.name.isNotEmpty == true)
                                                       ? videoCreator!.name[0].toUpperCase()
-                                                      : widget.video.userName.isNotEmpty 
-                                                        ? widget.video.userName[0].toUpperCase()
+                                                      : widget.video.channelName.isNotEmpty
+                                                        ? widget.video.channelName[0].toUpperCase()
                                                         : 'U',
                                                     style: TextStyle(
                                                       fontSize: 12,
@@ -447,7 +447,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                         children: [
                                           // Use real username from user provider
                                           Text(
-                                            videoCreator?.name ?? widget.video.userName,
+                                            videoCreator?.name ?? widget.video.channelName,
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w700,
@@ -583,7 +583,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'to ${videoCreator?.name ?? widget.video.userName}',
+                                'to ${videoCreator?.name ?? widget.video.channelName}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,

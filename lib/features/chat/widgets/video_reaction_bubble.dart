@@ -5,7 +5,7 @@ import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class VideoReactionBubble extends StatelessWidget {
@@ -225,8 +225,8 @@ Future<void> sendVideoReactionMessage({
       videoId: video.id,
       videoUrl: video.videoUrl,
       thumbnailUrl: thumbnailUrl, // Will be generated URL, existing URL, or empty
-      userName: video.userName, // Changed from channelName
-      userImage: video.userImage, // Changed from channelImage
+      userName: video.channelName, // Changed from channelName
+      userImage: video.channelAvatar, // Changed from channelImage
       reaction: reaction,
       timestamp: DateTime.now(),
     );

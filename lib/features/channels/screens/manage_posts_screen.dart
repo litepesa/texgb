@@ -8,7 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -108,7 +108,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
       final videos = ref.read(videosProvider);
       final userVideos = videos
-          .where((video) => video.userId == freshUserProfile.uid)
+          .where((video) => video.channelId == freshUserProfile.uid)
           .toList();
 
       if (mounted) {
@@ -1364,11 +1364,11 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
           ),
           const SizedBox(height: 16),
           
-          ..._userVideos
-              .toList()
-              .sortByViews(descending: true)
-              .take(3)
-              .map((video) => _buildTopPostItem(video, modernTheme)),
+          ...(() {
+            final sortedVideos = _userVideos.toList();
+            sortedVideos.sort((a, b) => b.views.compareTo(a.views));
+            return sortedVideos.take(3);
+          })().map((video) => _buildTopPostItem(video, modernTheme)),
           
           const SizedBox(height: 32),
           
@@ -1383,11 +1383,11 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
           ),
           const SizedBox(height: 16),
           
-          ..._userVideos
-              .toList()
-              .sortByDate(descending: true)
-              .take(5)
-              .map((video) => _buildRecentActivityItem(video, modernTheme)),
+          ...(() {
+            final sortedVideos = _userVideos.toList();
+            sortedVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+            return sortedVideos.take(5);
+          })().map((video) => _buildRecentActivityItem(video, modernTheme)),
         ],
       ),
     );

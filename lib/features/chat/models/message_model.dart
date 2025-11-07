@@ -21,6 +21,11 @@ class MessageModel {
   final Map<String, DateTime>? readBy; // userId -> read timestamp
   final Map<String, DateTime>? deliveredTo; // userId -> delivered timestamp
 
+  // Additional fields for file/video reaction messages
+  final String? fileName;
+  final Map<String, dynamic>? videoReactionData;
+  final bool? isOriginalReaction;
+
   const MessageModel({
     required this.messageId,
     required this.chatId,
@@ -40,6 +45,9 @@ class MessageModel {
     this.isPinned = false,
     this.readBy,
     this.deliveredTo,
+    this.fileName,
+    this.videoReactionData,
+    this.isOriginalReaction,
   });
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
@@ -72,16 +80,21 @@ class MessageModel {
         ? DateTime.parse(map['editedAt']) 
         : null,
       isPinned: map['isPinned'] ?? false,
-      readBy: map['readBy'] != null 
+      readBy: map['readBy'] != null
         ? Map<String, DateTime>.from(
-            (map['readBy'] as Map).map((k, v) => 
-              MapEntry(k.toString(), DateTime.parse(v)))) 
+            (map['readBy'] as Map).map((k, v) =>
+              MapEntry(k.toString(), DateTime.parse(v))))
         : null,
-      deliveredTo: map['deliveredTo'] != null 
+      deliveredTo: map['deliveredTo'] != null
         ? Map<String, DateTime>.from(
-            (map['deliveredTo'] as Map).map((k, v) => 
-              MapEntry(k.toString(), DateTime.parse(v)))) 
+            (map['deliveredTo'] as Map).map((k, v) =>
+              MapEntry(k.toString(), DateTime.parse(v))))
         : null,
+      fileName: map['fileName'],
+      videoReactionData: map['videoReactionData'] != null
+        ? Map<String, dynamic>.from(map['videoReactionData'])
+        : null,
+      isOriginalReaction: map['isOriginalReaction'],
     );
   }
 
@@ -105,6 +118,9 @@ class MessageModel {
       'isPinned': isPinned,
       'readBy': readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
       'deliveredTo': deliveredTo?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+      if (fileName != null) 'fileName': fileName,
+      if (videoReactionData != null) 'videoReactionData': videoReactionData,
+      if (isOriginalReaction != null) 'isOriginalReaction': isOriginalReaction,
     };
   }
 
@@ -127,6 +143,9 @@ class MessageModel {
     bool? isPinned,
     Map<String, DateTime>? readBy,
     Map<String, DateTime>? deliveredTo,
+    String? fileName,
+    Map<String, dynamic>? videoReactionData,
+    bool? isOriginalReaction,
   }) {
     return MessageModel(
       messageId: messageId ?? this.messageId,
@@ -147,6 +166,9 @@ class MessageModel {
       isPinned: isPinned ?? this.isPinned,
       readBy: readBy ?? this.readBy,
       deliveredTo: deliveredTo ?? this.deliveredTo,
+      fileName: fileName ?? this.fileName,
+      videoReactionData: videoReactionData ?? this.videoReactionData,
+      isOriginalReaction: isOriginalReaction ?? this.isOriginalReaction,
     );
   }
 

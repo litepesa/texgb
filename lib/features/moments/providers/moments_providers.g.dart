@@ -6,7 +6,7 @@ part of 'moments_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$momentsRepositoryHash() => r'0b991a39b567e438c72639b6c253f11f89d52ac0';
+String _$momentsRepositoryHash() => r'ba76cd86ab00e2dd23f66c3bf2e345ada8c23358';
 
 /// See also [momentsRepository].
 @ProviderFor(momentsRepository)
@@ -24,7 +24,7 @@ final momentsRepositoryProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef MomentsRepositoryRef = AutoDisposeProviderRef<MomentsRepository>;
-String _$momentHash() => r'd50639e01cf0318ff7e1c8795b3e0b412dc0bf7d';
+String _$momentHash() => r'dc556ba3707d18d73034ee0a945f51e4e4b35df4';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -174,7 +174,7 @@ class _MomentProviderElement
   String get momentId => (origin as MomentProvider).momentId;
 }
 
-String _$momentLikesHash() => r'2be819adce59c0d9b41ca284211e421aea3cb86b';
+String _$momentLikesHash() => r'4a9899abce16e5af86deb2d9ef2e988b869cbbda';
 
 /// See also [momentLikes].
 @ProviderFor(momentLikes)

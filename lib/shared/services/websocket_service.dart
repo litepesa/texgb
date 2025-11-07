@@ -462,6 +462,8 @@ class WebSocketService {
   }
 
   // Mark message as read
+  // ⚠️ PRIVACY: Intentionally NOT called - WeChat-like privacy (no read receipts)
+  // This method exists for backend compatibility but is never invoked
   Future<void> markMessageRead(String chatId, String messageId) async {
     await send('message_read', {
       'chatId': chatId,
@@ -469,7 +471,7 @@ class WebSocketService {
     });
   }
 
-  // Mark chat as read
+  // Mark chat as read (updates unread count only, does not send read receipts)
   Future<void> markChatRead(String chatId) async {
     await send('chat_read', {
       'chatId': chatId,

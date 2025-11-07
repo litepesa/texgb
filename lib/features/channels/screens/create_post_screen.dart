@@ -9,7 +9,7 @@ import 'package:textgb/features/authentication/widgets/login_required_widget.dar
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/videos/services/video_thumbnail_service.dart';
+import 'package:textgb/features/channels/services/video_thumbnail_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';

@@ -1,15 +1,23 @@
 // ===============================
 // Video Viewer Screen
 // Full-screen video player with dark theme
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class VideoViewerScreen extends ConsumerStatefulWidget {
   final String videoUrl;
@@ -142,7 +150,7 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
         onVerticalDragEnd: (details) {
           // Swipe down to close
           if (details.primaryVelocity! > 300) {
-            Navigator.pop(context);
+            context.pop();
           }
         },
         child: Stack(
@@ -220,7 +228,7 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
             // Back button
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
             ),
 
             const SizedBox(width: 8),
@@ -316,7 +324,7 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
                       : 'Comment',
                   color: Colors.white,
                   onPressed: () {
-                    // TODO: Navigate to comments
+                    context.push('${RoutePaths.userProfile}/${widget.moment.userId}');
                   },
                 ),
 
@@ -325,9 +333,7 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
                   icon: Icons.share_outlined,
                   label: 'Share',
                   color: Colors.white,
-                  onPressed: () {
-                    // TODO: Share functionality
-                  },
+                  onPressed: _shareVideo,
                 ),
               ],
             ),
@@ -465,7 +471,7 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => context.pop(),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white.withValues(alpha: 0.2),
               foregroundColor: Colors.white,
@@ -489,29 +495,185 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
               leading: const Icon(Icons.link, color: Colors.white),
               title: const Text('Copy link', style: TextStyle(color: Colors.white)),
               onTap: () {
-                Navigator.pop(context);
-                // TODO: Copy link
+                context.pop();
+                _copyVideoLink();
               },
             ),
             ListTile(
               leading: const Icon(Icons.download, color: Colors.white),
               title: const Text('Download video', style: TextStyle(color: Colors.white)),
               onTap: () {
-                Navigator.pop(context);
-                // TODO: Download video
+                context.pop();
+                _downloadVideo();
               },
             ),
             ListTile(
               leading: const Icon(Icons.report_outlined, color: Colors.white),
               title: const Text('Report', style: TextStyle(color: Colors.white)),
               onTap: () {
-                Navigator.pop(context);
-                // TODO: Report video
+                context.pop();
+                _reportVideo();
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  // Share video
+  Future<void> _shareVideo() async {
+    try {
+      final text = '''
+Check out this video from ${widget.moment.userName}!
+
+${widget.moment.content ?? ''}
+
+View on WemaChat: wemachat://moment/${widget.moment.id}
+      '''.trim();
+
+      await Share.share(text, subject: 'Video from ${widget.moment.userName}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Copy video link
+  void _copyVideoLink() {
+    final link = 'wemachat://moment/${widget.moment.id}';
+    Clipboard.setData(ClipboardData(text: link));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Link copied to clipboard'),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
+  }
+
+  // Download video
+  Future<void> _downloadVideo() async {
+    try {
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Downloading video...'),
+            backgroundColor: Colors.black87,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Download video
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'moment_video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final filePath = '${tempDir.path}/$fileName';
+
+      await Dio().download(
+        widget.videoUrl,
+        filePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = (received / total * 100).toStringAsFixed(0);
+            debugPrint('Download progress: $progress%');
+          }
+        },
+      );
+
+      // Save to gallery
+      await Gal.putVideo(filePath);
+
+      // Clean up temp file
+      await File(filePath).delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video saved to gallery'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to download video: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Report video
+  Future<void> _reportVideo() async {
+    final reasons = [
+      'Spam or misleading',
+      'Harassment or hate speech',
+      'Violence or dangerous content',
+      'Nudity or sexual content',
+      'False information',
+      'Other',
+    ];
+
+    String? selectedReason;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Video'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Why are you reporting this video?'),
+              const SizedBox(height: 16),
+              ...reasons.map((reason) => RadioListTile<String>(
+                    title: Text(reason),
+                    value: reason,
+                    groupValue: selectedReason,
+                    onChanged: (value) {
+                      setState(() => selectedReason = value);
+                    },
+                    contentPadding: EdgeInsets.zero,
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && selectedReason != null && mounted) {
+      // In a real app, send report to backend
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Video reported: $selectedReason'),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
   }
 }

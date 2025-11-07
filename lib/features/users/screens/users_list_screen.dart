@@ -8,8 +8,8 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/channels/screens/manage_posts_screen.dart';
+import 'package:textgb/features/channels/screens/videos_feed_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -220,7 +220,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     try {
       HapticFeedback.lightImpact();
       
-      final userVideos = ref.read(videosProvider).where((video) => video.userId == user.id).toList();
+      final userVideos = ref.read(videosProvider).where((video) => video.channelId == user.id).toList();
       
       if (userVideos.isNotEmpty) {
         Navigator.pushNamed(

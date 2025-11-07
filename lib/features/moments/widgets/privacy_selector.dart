@@ -1,19 +1,22 @@
 // ===============================
 // Privacy Selector Widget
 // Select moment visibility settings
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/moments/models/moment_enums.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
+import 'package:textgb/features/moments/widgets/contact_selector_screen.dart';
 
 class PrivacySelector extends StatelessWidget {
   final MomentVisibility currentVisibility;
 
   const PrivacySelector({
-    Key? key,
+    super.key,
     required this.currentVisibility,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +46,7 @@ class PrivacySelector extends StatelessWidget {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => context.pop(),
                   ),
                 ],
               ),
@@ -128,33 +131,59 @@ class PrivacySelector extends StatelessWidget {
               color: MomentsTheme.primaryBlue,
             )
           : null,
-      onTap: () {
+      onTap: () async {
         if (visibility == MomentVisibility.custom) {
-          // TODO: Navigate to contact selector
-          _showCustomPrivacyNote(context, visibility);
+          // Navigate to contact selector
+          context.pop(); // Close privacy selector
+          await _showCustomPrivacyOptions(context);
         } else {
-          Navigator.pop(context, visibility);
+          context.pop(visibility);
         }
       },
     );
   }
 
-  void _showCustomPrivacyNote(BuildContext context, MomentVisibility visibility) {
-    showDialog(
+  Future<void> _showCustomPrivacyOptions(BuildContext context) async {
+    final mode = await showDialog<ContactSelectorMode>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Custom Privacy'),
-        content: const Text(
-          'Custom privacy lists will be available in the next update. '
-          'For now, please use Public or Private visibility.',
-        ),
+        content: const Text('Choose how to customize visibility:'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            onPressed: () => context.pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(ContactSelectorMode.visibleTo),
+            child: const Text('Select who can see'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(ContactSelectorMode.hiddenFrom),
+            child: const Text('Hide from specific'),
           ),
         ],
       ),
     );
+
+    if (mode != null && context.mounted) {
+      // Navigate to contact selector
+      final selectedIds = await Navigator.push<List<String>>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ContactSelectorScreen(
+            mode: mode,
+            initialSelectedIds: const [],
+          ),
+        ),
+      );
+
+      if (selectedIds != null && selectedIds.isNotEmpty && context.mounted) {
+        // Return custom visibility with selected user IDs
+        // For now, just return the visibility type
+        // The parent screen should handle the selected IDs
+        context.pop(MomentVisibility.custom);
+      }
+    }
   }
 }

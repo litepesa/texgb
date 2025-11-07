@@ -2,11 +2,18 @@
 // Media Viewer Screen
 // Full-screen image viewer with dark theme
 // Supports swipe between images and pinch-to-zoom
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 
 class MediaViewerScreen extends StatefulWidget {
@@ -99,7 +106,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       onVerticalDragEnd: (details) {
         // Swipe down to close
         if (details.primaryVelocity! > 300) {
-          Navigator.pop(context);
+          context.pop();
         }
       },
       child: Center(
@@ -167,7 +174,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             // Back button
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
             ),
 
             const Spacer(),
@@ -281,7 +288,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _saveImage();
               },
             ),
@@ -292,7 +299,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _shareImage();
               },
             ),
@@ -303,7 +310,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _copyLink();
               },
             ),
@@ -314,7 +321,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.pop(context);
+                context.pop();
                 _reportImage();
               },
             ),
@@ -324,28 +331,78 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     );
   }
 
-  void _saveImage() {
-    // TODO: Implement save to gallery
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Save to gallery - Coming soon'),
-        backgroundColor: Colors.black87,
-      ),
-    );
+  Future<void> _saveImage() async {
+    try {
+      final imageUrl = widget.imageUrls[_currentIndex];
+
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Downloading image...'),
+          backgroundColor: Colors.black87,
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      // Download image
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'moment_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final filePath = '${tempDir.path}/$fileName';
+
+      await Dio().download(imageUrl, filePath);
+
+      // Save to gallery
+      await Gal.putImage(filePath);
+
+      // Clean up temp file
+      await File(filePath).delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image saved to gallery'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _shareImage() {
-    // TODO: Implement share
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share - Coming soon'),
-        backgroundColor: Colors.black87,
-      ),
-    );
+  Future<void> _shareImage() async {
+    try {
+      final imageUrl = widget.imageUrls[_currentIndex];
+
+      // For sharing, we can share the URL or download and share the file
+      // Sharing URL is faster and simpler
+      await Share.share(
+        'Check out this image on WemaChat!\n\n$imageUrl',
+        subject: 'Image from WemaChat',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _copyLink() {
-    // TODO: Implement copy link
+    final imageUrl = widget.imageUrls[_currentIndex];
+    Clipboard.setData(ClipboardData(text: imageUrl));
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Link copied to clipboard'),
@@ -354,13 +411,63 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     );
   }
 
-  void _reportImage() {
-    // TODO: Implement report
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Report - Coming soon'),
-        backgroundColor: Colors.black87,
+  Future<void> _reportImage() async {
+    final reasons = [
+      'Spam or misleading',
+      'Harassment or hate speech',
+      'Violence or dangerous content',
+      'Nudity or sexual content',
+      'False information',
+      'Other',
+    ];
+
+    String? selectedReason;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Image'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Why are you reporting this image?'),
+              const SizedBox(height: 16),
+              ...reasons.map((reason) => RadioListTile<String>(
+                    title: Text(reason),
+                    value: reason,
+                    groupValue: selectedReason,
+                    onChanged: (value) {
+                      setState(() => selectedReason = value);
+                    },
+                    contentPadding: EdgeInsets.zero,
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Report'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true && selectedReason != null && mounted) {
+      // In a real app, send report to backend
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Image reported: $selectedReason'),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
   }
 }

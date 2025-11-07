@@ -1,14 +1,16 @@
 // ===============================
 // Moments Feed Screen
 // Main timeline displaying all moments from contacts
+// Uses GoRouter for navigation
 // ===============================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/moments/widgets/moment_card.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class MomentsFeedScreen extends ConsumerStatefulWidget {
   const MomentsFeedScreen({Key? key}) : super(key: key);
@@ -46,12 +48,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
   }
 
   void _navigateToCreateMoment() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateMomentScreen(),
-      ),
-    );
+    context.go(RoutePaths.createMoment);
   }
 
   @override

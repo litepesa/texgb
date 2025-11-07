@@ -7,7 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -74,7 +74,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       
       // Get user videos - filter from all videos
       final allVideos = ref.read(videosProvider);
-      final userVideos = allVideos.where((video) => video.userId == widget.userId).toList();
+      final userVideos = allVideos.where((video) => video.channelId == widget.userId).toList();
       
       // Check if current user is following this user
       final currentUserId = ref.read(currentUserIdProvider);

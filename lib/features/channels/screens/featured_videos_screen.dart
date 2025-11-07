@@ -5,7 +5,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:typed_data';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -462,9 +462,9 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(24),
-                            child: video.userImage.isNotEmpty
+                            child: video.channelAvatar.isNotEmpty
                                 ? Image.network(
-                                    video.userImage,
+                                    video.channelAvatar,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
@@ -474,8 +474,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                         ),
                                         child: Center(
                                           child: Text(
-                                            video.userName.isNotEmpty 
-                                                ? video.userName[0].toUpperCase()
+                                            video.channelName.isNotEmpty
+                                                ? video.channelName[0].toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -494,8 +494,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                     ),
                                     child: Center(
                                       child: Text(
-                                        video.userName.isNotEmpty 
-                                            ? video.userName[0].toUpperCase()
+                                        video.channelName.isNotEmpty
+                                            ? video.channelName[0].toUpperCase()
                                             : "U",
                                         style: TextStyle(
                                           color: theme.primaryColor,
@@ -518,7 +518,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            video.userName,
+                            video.channelName,
                             style: TextStyle(
                               color: theme.textColor,
                               fontSize: 16,
@@ -548,7 +548,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '${_formatCount(_getUserFollowers(video.userId))} followers',
+                                  '${_formatCount(_getUserFollowers(video.channelId))} followers',
                                   style: TextStyle(
                                     color: theme.textSecondaryColor,
                                     fontSize: 12,
@@ -951,7 +951,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
       Constants.videosFeedScreen,
       arguments: {
         Constants.startVideoId: video.id,
-        Constants.userId: video.userId, 
+        Constants.userId: video.channelId,
       },
     );
   }

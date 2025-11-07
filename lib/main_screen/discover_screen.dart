@@ -2,8 +2,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/videos/screens/create_post_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/channels/screens/videos_feed_screen.dart';
+import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -33,7 +35,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               Navigator.push(
                 context,
                 CupertinoPageRoute(
-                  builder: (context) => const VideosFeedScreen(),
+                  builder: (context) => const MomentsFeedScreen(),
                 ),
               );
             },
@@ -65,7 +67,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const VideosFeedScreen(),
+                  builder: (context) => const ChannelsFeedScreen(),
                 ),
               );
             },

@@ -6,8 +6,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
-import 'package:textgb/features/videos/repositories/video_search_repository.dart';
+import 'package:textgb/features/channels/models/video_model.dart';
+import 'package:textgb/features/channels/repositories/video_search_repository.dart';
 
 part 'video_search_provider.g.dart';
 
