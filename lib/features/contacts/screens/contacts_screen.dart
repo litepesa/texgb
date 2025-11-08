@@ -615,7 +615,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
           isInvite: true,
           contact: contact,
         );
-      }).toList(),
+      }),
     ];
   }
 

@@ -3,7 +3,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/channels/models/video_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 
 part 'auth_convenience_providers.g.dart';
 

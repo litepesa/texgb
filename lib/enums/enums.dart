@@ -117,6 +117,8 @@ extension MessageEnumExtension on String {
         return MessageEnum.contact;
       case 'videoReaction':
         return MessageEnum.videoReaction;
+      case 'gift':
+        return MessageEnum.gift;
       default:
         return MessageEnum.text;
     }

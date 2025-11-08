@@ -24,10 +24,10 @@ class VideoViewerScreen extends ConsumerStatefulWidget {
   final MomentModel moment;
 
   const VideoViewerScreen({
-    Key? key,
+    super.key,
     required this.videoUrl,
     required this.moment,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<VideoViewerScreen> createState() => _VideoViewerScreenState();

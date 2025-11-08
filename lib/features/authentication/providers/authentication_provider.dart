@@ -11,9 +11,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/features/authentication/repositories/authentication_repository.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/channels/models/video_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/models/comment_model.dart';
-import 'package:textgb/features/channels/services/video_thumbnail_service.dart';
+import 'package:textgb/features/videos/services/video_thumbnail_service.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 part 'authentication_provider.g.dart';

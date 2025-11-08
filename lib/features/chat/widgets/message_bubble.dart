@@ -8,6 +8,7 @@ import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
 import 'package:textgb/features/chat/widgets/video_reaction_bubble.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
+import 'package:textgb/features/chat/widgets/gift_message_bubble.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -44,7 +45,16 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
-    
+
+    // Handle gift messages with custom widget
+    if (message.type == MessageEnum.gift) {
+      return GiftMessageBubble(
+        message: message,
+        isCurrentUser: isCurrentUser,
+        fontSize: fontSize,
+      );
+    }
+
     return GestureDetector(
       onLongPress: onLongPress,
       child: Container(
@@ -130,12 +140,12 @@ class MessageBubble extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: isCurrentUser 
-          ? MainAxisAlignment.end 
+        mainAxisAlignment: isCurrentUser
+          ? MainAxisAlignment.end
           : MainAxisAlignment.start,
         children: [
           Text(
-            DateFormat('HH:mm').format(message.timestamp),
+            DateFormat('HH:mm').format(message.timestamp.toLocal()),
             style: TextStyle(
               fontSize: 10,
               color: modernTheme.textTertiaryColor,

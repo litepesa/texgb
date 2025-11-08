@@ -13,7 +13,7 @@ import 'package:textgb/features/moments/providers/moments_providers.dart';
 import 'package:textgb/core/router/route_paths.dart';
 
 class MomentsFeedScreen extends ConsumerStatefulWidget {
-  const MomentsFeedScreen({Key? key}) : super(key: key);
+  const MomentsFeedScreen({super.key});
 
   @override
   ConsumerState<MomentsFeedScreen> createState() => _MomentsFeedScreenState();

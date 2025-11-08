@@ -172,12 +172,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       }
 
       final repository = ref.read(walletRepositoryProvider);
-      final wallet = await repository.getUserWallet(currentUser.id);
+      final wallet = await repository.getUserWallet(currentUser.uid);
       final transactions = await repository.getWalletTransactions(
-        currentUser.id,
+        currentUser.uid,
         limit: 10,
       );
-      
+
       _cachedWallet = wallet;
       _cachedTransactions = transactions;
       
@@ -208,12 +208,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       if (currentUser == null) return;
       
       final repository = ref.read(walletRepositoryProvider);
-      final wallet = await repository.getUserWallet(currentUser.id);
+      final wallet = await repository.getUserWallet(currentUser.uid);
       final transactions = await repository.getWalletTransactions(
-        currentUser.id,
+        currentUser.uid,
         limit: 10,
       );
-      
+
       _cachedWallet = wallet;
       _cachedTransactions = transactions;
       
@@ -1845,10 +1845,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         if (currentUser != null) {
                           final repository = ref.read(walletRepositoryProvider);
                           final moreTransactions = await repository.getWalletTransactions(
-                            currentUser.id,
+                            currentUser.uid,
                             limit: 20,
-                            lastTransactionId: _cachedTransactions.isNotEmpty 
-                                ? _cachedTransactions.last.transactionId 
+                            lastTransactionId: _cachedTransactions.isNotEmpty
+                                ? _cachedTransactions.last.transactionId
                                 : null,
                           );
                           

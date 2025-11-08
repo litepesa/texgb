@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:textgb/features/channels/models/video_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/models/comment_model.dart'; // ✅ Using thread comment model
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -204,7 +204,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   CommentSortOption _sortOption = CommentSortOption.top;
   
   // 🆕 Media state
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   bool _isUploadingMedia = false;
 
   // Custom theme-independent colors
@@ -349,7 +349,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         });
         
         if (images.length > remainingSlots) {
-          showSnackBar(context, 'Only ${remainingSlots} image(s) added (max 2 total)');
+          showSnackBar(context, 'Only $remainingSlots image(s) added (max 2 total)');
         }
       }
     } catch (e) {
@@ -648,14 +648,14 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundImage: widget.video.channelAvatar.isNotEmpty
-                ? NetworkImage(widget.video.channelAvatar)
+            backgroundImage: widget.video.userImage.isNotEmpty
+                ? NetworkImage(widget.video.userImage)
                 : null,
             backgroundColor: _lightGray,
-            child: widget.video.channelAvatar.isEmpty
+            child: widget.video.userImage.isEmpty
                 ? Text(
-                    widget.video.channelName.isNotEmpty
-                        ? widget.video.channelName[0].toUpperCase()
+                    widget.video.userName.isNotEmpty 
+                        ? widget.video.userName[0].toUpperCase()
                         : "U",
                     style: const TextStyle(
                       color: _mediumGray,
@@ -670,7 +670,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.video.channelName,
+                  widget.video.userName,
                   style: const TextStyle(
                     color: _pureBlack,
                     fontSize: 16,
@@ -930,10 +930,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   Widget _buildEnhancedCommentItem(CommentModel comment, {bool isReply = false}) {
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
-
+    
     final isLiked = currentUserId != null && comment.likes > 0; // Simplified like check
     final isOwn = currentUserId != null && comment.userId == currentUserId;
-    final isVideoCreator = currentUserId != null && widget.video.channelId == currentUserId;
+    final isVideoCreator = currentUserId != null && widget.video.userId == currentUserId;
     final canPin = isVideoCreator && !isReply; // Only video creator can pin top-level comments
 
     return Container(

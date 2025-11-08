@@ -55,9 +55,9 @@ class Wallet extends _$Wallet {
 
     try {
       // Get wallet and recent transactions
-      final wallet = await _repository.getUserWallet(currentUser.id);
+      final wallet = await _repository.getUserWallet(currentUser.uid);
       final transactions = await _repository.getWalletTransactions(
-        currentUser.id,
+        currentUser.uid,
         limit: 10,
       );
 
@@ -81,7 +81,7 @@ class Wallet extends _$Wallet {
 
       final lastTransactionId = currentState.transactions.last.transactionId;
       final moreTransactions = await _repository.getWalletTransactions(
-        currentUser.id,
+        currentUser.uid,
         limit: 20,
         lastTransactionId: lastTransactionId,
       );
@@ -102,9 +102,9 @@ class Wallet extends _$Wallet {
     try {
       state = AsyncValue.data(const WalletState(isLoading: true));
 
-      final wallet = await _repository.getUserWallet(currentUser.id);
+      final wallet = await _repository.getUserWallet(currentUser.uid);
       final transactions = await _repository.getWalletTransactions(
-        currentUser.id,
+        currentUser.uid,
         limit: 10,
       );
 
@@ -129,7 +129,7 @@ Stream<WalletModel?> walletStream(WalletStreamRef ref) {
   }
 
   final repository = ref.watch(walletRepositoryProvider);
-  return repository.walletStream(currentUser.id);
+  return repository.walletStream(currentUser.uid);
 }
 
 @riverpod
@@ -140,7 +140,7 @@ Stream<List<WalletTransaction>> transactionsStream(TransactionsStreamRef ref) {
   }
 
   final repository = ref.watch(walletRepositoryProvider);
-  return repository.transactionsStream(currentUser.id);
+  return repository.transactionsStream(currentUser.uid);
 }
 
 // Convenience providers

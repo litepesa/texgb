@@ -2,10 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
-import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/core/router/app_router.dart';
 
 // State provider for loading state

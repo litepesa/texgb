@@ -3,14 +3,12 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  agora_rtc_engine
   fc_native_video_thumbnail
   file_selector_windows
   firebase_auth
   firebase_core
   flutter_webrtc
   gal
-  iris_method_channel
   permission_handler_windows
   share_plus
   url_launcher_windows

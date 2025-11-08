@@ -83,6 +83,7 @@ class RoutePaths {
   static const String earnings = '/earnings';
 
   // ==================== CHANNELS ROUTES ====================
+  static const String channelsHome = '/channels';
   static const String channelsFeed = '/channels-feed';
   static const String discoverChannels = '/discover-channels';
   static const String createChannel = '/create-channel';
@@ -90,8 +91,17 @@ class RoutePaths {
   static const String myChannel = '/my-channel';
 
   // Dynamic channel routes
+  static String channelDetail(String channelId) => '/channel/$channelId';
+  static const String channelDetailPattern = '/channel/:channelId';
+
   static String channelProfile(String channelId) => '/channel/$channelId';
   static const String channelProfilePattern = '/channel/:channelId';
+
+  static String createChannelPost(String channelId) => '/channel/$channelId/create-post';
+  static const String createChannelPostPattern = '/channel/:channelId/create-post';
+
+  static String channelPost(String postId) => '/channel-post/$postId';
+  static const String channelPostPattern = '/channel-post/:postId';
 
   static String channelVideo(String videoId) => '/channel-video/$videoId';
   static const String channelVideoPattern = '/channel-video/:videoId';
@@ -237,10 +247,14 @@ class RouteNames {
   static const String contactProfile = 'contactProfile';
   static const String wallet = 'wallet';
   static const String search = 'search';
+  static const String channelsHome = 'channelsHome';
   static const String channelsFeed = 'channelsFeed';
+  static const String channelDetail = 'channelDetail';
   static const String channelProfile = 'channelProfile';
+  static const String channelPost = 'channelPost';
   static const String channelVideo = 'channelVideo';
   static const String createChannel = 'createChannel';
+  static const String createChannelPost = 'createChannelPost';
   static const String editChannel = 'editChannel';
   static const String myChannel = 'myChannel';
   static const String discoverChannels = 'discoverChannels';

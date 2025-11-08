@@ -6,7 +6,6 @@ import 'package:pinput/pinput.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/core/router/app_router.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {

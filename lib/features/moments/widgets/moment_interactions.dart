@@ -13,11 +13,11 @@ class MomentInteractions extends StatelessWidget {
   final VoidCallback onComment;
 
   const MomentInteractions({
-    Key? key,
+    super.key,
     required this.moment,
     required this.onLike,
     required this.onComment,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

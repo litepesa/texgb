@@ -18,7 +18,7 @@ import 'package:textgb/features/moments/providers/moments_providers.dart';
 import 'package:textgb/features/moments/widgets/privacy_selector.dart';
 
 class CreateMomentScreen extends ConsumerStatefulWidget {
-  const CreateMomentScreen({Key? key}) : super(key: key);
+  const CreateMomentScreen({super.key});
 
   @override
   ConsumerState<CreateMomentScreen> createState() => _CreateMomentScreenState();
@@ -33,8 +33,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   MomentMediaType _mediaType = MomentMediaType.text;
   MomentVisibility _visibility = MomentVisibility.all;
   String? _location;
-  List<String> _visibleTo = [];
-  List<String> _hiddenFrom = [];
+  final List<String> _visibleTo = [];
+  final List<String> _hiddenFrom = [];
   bool _isUploading = false;
   double _uploadProgress = 0.0;
 

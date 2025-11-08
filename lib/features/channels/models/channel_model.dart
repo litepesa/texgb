@@ -1,298 +1,305 @@
-// ===============================
-// Channel Model
-// One user can create ONE channel (WeChat Channels style)
-// Backend-ready with complete JSON serialization
-// ===============================
+// lib/features/channels/models/channel_model.dart
 
+/// Channel type enum
+enum ChannelType {
+  public,
+  private,
+  premium,
+}
+
+/// Channel model with all properties
 class ChannelModel {
   final String id;
-  final String userId;              // Owner of this channel
-  final String channelName;         // Channel's display name (NOT user's personal name)
-  final String channelAvatar;       // Channel's avatar/logo (NOT user's personal avatar)
-  final String bio;                 // Channel description
-  final bool isVerified;            // Channel verification status
-  final int followersCount;         // Number of followers
-  final int videosCount;            // Number of videos posted
-  final int totalViews;             // Total views across all videos
-  final int totalLikes;             // Total likes across all videos
-  final String category;            // Channel category (e.g., "Tech", "Fashion", "Food")
-  final List<String> tags;          // Channel tags
-  final String? websiteUrl;         // Optional website link
-  final String? contactEmail;       // Optional contact email
-  final bool isActive;              // Is channel active
-  final bool isFeatured;            // Featured channel status
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String ownerId;
+  final String name;
+  final String description;
+  final String? avatarUrl;
+  final String? bannerUrl;
+  final ChannelType type;
+  final bool isVerified;
+  final int subscriberCount;
+  final int postCount;
+  final int unreadCount; // Unread posts for current user
 
-  // Runtime fields (not from backend)
-  final bool isFollowing;           // Is current user following this channel
+  // Premium channel settings
+  final int? subscriptionPriceCoins; // Monthly subscription price for premium channels
+
+  // Metadata
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  // User's relationship to this channel
+  final bool? isSubscribed;
+  final bool? isAdmin;
+  final bool? isModerator;
+  final bool? isOwner;
+  final bool? hasNotificationsEnabled;
 
   const ChannelModel({
     required this.id,
-    required this.userId,
-    required this.channelName,
-    required this.channelAvatar,
-    required this.bio,
-    required this.isVerified,
-    required this.followersCount,
-    required this.videosCount,
-    required this.totalViews,
-    required this.totalLikes,
-    required this.category,
-    required this.tags,
-    this.websiteUrl,
-    this.contactEmail,
-    required this.isActive,
-    required this.isFeatured,
-    required this.createdAt,
-    required this.updatedAt,
-    this.isFollowing = false,
+    required this.ownerId,
+    required this.name,
+    required this.description,
+    this.avatarUrl,
+    this.bannerUrl,
+    this.type = ChannelType.public,
+    this.isVerified = false,
+    this.subscriberCount = 0,
+    this.postCount = 0,
+    this.unreadCount = 0,
+    this.subscriptionPriceCoins,
+    this.createdAt,
+    this.updatedAt,
+    this.isSubscribed,
+    this.isAdmin,
+    this.isModerator,
+    this.isOwner,
+    this.hasNotificationsEnabled,
   });
 
-  // From JSON (backend response)
   factory ChannelModel.fromJson(Map<String, dynamic> json) {
     return ChannelModel(
-      id: json['id'] as String? ?? '',
-      userId: json['userId'] as String? ?? json['user_id'] as String? ?? '',
-      channelName: json['channelName'] as String? ?? json['channel_name'] as String? ?? '',
-      channelAvatar: json['channelAvatar'] as String? ?? json['channel_avatar'] as String? ?? '',
-      bio: json['bio'] as String? ?? '',
+      id: json['id'] as String,
+      ownerId: json['ownerId'] as String? ?? json['owner_id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String,
+      avatarUrl: json['avatarUrl'] as String? ?? json['avatar_url'] as String?,
+      bannerUrl: json['bannerUrl'] as String? ?? json['banner_url'] as String?,
+      type: _channelTypeFromString(json['type'] as String?),
       isVerified: json['isVerified'] as bool? ?? json['is_verified'] as bool? ?? false,
-      followersCount: _parseInt(json['followersCount'] ?? json['followers_count'] ?? 0),
-      videosCount: _parseInt(json['videosCount'] ?? json['videos_count'] ?? 0),
-      totalViews: _parseInt(json['totalViews'] ?? json['total_views'] ?? 0),
-      totalLikes: _parseInt(json['totalLikes'] ?? json['total_likes'] ?? 0),
-      category: json['category'] as String? ?? 'General',
-      tags: _parseStringList(json['tags']),
-      websiteUrl: json['websiteUrl'] as String? ?? json['website_url'] as String?,
-      contactEmail: json['contactEmail'] as String? ?? json['contact_email'] as String?,
-      isActive: json['isActive'] as bool? ?? json['is_active'] as bool? ?? true,
-      isFeatured: json['isFeatured'] as bool? ?? json['is_featured'] as bool? ?? false,
-      createdAt: _parseDateTime(json['createdAt'] ?? json['created_at']),
-      updatedAt: _parseDateTime(json['updatedAt'] ?? json['updated_at']),
-      isFollowing: json['isFollowing'] as bool? ?? json['is_following'] as bool? ?? false,
+      subscriberCount: json['subscriberCount'] as int? ?? json['subscriber_count'] as int? ?? 0,
+      postCount: json['postCount'] as int? ?? json['post_count'] as int? ?? 0,
+      unreadCount: json['unreadCount'] as int? ?? json['unread_count'] as int? ?? 0,
+      subscriptionPriceCoins: json['subscriptionPriceCoins'] as int? ?? json['subscription_price_coins'] as int?,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) :
+                 (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null),
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) :
+                 (json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null),
+      isSubscribed: json['isSubscribed'] as bool? ?? json['is_subscribed'] as bool?,
+      isAdmin: json['isAdmin'] as bool? ?? json['is_admin'] as bool?,
+      isModerator: json['isModerator'] as bool? ?? json['is_moderator'] as bool?,
+      isOwner: json['isOwner'] as bool? ?? json['is_owner'] as bool?,
+      hasNotificationsEnabled: json['hasNotificationsEnabled'] as bool? ?? json['has_notifications_enabled'] as bool?,
     );
   }
 
-  // To JSON (for API requests)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'userId': userId,
-      'channelName': channelName,
-      'channelAvatar': channelAvatar,
-      'bio': bio,
+      'ownerId': ownerId,
+      'name': name,
+      'description': description,
+      'avatarUrl': avatarUrl,
+      'bannerUrl': bannerUrl,
+      'type': _channelTypeToString(type),
       'isVerified': isVerified,
-      'followersCount': followersCount,
-      'videosCount': videosCount,
-      'totalViews': totalViews,
-      'totalLikes': totalLikes,
-      'category': category,
-      'tags': tags,
-      'websiteUrl': websiteUrl,
-      'contactEmail': contactEmail,
-      'isActive': isActive,
-      'isFeatured': isFeatured,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'isFollowing': isFollowing,
+      'subscriberCount': subscriberCount,
+      'postCount': postCount,
+      'unreadCount': unreadCount,
+      'subscriptionPriceCoins': subscriptionPriceCoins,
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+      'isSubscribed': isSubscribed,
+      'isAdmin': isAdmin,
+      'isModerator': isModerator,
+      'isOwner': isOwner,
+      'hasNotificationsEnabled': hasNotificationsEnabled,
     };
   }
 
-  // CopyWith for state updates
   ChannelModel copyWith({
     String? id,
-    String? userId,
-    String? channelName,
-    String? channelAvatar,
-    String? bio,
+    String? ownerId,
+    String? name,
+    String? description,
+    String? avatarUrl,
+    String? bannerUrl,
+    ChannelType? type,
     bool? isVerified,
-    int? followersCount,
-    int? videosCount,
-    int? totalViews,
-    int? totalLikes,
-    String? category,
-    List<String>? tags,
-    String? websiteUrl,
-    String? contactEmail,
-    bool? isActive,
-    bool? isFeatured,
+    int? subscriberCount,
+    int? postCount,
+    int? unreadCount,
+    int? subscriptionPriceCoins,
     DateTime? createdAt,
     DateTime? updatedAt,
-    bool? isFollowing,
+    bool? isSubscribed,
+    bool? isAdmin,
+    bool? isModerator,
+    bool? isOwner,
+    bool? hasNotificationsEnabled,
   }) {
     return ChannelModel(
       id: id ?? this.id,
-      userId: userId ?? this.userId,
-      channelName: channelName ?? this.channelName,
-      channelAvatar: channelAvatar ?? this.channelAvatar,
-      bio: bio ?? this.bio,
+      ownerId: ownerId ?? this.ownerId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      type: type ?? this.type,
       isVerified: isVerified ?? this.isVerified,
-      followersCount: followersCount ?? this.followersCount,
-      videosCount: videosCount ?? this.videosCount,
-      totalViews: totalViews ?? this.totalViews,
-      totalLikes: totalLikes ?? this.totalLikes,
-      category: category ?? this.category,
-      tags: tags ?? this.tags,
-      websiteUrl: websiteUrl ?? this.websiteUrl,
-      contactEmail: contactEmail ?? this.contactEmail,
-      isActive: isActive ?? this.isActive,
-      isFeatured: isFeatured ?? this.isFeatured,
+      subscriberCount: subscriberCount ?? this.subscriberCount,
+      postCount: postCount ?? this.postCount,
+      unreadCount: unreadCount ?? this.unreadCount,
+      subscriptionPriceCoins: subscriptionPriceCoins ?? this.subscriptionPriceCoins,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      isFollowing: isFollowing ?? this.isFollowing,
+      isSubscribed: isSubscribed ?? this.isSubscribed,
+      isAdmin: isAdmin ?? this.isAdmin,
+      isModerator: isModerator ?? this.isModerator,
+      isOwner: isOwner ?? this.isOwner,
+      hasNotificationsEnabled: hasNotificationsEnabled ?? this.hasNotificationsEnabled,
+    );
+  }
+}
+
+/// Channel member model (for admins/moderators list)
+class ChannelMember {
+  final String id;
+  final String channelId;
+  final String userId;
+  final String userName;
+  final String? userAvatarUrl;
+  final MemberRole role;
+  final DateTime? addedAt;
+  final DateTime? createdAt;
+  final String? addedBy;
+
+  const ChannelMember({
+    required this.id,
+    required this.channelId,
+    required this.userId,
+    required this.userName,
+    this.userAvatarUrl,
+    this.role = MemberRole.subscriber,
+    this.addedAt,
+    this.createdAt,
+    this.addedBy,
+  });
+
+  factory ChannelMember.fromJson(Map<String, dynamic> json) {
+    return ChannelMember(
+      id: json['id'] as String,
+      channelId: json['channelId'] as String? ?? json['channel_id'] as String,
+      userId: json['userId'] as String? ?? json['user_id'] as String,
+      userName: json['userName'] as String? ?? json['user_name'] as String,
+      userAvatarUrl: json['userAvatarUrl'] as String? ?? json['user_avatar_url'] as String?,
+      role: _memberRoleFromString(json['role'] as String?),
+      addedAt: json['addedAt'] != null ? DateTime.parse(json['addedAt'] as String) :
+               (json['added_at'] != null ? DateTime.parse(json['added_at'] as String) : null),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) :
+                 (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null),
+      addedBy: json['addedBy'] as String? ?? json['added_by'] as String?,
     );
   }
 
-  // Helper: Parse int safely
-  static int _parseInt(dynamic value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is double) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
-  }
-
-  // Helper: Parse string list
-  static List<String> _parseStringList(dynamic value) {
-    if (value == null) return [];
-    if (value is List) {
-      return value.map((e) => e.toString()).toList();
-    }
-    if (value is String && value.isNotEmpty) {
-      return value.split(',').map((s) => s.trim()).toList();
-    }
-    return [];
-  }
-
-  // Helper: Parse DateTime
-  static DateTime _parseDateTime(dynamic value) {
-    if (value == null) return DateTime.now();
-    if (value is DateTime) return value;
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (e) {
-        return DateTime.now();
-      }
-    }
-    return DateTime.now();
-  }
-
-  // Display helpers
-  String get formattedFollowers => _formatCount(followersCount);
-  String get formattedVideos => _formatCount(videosCount);
-  String get formattedViews => _formatCount(totalViews);
-  String get formattedLikes => _formatCount(totalLikes);
-
-  static String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    }
-    return count.toString();
-  }
-
-  // Engagement rate
-  double get engagementRate {
-    if (totalViews == 0) return 0.0;
-    return (totalLikes / totalViews) * 100;
-  }
-
-  String get formattedEngagementRate => '${engagementRate.toStringAsFixed(1)}%';
-
-  // Validation
-  bool get isValid {
-    return id.isNotEmpty &&
-        userId.isNotEmpty &&
-        channelName.isNotEmpty &&
-        channelAvatar.isNotEmpty;
-  }
-
-  @override
-  String toString() {
-    return 'ChannelModel(id: $id, channelName: $channelName, followers: $followersCount, videos: $videosCount, verified: $isVerified)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is ChannelModel && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-}
-
-// ===============================
-// Create Channel Request
-// ===============================
-
-class CreateChannelRequest {
-  final String channelName;
-  final String channelAvatar;
-  final String bio;
-  final String category;
-  final List<String> tags;
-  final String? websiteUrl;
-  final String? contactEmail;
-
-  const CreateChannelRequest({
-    required this.channelName,
-    required this.channelAvatar,
-    required this.bio,
-    required this.category,
-    required this.tags,
-    this.websiteUrl,
-    this.contactEmail,
-  });
-
   Map<String, dynamic> toJson() {
     return {
-      'channelName': channelName,
-      'channelAvatar': channelAvatar,
-      'bio': bio,
-      'category': category,
-      'tags': tags,
-      'websiteUrl': websiteUrl,
-      'contactEmail': contactEmail,
+      'id': id,
+      'channelId': channelId,
+      'userId': userId,
+      'userName': userName,
+      'userAvatarUrl': userAvatarUrl,
+      'role': _memberRoleToString(role),
+      'addedAt': addedAt?.toIso8601String(),
+      'createdAt': createdAt?.toIso8601String(),
+      'addedBy': addedBy,
     };
   }
 }
 
-// ===============================
-// Update Channel Request
-// ===============================
+/// Member role enum
+enum MemberRole {
+  owner,
+  admin,
+  moderator,
+  subscriber,
+}
 
-class UpdateChannelRequest {
-  final String? channelName;
-  final String? channelAvatar;
-  final String? bio;
-  final String? category;
-  final List<String>? tags;
-  final String? websiteUrl;
-  final String? contactEmail;
+/// Extension for role permissions
+extension MemberRoleExtension on MemberRole {
+  bool get canPost => this == MemberRole.owner || this == MemberRole.admin;
 
-  const UpdateChannelRequest({
-    this.channelName,
-    this.channelAvatar,
-    this.bio,
-    this.category,
-    this.tags,
-    this.websiteUrl,
-    this.contactEmail,
-  });
+  bool get canDeletePosts => this == MemberRole.owner || this == MemberRole.admin;
 
-  Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{};
-    if (channelName != null) map['channelName'] = channelName;
-    if (channelAvatar != null) map['channelAvatar'] = channelAvatar;
-    if (bio != null) map['bio'] = bio;
-    if (category != null) map['category'] = category;
-    if (tags != null) map['tags'] = tags;
-    if (websiteUrl != null) map['websiteUrl'] = websiteUrl;
-    if (contactEmail != null) map['contactEmail'] = contactEmail;
-    return map;
+  bool get canDeleteComments =>
+      this == MemberRole.owner ||
+      this == MemberRole.admin ||
+      this == MemberRole.moderator;
+
+  bool get canBanUsers =>
+      this == MemberRole.owner ||
+      this == MemberRole.admin ||
+      this == MemberRole.moderator;
+
+  bool get canManageMembers => this == MemberRole.owner || this == MemberRole.admin;
+
+  bool get canEditChannel => this == MemberRole.owner || this == MemberRole.admin;
+
+  bool get canDeleteChannel => this == MemberRole.owner;
+
+  String get displayName {
+    switch (this) {
+      case MemberRole.owner:
+        return 'Owner';
+      case MemberRole.admin:
+        return 'Admin';
+      case MemberRole.moderator:
+        return 'Moderator';
+      case MemberRole.subscriber:
+        return 'Subscriber';
+    }
+  }
+}
+
+// Helper functions for enum conversion
+ChannelType _channelTypeFromString(String? value) {
+  switch (value) {
+    case 'public':
+      return ChannelType.public;
+    case 'private':
+      return ChannelType.private;
+    case 'premium':
+      return ChannelType.premium;
+    default:
+      return ChannelType.public;
+  }
+}
+
+String _channelTypeToString(ChannelType type) {
+  switch (type) {
+    case ChannelType.public:
+      return 'public';
+    case ChannelType.private:
+      return 'private';
+    case ChannelType.premium:
+      return 'premium';
+  }
+}
+
+MemberRole _memberRoleFromString(String? value) {
+  switch (value) {
+    case 'owner':
+      return MemberRole.owner;
+    case 'admin':
+      return MemberRole.admin;
+    case 'moderator':
+      return MemberRole.moderator;
+    case 'subscriber':
+      return MemberRole.subscriber;
+    default:
+      return MemberRole.subscriber;
+  }
+}
+
+String _memberRoleToString(MemberRole role) {
+  switch (role) {
+    case MemberRole.owner:
+      return 'owner';
+    case MemberRole.admin:
+      return 'admin';
+    case MemberRole.moderator:
+      return 'moderator';
+    case MemberRole.subscriber:
+      return 'subscriber';
   }
 }

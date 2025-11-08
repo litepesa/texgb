@@ -88,7 +88,8 @@ dependencies:
   flutter_ringtone_player: ^4.0.0+2 # Play ringtone for incoming calls
 
   # Live Streaming
-  agora_rtc_engine: ^6.5.3          # Agora SDK for live streaming
+  #agora_rtc_engine: ^6.5.3          # Agora SDK for live streaming
+  libsignal_protocol_dart: ^0.7.1
 
 
 

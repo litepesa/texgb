@@ -16,11 +16,11 @@ class UserMomentsScreen extends ConsumerWidget {
   final String userAvatar;
 
   const UserMomentsScreen({
-    Key? key,
+    super.key,
     required this.userId,
     required this.userName,
     required this.userAvatar,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

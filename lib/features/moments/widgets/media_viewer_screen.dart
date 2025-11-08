@@ -21,10 +21,10 @@ class MediaViewerScreen extends StatefulWidget {
   final int initialIndex;
 
   const MediaViewerScreen({
-    Key? key,
+    super.key,
     required this.imageUrls,
     this.initialIndex = 0,
-  }) : super(key: key);
+  });
 
   @override
   State<MediaViewerScreen> createState() => _MediaViewerScreenState();

@@ -17,6 +17,7 @@ import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
@@ -139,12 +140,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   // Helper method to format timestamp for display
   String _formatTimestampForDisplay(DateTime timestamp) {
-    return _displayDateFormat.format(timestamp);
+    return _displayDateFormat.format(timestamp.toLocal());
   }
 
   // Helper method to format timestamp for search results
   String _formatTimestampForSearch(DateTime timestamp) {
-    return _searchDateFormat.format(timestamp);
+    return _searchDateFormat.format(timestamp.toLocal());
   }
 
   // Helper method to determine verification status
@@ -402,7 +403,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         onSendText: (text) => _handleSendText(text),
                         onSendImage: (image) => _handleSendImage(image),
                         onSendFile: (file, fileName) => _handleSendFile(file, fileName),
+                        onSendGift: (gift) => _handleSendGift(gift),
+                        contactId: widget.contact.id,
                         contactName: widget.contact.name,
+                        contactImage: widget.contact.profileImage,
                         replyToMessage: state.replyToMessage,
                         onCancelReply: () => _cancelReply(),
                       ),
@@ -741,6 +745,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendFileMessage(widget.chatId, file, fileName);
     _hasMessageBeenSent = true;
+  }
+
+  void _handleSendGift(VirtualGift gift) {
+    // Haptic feedback for successful gift send
+    HapticFeedback.heavyImpact();
+
+    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    messageNotifier.sendGiftMessage(
+      widget.chatId,
+      giftId: gift.id,
+      giftName: gift.name,
+      giftIcon: gift.emoji,
+      giftValue: gift.price,
+    );
+    _hasMessageBeenSent = true;
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Text(gift.emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Gift sent to ${widget.contact.name}!',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _cancelReply() {
@@ -1314,7 +1354,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                _searchDateFormat.format(message.timestamp),
+                                _searchDateFormat.format(message.timestamp.toLocal()),
                                 style: TextStyle(color: modernTheme.textSecondaryColor),
                               ),
                               onTap: () => widget.onMessageSelected(message),
@@ -1407,7 +1447,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          _pinnedDateFormat.format(message.timestamp),
+                          _pinnedDateFormat.format(message.timestamp.toLocal()),
                           style: TextStyle(color: modernTheme.textSecondaryColor),
                         ),
                         trailing: IconButton(

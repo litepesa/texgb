@@ -18,9 +18,9 @@ class MomentMediaGrid extends StatelessWidget {
   final MomentModel moment;
 
   const MomentMediaGrid({
-    Key? key,
+    super.key,
     required this.moment,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

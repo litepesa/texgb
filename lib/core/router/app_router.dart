@@ -22,13 +22,13 @@ import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/screens/live_users_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 
-import 'package:textgb/features/channels/screens/videos_feed_screen.dart';
-import 'package:textgb/features/channels/screens/single_video_screen.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/channels/screens/my_post_screen.dart';
-import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
-import 'package:textgb/features/channels/screens/manage_posts_screen.dart';
-import 'package:textgb/features/channels/screens/featured_videos_screen.dart';
+import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/videos/screens/single_video_screen.dart';
+import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/videos/screens/my_post_screen.dart';
+import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
+import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
+import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -36,6 +36,15 @@ import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
+
+// Channels screens
+import 'package:textgb/features/channels/screens/channels_home_screen.dart';
+import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
+import 'package:textgb/features/channels/screens/post_detail_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/screens/channel_settings_screen.dart';
+import 'package:textgb/features/channels/screens/members_management_screen.dart';
 
 // Chat screens
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
@@ -46,11 +55,6 @@ import 'package:textgb/features/calls/screens/incoming_call_screen.dart';
 import 'package:textgb/features/calls/screens/outgoing_call_screen.dart';
 import 'package:textgb/features/calls/screens/active_call_screen.dart';
 
-// Channels screens
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
-import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 
 // Moments screens
 import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
@@ -287,38 +291,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ContactProfileScreen(contact: user);
         },
       ),
-      
-      // ==================== CHANNELS ROUTES ====================
-
-      GoRoute(
-        path: RoutePaths.channelsFeed,
-        name: RouteNames.channelsFeed,
-        builder: (context, state) => const ChannelsFeedScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.channelProfilePattern,
-        name: RouteNames.channelProfile,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return ChannelProfileScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.createChannel,
-        name: RouteNames.createChannel,
-        builder: (context, state) => const CreateChannelScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.editChannel,
-        name: RouteNames.editChannel,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return EditChannelScreen(channelId: channelId);
-        },
-      ),
 
       // ==================== MOMENTS ROUTES ====================
 
@@ -446,7 +418,71 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.wallet,
         builder: (context, state) => const WalletScreenV2(),
       ),
-      
+
+      // ==================== CHANNELS ROUTES ====================
+
+      GoRoute(
+        path: RoutePaths.channelsHome,
+        name: RouteNames.channelsHome,
+        builder: (context, state) => const ChannelsHomeScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.channelDetailPattern,
+        name: RouteNames.channelDetail,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return ChannelDetailScreen(channelId: channelId);
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.channelPostPattern,
+        name: RouteNames.channelPost,
+        builder: (context, state) {
+          final postId = state.pathParameters['postId']!;
+          final extra = state.extra as Map<String, dynamic>?;
+          final channelId = extra?['channelId'] as String? ?? '';
+          return PostDetailScreen(
+            postId: postId,
+            channelId: channelId,
+          );
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.createChannel,
+        name: RouteNames.createChannel,
+        builder: (context, state) => const CreateChannelScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.createChannelPostPattern,
+        name: RouteNames.createChannelPost,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return CreateChannelPostScreen(channelId: channelId);
+        },
+      ),
+
+      GoRoute(
+        path: '/channel/:channelId/settings',
+        name: 'channelSettings',
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return ChannelSettingsScreen(channelId: channelId);
+        },
+      ),
+
+      GoRoute(
+        path: '/channel/:channelId/members',
+        name: 'channelMembers',
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return MembersManagementScreen(channelId: channelId);
+        },
+      ),
+
       // ==================== SEARCH ROUTES ====================
       // Add these when you implement search screens
       
@@ -548,12 +584,19 @@ extension AppNavigationExtension on BuildContext {
 
   // ==================== CHANNELS NAVIGATION ====================
 
+  void goToChannels() => go(RoutePaths.channelsHome);
+  void goToChannelsHome() => go(RoutePaths.channelsHome);
   void goToChannelsFeed() => go(RoutePaths.channelsFeed);
   void goToDiscoverChannels() => go(RoutePaths.discoverChannels);
   void goToCreateChannel() => go(RoutePaths.createChannel);
   void goToEditChannel({String? channelId}) => go(RoutePaths.editChannel, extra: channelId);
   void goToMyChannel() => go(RoutePaths.myChannel);
+  void goToChannelDetail(String channelId) => go(RoutePaths.channelDetail(channelId));
   void goToChannelProfile(String channelId) => go(RoutePaths.channelProfile(channelId));
+  void goToChannelPost(String postId, String channelId) => go(
+    RoutePaths.channelPost(postId),
+    extra: {'channelId': channelId},
+  );
   void goToChannelVideo(String videoId) => go(RoutePaths.channelVideo(videoId));
 
   // ==================== MOMENTS NAVIGATION ====================

@@ -6,20 +6,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class HttpClientService {
-  // Updated base URL to work with Android emulator
+  // Updated base URL to work with local Elixir server
   static String get _baseUrl {
     if (kDebugMode) {
-      // For development - check if we can reach localhost first
-      // If not, fall back to production server
-      return 'http://144.126.252.66:8080/api/v1'; // Use production for now
-      
-      // Alternative: Use localhost only for iOS simulator
-      // if (Platform.isIOS) {
-      //   return 'http://localhost:8080/api/v1';
-      // } else {
-      //   return 'http://64.227.142.38:8080/api/v1';
-      // }
+      // For development - connect to local Elixir server
+      // Use 10.0.2.2 for Android emulator, localhost for iOS simulator
+      if (Platform.isAndroid) {
+        return 'http://10.0.2.2:4000/api/v1';  // Android emulator localhost
+      } else if (Platform.isIOS) {
+        return 'http://localhost:4000/api/v1';  // iOS simulator
+      } else {
+        return 'http://localhost:4000/api/v1';  // Desktop/Web
+      }
     } else {
+      // Production: Use your production server URL
       return 'http://144.126.252.66:8080/api/v1';
     }
   }

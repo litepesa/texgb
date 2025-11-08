@@ -444,7 +444,7 @@ class HttpChatRepository implements ChatRepository {
         'content': message.content,
         'type': message.type.name,
         'status': message.status.name,
-        'timestamp': message.timestamp.toIso8601String(),
+        'timestamp': message.timestamp.toUtc().toIso8601String(),
         'mediaUrl': message.mediaUrl,
         'mediaMetadata': message.mediaMetadata,
         'replyToMessageId': message.replyToMessageId,
@@ -452,12 +452,12 @@ class HttpChatRepository implements ChatRepository {
         'replyToSender': message.replyToSender,
         'reactions': message.reactions,
         'isEdited': message.isEdited,
-        'editedAt': message.editedAt?.toIso8601String(),
+        'editedAt': message.editedAt?.toUtc().toIso8601String(),
         'isPinned': message.isPinned,
         'readBy':
-            message.readBy?.map((k, v) => MapEntry(k, v.toIso8601String())),
+            message.readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
         'deliveredTo': message.deliveredTo
-            ?.map((k, v) => MapEntry(k, v.toIso8601String())),
+            ?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
       });
 
       if (response.statusCode == 200 || response.statusCode == 201) {

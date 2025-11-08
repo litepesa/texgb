@@ -2,17 +2,22 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
+import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 
 class MessageInput extends StatefulWidget {
   final Function(String) onSendText;
   final Function(File) onSendImage;
   final Function(File, String) onSendFile;
+  final Function(VirtualGift)? onSendGift;
+  final String? contactId;
   final String? contactName;
+  final String? contactImage;
   final MessageModel? replyToMessage;
   final VoidCallback? onCancelReply;
 
@@ -21,7 +26,10 @@ class MessageInput extends StatefulWidget {
     required this.onSendText,
     required this.onSendImage,
     required this.onSendFile,
+    this.onSendGift,
+    this.contactId,
     this.contactName,
+    this.contactImage,
     this.replyToMessage,
     this.onCancelReply,
   });
@@ -183,9 +191,35 @@ class _MessageInputState extends State<MessageInput> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 8),
-                  
+
+                  // Gift button
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFFF6B35).withOpacity(0.2),
+                          const Color(0xFFE91E63).withOpacity(0.2),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _showGiftSelection,
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(
+                        Icons.card_giftcard,
+                        color: Color(0xFFFF6B35),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
                   // Text input
                   Expanded(
                     child: Container(
@@ -275,7 +309,7 @@ class _MessageInputState extends State<MessageInput> {
 
   void _showAttachmentOptions() {
     final modernTheme = context.modernTheme;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -333,6 +367,32 @@ class _MessageInputState extends State<MessageInput> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showGiftSelection() {
+    // Haptic feedback for button tap
+    HapticFeedback.lightImpact();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => VirtualGiftsBottomSheet(
+        recipientId: widget.contactId,
+        recipientName: widget.contactName,
+        recipientImage: widget.contactImage,
+        onGiftSelected: (gift) {
+          // Haptic feedback for gift selection
+          HapticFeedback.mediumImpact();
+
+          // Call the onSendGift callback if provided
+          widget.onSendGift?.call(gift);
+        },
+        onClose: () {
+          Navigator.of(context).pop();
+        },
       ),
     );
   }

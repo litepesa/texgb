@@ -25,18 +25,18 @@ class MomentCard extends ConsumerStatefulWidget {
   final bool showComments;
 
   const MomentCard({
-    Key? key,
+    super.key,
     required this.moment,
     this.onTap,
     this.showComments = true,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<MomentCard> createState() => _MomentCardState();
 }
 
 class _MomentCardState extends ConsumerState<MomentCard> {
-  bool _showAllComments = false;
+  final bool _showAllComments = false;
 
   @override
   Widget build(BuildContext context) {

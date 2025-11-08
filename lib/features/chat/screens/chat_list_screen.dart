@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';

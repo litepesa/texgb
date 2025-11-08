@@ -23,7 +23,7 @@ final walletRepositoryProvider = AutoDisposeProvider<WalletRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef WalletRepositoryRef = AutoDisposeProviderRef<WalletRepository>;
-String _$walletStreamHash() => r'3cf8e409173cff15f60e21ae5593921df4dd9ef0';
+String _$walletStreamHash() => r'75eff376b47aadaeab5d21a7ab89d6299ce7b8e2';
 
 /// See also [walletStream].
 @ProviderFor(walletStream)
@@ -40,7 +40,7 @@ final walletStreamProvider = AutoDisposeStreamProvider<WalletModel?>.internal(
 // ignore: unused_element
 typedef WalletStreamRef = AutoDisposeStreamProviderRef<WalletModel?>;
 String _$transactionsStreamHash() =>
-    r'3e89209b05ca5624670c93ea2cb2c395a9bce8bd';
+    r'cb21d3c310a57b8c8caff92908190de4ece98a40';
 
 /// See also [transactionsStream].
 @ProviderFor(transactionsStream)
@@ -261,7 +261,7 @@ final availableCoinPackagesProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AvailableCoinPackagesRef = AutoDisposeProviderRef<List<CoinPackage>>;
-String _$walletHash() => r'5054884b829758fcb4dd8b2b235b3157d4b8ddbc';
+String _$walletHash() => r'53c8c5b71eaf0de7ef3fbb78a512d1d20bdb9ae0';
 
 /// See also [Wallet].
 @ProviderFor(Wallet)

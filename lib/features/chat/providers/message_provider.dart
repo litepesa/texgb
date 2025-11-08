@@ -1383,7 +1383,7 @@ class MessageNotifier extends _$MessageNotifier {
 
     try {
       final currentState = state.valueOrNull ?? const MessageState();
-      
+
       final message = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -1408,13 +1408,83 @@ class MessageNotifier extends _$MessageNotifier {
       // Send to server
       await _repository.sendMessage(message);
       await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
-      
+
     } catch (e) {
       debugPrint('Error sending contact message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send contact: $e',
+      ));
+    }
+  }
+
+  // Send gift message
+  Future<void> sendGiftMessage(
+    String chatId, {
+    required String giftId,
+    required String giftName,
+    required String giftIcon,
+    required int giftValue,
+    String? recipientId,
+  }) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      debugPrint('Cannot send gift: user not authenticated');
+      return;
+    }
+
+    try {
+      final currentState = state.valueOrNull ?? const MessageState();
+
+      // Build gift metadata
+      final giftMetadata = {
+        'giftId': giftId,
+        'giftName': giftName,
+        'giftIcon': giftIcon,
+        'giftValue': giftValue,
+        'isOpened': false,
+      };
+
+      // Create optimistic message
+      final tempMessage = MessageModel(
+        messageId: _uuid.v4(),
+        chatId: chatId,
+        senderId: currentUser.uid,
+        content: '', // Gift messages don't have text content
+        type: MessageEnum.gift,
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaMetadata: giftMetadata,
+      );
+
+      // Add to local state immediately
+      final updatedMessages = [tempMessage, ...currentState.messages];
+      state = AsyncValue.data(currentState.copyWith(
+        messages: updatedMessages,
+        clearError: true,
+      ));
+
+      // Send gift via API (handles wallet deduction)
+      // The /gifts/send endpoint will handle the transaction
+      // We'll use the existing HTTP client from auth repository
+      if (recipientId != null) {
+        final authNotifier = ref.read(authenticationProvider.notifier);
+        // Note: This assumes we have access to the HTTP client through auth
+        // The gift API call is already handled by VirtualGiftsBottomSheet
+        // So we just need to send the message to the chat
+      }
+
+      // Send message to chat repository
+      await _repository.sendMessage(tempMessage);
+      await _repository.updateMessageStatus(chatId, tempMessage.messageId, MessageStatus.sent);
+
+    } catch (e) {
+      debugPrint('Error sending gift message: $e');
+
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Failed to send gift: $e',
       ));
     }
   }

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
-import 'package:textgb/features/channels/services/video_cache_service.dart';
+import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:textgb/core/router/app_router.dart';
 
 void main() async {
