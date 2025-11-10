@@ -1,15 +1,14 @@
 // lib/features/users/screens/users_list_screen.dart
-// ENHANCED: Added eye-catching marketplace banner with dismiss functionality
+// REFACTORED: Using GoRouter for navigation
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/constants.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class UsersListScreen extends ConsumerStatefulWidget {
@@ -30,7 +29,6 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   late Animation<double> _bannerAnimation;
   
   final List<String> categories = ['All', 'Following', 'Verified'];
-  static const String _bannerDismissedKey = 'marketplace_banner_dismissed';
 
   @override
   void initState() {
@@ -58,19 +56,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   }
 
   Future<void> _checkBannerStatus() async {
-    // Always show the banner on app start
     if (mounted) {
       setState(() {
         _showMarketplaceBanner = true;
       });
-      
-      // Start the animation
       _bannerAnimationController.forward();
     }
   }
 
   Future<void> _dismissBanner() async {
-    // Only dismiss for this session, will show again on next app start
     if (mounted) {
       setState(() {
         _showMarketplaceBanner = false;
@@ -80,15 +74,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
 
   void _navigateToMarketplace() {
     HapticFeedback.mediumImpact();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const VideosFeedScreen(),
-      ),
-    );
+    context.push(RoutePaths.videosFeed);
   }
 
-  // Helper method to get safe theme with fallback
   ModernThemeExtension _getSafeTheme(BuildContext context) {
     return Theme.of(context).extension<ModernThemeExtension>() ?? 
         ModernThemeExtension(
@@ -103,13 +91,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
         );
   }
 
-  // NEW: Check if we have cached users data
   bool get _hasCachedData {
     final users = ref.read(usersProvider);
     return users.isNotEmpty;
   }
 
-  // ENHANCED: Cache-aware initialization
   void _initializeScreen() {
     if (_hasCachedData) {
       setState(() {
@@ -122,7 +108,6 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     }
   }
 
-  // NEW: Load initial data for new users or cleared cache
   Future<void> _loadInitialData() async {
     setState(() {
       _isLoadingInitial = true;
@@ -151,7 +136,6 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     }
   }
 
-  // UPDATED: Refresh users data (only called by pull-to-refresh)
   Future<void> _refreshUsers() async {
     try {
       await ref.read(authenticationProvider.notifier).loadUsers();
@@ -222,28 +206,19 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
       final userVideos = ref.read(videosProvider).where((video) => video.userId == user.id).toList();
       
       if (userVideos.isNotEmpty) {
-        Navigator.pushNamed(
-          context,
-          Constants.singleVideoScreen,
-          arguments: {
-            Constants.startVideoId: userVideos.first.id,
-            Constants.userId: user.id,
+        // Navigate to single video with user context
+        context.push(
+          RoutePaths.singleVideo(userVideos.first.id),
+          extra: {
+            'userId': user.id,
           },
         );
       } else {
         _showSnackBar('${user.name} hasn\'t posted any videos yet');
-        Navigator.pushNamed(
-          context,
-          Constants.userProfileScreen,
-          arguments: user.id,
-        );
+        context.push(RoutePaths.userProfile(user.id));
       }
     } catch (e) {
-      Navigator.pushNamed(
-        context,
-        Constants.userProfileScreen,
-        arguments: user.id,
-      );
+      context.push(RoutePaths.userProfile(user.id));
     }
   }
 
@@ -304,12 +279,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         child: InkWell(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ManagePostsScreen(),
-                              ),
-                            );
+                            context.push(RoutePaths.managePosts);
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
@@ -441,7 +411,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
               ],
             ),
             
-            // NEW: Eye-catching Marketplace Banner
+            // Eye-catching Marketplace Banner
             if (_showMarketplaceBanner)
               Positioned(
                 top: MediaQuery.of(context).size.height * 0.35,
@@ -721,9 +691,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () {
-                _loadInitialData();
-              },
+              onPressed: _loadInitialData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                 foregroundColor: Colors.white,
@@ -809,7 +777,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           const SizedBox(height: 24),
                           ElevatedButton.icon(
                             onPressed: () {
-                              Navigator.pushNamed(context, Constants.createProfileScreen);
+                              context.push(RoutePaths.createProfile);
                             },
                             icon: const Icon(Icons.person_add),
                             label: const Text('Join WeiBao'),
@@ -1396,7 +1364,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   }
 }
 
-// Search Delegate remains the same
+// Search Delegate with GoRouter navigation
 class UserSearchDelegate extends SearchDelegate<UserModel?> {
   final WidgetRef ref;
 
@@ -1606,11 +1574,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                 child: InkWell(
                   onTap: () {
                     close(context, user);
-                    Navigator.pushNamed(
-                      context,
-                      Constants.userProfileScreen,
-                      arguments: user.id,
-                    );
+                    context.push(RoutePaths.userProfile(user.id));
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Row(
