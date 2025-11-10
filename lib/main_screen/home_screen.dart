@@ -41,10 +41,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_2_fill,       // Chats
-    CupertinoIcons.person_2_square_stack,    // Groups
-    CupertinoIcons.rays,                     // Status
-    CupertinoIcons.qrcode,                   // Channels
+    CupertinoIcons.chat_bubble_2_fill,             // Chats
+    Icons.group_outlined,                          // Groups
+    Icons.donut_large_rounded,                     // Status
+    CupertinoIcons.dot_radiowaves_left_right,      // Channels
   ];
 
   @override

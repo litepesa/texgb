@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/features/videos/services/video_cache_service.dart';
@@ -12,6 +13,10 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:textgb/constants.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 
 class VideoItem extends ConsumerStatefulWidget {
   final VideoModel video;
@@ -24,6 +29,8 @@ class VideoItem extends ConsumerStatefulWidget {
   final bool isCommentsOpen;
   final bool showVerificationBadge;
   final bool isFeedScreen;
+  final Function()? onCommentsPressed;
+  final Function()? onDirectMessagePressed;
 
   const VideoItem({
     super.key,
@@ -37,6 +44,8 @@ class VideoItem extends ConsumerStatefulWidget {
     this.isCommentsOpen = false,
     this.showVerificationBadge = true,
     this.isFeedScreen = false,
+    this.onCommentsPressed,
+    this.onDirectMessagePressed,
   });
 
   @override
@@ -111,7 +120,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void _cleanupCurrentController() {
     _retryTimer?.cancel();
     _retryTimer = null;
-    
+
     if (_videoPlayerController != null && widget.preloadedController == null) {
       try {
         if (_videoPlayerController!.value.isInitialized) {
@@ -120,14 +129,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
       } catch (e) {
         // Silent error handling
       }
-      
+
       try {
         _videoPlayerController!.dispose();
       } catch (e) {
         // Silent error handling
       }
     }
-    
+
     _videoPlayerController = null;
     _isInitialized = false;
     _isPlaying = false;
@@ -200,9 +209,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
       case 'like videos':
       case 'like':
         return Icons.favorite;
-      case 'follow users':
-      case 'follow':
-        return Icons.people;
+      case 'comment on videos':
+      case 'comment':
+        return Icons.comment;
+      case 'send direct messages':
+      case 'dm':
+        return Icons.message;
       case 'buy this product':
       case 'buy':
         return Icons.shopping_cart;
@@ -243,19 +255,22 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
       // Generate shareable link for this video (your landing page)
       final videoLink = 'https://share.weibao.africa/v/${widget.video.id}';
-      
+
       // Prepare message content with landing page link
       // When clicked in WhatsApp, this will show rich preview and open your app
-      String message = '$videoLink\n\nHi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice})';
+      String message =
+          '$videoLink\n\nHi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice})';
       // Encode the message for URL
       final encodedMessage = Uri.encodeComponent(message);
-      
+
       // Create WhatsApp URL with the user's actual WhatsApp number
-      final whatsappUrl = 'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
+      final whatsappUrl =
+          'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
       final uri = Uri.parse(whatsappUrl);
 
       debugPrint('Opening WhatsApp with URL: $whatsappUrl');
-      debugPrint('Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
+      debugPrint(
+          'Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
       debugPrint('Product link: $videoLink');
 
       // Try to launch WhatsApp directly without checking canLaunchUrl
@@ -584,7 +599,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_isInitialized || _isPlaying) {
       return;
     }
-    
+
     _retryTimer?.cancel();
     _retryTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && !_isInitialized && !_isPlaying) {
@@ -603,7 +618,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   Future<void> _createControllerFromNetwork() async {
     final cachedUri = VideoCacheService().getLocalUri(widget.video.videoUrl);
-    
+
     _videoPlayerController = VideoPlayerController.networkUrl(
       cachedUri,
       videoPlayerOptions: VideoPlayerOptions(
@@ -613,13 +628,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
 
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 15),
-    );
+          const Duration(seconds: 15),
+        );
   }
 
   Future<void> _setupVideoController() async {
     if (_videoPlayerController == null) return;
-    
+
     _videoPlayerController!.setLooping(true);
 
     _retryTimer?.cancel();
@@ -709,29 +724,192 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  void _handleFollowToggle() async {
-    final canInteract = await _requireAuthentication('follow users');
-    if (!canInteract) return;
-
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.followUser(widget.video.userId);
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   void _toggleCaptionExpansion() {
     setState(() {
       _showFullCaption = !_showFullCaption;
     });
   }
 
+  // Like video functionality
+  void _likeCurrentVideo() async {
+    final canInteract = await _requireAuthentication('like videos');
+    if (!canInteract) return;
+
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    authNotifier.likeVideo(widget.video.id);
+  }
+
+  // Show comments functionality
+  void _showCommentsForCurrentVideo() async {
+    if (_isCommentsSheetOpen) return;
+
+    final canInteract = await _requireAuthentication('comment on videos');
+    if (!canInteract) return;
+
+    if (widget.onCommentsPressed != null) {
+      widget.onCommentsPressed!();
+    } else {
+      // Fallback to local implementation
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        builder: (context) => CommentsBottomSheet(
+          video: widget.video,
+          onClose: () {},
+        ),
+      );
+    }
+  }
+
+  // Direct message functionality
+  Future<void> _openDirectMessage() async {
+    final canInteract = await _requireAuthentication('send direct messages');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if trying to message own video
+    if (widget.video.userId == currentUser!.uid) {
+      _showCannotDMOwnVideoMessage();
+      return;
+    }
+
+    if (widget.onDirectMessagePressed != null) {
+      widget.onDirectMessagePressed!();
+    } else {
+      // Fallback to local implementation
+      try {
+        // Create or get existing chat using chat provider
+        final chatNotifier = ref.read(chatListProvider.notifier);
+        final chatId = await chatNotifier.createOrGetChat(widget.video.userId);
+
+        if (chatId != null) {
+          context.push(RoutePaths.chat(chatId));
+        } else {
+          _showSnackBar('Failed to open chat. Please try again.');
+        }
+      } catch (e) {
+        debugPrint('Error opening direct message: $e');
+        _showSnackBar('Failed to open chat. Please try again.');
+      }
+    }
+  }
+
+  void _showCannotDMOwnVideoMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.blue,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Message Yourself',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send a direct message to your own video.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Back navigation functionality
+  void _handleBackNavigation() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  // Timestamp parsing and formatting methods
   DateTime _parseVideoTimestamp() {
     try {
       return DateTime.parse(widget.video.createdAt);
     } catch (e) {
       return DateTime.now();
+    }
+  }
+
+  String _getRelativeTime() {
+    final now = DateTime.now();
+    final videoTime = _parseVideoTimestamp();
+    final difference = now.difference(videoTime);
+
+    if (difference.inSeconds < 30) {
+      return 'Just now';
+    } else if (difference.inSeconds < 60) {
+      return 'Less than a minute ago';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return hours == 1 ? '1 hour ago' : '$hours hours ago';
+    } else if (difference.inDays < 7) {
+      final days = difference.inDays;
+      return days == 1 ? 'Yesterday' : '$days days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return months == 1 ? '1 month ago' : '$months months ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return years == 1 ? '1 year ago' : '$years years ago';
+    }
+  }
+
+  String _formatCount(int count) {
+    if (count == 0) return '0';
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 1000000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    } else {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
     }
   }
 
@@ -744,7 +922,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
-    
+
     super.dispose();
   }
 
@@ -766,19 +944,15 @@ class _VideoItemState extends ConsumerState<VideoItem>
               fit: StackFit.expand,
               children: [
                 _buildMediaContent(),
-
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
-
                 if (!widget.video.isMultipleImages &&
                     _isInitialized &&
                     !_isPlaying &&
                     !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
-
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
-
                 if (widget.video.isMultipleImages &&
                     widget.video.imageUrls.length > 1 &&
                     !_isCommentsSheetOpen)
@@ -786,9 +960,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ],
             ),
           ),
-
+          if (!_isCommentsSheetOpen) _buildTopLeftUserInfo(),
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
-          if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -936,8 +1109,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
         width: double.infinity,
         height: double.infinity,
         color: Colors.black,
-        child: (widget.isLoading || _isInitializing) 
-            ? _buildLoadingIndicator() 
+        child: (widget.isLoading || _isInitializing)
+            ? _buildLoadingIndicator()
             : Container(color: Colors.black),
       );
     }
@@ -999,8 +1172,263 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  Widget _buildSmartCaption() {
-    if (widget.video.caption.isEmpty) return const SizedBox.shrink();
+  // NEW: Top left user info with back arrow, avatar, name, verification, and timestamp
+  Widget _buildTopLeftUserInfo() {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return Positioned(
+      top: topPadding,
+      left: 0,
+      right: 0,
+      child: _buildUserInfoWithBackArrow(),
+    );
+  }
+
+  Widget _buildUserInfoWithBackArrow() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final videoUser = _getUserDataIfAvailable();
+
+        return GestureDetector(
+          onTap: _navigateToUserProfile,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Back Arrow
+              GestureDetector(
+                onTap: _handleBackNavigation,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  child: const Icon(
+                    CupertinoIcons.arrow_left,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 1),
+              // Profile Avatar
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: widget.video.userImage.isNotEmpty == true
+                      ? Image.network(
+                          widget.video.userImage,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  widget.video.userName.isNotEmpty == true
+                                      ? widget.video.userName[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Center(
+                            child: Text(
+                              widget.video.userName.isNotEmpty == true
+                                  ? widget.video.userName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Username and verification
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.video.userName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // ONLY SHOW VERIFICATION BADGE WHEN USER IS VERIFIED
+                        if (widget.showVerificationBadge &&
+                            videoUser != null &&
+                            videoUser.isVerified)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF1DA1F2),
+                                  Color(0xFF0D8BD9),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF1DA1F2)
+                                      .withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Verified',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.2,
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 2,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    // Timestamp
+                    Text(
+                      _getRelativeTime(),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // UPDATED: Bottom overlay with only captions & hashtags
+  Widget _buildBottomContentOverlay() {
+    if (_isCommentsSheetOpen) return const SizedBox.shrink();
+
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Positioned(
+      bottom: bottomPadding,
+      left: 12,
+      right: 12,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.video.caption.isNotEmpty ||
+              widget.video.tags.isNotEmpty) ...[
+            _buildCaptionWithHashtags(),
+            const SizedBox(height: 8),
+          ],
+          _buildActionRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCaptionWithHashtags() {
+    if (widget.video.caption.isEmpty && widget.video.tags.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final captionStyle = TextStyle(
       color: Colors.white,
@@ -1020,10 +1448,17 @@ class _VideoItemState extends ConsumerState<VideoItem>
       fontWeight: FontWeight.w500,
     );
 
+    // Build text with caption and hashtags (NO TIMESTAMP)
     String fullText = widget.video.caption;
+
+    // Add hashtags if they exist
     if (widget.video.tags.isNotEmpty) {
       final hashtags = widget.video.tags.map((tag) => '#$tag').join(' ');
-      fullText += '\n$hashtags';
+      if (fullText.isNotEmpty) {
+        fullText += '\n$hashtags';
+      } else {
+        fullText = hashtags;
+      }
     }
 
     return GestureDetector(
@@ -1032,13 +1467,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         child: _showFullCaption
-            ? _buildExpandedText(fullText, captionStyle, moreStyle)
-            : _buildTruncatedText(fullText, captionStyle, moreStyle),
+            ? _buildExpandedCaption(fullText, captionStyle, moreStyle)
+            : _buildTruncatedCaption(fullText, captionStyle, moreStyle),
       ),
     );
   }
 
-  Widget _buildExpandedText(
+  Widget _buildExpandedCaption(
       String fullText, TextStyle captionStyle, TextStyle moreStyle) {
     return RichText(
       text: TextSpan(
@@ -1056,7 +1491,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  Widget _buildTruncatedText(
+  Widget _buildTruncatedCaption(
       String fullText, TextStyle captionStyle, TextStyle moreStyle) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1110,346 +1545,269 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Bottom overlay with system padding positioning
-  Widget _buildBottomContentOverlay() {
-    if (_isCommentsSheetOpen) return const SizedBox.shrink();
-
-    final bottomPadding = MediaQuery.of(context).padding.bottom + 4;
-
-    return Positioned(
-      bottom: bottomPadding,
-      left: 16,
-      right: 80,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildUserNameWithVerification(),
-          const SizedBox(height: 6),
-          if (widget.video.caption.isNotEmpty) ...[
-            _buildSmartCaption(),
-            const SizedBox(height: 8),
-          ],
-          _buildConditionalBottomInfo(),
-        ],
-      ),
-    );
+  void _navigateToUserProfile() {
+    context.push(Constants.userProfileScreen, extra: widget.video.userId);
   }
 
-  Widget _buildUserNameWithVerification() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final videoUser = _getUserDataIfAvailable();
+  // Single horizontal row with all five elements - FIT SCREEN, scrollable only if needed
+  Widget _buildActionRow() {
+    // Calculate available width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final availableWidth = screenWidth - 32; // 16px padding on each side
 
-        return Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Build the row content
+        final rowContent = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: Text(
-                widget.video.userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 6),
-            if (widget.showVerificationBadge && videoUser != null) ...[
-              if (videoUser.isVerified)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF1DA1F2),
-                        Color(0xFF0D8BD9),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.verified_rounded,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.help_outline,
-                        size: 12,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Not Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.7),
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.7),
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            // Price and Buy buttons (only show if video has price)
+            if (widget.video.price > 0) ...[
+              _buildPriceButton(),
+              const SizedBox(width: 8),
+              _buildBuyButton(),
+              const SizedBox(width: 12),
             ],
+
+            // Like button
+            _buildActionButton(
+              icon: widget.video.isLiked == true
+                  ? CupertinoIcons.heart_fill
+                  : CupertinoIcons.heart,
+              count: widget.video.likes,
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF5252), // Red
+                  Color(0xFFFF1744), // Darker red
+                ],
+              ),
+              onTap: _likeCurrentVideo,
+            ),
+
+            const SizedBox(width: 10),
+
+            // Comment button
+            _buildActionButton(
+              icon: CupertinoIcons.text_bubble,
+              count: widget.video.comments,
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF4FC3F7), // Light blue
+                  Color(0xFF29B6F6), // Blue
+                ],
+              ),
+              onTap: _showCommentsForCurrentVideo,
+            ),
+
+            const SizedBox(width: 10),
+
+            // DM button
+            _buildDMActionButton(
+              onTap: _openDirectMessage,
+            ),
           ],
+        );
+
+        // Check if content fits without scrolling
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(),
+          child: rowContent,
         );
       },
     );
   }
 
-  // Conditional widget - shows Price/Buy if price > 0, otherwise shows Timestamp
-  Widget _buildConditionalBottomInfo() {
-    // If video has a price (product/service), show price and buy button
-    if (widget.video.price > 0) {
-      return _buildPriceAndBuyButton();
-    }
-    // Otherwise, show timestamp (regular social media post)
-    else {
-      return _buildTimestampDisplay();
-    }
-  }
-
-  Widget _buildPriceAndBuyButton() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Price container using real price from video model
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF4CAF50), // Green start
-                Color(0xFF2E7D32), // Darker green end
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
+  Widget _buildPriceButton() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF4CAF50), // Green start
+            Color(0xFF2E7D32), // Darker green end
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.local_offer,
+            color: Colors.white,
+            size: 14,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            widget.video.formattedPrice,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Price icon
-              const Icon(
-                Icons.local_offer,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBuyButton() {
+    return GestureDetector(
+      onTap: _openWhatsAppForBuy,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFF6B6B), // Coral red start
+              Color(0xFFE55353), // Darker red end
+            ],
+          ),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.shopping_cart,
+              color: Colors.white,
+              size: 14,
+            ),
+            SizedBox(width: 4),
+            Text(
+              'BUY',
+              style: TextStyle(
                 color: Colors.white,
-                size: 16,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                  ),
-                ],
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
               ),
-              const SizedBox(width: 6),
-              // Real price text using video.formattedPrice
-              Text(
-                widget.video.formattedPrice,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required int count,
+    required Gradient gradient,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 16,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _formatCount(count),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDMActionButton({
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF7E57C2), // Purple
+              Color(0xFF5E35B1), // Darker purple
             ],
           ),
-        ),
-        
-        const SizedBox(width: 8), // Space between price and buy button
-        
-        // BUY button - OPENS WHATSAPP
-        GestureDetector(
-          onTap: _openWhatsAppForBuy,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFF6B6B), // Coral red start
-                  Color(0xFFE55353), // Darker red end
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Shopping cart icon
-                const Icon(
-                  Icons.shopping_cart,
-                  color: Colors.white,
-                  size: 16,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 6),
-                // BUY text
-                const Text(
-                  'BUY',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildTimestampDisplay() {
-    final timestampStyle = TextStyle(
-      color: Colors.white.withOpacity(0.7),
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      height: 1.3,
-      shadows: [
-        Shadow(
-          color: Colors.black.withOpacity(0.7),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.chat_bubble_2,
+              color: Colors.white,
+              size: 16,
+            ),
+            SizedBox(width: 4),
+            Text(
+              'DM',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
-
-    return Text(
-      _getRelativeTime(),
-      style: timestampStyle,
-    );
-  }
-
-  String _getRelativeTime() {
-    final now = DateTime.now();
-    final videoTime = _parseVideoTimestamp();
-    final difference = now.difference(videoTime);
-
-    if (difference.inSeconds < 30) {
-      return 'Just now';
-    } else if (difference.inSeconds < 60) {
-      return 'Less than a minute ago';
-    } else if (difference.inMinutes < 60) {
-      final minutes = difference.inMinutes;
-      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
-    } else if (difference.inHours < 24) {
-      final hours = difference.inHours;
-      return hours == 1 ? '1 hour ago' : '$hours hours ago';
-    } else if (difference.inDays < 7) {
-      final days = difference.inDays;
-      return days == 1 ? 'Yesterday' : '$days days ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return months == 1 ? '1 month ago' : '$months months ago';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return years == 1 ? '1 year ago' : '$years years ago';
-    }
   }
 
   Widget _buildCarouselIndicators() {
@@ -1483,56 +1841,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
           );
         }),
-      ),
-    );
-  }
-
-  Widget _buildTopLeftFollowButton() {
-    final videoUser = _getUserDataIfAvailable();
-    final currentUser = ref.watch(currentUserProvider);
-
-    if (videoUser == null) {
-      return const SizedBox.shrink();
-    }
-
-    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
-    if (isOwner) return const SizedBox.shrink();
-
-    final followedUsers = ref.watch(followedUsersProvider);
-    final isFollowing = followedUsers.contains(widget.video.userId);
-
-    final topPosition = MediaQuery.of(context).padding.top + 8;
-
-    return Positioned(
-      top: topPosition,
-      left: 16,
-      child: AnimatedScale(
-        scale: isFollowing ? 0.0 : 1.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        child: AnimatedOpacity(
-          opacity: isFollowing ? 0.0 : 1.0,
-          duration: const Duration(milliseconds: 300),
-          child: GestureDetector(
-            onTap: _handleFollowToggle,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              /*decoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border.all(color: Colors.white, width: 1),
-                borderRadius: BorderRadius.circular(5),
-              ),*/
-              child: const Text(
-                'Follow',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
