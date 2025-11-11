@@ -1,6 +1,8 @@
 // lib/features/channels/screens/recommended_posts_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -822,8 +824,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () {
-                  // Navigate to users list or explore
-                  Navigator.pop(context);
+                  // Navigate to videos feed screen
+                  context.push(RoutePaths.videosFeed);
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -849,7 +851,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Explore Users',
+                        'Explore Posts',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -868,12 +870,11 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
   }
 
   void _navigateToVideoFeed(VideoModel video) {
-    Navigator.pushNamed(
-      context,
-      Constants.videosFeedScreen,
-      arguments: {
+    context.push(
+      RoutePaths.videosFeed,
+      extra: {
         'startVideoId': video.id,
-        'userId': video.userId, 
+        'userId': video.userId,
       },
     );
   }

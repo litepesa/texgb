@@ -35,16 +35,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Chats',          // Index 0 - Chats Screen
-    'Groups',         // Index 1 - Groups (Coming Soon)
-    'Status',         // Index 2 - Status (Coming Soon)
-    'Marketplace',    // Index 3 - User List Screen
+    'Channels',       // Index 1 - Channels Home Screen
+    'Status',         // Index 2 - Recommended Posts Screen
+    'Profile',        // Index 3 - My Profile Screen
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2_fill,             // Chats
-    Icons.group_outlined,                          // Groups
+    Icons.group_outlined,                          // Channels
     Icons.donut_large_rounded,                     // Status
-    CupertinoIcons.dot_radiowaves_left_right,      // Channels
+    CupertinoIcons.dot_radiowaves_left_right,      // Profile
   ];
 
   @override
@@ -93,7 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildComingSoonScreen(String title, ModernThemeExtension modernTheme) {
+  /*Widget _buildComingSoonScreen(String title, ModernThemeExtension modernTheme) {
     return Container(
       color: modernTheme.surfaceColor,
       child: Center(
@@ -126,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
-  }
+  }*/
 
   void _onTabTapped(int index) {
     if (!mounted || index == _currentIndex) return;
@@ -219,7 +219,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'WemaèŠ',
+                'WemaChat',
                 style: TextStyle(
                   color: isDarkMode ? Colors.white : Colors.black,
                   fontSize: 24,
@@ -240,7 +240,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      appBar: _buildAppBar(modernTheme, isDarkMode),
+      appBar: _currentIndex == 3 ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -255,19 +255,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const ChannelsHomeScreen(),
           ),
-          // Moments tab (index 2) - Recommended Posts Screen
+          // Status tab (index 2) - Recommended Posts Screen
           _KeepAliveWrapper(
             child: const RecommendedPostsScreen(),
           ),
-          // Stores tab (index 3) - Shops Home Screen
+          // Profile tab (index 3) - My Profile Screen
           _KeepAliveWrapper(
-            child: const UsersListScreen(),
+            child: const MyProfileScreen(),
           ),
         ],
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
-      floatingActionButton: _currentIndex == 0 ? _buildMultipleFabs(modernTheme) : _buildFab(modernTheme),
+      floatingActionButton: _currentIndex == 3 ? null : (_currentIndex == 0 ? _buildMultipleFabs(modernTheme) : _buildFab(modernTheme)),
     );
   }
 
@@ -315,7 +315,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 1) {
-      // Groups tab - Coming soon
+      // Channels tab - Coming soon
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
@@ -332,24 +332,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(Icons.group_add),
       );
     } else if (_currentIndex == 2) {
-      // Status tab - Coming soon
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-        child: const Icon(Icons.camera_alt),
-      );
-    } else if (_currentIndex == 3) {
-      // Channels tab - Navigate to create post screen
+      // Status tab - Navigate to create post screen
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
@@ -362,7 +345,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           );
         },
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.camera_alt),
       );
     }
     

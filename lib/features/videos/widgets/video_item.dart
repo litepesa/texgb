@@ -12,11 +12,16 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:textgb/constants.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
+import 'package:dio/dio.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 
 class VideoItem extends ConsumerStatefulWidget {
   final VideoModel video;
@@ -67,6 +72,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
   late AnimationController _heartScaleController;
   late Animation<double> _heartScaleAnimation;
   bool _showLikeAnimation = false;
+
+  // Download state management
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
 
   @override
   bool get wantKeepAlive => true;
@@ -215,91 +224,50 @@ class _VideoItemState extends ConsumerState<VideoItem>
       case 'send direct messages':
       case 'dm':
         return Icons.message;
-      case 'buy this product':
-      case 'buy':
-        return Icons.shopping_cart;
+      case 'send gifts':
+      case 'gift':
+        return Icons.card_giftcard;
+      case 'download videos':
+      case 'download':
+        return Icons.download;
+      case 'follow users':
+      case 'follow':
+        return Icons.person_add;
       default:
         return Icons.video_call;
     }
   }
 
-  // WhatsApp functionality for Buy button
-  Future<void> _openWhatsAppForBuy() async {
-    // Check if user is authenticated before allowing purchase
-    final canInteract = await _requireAuthentication('buy this product');
+  // Follow user functionality
+  Future<void> _followCurrentUser() async {
+    final canInteract = await _requireAuthentication('follow users');
     if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
 
-    // Check if user is trying to buy their own product
+    // Check if trying to follow self
     if (widget.video.userId == currentUser!.uid) {
-      _showCannotBuyOwnProductMessage();
+      _showCannotFollowSelfMessage();
       return;
     }
 
     try {
-      // Get the video creator's user data from the database
       final authNotifier = ref.read(authenticationProvider.notifier);
-      final videoCreator = await authNotifier.getUserById(widget.video.userId);
+      await authNotifier.followUser(widget.video.userId);
 
-      if (videoCreator == null) {
-        _showUserNotFoundMessage();
-        return;
-      }
+      _showSnackBar('You are now following ${widget.video.userName}');
 
-      // Check if the video creator has a WhatsApp number
-      if (!videoCreator.hasWhatsApp) {
-        _showWhatsAppNotAvailableMessage(videoCreator.name);
-        return;
-      }
-
-      // Generate shareable link for this video (your landing page)
-      final videoLink = 'https://share.weibao.africa/v/${widget.video.id}';
-
-      // Prepare message content with landing page link
-      // When clicked in WhatsApp, this will show rich preview and open your app
-      String message =
-          '$videoLink\n\nHi ${videoCreator.name}! I\'m interested in buying this product (${widget.video.formattedPrice})';
-      // Encode the message for URL
-      final encodedMessage = Uri.encodeComponent(message);
-
-      // Create WhatsApp URL with the user's actual WhatsApp number
-      final whatsappUrl =
-          'https://wa.me/${videoCreator.whatsappNumber}?text=$encodedMessage';
-      final uri = Uri.parse(whatsappUrl);
-
-      debugPrint('Opening WhatsApp with URL: $whatsappUrl');
-      debugPrint(
-          'Product owner: ${videoCreator.name}, WhatsApp: ${videoCreator.whatsappNumber}');
-      debugPrint('Product link: $videoLink');
-
-      // Try to launch WhatsApp directly without checking canLaunchUrl
-      // This works better across different WhatsApp versions (regular and business)
-      try {
-        final success = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-
-        if (success) {
-          _showSnackBar('Opening WhatsApp to contact ${videoCreator.name}...');
-        } else {
-          // If launch returns false, WhatsApp might not be installed
-          _showWhatsAppNotInstalledMessage();
-        }
-      } catch (e) {
-        // If launching fails, WhatsApp is likely not installed
-        debugPrint('Failed to launch WhatsApp: $e');
-        _showWhatsAppNotInstalledMessage();
+      // Trigger UI update
+      if (mounted) {
+        setState(() {});
       }
     } catch (e) {
-      debugPrint('Error opening WhatsApp: $e');
-      _showSnackBar('Failed to open WhatsApp');
+      debugPrint('Error following user: $e');
+      _showSnackBar('Failed to follow user. Please try again.');
     }
   }
 
-  // Helper method to show when user tries to buy their own product
-  void _showCannotBuyOwnProductMessage() {
+  void _showCannotFollowSelfMessage() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -316,78 +284,18 @@ class _VideoItemState extends ConsumerState<VideoItem>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                color: Colors.orange,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Cannot Buy Own Product',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You cannot purchase your own product.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to show when user is not found
-  void _showUserNotFoundMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
+                color: Colors.blue.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.person_off,
-                color: Colors.orange,
+                color: Colors.blue,
                 size: 32,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'User Not Found',
+              'Cannot Follow Yourself',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -396,7 +304,101 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
             const SizedBox(height: 8),
             const Text(
-              'Could not find the product owner\'s profile. Please try again later.',
+              'You cannot follow your own account.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Gift functionality
+  Future<void> _showVirtualGifts() async {
+    final canInteract = await _requireAuthentication('send gifts');
+    if (!canInteract) return;
+
+    final currentUser = ref.read(currentUserProvider);
+
+    // Check if user is trying to gift their own video
+    if (widget.video.userId == currentUser!.uid) {
+      _showCannotGiftOwnVideoMessage();
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => VirtualGiftsBottomSheet(
+        recipientName: widget.video.userName,
+        recipientImage: widget.video.userImage,
+        onGiftSelected: (gift) {
+          _handleGiftSent(gift);
+        },
+        onClose: () {},
+      ),
+    );
+  }
+
+  void _handleGiftSent(VirtualGift gift) {
+    debugPrint(
+        'Gift sent: ${gift.name} (KES ${gift.price}) to ${widget.video.userName}');
+    _showSnackBar(
+        '${gift.emoji} ${gift.name} sent to ${widget.video.userName}!');
+  }
+
+  void _showCannotGiftOwnVideoMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.card_giftcard,
+                color: Colors.orange,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Gift Your Own Video',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send gifts to your own videos.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
@@ -418,124 +420,154 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Helper method to show when WhatsApp number is not available
-  void _showWhatsAppNotAvailableMessage(String userName) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.link_off,
-                color: Colors.green,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'WhatsApp Link Not Added',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$userName hasn\'t added their WhatsApp number to their profile yet.',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
+  // Download functionality
+  Future<void> _downloadCurrentVideo() async {
+    final canInteract = await _requireAuthentication('download videos');
+    if (!canInteract) return;
+
+    if (_isDownloading) {
+      _showSnackBar('Video is already downloading...');
+      return;
+    }
+
+    if (widget.video.isMultipleImages) {
+      _showSnackBar('Cannot download image posts');
+      return;
+    }
+
+    if (widget.video.videoUrl.isEmpty) {
+      _showSnackBar('Invalid video URL');
+      return;
+    }
+
+    try {
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        _showSnackBar('Storage permission required to download videos');
+        return;
+      }
+
+      await _downloadVideo();
+    } catch (e) {
+      debugPrint('Error downloading video: $e');
+      _showSnackBar('Failed to download video');
+      setState(() {
+        _isDownloading = false;
+        _downloadProgress = 0.0;
+      });
+    }
   }
 
-  // Helper method to show WhatsApp not installed message
-  void _showWhatsAppNotInstalledMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
+  Future<bool> _requestStoragePermission() async {
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 33) {
+        final status = await [
+          Permission.videos,
+          Permission.photos,
+        ].request();
+
+        return status.values.every((status) => status.isGranted);
+      } else {
+        final status = await Permission.storage.request();
+        return status.isGranted;
+      }
+    } else if (Platform.isIOS) {
+      final status = await Permission.photos.request();
+      return status.isGranted;
+    }
+
+    return true;
+  }
+
+  Future<void> _downloadVideo() async {
+    setState(() {
+      _isDownloading = true;
+      _downloadProgress = 0.0;
+    });
+
+    try {
+      final dio = Dio();
+
+      Directory? directory;
+      String fileName =
+          'textgb_${widget.video.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getApplicationDocumentsDirectory();
+        }
+      } else if (Platform.isIOS) {
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        directory = await getDownloadsDirectory() ??
+            await getApplicationDocumentsDirectory();
+      }
+
+      final savePath = '${directory.path}/$fileName';
+
+      await dio.download(
+        widget.video.videoUrl,
+        savePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = received / total;
+            setState(() {
+              _downloadProgress = progress;
+            });
+          }
+        },
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: false,
+          validateStatus: (status) {
+            return status! < 500;
+          },
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.message,
-                color: Colors.green,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'WhatsApp Not Available',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please install WhatsApp to send messages or check your internet connection.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+
+      setState(() {
+        _isDownloading = false;
+        _downloadProgress = 0.0;
+      });
+
+      _showSnackBar('Video saved successfully!');
+
+      if (Platform.isAndroid) {
+        await _addToGallery(savePath);
+      }
+    } catch (e) {
+      debugPrint('Download error: $e');
+      setState(() {
+        _isDownloading = false;
+        _downloadProgress = 0.0;
+      });
+
+      if (e is DioException) {
+        switch (e.type) {
+          case DioExceptionType.connectionTimeout:
+          case DioExceptionType.receiveTimeout:
+            _showSnackBar('Download timeout. Please try again.');
+            break;
+          case DioExceptionType.connectionError:
+            _showSnackBar('Network error. Check your connection.');
+            break;
+          default:
+            _showSnackBar('Download failed. Please try again.');
+        }
+      } else {
+        _showSnackBar('Download failed. Please try again.');
+      }
+    }
+  }
+
+  Future<void> _addToGallery(String filePath) async {
+    try {
+      debugPrint('Video saved to: $filePath');
+    } catch (e) {
+      debugPrint('Error adding to gallery: $e');
+    }
   }
 
   // Helper method to show snackbar
@@ -843,7 +875,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
@@ -858,8 +890,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   // Back navigation functionality
   void _handleBackNavigation() {
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    if (context.canPop()) {
+      context.pop();
     }
   }
 
@@ -1172,7 +1204,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // NEW: Top left user info with back arrow, avatar, name, verification, and timestamp
+  // Top left user info with back arrow, avatar, name, follow button, and timestamp
   Widget _buildTopLeftUserInfo() {
     final topPadding = MediaQuery.of(context).padding.top;
 
@@ -1188,6 +1220,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
     return Consumer(
       builder: (context, ref, child) {
         final videoUser = _getUserDataIfAvailable();
+        final currentUser = ref.read(currentUserProvider);
+        final isCurrentUserVideo = currentUser?.uid == widget.video.userId;
+        final isFollowing = ref
+            .read(authenticationProvider.notifier)
+            .isUserFollowed(widget.video.userId);
 
         return GestureDetector(
           onTap: _navigateToUserProfile,
@@ -1291,7 +1328,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                 ),
               ),
               const SizedBox(width: 12),
-              // Username and verification
+              // Username and follow button
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1318,59 +1355,62 @@ class _VideoItemState extends ConsumerState<VideoItem>
                           ),
                         ),
                         const SizedBox(width: 6),
-                        // ONLY SHOW VERIFICATION BADGE WHEN USER IS VERIFIED
-                        if (widget.showVerificationBadge &&
-                            videoUser != null &&
-                            videoUser.isVerified)
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF1DA1F2),
-                                  Color(0xFF0D8BD9),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF1DA1F2)
-                                      .withOpacity(0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
+                        // FOLLOW BUTTON - Only show if not current user's video and not already following
+                        if (!isCurrentUserVideo &&
+                            currentUser != null &&
+                            !isFollowing)
+                          GestureDetector(
+                            onTap: _followCurrentUser,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF1DA1F2),
+                                    Color(0xFF0D8BD9),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'Verified',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.2,
-                                    color: Colors.white,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.3),
-                                        blurRadius: 2,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF1DA1F2)
+                                        .withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.person_add_alt_1,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Follow',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.2,
+                                      color: Colors.white,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 2,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                       ],
@@ -1400,7 +1440,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // UPDATED: Bottom overlay with only captions & hashtags
+  // Bottom overlay with only captions & hashtags
   Widget _buildBottomContentOverlay() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
@@ -1448,7 +1488,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       fontWeight: FontWeight.w500,
     );
 
-    // Build text with caption and hashtags (NO TIMESTAMP)
+    // Build text with caption and hashtags
     String fullText = widget.video.caption;
 
     // Add hashtags if they exist
@@ -1546,28 +1586,26 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _navigateToUserProfile() {
-    context.push(Constants.userProfileScreen, extra: widget.video.userId);
+    context.push(RoutePaths.userProfile(widget.video.userId));
   }
 
-  // Single horizontal row with all five elements - FIT SCREEN, scrollable only if needed
+  // Single horizontal row with Gift, Save, Like, Comment, and DM buttons
   Widget _buildActionRow() {
-    // Calculate available width
     final screenWidth = MediaQuery.of(context).size.width;
     final availableWidth = screenWidth - 32; // 16px padding on each side
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Build the row content
         final rowContent = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Price and Buy buttons (only show if video has price)
-            if (widget.video.price > 0) ...[
-              _buildPriceButton(),
-              const SizedBox(width: 8),
-              _buildBuyButton(),
-              const SizedBox(width: 12),
-            ],
+            // Gift button (replaces Price button)
+            _buildGiftButton(),
+            const SizedBox(width: 8),
+
+            // Save button (replaces Buy button)
+            _buildSaveButton(),
+            const SizedBox(width: 12),
 
             // Like button
             _buildActionButton(
@@ -1608,7 +1646,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ],
         );
 
-        // Check if content fits without scrolling
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const ClampingScrollPhysics(),
@@ -1618,61 +1655,16 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  Widget _buildPriceButton() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF4CAF50), // Green start
-            Color(0xFF2E7D32), // Darker green end
-          ],
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.local_offer,
-            color: Colors.white,
-            size: 14,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            widget.video.formattedPrice,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBuyButton() {
+  Widget _buildGiftButton() {
     return GestureDetector(
-      onTap: _openWhatsAppForBuy,
+      onTap: _showVirtualGifts,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [
-              Color(0xFFFF6B6B), // Coral red start
-              Color(0xFFE55353), // Darker red end
+              Color(0xFFFFD700), // Gold start
+              Color(0xFFFFA500), // Orange end
             ],
           ),
           borderRadius: BorderRadius.circular(10),
@@ -1692,13 +1684,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.shopping_cart,
+              Icons.card_giftcard,
               color: Colors.white,
               size: 14,
             ),
             SizedBox(width: 4),
             Text(
-              'BUY',
+              'GIFT',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 13,
@@ -1708,6 +1700,81 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return GestureDetector(
+      onTap: _downloadCurrentVideo,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF66BB6A), // Green start
+              Color(0xFF43A047), // Darker green end
+            ],
+          ),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: _isDownloading
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      value: _downloadProgress,
+                      color: Colors.white,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${(_downloadProgress * 100).toInt()}%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              )
+            : const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.download,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'SAVE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

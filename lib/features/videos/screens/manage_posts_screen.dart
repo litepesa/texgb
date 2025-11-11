@@ -2,11 +2,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:textgb/constants.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -353,13 +354,10 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
   }
 
   void _openVideoDetails(VideoModel video) {
-    Navigator.pushNamed(
-      context,
-      Constants.myPostScreen,
-      arguments: {
-        Constants.videoId: video.id,
-        Constants.videoModel: video,
-      },
+    // Using GoRouter to navigate to my post screen
+    context.push(
+      RoutePaths.myPost(video.id),
+      extra: video, // Pass the video model as extra data
     ).then((_) => _loadUserData());
   }
 
@@ -1364,11 +1362,11 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
           ),
           const SizedBox(height: 16),
           
-          ..._userVideos
-              .toList()
-              .sortByViews(descending: true)
-              .take(3)
-              .map((video) => _buildTopPostItem(video, modernTheme)),
+          ...(() {
+            final sortedVideos = _userVideos.toList()
+              ..sort((a, b) => b.views.compareTo(a.views));
+            return sortedVideos.take(3).map((video) => _buildTopPostItem(video, modernTheme));
+          })(),
           
           const SizedBox(height: 32),
           
@@ -1383,11 +1381,11 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
           ),
           const SizedBox(height: 16),
           
-          ..._userVideos
-              .toList()
-              .sortByDate(descending: true)
-              .take(5)
-              .map((video) => _buildRecentActivityItem(video, modernTheme)),
+          ...(() {
+            final sortedVideos = _userVideos.toList()
+              ..sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+            return sortedVideos.take(5).map((video) => _buildRecentActivityItem(video, modernTheme));
+          })(),
         ],
       ),
     );
@@ -1722,28 +1720,6 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTipItem(String text, IconData icon, ModernThemeExtension modernTheme) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: modernTheme.primaryColor,
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
