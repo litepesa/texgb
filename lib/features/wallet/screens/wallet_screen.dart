@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
-import 'package:textgb/features/wallet/widgets/escrow_funding_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 
@@ -1310,7 +1309,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.add_card,
                   title: 'Buy Coins',
                   color: Colors.green,
-                  onTap: () => EscrowFundingWidget.show(context),
+                  onTap: () => context.push('/wallet-topup'),
                   theme: theme,
                 ),
               ),

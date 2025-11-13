@@ -37,6 +37,10 @@ import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 
+// Payment screens
+import 'package:textgb/features/payment/screens/wallet_topup_screen.dart';
+import 'package:textgb/features/payment/screens/payment_status_screen.dart';
+
 // Channels screens
 import 'package:textgb/features/channels/screens/channels_home_screen.dart';
 import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
@@ -417,6 +421,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.wallet,
         name: RouteNames.wallet,
         builder: (context, state) => const WalletScreenV2(),
+      ),
+
+      // ==================== PAYMENT ROUTES ====================
+
+      GoRoute(
+        path: '/wallet-topup',
+        name: 'walletTopup',
+        builder: (context, state) => const WalletTopUpScreen(),
+      ),
+
+      GoRoute(
+        path: '/payment-status/:checkoutRequestId',
+        name: 'paymentStatus',
+        builder: (context, state) {
+          final checkoutRequestId = state.pathParameters['checkoutRequestId']!;
+          return PaymentStatusScreen(checkoutRequestId: checkoutRequestId);
+        },
       ),
 
       // ==================== CHANNELS ROUTES ====================

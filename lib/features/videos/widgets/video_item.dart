@@ -1210,8 +1210,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
     return Positioned(
       top: topPadding,
-      left: 0,
-      right: 0,
+      left: 16,
+      right: 16,
       child: _buildUserInfoWithBackArrow(),
     );
   }
@@ -1232,7 +1232,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Back Arrow
-              GestureDetector(
+              /*GestureDetector(
                 onTap: _handleBackNavigation,
                 child: Container(
                   width: 36,
@@ -1244,7 +1244,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   ),
                 ),
               ),
-              const SizedBox(width: 1),
+              const SizedBox(width: 1),*/
               // Profile Avatar
               Container(
                 width: 40,
@@ -1444,12 +1444,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
   Widget _buildBottomContentOverlay() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 4;
 
     return Positioned(
       bottom: bottomPadding,
-      left: 12,
-      right: 12,
+      left: 16,
+      right: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
