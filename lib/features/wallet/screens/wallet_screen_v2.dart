@@ -391,39 +391,28 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
   }
 
   Widget _buildWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
 
-                  // Premium Balance Card
-                  _buildPremiumBalanceCard(wallet, theme),
+          // Premium Balance Card
+          _buildPremiumBalanceCard(wallet, theme),
 
-                  const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-                  // Tab Bar
-                  _buildTabBar(theme),
+          // Tab Bar
+          _buildTabBar(theme),
 
-                  const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-                  // Tab Content
-                  _buildTabContent(wallet, transactions, theme),
+          // Tab Content
+          _buildTabContent(wallet, transactions, theme),
 
-                  const SizedBox(height: 80),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+          const SizedBox(height: 80),
+        ],
+      ),
     );
   }
 
