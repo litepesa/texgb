@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/core/router/route_paths.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 /// Route guard that handles authentication and authorization
@@ -77,13 +78,53 @@ class RouteGuard {
     // 3. User IS authenticated AND has complete profile
     if (isAuthenticated && hasProfile) {
       debugPrint('   ✅ User fully authenticated with profile');
-      
+
+      // Check if user has paid activation fee
+      final hasPaid = _hasUserPaid();
+      debugPrint('   - Has Paid: $hasPaid');
+
+      // 3a. User authenticated with profile but hasn't paid
+      if (!hasPaid) {
+        debugPrint('   ⚠️  User has not paid activation fee');
+
+        // Allow access to activation payment screen
+        if (currentPath == '/activation-payment') {
+          debugPrint('   ✅ Allowing access to activation payment screen');
+          return null;
+        }
+
+        // Allow access to payment status screen
+        if (currentPath.startsWith('/payment-status/')) {
+          debugPrint('   ✅ Allowing access to payment status screen');
+          return null;
+        }
+
+        // Allow logout routes
+        if (currentPath == RoutePaths.landing || currentPath == RoutePaths.login) {
+          debugPrint('   ✅ Allowing access to auth routes (logout flow)');
+          return null;
+        }
+
+        // Redirect to activation payment for all other routes
+        debugPrint('   ↩️  Redirecting to activation payment');
+        return '/activation-payment';
+      }
+
+      // 3b. User authenticated, has profile, and has paid
+      debugPrint('   ✅ User fully authenticated, has profile, and has paid');
+
       // Prevent authenticated users from accessing auth screens
       if (RoutePaths.isAuthRoute(currentPath)) {
         debugPrint('   ↩️  Redirecting authenticated user away from auth screens');
         return RoutePaths.home;
       }
-      
+
+      // Prevent paid users from accessing activation payment screen
+      if (currentPath == '/activation-payment') {
+        debugPrint('   ↩️  Redirecting paid user away from activation payment');
+        return RoutePaths.home;
+      }
+
       // Allow access to all other routes
       debugPrint('   ✅ Allowing access to protected route');
       return null;
@@ -107,46 +148,80 @@ class RouteGuard {
     try {
       // Get the authentication repository which has user data
       final repository = ref.read(authenticationRepositoryProvider);
-      
+
       // Check if user exists in backend
       // You can also check shared preferences for cached user data
       final currentUserId = repository.currentUserId;
-      
+
       if (currentUserId == null) {
         debugPrint('   - No current user ID');
         return false;
       }
-      
+
       // Try to get user model from repository or state
       // This depends on your authentication provider implementation
       // For now, we'll use a simple check
-      
+
       // Option 1: Check if repository has user data loaded
       // final hasUserData = repository.currentUser != null;
-      
+
       // Option 2: Check authentication state for profile completion
       final authState = ref.read(authenticationProvider);
-      
+
       final hasProfile = authState.maybeWhen(
         data: (state) {
           // Check if the state indicates profile is complete
           // Adjust this based on your AuthenticationState structure
-          
+
           // If you have a userModel in state, check it
           // If you have a isProfileComplete flag, check that
           // For now, we'll assume if user is authenticated and no error, profile exists
-          
+
           return state.isSuccessful;
         },
         orElse: () => false,
       );
-      
+
       debugPrint('   - Profile Complete Check: $hasProfile');
-      
+
       return hasProfile;
     } catch (e) {
       debugPrint('   ⚠️  Error checking profile: $e');
       // If there's an error, assume profile needs to be created
+      return false;
+    }
+  }
+
+  /// Check if user has paid activation fee
+  bool _hasUserPaid() {
+    try {
+      // Get user from authentication state
+      final authState = ref.read(authenticationProvider);
+
+      final hasPaid = authState.maybeWhen(
+        data: (state) {
+          // Try to get current user from state
+          // This will depend on your AuthenticationState structure
+          // You might need to adjust this based on how you store the current user
+
+          // If you have a currentUser method or property
+          final currentUser = ref.read(currentUserProvider);
+
+          if (currentUser == null) {
+            return false;
+          }
+
+          return currentUser.hasPaid;
+        },
+        orElse: () => false,
+      );
+
+      debugPrint('   - User Has Paid Check: $hasPaid');
+
+      return hasPaid;
+    } catch (e) {
+      debugPrint('   ⚠️  Error checking payment status: $e');
+      // If there's an error, assume user hasn't paid (safer to redirect to payment)
       return false;
     }
   }

@@ -100,7 +100,13 @@ class UserModel {
   final String? gender;      // NEW: User gender (male/female)
   final String? location;    // NEW: User location (e.g., "Nairobi, Kenya")
   final String? language;    // NEW: User native language (e.g., "English", "Swahili")
-  
+
+  // ===============================
+  // PAYMENT FIELDS (M-Pesa activation payment)
+  // ===============================
+  final bool hasPaid;        // NEW: Has user paid KES 99 activation fee
+  final String? paymentDate; // NEW: Date when user paid activation fee
+
   // ===============================
   // BAN/RESTRICTION FIELDS (Admin controlled)
   // ===============================
@@ -141,6 +147,8 @@ class UserModel {
     this.gender,      // NEW
     this.location,    // NEW
     this.language,    // NEW
+    this.hasPaid = true,   // NEW: Default = true (grandfathered users)
+    this.paymentDate,      // NEW
     this.canComment = true,  // NEW: Default = true (not banned)
     this.canPost = true,     // NEW: Default = true (not banned)
     required this.tags,
@@ -179,6 +187,10 @@ class UserModel {
       gender: _extractString(map['gender']),
       location: _extractString(map['location']),
       language: _extractString(map['language']),
+      // NEW: Extract payment fields
+      // NOTE: Default to true for grandfathered users (existing users without this field)
+      hasPaid: _extractBool(map['hasPaid'] ?? map['has_paid']) ?? true,
+      paymentDate: _extractString(map['paymentDate'] ?? map['payment_date']),
       // NEW: Extract ban/restriction fields
       canComment: _extractBool(map['canComment'] ?? map['can_comment']) ?? true,
       canPost: _extractBool(map['canPost'] ?? map['can_post']) ?? true,

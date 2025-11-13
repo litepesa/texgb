@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -181,19 +182,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         duration: Duration(seconds: 2),
       ),
     );
-    
-    // THE MAGIC: Use go_router navigation
-    // This is 100% reliable because go_router handles context properly
-    debugPrint('🚀 Navigating to home with go_router');
-    
-    // Method 1: Using extension (recommended)
-    context.goToHome();
-    
-    // Method 2: Using direct go_router (alternative)
-    // context.go(RoutePaths.home);
-    
-    // Method 3: Using helper to clear stack (if needed)
-    // AppNavigation.goToHomeAndClearStack(context);
+
+    // Navigate to activation payment screen (KES 99 one-time fee)
+    // After successful payment, user will be navigated to home
+    debugPrint('🚀 Navigating to activation payment screen');
+    context.go('/activation-payment');
   }
   
   void _handleFailure() {

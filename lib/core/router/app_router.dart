@@ -40,6 +40,7 @@ import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 // Payment screens
 import 'package:textgb/features/payment/screens/wallet_topup_screen.dart';
 import 'package:textgb/features/payment/screens/payment_status_screen.dart';
+import 'package:textgb/features/payment/screens/activation_payment_screen.dart';
 
 // Channels screens
 import 'package:textgb/features/channels/screens/channels_home_screen.dart';
@@ -127,7 +128,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.createProfile,
         builder: (context, state) => const ProfileSetupScreen(),
       ),
-      
+
+      // ==================== PAYMENT ROUTES (AUTH FLOW) ====================
+
+      GoRoute(
+        path: '/activation-payment',
+        name: 'activationPayment',
+        builder: (context, state) => const ActivationPaymentScreen(),
+      ),
+
       // ==================== MAIN APP ROUTES ====================
       
       GoRoute(
@@ -436,7 +445,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'paymentStatus',
         builder: (context, state) {
           final checkoutRequestId = state.pathParameters['checkoutRequestId']!;
-          return PaymentStatusScreen(checkoutRequestId: checkoutRequestId);
+          final isActivation = state.uri.queryParameters['isActivation'] == 'true';
+          return PaymentStatusScreen(
+            checkoutRequestId: checkoutRequestId,
+            isActivation: isActivation,
+          );
         },
       ),
 
