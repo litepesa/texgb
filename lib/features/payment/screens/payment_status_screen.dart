@@ -8,10 +8,12 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class PaymentStatusScreen extends ConsumerStatefulWidget {
   final String checkoutRequestId;
+  final bool isActivation;
 
   const PaymentStatusScreen({
     super.key,
     required this.checkoutRequestId,
+    this.isActivation = false,
   });
 
   @override
@@ -143,9 +145,14 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
     // Clear current transaction from payment provider
     ref.read(paymentProvider.notifier).clearCurrentTransaction();
 
-    // Pop back to wallet screen
-    context.pop();
-    context.pop(); // Pop twice to go back to wallet
+    if (widget.isActivation) {
+      // For activation payments, navigate to home screen
+      context.go('/home');
+    } else {
+      // For wallet top-ups, pop back to wallet screen
+      context.pop();
+      context.pop(); // Pop twice to go back to wallet
+    }
   }
 
   @override

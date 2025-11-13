@@ -1,19 +1,17 @@
-// lib/main_screen/home_screen.dart (OPTIMIZED VERSION)
+// lib/main_screen/home_screen.dart (UPDATED VERSION)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/users/screens/users_list_screen.dart';
-import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
-import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
+import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -31,25 +29,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   int _currentIndex = 0;
   
-  final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
-  
   final List<String> _tabNames = [  
-    'Home',         // Index 0 - Videos Feed (hidden app bar, black background)
-    'Wallet',       // Index 1 - Wallet screen
+    'Chats',        // Index 0 - Chats Tab (label)
+    'Contacts',     // Index 1 - Contacts Screen
     '',             // Index 2 - Post (no label, special design)
-    'Inbox',        // Index 3 - Chats Tab
+    'Discover',     // Index 3 - Discover Screen
+    'Profile'       // Index 4 - Profile
+  ];
+  
+  final List<String> _appBarTitles = [
+    'WemaChat',     // Index 0 - App name for Chats tab
+    'Contacts',     // Index 1 - Contacts Screen
+    '',             // Index 2 - Post (not used)
+    'Discover',     // Index 3 - Discover Screen
     'Profile'       // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                        // Home
-    CupertinoIcons.qrcode_viewfinder,          // Wallet
-    Icons.add,                                 // Post 
-    CupertinoIcons.chat_bubble_2,              // Chats
-    CupertinoIcons.person                      // Profile
+    CupertinoIcons.chat_bubble_2,         // Chats
+    CupertinoIcons.person_2,              // Contacts
+    Icons.add,                            // Post 
+    CupertinoIcons.compass,               // Discover
+    CupertinoIcons.person                 // Profile
   ];
-
-  final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
 
   @override
   void initState() {
@@ -64,7 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
-    _videoProgressNotifier.dispose();
     super.dispose();
   }
 
@@ -86,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDark = mounted ? Theme.of(context).brightness == Brightness.dark : false;
     
     return ModernThemeExtension(
-      primaryColor: const Color(0xFFFE2C55),
+      primaryColor: const Color(0xFF07C160), // WeChat green
       backgroundColor: isDark ? Colors.black : Colors.white,
       surfaceColor: isDark ? Colors.grey[900] : Colors.grey[50],
       textColor: isDark ? Colors.white : Colors.black,
@@ -146,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted || index == _currentIndex) return;
     
     if (index == 2) {
-      _navigateToCreatePost();
+      _showPostOptions();
       return;
     }
 
@@ -168,89 +169,176 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     HapticFeedback.lightImpact();
     
-    if (_currentIndex == 0) {
-      try {
-        _feedScreenKey.currentState?.onScreenBecameInactive();
-      } catch (e) {
-        debugPrint('Feed screen lifecycle error: $e');
-      }
-    }
-    
     setState(() {
       _currentIndex = index;
     });
     
     _setSystemUIOverlayStyle();
-    
-    if (_currentIndex == 0) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          try {
-            _feedScreenKey.currentState?.onScreenBecameActive();
-          } catch (e) {
-            debugPrint('Feed screen lifecycle error: $e');
-          }
-        }
-      });
-    }
   }
 
   void _setSystemUIOverlayStyle() {
     if (!mounted) return;
     
     try {
-      if (_currentIndex == 0) {
-        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.light,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      } else {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      }
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
     } catch (e) {
       debugPrint('System UI update error: $e');
     }
   }
 
-  void _navigateToCreatePost() async {
-    if (!mounted) return;
-    
+  void _showPostOptions() {
     HapticFeedback.lightImpact();
+    final modernTheme = _getModernTheme();
     
-    if (_currentIndex == 0) {
-      try {
-        _feedScreenKey.currentState?.onScreenBecameInactive();
-      } catch (e) {
-        debugPrint('Feed screen lifecycle error: $e');
-      }
-    }
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreatePostScreen(),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: modernTheme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: modernTheme.textSecondaryColor?.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              // Title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Create Post',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: modernTheme.textColor,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Channels Post option
+              _buildPostOptionTile(
+                icon: CupertinoIcons.play_rectangle_fill,
+                title: 'Channels Post',
+                subtitle: 'Share a video on your channel',
+                color: Colors.red,
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push(RoutePaths.createPost);
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              // Moments Post option
+              _buildPostOptionTile(
+                icon: CupertinoIcons.camera_fill,
+                title: 'Moments Post',
+                subtitle: 'Share photos or videos with friends',
+                color: const Color(0xFF007AFF),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push(RoutePaths.createMoment);
+                },
+                modernTheme: modernTheme,
+              ),
+              
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
       ),
     );
+  }
 
-    if (result == true && _currentIndex == 0 && mounted) {
-      try {
-        _feedScreenKey.currentState?.onScreenBecameActive();
-      } catch (e) {
-        debugPrint('Feed screen lifecycle error: $e');
-      }
-    }
+  Widget _buildPostOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    required ModernThemeExtension modernTheme,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: modernTheme.textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: modernTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                color: modernTheme.textSecondaryColor?.withOpacity(0.5),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -265,49 +353,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isHomeTab = _currentIndex == 0;
-    final isProfileTab = _currentIndex == 4;
     
-    // ✅ Check if app is still initializing
+    // Check if app is still initializing
     final isAppInitializing = ref.watch(isAppInitializingProvider);
 
-    // ✅ Show branded loading screen ONLY during initial app startup
+    // Show branded loading screen ONLY during initial app startup
     if (isAppInitializing) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: isDarkMode ? Colors.black : Colors.white,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App logo/branding
+              // App logo/branding - WeChat style
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFE2C55),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFF07C160),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  'WemaChat',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                  ),
+                child: const Icon(
+                  CupertinoIcons.chat_bubble_2_fill,
+                  color: Colors.white,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'WemaChat',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
               const SizedBox(height: 20),
               const CircularProgressIndicator(
-                color: Color(0xFFFE2C55),
+                color: Color(0xFF07C160),
                 strokeWidth: 3,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading...',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 16,
-                ),
               ),
             ],
           ),
@@ -316,30 +400,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     return Scaffold(
-      extendBody: true,
-      extendBodyBehindAppBar: isHomeTab || isProfileTab,
-      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
-      
-      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
+      backgroundColor: modernTheme.backgroundColor,
+      appBar: _buildAppBar(modernTheme, isDarkMode),
       
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          // Home tab (index 0) - Videos Feed
+          // Chats tab (index 0)
           _KeepAliveWrapper(
-            child: Container(
-              color: Colors.black,
-              child: VideosFeedScreen(
-                key: _feedScreenKey,
-              ),
-            ),
+            child: const ChatsTab(),
           ),
-          // Wallet tab (index 1) - Trailer List
+          // Contacts tab (index 1)
           _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const WalletScreenV2(),
-            ),
+            child: const ContactsScreen(),
           ),
           // Post tab (index 2) - Never shown (navigates directly)
           _KeepAliveWrapper(
@@ -350,26 +423,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-          // Inbox tab (index 3)
+          // Discover tab (index 3)
           _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const ChatsTab(),
-            ),
+            child: const DiscoverScreen(),
           ),
           // Profile tab (index 4)
           _buildProfileTab(modernTheme),
         ],
       ),
       
-      bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
+      bottomNavigationBar: _buildBottomNav(modernTheme),
     );
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    Color appBarColor = modernTheme.surfaceColor ?? (isDarkMode ? Colors.grey[900]! : Colors.white);
+    Color appBarColor = modernTheme.surfaceColor ?? (isDarkMode ? Colors.grey[900]! : Colors.grey[50]!);
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
-    Color iconColor = modernTheme.primaryColor ?? const Color(0xFFFE2C55);
+    Color iconColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
+
+    // Get the AppBar title - use _appBarTitles instead of _tabNames
+    String title = _appBarTitles[_currentIndex];
 
     return AppBar(
       backgroundColor: appBarColor,
@@ -377,30 +450,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrolledUnderElevation: 0,
       centerTitle: true,
       iconTheme: IconThemeData(color: iconColor),
-      title: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: "Wema",
-              style: TextStyle(
-                color: textColor,          
-                fontWeight: FontWeight.w700,
-                fontSize: 24,
-                letterSpacing: -0.3,
-              ),
-            ),
-            TextSpan(
-              text: "Chat",
-              style: TextStyle(
-                color: const Color(0xFFFE2C55),
-                fontWeight: FontWeight.w700,
-                fontSize: 24,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
+      title: Text(
+        title,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
         ),
       ),
+      actions: [
+        // Add button (visible on Chats tab only)
+        if (_currentIndex == 0)
+          IconButton(
+            icon: Icon(
+              CupertinoIcons.add_circled,
+              color: iconColor,
+              size: 26,
+            ),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('New Chat - Coming Soon'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        // Three-dot menu for tabs 0, 1, 3, 4
+        if (_currentIndex != 2)
+          _buildThreeDotMenu(modernTheme, iconColor),
+        const SizedBox(width: 8),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
@@ -412,55 +494,241 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
-    final isHomeTab = _currentIndex == 0;
+  Widget _buildThreeDotMenu(ModernThemeExtension modernTheme, Color iconColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final menuBgColor = isDark 
+      ? modernTheme.surfaceColor!.withOpacity(0.98)
+      : modernTheme.surfaceColor!.withOpacity(0.96);
+
+    // Different menu options based on current tab
+    List<PopupMenuItem<String>> menuItems = [];
     
-    Color backgroundColor;
-    Color? borderColor;
-    
-    if (isHomeTab) {
-      backgroundColor = Colors.black;
-      borderColor = null;
-    } else {
-      backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
-      borderColor = modernTheme.dividerColor ?? Colors.grey[300];
+    if (_currentIndex == 0) {
+      // Chats tab menu
+      menuItems = [
+        _buildMenuItem(
+          icon: CupertinoIcons.chat_bubble_2,
+          title: 'New Chat',
+          value: 'new_chat',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.group,
+          title: 'Create Group',
+          value: 'create_group',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_add,
+          title: 'Add Contact',
+          value: 'add_contact',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.qrcode,
+          title: 'Scan QR Code',
+          value: 'scan_qr',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_fill,
+          title: 'My Profile',
+          value: 'my_profile',
+          modernTheme: modernTheme,
+        ),
+      ];
+    } else if (_currentIndex == 1) {
+      // Contacts tab menu
+      menuItems = [
+        _buildMenuItem(
+          icon: CupertinoIcons.person_add,
+          title: 'Add Contact',
+          value: 'add_contact',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: Icons.sync_rounded,
+          title: 'Sync Contacts',
+          value: 'sync_contacts',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: Icons.block_rounded,
+          title: 'Blocked Contacts',
+          value: 'blocked_contacts',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_fill,
+          title: 'My Profile',
+          value: 'my_profile',
+          modernTheme: modernTheme,
+        ),
+      ];
+    } else if (_currentIndex == 3) {
+      // Discover tab menu
+      menuItems = [
+        _buildMenuItem(
+          icon: CupertinoIcons.search,
+          title: 'Search',
+          value: 'search',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.money_dollar_circle,
+          title: 'Wallet',
+          value: 'wallet',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_fill,
+          title: 'My Profile',
+          value: 'my_profile',
+          modernTheme: modernTheme,
+        ),
+      ];
+    } else if (_currentIndex == 4) {
+      // Profile tab menu
+      menuItems = [
+        _buildMenuItem(
+          icon: CupertinoIcons.pencil,
+          title: 'Edit Profile',
+          value: 'edit_profile',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.money_dollar_circle,
+          title: 'Wallet',
+          value: 'wallet',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.settings,
+          title: 'Settings',
+          value: 'settings',
+          modernTheme: modernTheme,
+        ),
+      ];
     }
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        border: (isHomeTab || borderColor == null) ? null : Border(
-          top: BorderSide(
-            color: borderColor,
-            width: 0.5,
-          ),
+
+    return PopupMenuButton<String>(
+      icon: Icon(
+        Icons.more_vert,
+        color: iconColor,
+        size: 26,
+      ),
+      color: menuBgColor,
+      elevation: 8,
+      surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
+      shadowColor: Colors.black.withOpacity(0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
+          width: 1,
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 8),
+      onSelected: (String value) {
+        _handleMenuAction(value, modernTheme);
+      },
+      itemBuilder: (BuildContext context) => menuItems,
+    );
+  }
+
+  void _handleMenuAction(String value, ModernThemeExtension modernTheme) {
+    switch (value) {
+      case 'new_chat':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('New Chat - Coming Soon'),
+            backgroundColor: modernTheme.primaryColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        break;
+      case 'add_contact':
+        context.push(RoutePaths.addContact);
+        break;
+      case 'create_group':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Create Group - Coming Soon'),
+            backgroundColor: modernTheme.primaryColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        break;
+      case 'scan_qr':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Scan QR Code - Coming Soon'),
+            backgroundColor: modernTheme.primaryColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        break;
+      case 'my_profile':
+        context.push(RoutePaths.myProfile);
+        break;
+      case 'sync_contacts':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Syncing Contacts...'),
+            backgroundColor: modernTheme.primaryColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        break;
+      case 'blocked_contacts':
+        context.push(RoutePaths.blockedContacts);
+        break;
+      case 'search':
+        context.push(RoutePaths.search);
+        break;
+      case 'wallet':
+        context.push(RoutePaths.wallet);
+        break;
+      case 'edit_profile':
+        context.push(RoutePaths.editProfile);
+        break;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Settings - Coming Soon'),
+            backgroundColor: modernTheme.primaryColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        break;
+    }
+  }
+
+  PopupMenuItem<String> _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required ModernThemeExtension modernTheme,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          if (isHomeTab)
-            _buildVideoProgressIndicator(),
-          
-          SafeArea(
-            top: false,
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(5, (index) {
-                  if (index == 2) {
-                    return _buildPostButton(modernTheme, isHomeTab);
-                  }
-                  
-                  return _buildNavItem(
-                    index,
-                    modernTheme,
-                    isHomeTab,
-                  );
-                }),
-              ),
+          Icon(
+            icon,
+            color: modernTheme.textColor,
+            size: 22,
+          ),
+          const SizedBox(width: 16),
+          Text(
+            title,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -468,40 +736,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildVideoProgressIndicator() {
-    return ValueListenableBuilder<double>(
-      valueListenable: _videoProgressNotifier,
-      builder: (context, progress, child) {
-        return Container(
-          height: 1,
-          width: double.infinity,
-          color: Colors.grey.withOpacity(0.3),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              height: 2,
-              width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.5),
-                    blurRadius: 4,
-                    offset: const Offset(0, 0),
-                  ),
-                ],
-              ),
-            ),
+  Widget _buildBottomNav(ModernThemeExtension modernTheme) {
+    Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
+    Color borderColor = modernTheme.dividerColor ?? Colors.grey[300]!;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(
+          top: BorderSide(
+            color: borderColor,
+            width: 0.5,
           ),
-        );
-      },
+        ),
+      ),
+      child: SafeArea(
+        child: Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(5, (index) {
+              if (index == 2) {
+                return _buildPostButton(modernTheme);
+              }
+              return _buildNavItem(index, modernTheme);
+            }),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
+  Widget _buildPostButton(ModernThemeExtension modernTheme) {
     return GestureDetector(
-      onTap: () => _navigateToCreatePost(),
+      onTap: () => _showPostOptions(),
       child: Container(
         width: 45,
         height: 32,
@@ -509,86 +778,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           borderRadius: BorderRadius.circular(8),
           gradient: LinearGradient(
             colors: [
-              Colors.red.shade400,
-              Colors.pink.shade400,
+              modernTheme.primaryColor ?? const Color(0xFF07C160),
+              (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.7),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.red.withOpacity(0.3),
+              color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 6,
-              top: 6,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 12,
-                ),
-              ),
-            ),
-            Positioned(
-              right: 6,
-              top: 10,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade400,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 12,
-                ),
-              ),
-            ),
-          ],
+        child: const Center(
+          child: Icon(
+            Icons.add,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(
-    int index,
-    ModernThemeExtension modernTheme,
-    bool isHomeTab,
-  ) {
+  Widget _buildNavItem(int index, ModernThemeExtension modernTheme) {
     final isSelected = _currentIndex == index;
-    
-    Color iconColor;
-    Color textColor;
-    
-    if (isHomeTab) {
-      iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-      textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-    } else {
-      iconColor = isSelected 
-          ? (modernTheme.primaryColor ?? const Color(0xFFFE2C55)) 
-          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-      textColor = isSelected 
-          ? (modernTheme.textColor ?? Colors.black)
-          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-    }
 
-    // Dummy unread count for Inbox tab (index 3)
-    final int unreadCount = index == 3 ? 7 : 0;
+    Color iconColor = isSelected
+        ? (modernTheme.primaryColor ?? const Color(0xFF07C160))
+        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+    Color textColor = isSelected
+        ? (modernTheme.textColor ?? Colors.black)
+        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+
+    // Dummy unread counts
+    int unreadCount = 0;
+    if (index == 0) unreadCount = 5; // Chats
+    if (index == 3) unreadCount = 2; // Discover
 
     return Expanded(
       child: GestureDetector(
@@ -619,7 +847,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFE2C55),
+                          color: const Color(0xFFFA5151), // WeChat red
                           borderRadius: BorderRadius.circular(9),
                         ),
                         constraints: const BoxConstraints(

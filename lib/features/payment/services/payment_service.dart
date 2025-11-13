@@ -8,6 +8,34 @@ class PaymentService {
   PaymentService({HttpClientService? httpClient})
       : _httpClient = httpClient ?? HttpClientService();
 
+  /// Initiate M-Pesa STK Push for activation payment (KES 99)
+  /// [phoneNumber] - User's M-Pesa phone number (format: 254XXXXXXXXX)
+  Future<PaymentInitiationResponse> initiateActivationPayment({
+    required String phoneNumber,
+  }) async {
+    try {
+      final response = await _httpClient.post(
+        '/payment/initiate',
+        body: {
+          'amount': 99.0,
+          'phone_number': phoneNumber,
+          'transaction_type': 'activation',
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        return PaymentInitiationResponse.fromJson(responseData as Map<String, dynamic>);
+      } else {
+        final error = jsonDecode(response.body);
+        throw PaymentException(error['error'] ?? 'Failed to initiate activation payment');
+      }
+    } catch (e) {
+      if (e is PaymentException) rethrow;
+      throw PaymentException('Failed to initiate activation payment: $e');
+    }
+  }
+
   /// Initiate M-Pesa STK Push for wallet top-up
   /// [amount] - Amount in KES to top up (e.g., 100 = 100 coins)
   /// [phoneNumber] - User's M-Pesa phone number (format: 254XXXXXXXXX)

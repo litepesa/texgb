@@ -3,9 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
@@ -40,23 +39,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             },
             modernTheme: modernTheme,
           ),
-          
-          /*_buildListItem(
-            icon: CupertinoIcons.shopping_cart,
-            title: 'Marketplace',
-            subtitle: 'Buy and sell anything easily',
-            iconColor: Colors.green,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const VideosFeedScreen(),
-                ),
-              );
-            },
-            modernTheme: modernTheme,
-          ),*/
-          
+
           _buildListItem(
             icon: CupertinoIcons.play_rectangle,
             title: 'Channels',
@@ -74,38 +57,6 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           ),
           
           _buildListItem(
-            icon: Icons.campaign_outlined,
-            title: 'Public Groups',
-            subtitle: 'Join and discover communities',
-            iconColor: Colors.orange,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const VideosFeedScreen(),
-                ),
-              );
-            },
-            modernTheme: modernTheme,
-          ),
-          
-          _buildListItem(
-            icon: Icons.add_box_outlined,
-            title: 'Create Post',
-            subtitle: 'Share content on your channel',
-            iconColor: Colors.blue,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CreatePostScreen(),
-                ),
-              );
-            },
-            modernTheme: modernTheme,
-          ),
-          
-          _buildListItem(
             icon: Icons.account_balance_wallet_outlined,
             title: 'Wallet',
             subtitle: 'Manage your finances',
@@ -114,7 +65,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const WalletScreen(),
+                  builder: (context) => const WalletScreenV2(),
                 ),
               );
             },

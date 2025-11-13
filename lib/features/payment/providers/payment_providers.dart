@@ -51,6 +51,39 @@ class Payment extends _$Payment {
 
   PaymentService get _service => ref.read(paymentServiceProvider);
 
+  /// Initiate activation payment (KES 99) with M-Pesa STK Push
+  /// Returns the checkout request ID for polling, or null if failed
+  Future<String?> initiateActivation({
+    required String phoneNumber,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final response = await _service.initiateActivationPayment(
+        phoneNumber: phoneNumber,
+      );
+
+      state = state.copyWith(
+        currentTransaction: response.transaction,
+        isLoading: false,
+      );
+
+      return response.transaction.checkoutRequestId;
+    } on PaymentException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+      return null;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to initiate activation payment: $e',
+      );
+      return null;
+    }
+  }
+
   /// Initiate wallet top-up with M-Pesa STK Push
   /// Returns the checkout request ID for polling, or null if failed
   Future<String?> initiateTopUp({

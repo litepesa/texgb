@@ -1,5 +1,5 @@
 // lib/features/contacts/screens/contacts_screen.dart
-// Updated to use new contacts provider system with extracted widgets
+// Updated with user profile images in the list
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/widgets/contact_item_widget.dart';
 import 'package:textgb/features/contacts/widgets/contacts_empty_states_widget.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Add this import for network images
 
 class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({super.key});
@@ -22,11 +24,9 @@ class ContactsScreen extends ConsumerStatefulWidget {
 class _ContactsScreenState extends ConsumerState<ContactsScreen> 
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   
-  late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _contactsScrollController = ScrollController();
-  final ScrollController _invitesScrollController = ScrollController();
   
   String _searchQuery = '';
   bool _isSearching = false;
@@ -34,7 +34,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   
   // Performance optimizations
   late AnimationController _refreshAnimationController;
-  late Animation<double> _refreshAnimation;
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey();
   
   // Cached filtered lists for better performance
@@ -47,7 +46,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _setupAnimations();
     _setupListeners();
     
@@ -62,15 +60,19 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    _refreshAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(_refreshAnimationController);
   }
 
   void _setupListeners() {
     _searchController.addListener(_onSearchChanged);
-    _tabController.addListener(_onTabChanged);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (!_searchFocusNode.hasFocus && _searchController.text.isEmpty) {
+      setState(() {
+        _isSearching = false;
+      });
+    }
   }
 
   void _onSearchChanged() {
@@ -80,13 +82,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         _searchQuery = query;
         _updateFilteredContacts();
       });
-    }
-  }
-
-  void _onTabChanged() {
-    // Clear search when switching tabs
-    if (_searchController.text.isNotEmpty) {
-      _searchController.clear();
     }
   }
 
@@ -111,6 +106,16 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   phone.number.toLowerCase().contains(_searchQuery)))
           .toList();
     }
+  }
+
+  void _dismissSearch() {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+    });
+    _updateFilteredContacts();
   }
 
   // Smart initialization with background sync
@@ -160,7 +165,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       
       if (mounted) {
         _updateFilteredContacts();
-        _showSuccessSnackBar('Contacts updated');
       }
     } catch (e) {
       debugPrint('Background sync failed: $e');
@@ -190,13 +194,22 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
   }
 
+  // Navigate to contact profile
+  void _navigateToContactProfile(UserModel contact) {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ContactProfileScreen(contact: contact),
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    _tabController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _contactsScrollController.dispose();
-    _invitesScrollController.dispose();
     _refreshAnimationController.dispose();
     super.dispose();
   }
@@ -207,380 +220,177 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     
     final theme = context.modernTheme;
     
-    return Scaffold(
-      backgroundColor: theme.surfaceColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Enhanced Custom App Bar matching channels screen
-            _buildAppBar(theme),
-            
-            // Search Field (when active)
-            if (_isSearching) _buildSearchField(theme),
-            
-            // Enhanced Tab Bar
-            _buildTabBar(theme),
-            
-            // Tab Content
-            Expanded(
-              child: Container(
-                color: theme.surfaceColor,
-                child: Consumer(
-                  builder: (context, ref, child) {
-                    final contactsState = ref.watch(contactsNotifierProvider);
-                    
-                    return contactsState.when(
-                      data: (state) {
-                        // Handle permission denied
-                        if (state.syncStatus == SyncStatus.permissionDenied) {
-                          return ContactsEmptyStatesWidget.buildPermissionScreen(
-                            context,
-                            () async {
-                              final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-                              await contactsNotifier.requestPermission();
-                            },
-                          );
-                        }
-                        
-                        // Update filtered contacts when state changes
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _updateFilteredContacts();
-                        });
-                        
-                        return TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildContactsTab(state),
-                            _buildInvitesTab(state),
-                          ],
-                        );
-                      },
-                      loading: () => ContactsEmptyStatesWidget.buildLoadingState(
-                        context, 
-                        'Loading contacts...'
-                      ),
-                      error: (error, stackTrace) => ContactsEmptyStatesWidget.buildErrorState(
-                        context,
-                        error.toString(),
-                        _forceSyncContacts,
-                      ),
-                    );
-                  },
+    return GestureDetector(
+      onTap: () {
+        // Dismiss search when tapping outside
+        if (_isSearching) {
+          _dismissSearch();
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
+        backgroundColor: theme.surfaceColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // WeChat-style Search Header
+              _buildWeChatHeader(theme),
+              
+              // Main Contacts List
+              Expanded(
+                child: Container(
+                  color: theme.surfaceColor,
+                  child: Consumer(
+                    builder: (context, ref, child) {
+                      final contactsState = ref.watch(contactsNotifierProvider);
+                      
+                      return contactsState.when(
+                        data: (state) {
+                          // Handle permission denied
+                          if (state.syncStatus == SyncStatus.permissionDenied) {
+                            return ContactsEmptyStatesWidget.buildPermissionScreen(
+                              context,
+                              () async {
+                                final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+                                await contactsNotifier.requestPermission();
+                              },
+                            );
+                          }
+                          
+                          // Update filtered contacts when state changes
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _updateFilteredContacts();
+                          });
+                          
+                          return _buildWeChatContactsList(state);
+                        },
+                        loading: () => ContactsEmptyStatesWidget.buildLoadingState(
+                          context, 
+                          'Loading contacts...'
+                        ),
+                        error: (error, stackTrace) => ContactsEmptyStatesWidget.buildErrorState(
+                          context,
+                          error.toString(),
+                          _forceSyncContacts,
+                        ),
+                      );
+                    },
+                  ),
                 ),
+              ),
+            ],
+          ),
+        ),
+        /*floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddContactScreen(),
+              ),
+            ).then((_) => _updateFilteredContacts());
+          },
+          backgroundColor: theme.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          child: const Icon(Icons.person_add_rounded, size: 24),
+        ),*/
+      ),
+    );
+  }
+
+  Widget _buildWeChatHeader(theme) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      color: theme.surfaceColor,
+      child: Column(
+        children: [
+          // Search Field with clear button
+          Stack(
+            children: [
+              Container(
+                height: 36,
+                decoration: BoxDecoration(
+                  color: theme.surfaceColor!.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: theme.dividerColor!.withOpacity(0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onTap: () {
+                    setState(() {
+                      _isSearching = true;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search',
+                    hintStyle: TextStyle(
+                      color: theme.textSecondaryColor,
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: theme.textSecondaryColor,
+                      size: 18,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  style: TextStyle(
+                    color: theme.textColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              
+              // Clear search button (visible when searching)
+              if (_isSearching && _searchController.text.isNotEmpty)
+                Positioned(
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    onTap: _dismissSearch,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: theme.textSecondaryColor!.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: theme.textSecondaryColor,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          
+          // Search dismissal hint (only shown when searching)
+          if (_isSearching) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Tap anywhere outside to dismiss search',
+              style: TextStyle(
+                color: theme.textSecondaryColor,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddContactScreen(),
-            ),
-          ).then((_) => _updateFilteredContacts());
-        },
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 8,
-        child: const Icon(Icons.person_add_rounded),
-      ),
-    );
-  }
-
-  Widget _buildAppBar(theme) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.dividerColor!.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryColor!.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Enhanced Back Button
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                Navigator.pop(context);
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.primaryColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: theme.primaryColor,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-          
-          // Enhanced Title
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  Text(
-                    _isSearching ? 'Search Contacts' : 'Contacts',
-                    style: TextStyle(
-                      color: theme.textColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 2),
-                  Container(
-                    height: 2,
-                    width: 60,
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor!.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Enhanced Search Button
-          if (!_isSearching)
-            Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  setState(() {
-                    _isSearching = true;
-                  });
-                  _searchFocusNode.requestFocus();
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor!.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.search_rounded,
-                    color: theme.primaryColor,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          
-          // Enhanced Clear Search Button
-          if (_isSearching)
-            Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  setState(() {
-                    _searchController.clear();
-                    _searchQuery = '';
-                    _isSearching = false;
-                  });
-                  _updateFilteredContacts();
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.clear_rounded,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          
-          const SizedBox(width: 8),
-          
-          // Enhanced Menu Button
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                _showMenuOptions();
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.primaryColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: RotationTransition(
-                  turns: _refreshAnimation,
-                  child: Icon(
-                    Icons.more_vert_rounded,
-                    color: theme.primaryColor,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchField(theme) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.primaryColor!.withOpacity(0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryColor!.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        decoration: InputDecoration(
-          hintText: 'Search contacts...',
-          border: InputBorder.none,
-          hintStyle: TextStyle(color: theme.textSecondaryColor),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: theme.primaryColor,
-            size: 20,
-          ),
-        ),
-        style: TextStyle(color: theme.textColor),
-      ),
-    );
-  }
-
-  Widget _buildTabBar(theme) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.dividerColor!.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryColor!.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: TabBar(
-        controller: _tabController,
-        dividerColor: Colors.transparent,
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border(
-            bottom: BorderSide(
-              color: theme.primaryColor!,
-              width: 3,
-            ),
-          ),
-        ),
-        labelColor: theme.primaryColor,
-        unselectedLabelColor: theme.textSecondaryColor,
-        labelStyle: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-          letterSpacing: 0.1,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
-        tabs: [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_rounded, size: 16),
-                const SizedBox(width: 6),
-                const Text('Contacts'),
-              ],
-            ),
-          ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person_add_rounded, size: 16),
-                const SizedBox(width: 6),
-                const Text('Invites'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContactsTab(ContactsState state) {
+  Widget _buildWeChatContactsList(ContactsState state) {
     final theme = context.modernTheme;
     
     if (state.isLoading && _isInitializing) {
@@ -590,7 +400,17 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       );
     }
 
-    if (_filteredRegisteredContacts.isEmpty && !state.isLoading) {
+    // Combine registered and unregistered contacts for WeChat-style unified list
+    final allContacts = [
+      // Special sections like WeChat (only show when not searching)
+      //if (!_isSearching) ..._buildSpecialSection(theme),
+      // Registered contacts (friends)
+      ..._buildRegisteredContactsSection(theme),
+      // Unregistered contacts (invite suggestions)
+      ..._buildUnregisteredContactsSection(theme),
+    ];
+
+    if (allContacts.isEmpty && !state.isLoading) {
       return ContactsEmptyStatesWidget.buildEmptyContactsState(
         context,
         _searchQuery,
@@ -606,26 +426,21 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         color: theme.primaryColor,
         child: Column(
           children: [
-            ContactsEmptyStatesWidget.buildSyncStatusIndicator(
-              context,
-              state.lastSyncTime,
-              state.syncStatus,
-              state.backgroundSyncAvailable,
-              _forceSyncContacts,
-            ),
+            // Sync status indicator (minimal, only show when not searching)
+            if (!_isSearching)
+              ContactsEmptyStatesWidget.buildSyncStatusIndicator(
+                context,
+                state.lastSyncTime,
+                state.syncStatus,
+                state.backgroundSyncAvailable,
+                _forceSyncContacts,
+              ),
             Expanded(
-              child: ListView.separated(
+              child: ListView.builder(
                 controller: _contactsScrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _filteredRegisteredContacts.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final contact = _filteredRegisteredContacts[index];
-                  return ContactItemWidget(
-                    contact: contact,
-                    index: index,
-                  );
-                },
+                padding: EdgeInsets.zero,
+                itemCount: allContacts.length,
+                itemBuilder: (context, index) => allContacts[index],
               ),
             ),
           ],
@@ -634,178 +449,288 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     );
   }
 
-  Widget _buildInvitesTab(ContactsState state) {
-    final theme = context.modernTheme;
+  /*List<Widget> _buildSpecialSection(theme) {
+    return [
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // New Friends
+          _buildWeChatContactItem(
+            icon: Icons.person_add_rounded,
+            title: 'New Friends',
+            subtitle: 'Add friends and accept requests',
+            onTap: () {
+              // Navigate to new friends screen
+              _showComingSoonSnackBar('New Friends');
+            },
+            theme: theme,
+            showDivider: true,
+            isSpecialSection: true,
+          ),
+          // Group Chats
+          _buildWeChatContactItem(
+            icon: Icons.group_rounded,
+            title: 'Group Chats',
+            subtitle: 'Your group conversations',
+            onTap: () {
+              _showComingSoonSnackBar('Group Chats');
+            },
+            theme: theme,
+            showDivider: true,
+            isSpecialSection: true,
+          ),
+          // Tags
+          _buildWeChatContactItem(
+            icon: Icons.label_rounded,
+            title: 'Tags',
+            subtitle: 'Organize your contacts',
+            onTap: () {
+              _showComingSoonSnackBar('Tags');
+            },
+            theme: theme,
+            showDivider: true,
+            isSpecialSection: true,
+          ),
+          // Official Accounts
+          _buildWeChatContactItem(
+            icon: Icons.verified_rounded,
+            title: 'Official Accounts',
+            subtitle: 'Follow brands and services',
+            onTap: () {
+              _showComingSoonSnackBar('Official Accounts');
+            },
+            theme: theme,
+            showDivider: false,
+            isSpecialSection: true,
+          ),
+          // Section divider
+          Container(
+            height: 8,
+            color: theme.dividerColor!.withOpacity(0.1),
+          ),
+        ],
+      ),
+    ];
+  }*/
+
+  List<Widget> _buildRegisteredContactsSection(theme) {
+    if (_filteredRegisteredContacts.isEmpty) return [];
+
+    // Group contacts by first letter for WeChat-style alphabetical index
+    final Map<String, List<UserModel>> groupedContacts = {};
     
-    if (state.isLoading && _isInitializing) {
-      return ContactsEmptyStatesWidget.buildLoadingState(
-        context, 
-        'Loading contacts...'
-      );
+    for (final contact in _filteredRegisteredContacts) {
+      final firstLetter = contact.name.isNotEmpty 
+          ? contact.name[0].toUpperCase()
+          : '#';
+      if (!groupedContacts.containsKey(firstLetter)) {
+        groupedContacts[firstLetter] = [];
+      }
+      groupedContacts[firstLetter]!.add(contact);
     }
 
-    if (_filteredUnregisteredContacts.isEmpty && !state.isLoading) {
-      return ContactsEmptyStatesWidget.buildEmptyInvitesState(
-        context,
-        _searchQuery,
-        _forceSyncContacts,
+    // Sort the groups alphabetically
+    final sortedLetters = groupedContacts.keys.toList()..sort();
+
+    final List<Widget> sections = [];
+
+    for (final letter in sortedLetters) {
+      final contactsInGroup = groupedContacts[letter]!..sort((a, b) => a.name.compareTo(b.name));
+      
+      // Add section header
+      sections.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          color: theme.surfaceColor!.withOpacity(0.6),
+          child: Text(
+            letter,
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       );
+
+      // Add contacts in this group
+      for (int i = 0; i < contactsInGroup.length; i++) {
+        final contact = contactsInGroup[i];
+        final showDivider = i < contactsInGroup.length - 1;
+        
+        sections.add(
+          _buildWeChatContactItem(
+            title: contact.name,
+            subtitle: contact.phoneNumber,
+            onTap: () {
+              _navigateToContactProfile(contact);
+            },
+            theme: theme,
+            showDivider: showDivider,
+            isContact: true,
+            contact: contact,
+            profileImageUrl: contact.profileImage, // Pass profile image URL
+          ),
+        );
+      }
     }
 
-    return Container(
-      color: theme.surfaceColor,
-      child: RefreshIndicator(
-        onRefresh: _forceSyncContacts,
-        color: theme.primaryColor,
-        child: Column(
-          children: [
-            ContactsEmptyStatesWidget.buildSyncStatusIndicator(
-              context,
-              state.lastSyncTime,
-              state.syncStatus,
-              state.backgroundSyncAvailable,
-              _forceSyncContacts,
-            ),
-            Expanded(
-              child: ListView.separated(
-                controller: _invitesScrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _filteredUnregisteredContacts.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final contact = _filteredUnregisteredContacts[index];
-                  return InviteItemWidget(
-                    contact: contact,
-                    index: index,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return sections;
   }
 
-  void _showMenuOptions() {
-    final theme = context.modernTheme;
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: theme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 20),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.textSecondaryColor?.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            
-            _buildActionTile(
-              icon: Icons.sync_rounded,
-              title: 'Sync contacts',
-              onTap: () {
-                Navigator.pop(context);
-                _forceSyncContacts();
-              },
-              theme: theme,
-            ),
-            _buildActionTile(
-              icon: Icons.block_rounded,
-              title: 'Blocked contacts',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const BlockedContactsScreen(),
-                  ),
-                );
-              },
-              theme: theme,
-            ),
-            _buildActionTile(
-              icon: Icons.clear_all_rounded,
-              title: 'Clear cache',
-              onTap: () {
-                Navigator.pop(context);
-                _clearCache();
-              },
-              theme: theme,
-            ),
-            _buildActionTile(
-              icon: Icons.settings_rounded,
-              title: 'Contact settings',
-              onTap: () {
-                Navigator.pop(context);
-                _showErrorSnackBar('Contact settings coming soon');
-              },
-              theme: theme,
-            ),
-            
-            const SizedBox(height: 20),
-          ],
+  List<Widget> _buildUnregisteredContactsSection(theme) {
+    if (_filteredUnregisteredContacts.isEmpty) return [];
+
+    return [
+      // Section header for invite suggestions
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: theme.surfaceColor!.withOpacity(0.6),
+        child: Text(
+          'Invite to TextGB',
+          style: TextStyle(
+            color: theme.textSecondaryColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
-    );
+      // Invite suggestions
+      ..._filteredUnregisteredContacts.asMap().entries.map((entry) {
+        final index = entry.key;
+        final contact = entry.value;
+        final phoneNumber = contact.phones.isNotEmpty 
+            ? contact.phones.first.number 
+            : 'No phone number';
+        
+        return _buildWeChatContactItem(
+          icon: Icons.person_outline_rounded,
+          title: contact.displayName.isEmpty ? 'Unknown' : contact.displayName,
+          subtitle: phoneNumber,
+          onTap: () {
+            _showInviteDialog(contact);
+          },
+          theme: theme,
+          showDivider: index < _filteredUnregisteredContacts.length - 1,
+          isInvite: true,
+          contact: contact,
+        );
+      }),
+    ];
   }
 
-  Widget _buildActionTile({
-    required IconData icon,
+  Widget _buildWeChatContactItem({
+    IconData? icon,
     required String title,
+    required String subtitle,
     required VoidCallback onTap,
     required theme,
-    bool isDestructive = false,
+    required bool showDivider,
+    bool isContact = false,
+    bool isInvite = false,
+    bool isSpecialSection = false,
+    dynamic contact,
+    String? profileImageUrl, // Add profile image URL parameter
   }) {
     return Material(
-      color: Colors.transparent,
+      color: theme.surfaceColor,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: showDivider
+                ? Border(
+                    bottom: BorderSide(
+                      color: theme.dividerColor!.withOpacity(0.1),
+                      width: 0.5,
+                    ),
+                  )
+                : null,
+          ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDestructive 
-                    ? Colors.red.withOpacity(0.1)
-                    : theme.primaryColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+              // Avatar/Profile Image or Icon
+              if (isContact && profileImageUrl != null && profileImageUrl.isNotEmpty)
+                _buildProfileAvatar(profileImageUrl, theme)
+              else
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isInvite 
+                        ? theme.primaryColor!.withOpacity(0.1)
+                        : isSpecialSection
+                            ? theme.primaryColor!.withOpacity(0.1)
+                            : theme.surfaceColor!.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    icon ?? Icons.person_rounded,
+                    color: isInvite 
+                        ? theme.primaryColor 
+                        : isSpecialSection
+                            ? theme.primaryColor
+                            : theme.textSecondaryColor,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: isDestructive ? Colors.red : theme.primaryColor,
-                  size: 18,
-                ),
-              ),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isDestructive ? Colors.red : theme.textColor,
+              
+              // Contact Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: theme.textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: theme.textSecondaryColor,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              
+              // Action indicator
+              if (isInvite)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Invite',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              else if (!isContact && !isSpecialSection)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: theme.textSecondaryColor,
+                  size: 14,
+                ),
             ],
           ),
         ),
@@ -813,57 +738,90 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     );
   }
 
-  Future<void> _clearCache() async {
-    final confirmed = await _showConfirmationDialog(
-      title: 'Clear Cache',
-      content: 'This will clear all cached contact data and force a fresh sync.',
-      action: 'Clear',
+  Widget _buildProfileAvatar(String imageUrl, theme) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        color: theme.surfaceColor!.withOpacity(0.8),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: theme.primaryColor!.withOpacity(0.1),
+            child: Icon(
+              Icons.person_rounded,
+              color: theme.primaryColor,
+              size: 20,
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: theme.primaryColor!.withOpacity(0.1),
+            child: Icon(
+              Icons.person_rounded,
+              color: theme.primaryColor,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
     );
-    
-    if (confirmed) {
-      try {
-        await ref.read(contactsNotifierProvider.notifier).clearCache();
-        _showSuccessSnackBar('Cache cleared');
-        await _initializeContacts();
-      } catch (e) {
-        _showErrorSnackBar('Failed to clear cache: $e');
-      }
-    }
   }
 
-  // Confirmation dialog with modern design
-  Future<bool> _showConfirmationDialog({
-    required String title,
-    required String content,
-    required String action,
-  }) async {
+  void _showInviteDialog(Contact contact) {
     final theme = context.modernTheme;
+    final phoneNumber = contact.phones.isNotEmpty 
+        ? contact.phones.first.number 
+        : 'Unknown number';
     
-    final result = await showDialog<bool>(
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: theme.surfaceColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(title, style: TextStyle(color: theme.textColor, fontWeight: FontWeight.w700)),
-        content: Text(content, style: TextStyle(color: theme.textSecondaryColor)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          'Invite to TextGB',
+          style: TextStyle(
+            color: theme.textColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Invite ${contact.displayName.isEmpty ? phoneNumber : contact.displayName} to join TextGB?',
+          style: TextStyle(color: theme.textSecondaryColor),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: Text('Cancel', style: TextStyle(color: theme.textSecondaryColor)),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              Navigator.pop(context);
+              _sendInvite(contact);
+            },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: theme.primaryColor,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text(action),
+            child: const Text('Send Invite'),
           ),
         ],
       ),
     );
-    return result ?? false;
+  }
+
+  void _sendInvite(Contact contact) {
+    // Implement invite sending logic
+    _showSuccessSnackBar('Invite sent to ${contact.displayName}');
+  }
+
+  void _showComingSoonSnackBar(String feature) {
+    _showInfoSnackBar('$feature - Coming Soon!');
   }
 
   // Helper methods for notifications
@@ -888,6 +846,19 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         content: Text(message),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _showInfoSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         margin: const EdgeInsets.all(16),
