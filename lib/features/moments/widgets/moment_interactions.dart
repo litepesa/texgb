@@ -28,21 +28,24 @@ class MomentInteractions extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Like button
-          _buildLikeButton(),
+          // Like button - Facebook style
+          Expanded(
+            child: _buildLikeButton(),
+          ),
 
-          const SizedBox(width: 24),
+          const SizedBox(width: 8),
 
-          // Comment button
-          _buildCommentButton(),
+          // Comment button - Facebook style
+          Expanded(
+            child: _buildCommentButton(),
+          ),
 
-          const Spacer(),
+          const SizedBox(width: 8),
 
-          // Timestamp (optional, can be removed if redundant)
-          // Text(
-          //   MomentsTimeService.formatMomentTime(moment.createdAt),
-          //   style: MomentsTheme.timestampStyle,
-          // ),
+          // Share button (optional)
+          Expanded(
+            child: _buildShareButton(),
+          ),
         ],
       ),
     );
@@ -51,32 +54,31 @@ class MomentInteractions extends StatelessWidget {
   Widget _buildLikeButton() {
     return InkWell(
       onTap: onLike,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               moment.isLikedByMe ? Icons.favorite : Icons.favorite_border,
-              size: MomentsTheme.iconSizeMedium,
+              size: 20,
               color: moment.isLikedByMe
                   ? MomentsTheme.likeRed
                   : MomentsTheme.lightTextSecondary,
             ),
-            if (moment.likesCount > 0) ...[
-              const SizedBox(width: 6),
-              Text(
-                '${moment.likesCount}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: moment.isLikedByMe
-                      ? MomentsTheme.likeRed
-                      : MomentsTheme.lightTextSecondary,
-                ),
+            const SizedBox(width: 6),
+            Text(
+              'Like',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: moment.isLikedByMe
+                    ? MomentsTheme.likeRed
+                    : MomentsTheme.lightTextSecondary,
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -86,28 +88,59 @@ class MomentInteractions extends StatelessWidget {
   Widget _buildCommentButton() {
     return InkWell(
       onTap: onComment,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.comment_outlined,
-              size: MomentsTheme.iconSizeMedium,
+              Icons.mode_comment_outlined,
+              size: 20,
               color: MomentsTheme.lightTextSecondary,
             ),
-            if (moment.commentsCount > 0) ...[
-              const SizedBox(width: 6),
-              Text(
-                '${moment.commentsCount}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: MomentsTheme.lightTextSecondary,
-                ),
+            const SizedBox(width: 6),
+            Text(
+              'Comment',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: MomentsTheme.lightTextSecondary,
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareButton() {
+    return InkWell(
+      onTap: () {
+        // Share functionality can be added here
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.share_outlined,
+              size: 20,
+              color: MomentsTheme.lightTextSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Share',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: MomentsTheme.lightTextSecondary,
+              ),
+            ),
           ],
         ),
       ),
