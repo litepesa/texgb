@@ -359,26 +359,36 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Text input - Facebook "What's on your mind?" style
-                TextField(
-                  controller: _contentController,
-                  maxLines: null,
-                  minLines: 3,
-                  maxLength: 1000,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: "What's on your mind?",
-                    hintStyle: TextStyle(
-                      fontSize: 17,
-                      color: MomentsTheme.lightTextTertiary,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    border: InputBorder.none,
-                    counterText: '',
+                Container(
+                  decoration: BoxDecoration(
+                    color: MomentsTheme.lightSurface,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    color: MomentsTheme.lightTextPrimary,
-                    height: 1.4,
+                  padding: const EdgeInsets.all(12),
+                  child: TextField(
+                    controller: _contentController,
+                    maxLines: null,
+                    minLines: 3,
+                    maxLength: 1000,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: "What's on your mind?",
+                      hintStyle: TextStyle(
+                        fontSize: 17,
+                        color: MomentsTheme.lightTextTertiary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      border: InputBorder.none,
+                      counterText: '',
+                      filled: true,
+                      fillColor: MomentsTheme.lightSurface,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      color: MomentsTheme.lightTextPrimary,
+                      height: 1.4,
+                    ),
                   ),
                 ),
 
