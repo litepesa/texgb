@@ -391,29 +391,39 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
   }
 
   Widget _buildWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 100),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
 
-          // Premium Balance Card
-          _buildPremiumBalanceCard(wallet, theme),
+                  // Premium Balance Card
+                  _buildPremiumBalanceCard(wallet, theme),
 
-          const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-          // Tab Bar
-          _buildTabBar(theme),
+                  // Tab Bar
+                  _buildTabBar(theme),
 
-          const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-          // Tab Content
-          _buildTabContent(wallet, transactions, theme),
+                  // Tab Content
+                  _buildTabContent(wallet, transactions, theme),
 
-          const SizedBox(height: 24),
-        ],
-      ),
+                  const SizedBox(height: 80),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -422,195 +432,198 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     final kesValue = _coinsToKES(balance);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [_primaryPurple, _deepPurple],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _primaryPurple.withOpacity(0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: _primaryPurple.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          // Decorative circles
-          Positioned(
-            top: -20,
-            right: -20,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            // Decorative circles (clipped)
+            Positioned(
+              top: -30,
+              right: -30,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.08),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: -30,
-            left: -30,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
+            Positioned(
+              bottom: -40,
+              left: -40,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                ),
               ),
             ),
-          ),
 
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Coin Balance',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _balanceVisible = !_balanceVisible;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
-                            Icons.account_balance_wallet_rounded,
+                          child: Icon(
+                            _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
                             color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Coin Balance',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _balanceVisible = !_balanceVisible;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _balanceVisible ? balance.toString() : '••••••',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 56,
-                            fontWeight: FontWeight.w800,
-                            height: 1.0,
-                            letterSpacing: -2,
+                            size: 18,
                           ),
                         ),
                       ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 8, left: 8),
-                      child: Text(
-                        'coins',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _balanceVisible ? '≈ KES ${kesValue.toStringAsFixed(2)}' : '≈ KES •••',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _accentGold.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _accentGold.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: _accentGold,
-                        size: 16,
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _balanceVisible ? balance.toString() : '••••••',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 48,
+                              fontWeight: FontWeight.w800,
+                              height: 1.0,
+                              letterSpacing: -1.5,
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      const Flexible(
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 6, left: 6),
                         child: Text(
-                          '100 coins = KES 150  •  Min: 50 coins',
+                          'coins',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+                            color: Colors.white70,
+                            fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    _balanceVisible ? '≈ KES ${kesValue.toStringAsFixed(2)}' : '≈ KES •••',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _accentGold.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _accentGold.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: _accentGold,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        const Flexible(
+                          child: Text(
+                            '100 coins = KES 150  •  Min: 50 coins',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTabBar(ModernThemeExtension theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: _cardWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -704,8 +717,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
       children: [
         // Gifts Stats Card
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(24),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: _cardWhite,
             borderRadius: BorderRadius.circular(20),
@@ -793,7 +806,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
         // Received Gifts List
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: _cardWhite,
             borderRadius: BorderRadius.circular(20),
@@ -848,8 +861,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
         // Info Card
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
@@ -932,22 +945,22 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   Widget _buildEmptyGifts(ModernThemeExtension theme) {
     return Padding(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: _accentGold.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.card_giftcard_rounded,
-              size: 48,
+              size: 40,
               color: _accentGold,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const Text(
             'No Gifts Yet',
             style: TextStyle(
@@ -972,7 +985,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   Widget _buildGiftItem(WalletTransaction transaction, ModernThemeExtension theme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -1061,8 +1074,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   Widget _buildQuickActions(ModernThemeExtension theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardWhite,
         borderRadius: BorderRadius.circular(20),
@@ -1169,8 +1182,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   Widget _buildServicesGrid(ModernThemeExtension theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardWhite,
         borderRadius: BorderRadius.circular(20),
@@ -1193,14 +1206,20 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
               color: Color(0xFF1F2937),
             ),
           ),
-          const SizedBox(height: 20),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 20,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.9,
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Responsive grid
+              final crossAxisCount = constraints.maxWidth < 300 ? 3 : 4;
+              final childAspectRatio = constraints.maxWidth < 300 ? 0.85 : 0.95;
+
+              return GridView.count(
+                crossAxisCount: crossAxisCount,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 10,
+                childAspectRatio: childAspectRatio,
             children: [
               _buildServiceItem(
                 icon: Icons.phone_android,
@@ -1251,6 +1270,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 onTap: () => _showMenuOptions(context, theme),
               ),
             ],
+          );
+            },
           ),
         ],
       ),
@@ -1299,7 +1320,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   Widget _buildTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: _cardWhite,
         borderRadius: BorderRadius.circular(20),
@@ -1356,22 +1377,22 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   Widget _buildEmptyTransactions(ModernThemeExtension theme) {
     return Padding(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: _primaryPurple.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.receipt_long_rounded,
-              size: 48,
+              size: 40,
               color: _primaryPurple,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const Text(
             'No Transactions Yet',
             style: TextStyle(
@@ -1430,7 +1451,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
