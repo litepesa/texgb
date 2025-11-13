@@ -299,13 +299,16 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'WemaChat Wallet',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                        color: theme.textColor,
+                    Flexible(
+                      child: Text(
+                        'WemaChat Wallet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: theme.textColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -338,6 +341,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                     fontWeight: FontWeight.w500,
                     color: theme.textSecondaryColor ?? Colors.grey,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -496,14 +500,20 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                _balanceVisible ? balance.toString() : '••••••',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 48,
-                  fontWeight: FontWeight.w800,
-                  height: 1.0,
-                  letterSpacing: -1,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _balanceVisible ? balance.toString() : '••••••',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 48,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                      letterSpacing: -1,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -516,6 +526,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           Container(
@@ -568,38 +579,45 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildActionButton(
-            icon: Icons.add_circle_outline,
-            label: 'Top Up',
-            color: theme.primaryColor ?? const Color(0xFF07C160),
-            onTap: () => EscrowFundingWidget.show(context),
-            theme: theme,
-          ),
-          _buildActionButton(
-            icon: Icons.send,
-            label: 'Send',
-            color: const Color(0xFF1890FF),
-            onTap: () => _showComingSoonDialog('Send KEST'),
-            theme: theme,
-          ),
-          _buildActionButton(
-            icon: Icons.qr_code,
-            label: 'Receive',
-            color: const Color(0xFFFA8C16),
-            onTap: () => _showComingSoonDialog('Receive via QR'),
-            theme: theme,
-          ),
-          _buildActionButton(
-            icon: Icons.history,
-            label: 'History',
-            color: const Color(0xFF722ED1),
-            onTap: () => _showTransactionHistory(context, _cachedTransactions, theme),
-            theme: theme,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmallScreen = constraints.maxWidth < 360;
+          return Wrap(
+            alignment: WrapAlignment.spaceAround,
+            spacing: isSmallScreen ? 8 : 16,
+            runSpacing: 16,
+            children: [
+              _buildActionButton(
+                icon: Icons.add_circle_outline,
+                label: 'Top Up',
+                color: theme.primaryColor ?? const Color(0xFF07C160),
+                onTap: () => EscrowFundingWidget.show(context),
+                theme: theme,
+              ),
+              _buildActionButton(
+                icon: Icons.send,
+                label: 'Send',
+                color: const Color(0xFF1890FF),
+                onTap: () => _showComingSoonDialog('Send KEST'),
+                theme: theme,
+              ),
+              _buildActionButton(
+                icon: Icons.qr_code,
+                label: 'Receive',
+                color: const Color(0xFFFA8C16),
+                onTap: () => _showComingSoonDialog('Receive via QR'),
+                theme: theme,
+              ),
+              _buildActionButton(
+                icon: Icons.history,
+                label: 'History',
+                color: const Color(0xFF722ED1),
+                onTap: () => _showTransactionHistory(context, _cachedTransactions, theme),
+                theme: theme,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -669,70 +687,79 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
             ),
           ),
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            children: [
-              _buildServiceItem(
-                icon: Icons.card_giftcard,
-                label: 'Red Packet',
-                color: const Color(0xFFF5222D),
-                onTap: () => _showComingSoonDialog('Red Packets'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.phone_android,
-                label: 'M-Pesa',
-                color: const Color(0xFF52C41A),
-                onTap: () => _showComingSoonDialog('M-Pesa Integration'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.shopping_bag,
-                label: 'Shop',
-                color: const Color(0xFF1890FF),
-                onTap: () => _showComingSoonDialog('Shopping'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.receipt_long,
-                label: 'Split Bill',
-                color: const Color(0xFFFA8C16),
-                onTap: () => _showComingSoonDialog('Split Bill'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.bolt,
-                label: 'Utilities',
-                color: const Color(0xFFFAAD14),
-                onTap: () => _showComingSoonDialog('Pay Utilities'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.directions_bus,
-                label: 'Transport',
-                color: const Color(0xFF13C2C2),
-                onTap: () => _showComingSoonDialog('Book Transport'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.restaurant,
-                label: 'Food',
-                color: const Color(0xFFEB2F96),
-                onTap: () => _showComingSoonDialog('Order Food'),
-                theme: theme,
-              ),
-              _buildServiceItem(
-                icon: Icons.more_horiz,
-                label: 'More',
-                color: theme.textSecondaryColor ?? Colors.grey,
-                onTap: () => _showMenuOptions(context, theme),
-                theme: theme,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Responsive column count based on available width
+              final crossAxisCount = constraints.maxWidth < 300 ? 3 : 4;
+              final childAspectRatio = constraints.maxWidth < 300 ? 0.85 : 1.0;
+
+              return GridView.count(
+                crossAxisCount: crossAxisCount,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 12,
+                childAspectRatio: childAspectRatio,
+                children: [
+                  _buildServiceItem(
+                    icon: Icons.card_giftcard,
+                    label: 'Red Packet',
+                    color: const Color(0xFFF5222D),
+                    onTap: () => _showComingSoonDialog('Red Packets'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.phone_android,
+                    label: 'M-Pesa',
+                    color: const Color(0xFF52C41A),
+                    onTap: () => _showComingSoonDialog('M-Pesa Integration'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.shopping_bag,
+                    label: 'Shop',
+                    color: const Color(0xFF1890FF),
+                    onTap: () => _showComingSoonDialog('Shopping'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.receipt_long,
+                    label: 'Split Bill',
+                    color: const Color(0xFFFA8C16),
+                    onTap: () => _showComingSoonDialog('Split Bill'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.bolt,
+                    label: 'Utilities',
+                    color: const Color(0xFFFAAD14),
+                    onTap: () => _showComingSoonDialog('Pay Utilities'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.directions_bus,
+                    label: 'Transport',
+                    color: const Color(0xFF13C2C2),
+                    onTap: () => _showComingSoonDialog('Book Transport'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.restaurant,
+                    label: 'Food',
+                    color: const Color(0xFFEB2F96),
+                    onTap: () => _showComingSoonDialog('Order Food'),
+                    theme: theme,
+                  ),
+                  _buildServiceItem(
+                    icon: Icons.more_horiz,
+                    label: 'More',
+                    color: theme.textSecondaryColor ?? Colors.grey,
+                    onTap: () => _showMenuOptions(context, theme),
+                    theme: theme,
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1206,6 +1233,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                     fontWeight: FontWeight.w600,
                     color: theme.textColor,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1214,6 +1243,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                     fontSize: 14,
                     color: theme.textSecondaryColor ?? Colors.grey[600],
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1222,6 +1253,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                     fontSize: 12,
                     color: theme.textTertiaryColor ?? Colors.grey[400],
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
