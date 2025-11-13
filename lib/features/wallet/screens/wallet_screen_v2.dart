@@ -1,6 +1,6 @@
 // lib/features/wallet/screens/wallet_screen_v2.dart
-// WEMACHAT WALLET: Super App Wallet with KEST Stable Coin (1 KES = 1 KEST)
-// WeChat-style wallet for Kenyan market with comprehensive features
+// WEMACHAT WALLET: Premium Coin Wallet with Virtual Gifts
+// Modern, clean design with 1 coin = 1.5 KES conversion
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,43 +19,65 @@ class WalletScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<WalletScreenV2> createState() => _WalletScreenV2State();
 }
 
-class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
+class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTickerProviderStateMixin {
   bool _balanceVisible = true;
   bool _isInitialized = false;
   bool _isLoadingInitial = false;
   String? _error;
-  final String _selectedTab = 'Home'; // Home, Services, Activity
+  String _selectedTab = 'Overview'; // Overview, Gifts
+  late TabController _tabController;
+
+  // Premium color scheme
+  static const Color _primaryPurple = Color(0xFF6366F1);
+  static const Color _deepPurple = Color(0xFF4F46E5);
+  static const Color _accentGold = Color(0xFFFBBF24);
+  static const Color _surfaceWhite = Color(0xFFFAFAFA);
+  static const Color _cardWhite = Colors.white;
 
   // Cached data
   WalletModel? _cachedWallet;
   List<WalletTransaction> _cachedTransactions = [];
 
   // Cache keys
-  static const String _walletCacheKey = 'cached_wallet_data';
-  static const String _transactionsCacheKey = 'cached_transactions_data';
-  static const String _walletCacheTimestampKey = 'wallet_cache_timestamp';
+  static const String _walletCacheKey = 'cached_wallet_data_v2';
+  static const String _transactionsCacheKey = 'cached_transactions_data_v2';
+  static const String _walletCacheTimestampKey = 'wallet_cache_timestamp_v2';
   static const Duration _cacheValidityDuration = Duration(minutes: 15);
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {
+          _selectedTab = _tabController.index == 0 ? 'Overview' : 'Gifts';
+        });
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   // Helper method to get safe theme with fallback
   ModernThemeExtension _getSafeTheme(BuildContext context) {
     return Theme.of(context).extension<ModernThemeExtension>() ??
         ModernThemeExtension(
-          primaryColor: const Color(0xFF07C160), // WeChat green for Kenya
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
-          dividerColor: Theme.of(context).dividerColor,
-          textTertiaryColor: Colors.grey[400],
-          surfaceVariantColor: Colors.grey[100],
+          primaryColor: _primaryPurple,
+          backgroundColor: _surfaceWhite,
+          surfaceColor: _cardWhite,
+          textColor: const Color(0xFF1F2937),
+          textSecondaryColor: const Color(0xFF6B7280),
+          dividerColor: const Color(0xFFE5E7EB),
+          textTertiaryColor: const Color(0xFF9CA3AF),
+          surfaceVariantColor: const Color(0xFFF3F4F6),
         );
   }
 
@@ -233,16 +255,20 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
     }
   }
 
+  double _coinsToKES(int coins) {
+    return coins * 1.5;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = _getSafeTheme(context);
 
     return Scaffold(
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: _surfaceWhite,
       body: SafeArea(
         child: Column(
           children: [
-            // Enhanced App Bar with KEST Branding
+            // Premium App Bar
             _buildAppBar(theme),
 
             // Main Content
@@ -253,7 +279,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                       ? _buildErrorState(_error!, theme)
                       : RefreshIndicator(
                           onRefresh: _refreshWallet,
-                          color: theme.primaryColor ?? const Color(0xFF07C160),
+                          color: _primaryPurple,
                           child: _buildWalletContent(_cachedWallet, _cachedTransactions, theme),
                         ),
             ),
@@ -265,13 +291,13 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
 
   Widget _buildAppBar(ModernThemeExtension theme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       decoration: BoxDecoration(
-        color: theme.surfaceColor,
+        color: _cardWhite,
         boxShadow: [
           BoxShadow(
-            color: (theme.textColor ?? Colors.black).withOpacity(0.05),
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -279,18 +305,23 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
       child: Row(
         children: [
           // Back Button
-          IconButton(
-            onPressed: () => context.pop(),
-            icon: Icon(Icons.arrow_back_ios_new, size: 20, color: theme.textColor),
-            style: IconButton.styleFrom(
-              backgroundColor: theme.surfaceVariantColor ?? Colors.grey[100],
-              padding: const EdgeInsets.all(8),
+          Container(
+            decoration: BoxDecoration(
+              color: _primaryPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+              color: _primaryPurple,
+              padding: const EdgeInsets.all(10),
+              constraints: const BoxConstraints(),
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
 
-          // Title Section with KEST Branding
+          // Title Section
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,74 +329,60 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
               children: [
                 Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        'WemaChat Wallet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                          color: theme.textColor,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    const Text(
+                      'WemaChat Wallet',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        color: Color(0xFF1F2937),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: theme.primaryColor ?? const Color(0xFF07C160),
-                          width: 0.5,
+                        gradient: LinearGradient(
+                          colors: [_accentGold, _accentGold.withOpacity(0.8)],
                         ),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        'KEST',
+                      child: const Text(
+                        'PRO',
                         style: TextStyle(
-                          color: theme.primaryColor ?? const Color(0xFF07C160),
+                          color: Colors.white,
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
                         ),
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  '1 KEST = 1 KES • Stable Coin',
+                const Text(
+                  '1 coin = 1.5 KES',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: theme.textSecondaryColor ?? Colors.grey,
+                    color: Color(0xFF6B7280),
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
 
-          // QR Scan Button
-          IconButton(
-            onPressed: () => _showComingSoonDialog('QR Scanner'),
-            icon: const Icon(Icons.qr_code_scanner),
-            style: IconButton.styleFrom(
-              backgroundColor: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
-              foregroundColor: theme.primaryColor ?? const Color(0xFF07C160),
-              padding: const EdgeInsets.all(8),
+          // Menu Button
+          Container(
+            decoration: BoxDecoration(
+              color: _primaryPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // More Options
-          IconButton(
-            onPressed: () => _showMenuOptions(context, theme),
-            icon: Icon(Icons.more_horiz, color: theme.textColor),
-            style: IconButton.styleFrom(
-              backgroundColor: theme.surfaceVariantColor ?? Colors.grey[100],
-              padding: const EdgeInsets.all(8),
+            child: IconButton(
+              onPressed: () => _showMenuOptions(context, theme),
+              icon: const Icon(Icons.more_vert),
+              color: _primaryPurple,
+              padding: const EdgeInsets.all(10),
+              constraints: const BoxConstraints(),
             ),
           ),
         ],
@@ -379,25 +396,20 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
       padding: const EdgeInsets.only(bottom: 100),
       child: Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // KEST Balance Card
-          _buildKESTBalanceCard(wallet, theme),
+          // Premium Balance Card
+          _buildPremiumBalanceCard(wallet, theme),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Super App Quick Actions
-          _buildSuperAppActions(theme),
+          // Tab Bar
+          _buildTabBar(theme),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Services Grid
-          _buildServicesGrid(theme),
-
-          const SizedBox(height: 16),
-
-          // Recent Transactions
-          _buildTransactionsSection(transactions, theme),
+          // Tab Content
+          _buildTabContent(wallet, transactions, theme),
 
           const SizedBox(height: 24),
         ],
@@ -405,154 +417,183 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
     );
   }
 
-  Widget _buildKESTBalanceCard(WalletModel? wallet, ModernThemeExtension theme) {
+  Widget _buildPremiumBalanceCard(WalletModel? wallet, ModernThemeExtension theme) {
     final balance = wallet?.coinsBalance ?? 0;
+    final kesValue = _coinsToKES(balance);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF07C160),
-            Color(0xFF06AD51),
-          ],
+          colors: [_primaryPurple, _deepPurple],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF07C160).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: _primaryPurple.withOpacity(0.4),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+          // Decorative circles
+          Positioned(
+            top: -20,
+            right: -20,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -30,
+            left: -30,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.05),
+              ),
+            ),
+          ),
+
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Coin Balance',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'KEST Balance',
-                        style: TextStyle(
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _balanceVisible = !_balanceVisible;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
                           color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                          size: 20,
                         ),
                       ),
-                      Text(
-                        'Kenya Shilling Token',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _balanceVisible ? balance.toString() : '••••••',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 56,
+                            fontWeight: FontWeight.w800,
+                            height: 1.0,
+                            letterSpacing: -2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8, left: 8),
+                      child: Text(
+                        'coins',
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 11,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _balanceVisible ? '≈ KES ${kesValue.toStringAsFixed(2)}' : '≈ KES •••',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _accentGold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _accentGold.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: _accentGold,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      const Flexible(
+                        child: Text(
+                          '100 coins = KES 150  •  Min: 50 coins',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _balanceVisible = !_balanceVisible;
-                  });
-                },
-                child: Icon(
-                  _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 22,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'KEST',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _balanceVisible ? balance.toString() : '••••••',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0,
-                      letterSpacing: -1,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _balanceVisible ? '≈ KES $balance' : '≈ KES •••',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.verified_user,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  '1:1 Pegged to Kenya Shilling',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -563,60 +604,528 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
     );
   }
 
-  Widget _buildSuperAppActions(ModernThemeExtension theme) {
+  Widget _buildTabBar(ModernThemeExtension theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: theme.surfaceColor,
+        color: _cardWhite,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: (theme.textColor ?? Colors.black).withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isSmallScreen = constraints.maxWidth < 360;
-          return Wrap(
-            alignment: WrapAlignment.spaceAround,
-            spacing: isSmallScreen ? 8 : 16,
-            runSpacing: 16,
-            children: [
-              _buildActionButton(
-                icon: Icons.add_circle_outline,
-                label: 'Top Up',
-                color: theme.primaryColor ?? const Color(0xFF07C160),
-                onTap: () => context.push('/wallet-topup'),
-                theme: theme,
+      child: Row(
+        children: ['Overview', 'Gifts'].map((tab) {
+          final isSelected = _selectedTab == tab;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedTab = tab;
+                  _tabController.animateTo(tab == 'Overview' ? 0 : 1);
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          colors: [_primaryPurple, _deepPurple],
+                        )
+                      : null,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      tab == 'Overview' ? Icons.dashboard_rounded : Icons.card_giftcard_rounded,
+                      color: isSelected ? Colors.white : const Color(0xFF9CA3AF),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      tab,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : const Color(0xFF6B7280),
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              _buildActionButton(
-                icon: Icons.send,
-                label: 'Send',
-                color: const Color(0xFF1890FF),
-                onTap: () => _showComingSoonDialog('Send KEST'),
-                theme: theme,
-              ),
-              _buildActionButton(
-                icon: Icons.qr_code,
-                label: 'Receive',
-                color: const Color(0xFFFA8C16),
-                onTap: () => _showComingSoonDialog('Receive via QR'),
-                theme: theme,
-              ),
-              _buildActionButton(
-                icon: Icons.history,
-                label: 'History',
-                color: const Color(0xFF722ED1),
-                onTap: () => _showTransactionHistory(context, _cachedTransactions, theme),
-                theme: theme,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTabContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+    if (_selectedTab == 'Gifts') {
+      return _buildGiftsTab(wallet, theme);
+    }
+    return _buildOverviewTab(wallet, transactions, theme);
+  }
+
+  Widget _buildOverviewTab(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+    return Column(
+      children: [
+        // Quick Actions
+        _buildQuickActions(theme),
+
+        const SizedBox(height: 16),
+
+        // Services Grid
+        _buildServicesGrid(theme),
+
+        const SizedBox(height: 16),
+
+        // Recent Transactions
+        _buildTransactionsSection(transactions, theme),
+      ],
+    );
+  }
+
+  Widget _buildGiftsTab(WalletModel? wallet, ModernThemeExtension theme) {
+    // Get gift-related transactions
+    final giftTransactions = _cachedTransactions
+        .where((t) => t.type == 'gift_received')
+        .toList();
+
+    return Column(
+      children: [
+        // Gifts Stats Card
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: _cardWhite,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
-          );
-        },
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_accentGold.withOpacity(0.2), _accentGold.withOpacity(0.1)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.card_giftcard_rounded,
+                      color: _accentGold,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Virtual Gifts Received',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                        Text(
+                          'Track gifts from your supporters',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildGiftStatItem(
+                      'Total Gifts',
+                      giftTransactions.length.toString(),
+                      Icons.favorite_rounded,
+                      const Color(0xFFEF4444),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildGiftStatItem(
+                      'Coin Value',
+                      giftTransactions
+                          .fold(0, (sum, t) => sum + t.coinAmount)
+                          .toString(),
+                      Icons.monetization_on_rounded,
+                      _accentGold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Received Gifts List
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: _cardWhite,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Received Gifts',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    if (giftTransactions.isNotEmpty)
+                      Text(
+                        '${giftTransactions.length} gifts',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _primaryPurple,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (giftTransactions.isEmpty)
+                _buildEmptyGifts(theme)
+              else
+                Column(
+                  children: giftTransactions.take(5).map((transaction) =>
+                    _buildGiftItem(transaction, theme)).toList(),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Info Card
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _primaryPurple.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.lightbulb_rounded,
+                  color: _primaryPurple,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'Create engaging content to receive more virtual gifts from your supporters!',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4B5563),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGiftStatItem(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyGifts(ModernThemeExtension theme) {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _accentGold.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.card_giftcard_rounded,
+              size: 48,
+              color: _accentGold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'No Gifts Yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Gifts you receive will appear here',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGiftItem(WalletTransaction transaction, ModernThemeExtension theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFFE5E7EB).withOpacity(0.5),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_accentGold.withOpacity(0.2), _accentGold.withOpacity(0.1)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.card_giftcard_rounded,
+              color: _accentGold,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction.displayTitle,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  transaction.description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatTransactionDate(transaction.createdAt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '+${transaction.coinAmount}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: _accentGold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'coins',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(ModernThemeExtension theme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: _cardWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.add_circle_rounded,
+                  label: 'Top Up',
+                  color: const Color(0xFF10B981),
+                  onTap: () => context.push('/wallet-topup'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.send_rounded,
+                  label: 'Send',
+                  color: const Color(0xFF3B82F6),
+                  onTap: () => _showComingSoonDialog('Send Coins'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.qr_code_rounded,
+                  label: 'Receive',
+                  color: _accentGold,
+                  onTap: () => _showComingSoonDialog('Receive via QR'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.history_rounded,
+                  label: 'History',
+                  color: const Color(0xFF8B5CF6),
+                  onTap: () => _showTransactionHistory(context, _cachedTransactions, theme),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -626,33 +1135,32 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
     required String label,
     required Color color,
     required VoidCallback onTap,
-    required ModernThemeExtension theme,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               icon,
               color: color,
-              size: 24,
+              size: 26,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: theme.textColor ?? Colors.black87,
+              color: Color(0xFF4B5563),
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -661,104 +1169,88 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
 
   Widget _buildServicesGrid(ModernThemeExtension theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
+        color: _cardWhite,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (theme.textColor ?? Colors.black).withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Services',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: theme.textColor,
+              color: Color(0xFF1F2937),
             ),
           ),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // Responsive column count based on available width
-              final crossAxisCount = constraints.maxWidth < 300 ? 3 : 4;
-              final childAspectRatio = constraints.maxWidth < 300 ? 0.85 : 1.0;
-
-              return GridView.count(
-                crossAxisCount: crossAxisCount,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 12,
-                childAspectRatio: childAspectRatio,
-                children: [
-                  _buildServiceItem(
-                    icon: Icons.card_giftcard,
-                    label: 'Red Packet',
-                    color: const Color(0xFFF5222D),
-                    onTap: () => _showComingSoonDialog('Red Packets'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.phone_android,
-                    label: 'M-Pesa',
-                    color: const Color(0xFF52C41A),
-                    onTap: () => _showComingSoonDialog('M-Pesa Integration'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.shopping_bag,
-                    label: 'Shop',
-                    color: const Color(0xFF1890FF),
-                    onTap: () => _showComingSoonDialog('Shopping'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.receipt_long,
-                    label: 'Split Bill',
-                    color: const Color(0xFFFA8C16),
-                    onTap: () => _showComingSoonDialog('Split Bill'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.bolt,
-                    label: 'Utilities',
-                    color: const Color(0xFFFAAD14),
-                    onTap: () => _showComingSoonDialog('Pay Utilities'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.directions_bus,
-                    label: 'Transport',
-                    color: const Color(0xFF13C2C2),
-                    onTap: () => _showComingSoonDialog('Book Transport'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.restaurant,
-                    label: 'Food',
-                    color: const Color(0xFFEB2F96),
-                    onTap: () => _showComingSoonDialog('Order Food'),
-                    theme: theme,
-                  ),
-                  _buildServiceItem(
-                    icon: Icons.more_horiz,
-                    label: 'More',
-                    color: theme.textSecondaryColor ?? Colors.grey,
-                    onTap: () => _showMenuOptions(context, theme),
-                    theme: theme,
-                  ),
-                ],
-              );
-            },
+          const SizedBox(height: 20),
+          GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 20,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.9,
+            children: [
+              _buildServiceItem(
+                icon: Icons.phone_android,
+                label: 'M-Pesa',
+                color: const Color(0xFF10B981),
+                onTap: () => _showComingSoonDialog('M-Pesa Integration'),
+              ),
+              _buildServiceItem(
+                icon: Icons.shopping_bag_rounded,
+                label: 'Shop',
+                color: const Color(0xFF3B82F6),
+                onTap: () => _showComingSoonDialog('Shopping'),
+              ),
+              _buildServiceItem(
+                icon: Icons.receipt_long_rounded,
+                label: 'Split Bill',
+                color: const Color(0xFFF59E0B),
+                onTap: () => _showComingSoonDialog('Split Bill'),
+              ),
+              _buildServiceItem(
+                icon: Icons.bolt_rounded,
+                label: 'Utilities',
+                color: const Color(0xFFEF4444),
+                onTap: () => _showComingSoonDialog('Pay Utilities'),
+              ),
+              _buildServiceItem(
+                icon: Icons.directions_bus_rounded,
+                label: 'Transport',
+                color: const Color(0xFF06B6D4),
+                onTap: () => _showComingSoonDialog('Book Transport'),
+              ),
+              _buildServiceItem(
+                icon: Icons.restaurant_rounded,
+                label: 'Food',
+                color: const Color(0xFFEC4899),
+                onTap: () => _showComingSoonDialog('Order Food'),
+              ),
+              _buildServiceItem(
+                icon: Icons.local_activity_rounded,
+                label: 'Events',
+                color: const Color(0xFF8B5CF6),
+                onTap: () => _showComingSoonDialog('Events'),
+              ),
+              _buildServiceItem(
+                icon: Icons.more_horiz_rounded,
+                label: 'More',
+                color: const Color(0xFF6B7280),
+                onTap: () => _showMenuOptions(context, theme),
+              ),
+            ],
           ),
         ],
       ),
@@ -770,7 +1262,6 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
     required String label,
     required Color color,
     required VoidCallback onTap,
-    required ModernThemeExtension theme,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -778,10 +1269,10 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               icon,
@@ -789,19 +1280,300 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
               size: 24,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: theme.textColor ?? Colors.black87,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4B5563),
             ),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension theme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: _cardWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recent Transactions',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                if (transactions.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => _showTransactionHistory(context, transactions, theme),
+                    child: Text(
+                      'View All',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _primaryPurple,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (transactions.isEmpty)
+            _buildEmptyTransactions(theme)
+          else
+            Column(
+              children: transactions.take(5).map((transaction) =>
+                _buildTransactionItem(transaction, theme)).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyTransactions(ModernThemeExtension theme) {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _primaryPurple.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.receipt_long_rounded,
+              size: 48,
+              color: _primaryPurple,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'No Transactions Yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your transaction history will appear here',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension theme) {
+    final isCredit = transaction.isCredit;
+
+    IconData icon;
+    Color iconColor;
+
+    switch (transaction.type) {
+      case 'gift_sent':
+      case 'transfer_sent':
+        icon = Icons.send_rounded;
+        iconColor = const Color(0xFF3B82F6);
+        break;
+      case 'gift_received':
+      case 'transfer_received':
+        icon = Icons.call_received_rounded;
+        iconColor = const Color(0xFF10B981);
+        break;
+      case 'coin_purchase':
+      case 'topup':
+        icon = Icons.add_circle_rounded;
+        iconColor = const Color(0xFF10B981);
+        break;
+      case 'withdrawal':
+        icon = Icons.payment_rounded;
+        iconColor = const Color(0xFFEF4444);
+        break;
+      case 'payment':
+        icon = Icons.shopping_bag_rounded;
+        iconColor = _accentGold;
+        break;
+      default:
+        icon = Icons.swap_horiz_rounded;
+        iconColor = const Color(0xFF6B7280);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFFE5E7EB).withOpacity(0.5),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction.displayTitle,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  transaction.description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatTransactionDate(transaction.createdAt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isCredit ? '+' : '-'}${transaction.coinAmount}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'coins',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: _cardWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Transaction History',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: transactions.isEmpty
+                  ? _buildEmptyTransactions(theme)
+                  : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: transactions.length,
+                      itemBuilder: (context, index) {
+                        final transaction = transactions[index];
+                        return _buildTransactionItem(transaction, theme);
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -815,9 +1587,9 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.7,
         ),
-        decoration: BoxDecoration(
-          color: theme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: const BoxDecoration(
+          color: _cardWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -827,7 +1599,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.textTertiaryColor ?? Colors.grey[300],
+                color: const Color(0xFFE5E7EB),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -837,12 +1609,12 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Wallet Services',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: theme.textColor,
+                        color: Color(0xFF1F2937),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -869,7 +1641,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                     _buildMenuItem(
                       icon: CupertinoIcons.person_2,
                       title: 'Request Money',
-                      subtitle: 'Request KEST from contacts',
+                      subtitle: 'Request coins from contacts',
                       onTap: () {
                         context.pop();
                         _showComingSoonDialog('Request Money');
@@ -917,29 +1689,29 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: theme.surfaceVariantColor ?? Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
+            color: _surfaceWhite,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: theme.dividerColor ?? Colors.grey[200]!,
+              color: const Color(0xFFE5E7EB),
               width: 1,
             ),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: _primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: theme.primaryColor ?? const Color(0xFF07C160),
+                  color: _primaryPurple,
                   size: 22,
                 ),
               ),
@@ -950,26 +1722,26 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: theme.textColor,
+                        color: Color(0xFF1F2937),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: theme.textSecondaryColor ?? Colors.grey[600],
+                        color: Color(0xFF6B7280),
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
+              const Icon(
                 CupertinoIcons.chevron_right,
-                color: theme.textTertiaryColor ?? Colors.grey[400],
+                color: Color(0xFF9CA3AF),
                 size: 18,
               ),
             ],
@@ -985,14 +1757,14 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: theme.primaryColor ?? const Color(0xFF07C160),
+            color: _primaryPurple,
             strokeWidth: 3,
           ),
           const SizedBox(height: 16),
           Text(
             _isLoadingInitial ? 'Loading wallet...' : 'Initializing...',
-            style: TextStyle(
-              color: theme.textSecondaryColor ?? Colors.grey[600],
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
               fontSize: 16,
             ),
           ),
@@ -1011,29 +1783,29 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: const Color(0xFFEF4444).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.error_outline,
-                color: Colors.red.shade600,
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFEF4444),
                 size: 64,
               ),
             ),
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'Unable to load wallet',
               style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.textColor,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1F2937),
               ),
             ),
             const SizedBox(height: 12),
             Text(
               error,
-              style: TextStyle(
-                color: theme.textSecondaryColor ?? Colors.grey[600],
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -1042,7 +1814,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
             ElevatedButton.icon(
               onPressed: () => _loadInitialData(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor ?? const Color(0xFF07C160),
+                backgroundColor: _primaryPurple,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -1051,296 +1823,16 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 4,
+                elevation: 0,
               ),
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_rounded),
               label: const Text(
                 'Try Again',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension theme) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: (theme.textColor ?? Colors.black).withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Recent Activity',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: theme.textColor,
-                  ),
-                ),
-                if (transactions.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => _showTransactionHistory(context, transactions, theme),
-                    child: Text(
-                      'View All',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: theme.primaryColor ?? const Color(0xFF07C160),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (transactions.isEmpty)
-            _buildEmptyTransactions(theme)
-          else
-            Column(
-              children: transactions.take(5).map((transaction) =>
-                _buildTransactionItem(transaction, theme)).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyTransactions(ModernThemeExtension theme) {
-    return Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.receipt_long,
-              size: 40,
-              color: theme.primaryColor ?? const Color(0xFF07C160),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No Transactions Yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: theme.textColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your transaction history will appear here',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: theme.textSecondaryColor ?? Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension theme) {
-    final isCredit = transaction.isCredit;
-
-    IconData icon;
-    Color iconColor;
-
-    switch (transaction.type) {
-      case 'gift_sent':
-      case 'transfer_sent':
-        icon = Icons.send;
-        iconColor = const Color(0xFF1890FF);
-        break;
-      case 'gift_received':
-      case 'transfer_received':
-        icon = Icons.call_received;
-        iconColor = const Color(0xFF52C41A);
-        break;
-      case 'coin_purchase':
-      case 'topup':
-        icon = Icons.add_circle;
-        iconColor = theme.primaryColor ?? const Color(0xFF07C160);
-        break;
-      case 'withdrawal':
-        icon = Icons.payment;
-        iconColor = const Color(0xFFF5222D);
-        break;
-      case 'payment':
-        icon = Icons.shopping_bag;
-        iconColor = const Color(0xFFFA8C16);
-        break;
-      default:
-        icon = Icons.swap_horiz;
-        iconColor = theme.textSecondaryColor ?? Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: theme.dividerColor ?? Colors.grey[200]!,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction.displayTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textColor,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  transaction.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: theme.textSecondaryColor ?? Colors.grey[600],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatTransactionDate(transaction.createdAt),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textTertiaryColor ?? Colors.grey[400],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isCredit ? '+' : '-'}${transaction.coinAmount}',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: isCredit ? const Color(0xFF52C41A) : const Color(0xFFF5222D),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                'KEST',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: theme.textSecondaryColor ?? Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension theme) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: BoxDecoration(
-          color: theme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.textTertiaryColor ?? Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Transaction History',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: theme.textColor,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: Icon(
-                      Icons.close,
-                      color: theme.textSecondaryColor ?? Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: transactions.isEmpty
-                  ? _buildEmptyTransactions(theme)
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 0),
-                      itemCount: transactions.length,
-                      itemBuilder: (context, index) {
-                        final transaction = transactions[index];
-                        return _buildTransactionItem(transaction, theme);
-                      },
-                    ),
             ),
           ],
         ),
@@ -1354,31 +1846,31 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
       builder: (context) {
         final theme = _getSafeTheme(context);
         return AlertDialog(
-          backgroundColor: theme.surfaceColor,
+          backgroundColor: _cardWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           title: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: _primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.construction,
-                  color: theme.primaryColor ?? const Color(0xFF07C160),
-                  size: 20,
+                  Icons.construction_rounded,
+                  color: _primaryPurple,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
+              const Text(
                 'Coming Soon',
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textColor,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1F2937),
                 ),
               ),
             ],
@@ -1388,33 +1880,35 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$feature will be available soon as part of the WemaChat super app!',
-                style: TextStyle(
+                '$feature will be available soon as part of the WemaChat wallet!',
+                style: const TextStyle(
                   fontSize: 16,
-                  color: theme.textSecondaryColor ?? Colors.grey[600],
+                  color: Color(0xFF6B7280),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
-                      color: theme.primaryColor ?? const Color(0xFF07C160),
-                      size: 16,
+                      Icons.info_outline_rounded,
+                      color: _primaryPurple,
+                      size: 20,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    const SizedBox(width: 12),
+                    const Expanded(
                       child: Text(
-                        'Building Kenya\'s super app with KEST stable coin!',
+                        'Building the best wallet experience for you!',
                         style: TextStyle(
                           fontSize: 14,
-                          color: theme.primaryColor ?? const Color(0xFF07C160),
+                          color: Color(0xFF4B5563),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1430,8 +1924,9 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> {
               child: Text(
                 'Got it',
                 style: TextStyle(
-                  color: theme.primaryColor ?? const Color(0xFF07C160),
-                  fontWeight: FontWeight.w600,
+                  color: _primaryPurple,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
               ),
             ),
