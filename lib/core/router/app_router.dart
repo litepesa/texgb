@@ -41,32 +41,9 @@ import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/features/payment/screens/wallet_topup_screen.dart';
 import 'package:textgb/features/payment/screens/payment_status_screen.dart';
 
-// Channels screens
-import 'package:textgb/features/channels/screens/channels_home_screen.dart';
-import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
-import 'package:textgb/features/channels/screens/post_detail_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
-import 'package:textgb/features/channels/screens/channel_settings_screen.dart';
-import 'package:textgb/features/channels/screens/members_management_screen.dart';
-
 // Chat screens
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
-
-// Call screens
-import 'package:textgb/features/calls/screens/incoming_call_screen.dart';
-import 'package:textgb/features/calls/screens/outgoing_call_screen.dart';
-import 'package:textgb/features/calls/screens/active_call_screen.dart';
-
-
-// Moments screens
-import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/user_moments_screen.dart';
-import 'package:textgb/features/moments/widgets/media_viewer_screen.dart';
-import 'package:textgb/features/moments/widgets/video_viewer_screen.dart';
-import 'package:textgb/features/moments/models/moment_model.dart';
 
 /// Provider for the GoRouter instance
 /// This is the main router for the entire app
@@ -296,63 +273,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // ==================== MOMENTS ROUTES ====================
-
-      GoRoute(
-        path: RoutePaths.momentsFeed,
-        name: RouteNames.momentsFeed,
-        builder: (context, state) => const MomentsFeedScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.createMoment,
-        name: RouteNames.createMoment,
-        builder: (context, state) => const CreateMomentScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.userMomentsPattern,
-        name: RouteNames.userMoments,
-        builder: (context, state) {
-          final userId = state.pathParameters['userId']!;
-          final extra = state.extra as Map<String, dynamic>?;
-          return UserMomentsScreen(
-            userId: userId,
-            userName: extra?['userName'] ?? '',
-            userAvatar: extra?['userAvatar'] ?? '',
-          );
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.momentMediaViewerPattern,
-        name: RouteNames.momentMediaViewer,
-        builder: (context, state) {
-          final indexStr = state.pathParameters['index']!;
-          final index = int.tryParse(indexStr) ?? 0;
-          final extra = state.extra as Map<String, dynamic>?;
-          final imageUrls = extra?['imageUrls'] as List<String>? ?? [];
-          return MediaViewerScreen(
-            imageUrls: imageUrls,
-            initialIndex: index,
-          );
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.momentVideoViewerPattern,
-        name: RouteNames.momentVideoViewer,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final videoUrl = extra?['videoUrl'] as String? ?? '';
-          final moment = extra?['moment'] as MomentModel?;
-          return VideoViewerScreen(
-            videoUrl: videoUrl,
-            moment: moment!,
-          );
-        },
-      ),
-
       // ==================== CHAT ROUTES ====================
 
       GoRoute(
@@ -386,35 +306,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // ==================== CALL ROUTES ====================
-
-      GoRoute(
-        path: RoutePaths.incomingCall,
-        name: RouteNames.incomingCall,
-        builder: (context, state) {
-          // IncomingCallScreen reads state from callProvider
-          return const IncomingCallScreen();
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.outgoingCall,
-        name: RouteNames.outgoingCall,
-        builder: (context, state) {
-          // OutgoingCallScreen reads state from callProvider
-          return const OutgoingCallScreen();
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.activeCall,
-        name: RouteNames.activeCall,
-        builder: (context, state) {
-          // ActiveCallScreen reads state from callProvider
-          return const ActiveCallScreen();
-        },
-      ),
-
       // ==================== WALLET ROUTES ====================
 
       GoRoute(
@@ -441,70 +332,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             checkoutRequestId: checkoutRequestId,
             isActivation: isActivation,
           );
-        },
-      ),
-
-      // ==================== CHANNELS ROUTES ====================
-
-      GoRoute(
-        path: RoutePaths.channelsHome,
-        name: RouteNames.channelsHome,
-        builder: (context, state) => const ChannelsHomeScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.channelDetailPattern,
-        name: RouteNames.channelDetail,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return ChannelDetailScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.channelPostPattern,
-        name: RouteNames.channelPost,
-        builder: (context, state) {
-          final postId = state.pathParameters['postId']!;
-          final extra = state.extra as Map<String, dynamic>?;
-          final channelId = extra?['channelId'] as String? ?? '';
-          return PostDetailScreen(
-            postId: postId,
-            channelId: channelId,
-          );
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.createChannel,
-        name: RouteNames.createChannel,
-        builder: (context, state) => const CreateChannelScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.createChannelPostPattern,
-        name: RouteNames.createChannelPost,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return CreateChannelPostScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: '/channel/:channelId/settings',
-        name: 'channelSettings',
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return ChannelSettingsScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: '/channel/:channelId/members',
-        name: 'channelMembers',
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return MembersManagementScreen(channelId: channelId);
         },
       ),
 
@@ -606,50 +433,6 @@ extension AppNavigationExtension on BuildContext {
   // ==================== WALLET NAVIGATION ====================
 
   void goToWallet() => go(RoutePaths.wallet);
-
-  // ==================== CHANNELS NAVIGATION ====================
-
-  void goToChannels() => go(RoutePaths.channelsHome);
-  void goToChannelsHome() => go(RoutePaths.channelsHome);
-  void goToChannelsFeed() => go(RoutePaths.channelsFeed);
-  void goToDiscoverChannels() => go(RoutePaths.discoverChannels);
-  void goToCreateChannel() => go(RoutePaths.createChannel);
-  void goToEditChannel({String? channelId}) => go(RoutePaths.editChannel, extra: channelId);
-  void goToMyChannel() => go(RoutePaths.myChannel);
-  void goToChannelDetail(String channelId) => go(RoutePaths.channelDetail(channelId));
-  void goToChannelProfile(String channelId) => go(RoutePaths.channelProfile(channelId));
-  void goToChannelPost(String postId, String channelId) => go(
-    RoutePaths.channelPost(postId),
-    extra: {'channelId': channelId},
-  );
-  void goToChannelVideo(String videoId) => go(RoutePaths.channelVideo(videoId));
-
-  // ==================== MOMENTS NAVIGATION ====================
-
-  void goToMomentsFeed() => go(RoutePaths.momentsFeed);
-  void goToCreateMoment() => go(RoutePaths.createMoment);
-  void goToUserMoments(String userId, {String? userName, String? userAvatar}) {
-    go(
-      RoutePaths.userMoments(userId),
-      extra: {
-        'userName': userName,
-        'userAvatar': userAvatar,
-      },
-    );
-  }
-  void goToMomentDetail(String momentId) => go(RoutePaths.momentDetail(momentId));
-  void goToMomentMediaViewer(String momentId, int index, List<String> imageUrls) {
-    go(
-      RoutePaths.momentMediaViewer(momentId, index),
-      extra: {'imageUrls': imageUrls},
-    );
-  }
-  void goToMomentVideoViewer(String momentId, String videoUrl, dynamic moment) {
-    go(
-      RoutePaths.momentVideoViewer(momentId),
-      extra: {'videoUrl': videoUrl, 'moment': moment},
-    );
-  }
 
   // ==================== PUSH VARIANTS (for modal navigation) ====================
 

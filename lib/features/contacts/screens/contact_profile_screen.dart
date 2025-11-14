@@ -931,7 +931,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
     showMyAnimatedDialog(
       context: context,
       title: 'Block Contact',
-      content: 'Are you sure you want to block ${_contact.name}?\n\nThey won\'t be able to message or call you.',
+      content: 'Are you sure you want to block ${_contact.name}?\n\nThey won\'t be able to message you.',
       textAction: 'Block',
       onActionTap: (confirmed) {
         if (confirmed) {
@@ -945,7 +945,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
     showMyAnimatedDialog(
       context: context,
       title: 'Unblock Contact',
-      content: 'Are you sure you want to unblock ${_contact.name}?\n\nThey will be able to message and call you again.',
+      content: 'Are you sure you want to unblock ${_contact.name}?\n\nThey will be able to message you again.',
       textAction: 'Unblock',
       onActionTap: (confirmed) {
         if (confirmed) {

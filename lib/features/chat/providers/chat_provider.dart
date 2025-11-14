@@ -7,7 +7,6 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
-import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
@@ -358,32 +357,6 @@ class ChatList extends _$ChatList {
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat with video reaction: $e');
-      return null;
-    }
-  }
-
-  // Create chat with moment reaction
-  Future<String?> createChatWithMomentReaction({
-    required String otherUserId,
-    required MomentReactionModel momentReaction,
-  }) async {
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentUserId == null) return null;
-
-    try {
-      // Create or get existing chat
-      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
-      
-      // Send moment reaction message
-      await _repository.sendMomentReactionMessage(
-        chatId: chatId,
-        senderId: currentUserId,
-        momentReaction: momentReaction,
-      );
-          
-      return chatId;
-    } catch (e) {
-      debugPrint('Error creating chat with moment reaction: $e');
       return null;
     }
   }

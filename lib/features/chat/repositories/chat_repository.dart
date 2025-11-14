@@ -6,7 +6,6 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
-import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/shared/services/http_client.dart';
 import 'package:uuid/uuid.dart';
 
@@ -44,11 +43,6 @@ abstract class ChatRepository {
     required String chatId,
     required String senderId,
     required VideoReactionModel videoReaction,
-  });
-  Future<String> sendMomentReactionMessage({
-    required String chatId,
-    required String senderId,
-    required MomentReactionModel momentReaction,
   });
   Stream<List<MessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(
@@ -581,44 +575,6 @@ class HttpChatRepository implements ChatRepository {
     } catch (e) {
       throw ChatRepositoryException(
           'Failed to send video reaction message: $e');
-    }
-  }
-
-  @override
-  Future<String> sendMomentReactionMessage({
-    required String chatId,
-    required String senderId,
-    required MomentReactionModel momentReaction,
-  }) async {
-    try {
-      final messageId = _uuid.v4();
-
-      final message = MessageModel(
-        messageId: messageId,
-        chatId: chatId,
-        senderId: senderId,
-        content: momentReaction.reaction,
-        type: MessageEnum.text,
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        mediaUrl: momentReaction.mediaUrl,
-        mediaMetadata: {
-          'isMomentReaction': true,
-          'momentReaction': momentReaction.toMap(),
-          'thumbnailUrl': momentReaction.thumbnailUrl,
-          'momentId': momentReaction.momentId,
-          'authorName': momentReaction.authorName,
-          'authorImage': momentReaction.authorImage,
-          'mediaType': momentReaction.mediaType,
-          'momentContent': momentReaction.content,
-        },
-      );
-
-      await sendMessage(message);
-      return messageId;
-    } catch (e) {
-      throw ChatRepositoryException(
-          'Failed to send moment reaction message: $e');
     }
   }
 

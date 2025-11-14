@@ -1,9 +1,7 @@
-// lib/main_screen/discover_screen.dart - Updated with Moments
+// lib/main_screen/discover_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -24,38 +22,6 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
       body: ListView(
         children: [
           // First section - Main features
-          _buildListItem(
-            icon: CupertinoIcons.camera_circle,
-            title: 'Moments',
-            subtitle: 'Share your moments with friends',
-            iconColor: const Color(0xFF007AFF),
-            onTap: () {
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  builder: (context) => const MomentsFeedScreen(),
-                ),
-              );
-            },
-            modernTheme: modernTheme,
-          ),
-
-          _buildListItem(
-            icon: CupertinoIcons.play_rectangle,
-            title: 'Channels',
-            subtitle: 'Discover and share videos',
-            iconColor: Colors.red,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const VideosFeedScreen(),
-                ),
-              );
-            },
-            modernTheme: modernTheme,
-          ),
-          
           _buildListItem(
             icon: Icons.account_balance_wallet_outlined,
             title: 'Wallet',
