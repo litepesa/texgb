@@ -307,24 +307,39 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: MomentsTheme.lightSurface,
       appBar: AppBar(
-        title: const Text('Create Moment'),
-        backgroundColor: Colors.white,
-        elevation: 0,
+        title: const Text('Create Post'),
+        backgroundColor: MomentsTheme.lightSurface,
+        elevation: 0.5,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.pop(),
+          color: MomentsTheme.lightTextPrimary,
+        ),
         actions: [
-          // Post button
-          TextButton(
-            onPressed: _isUploading ? null : _postMoment,
-            child: Text(
-              'Post',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _isUploading
-                    ? Colors.grey
+          // Post button - Facebook style
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: ElevatedButton(
+              onPressed: _isUploading ? null : _postMoment,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isUploading
+                    ? MomentsTheme.lightTextTertiary
                     : MomentsTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+              child: const Text('Post'),
             ),
           ),
         ],
@@ -334,40 +349,67 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   }
 
   Widget _buildEditor() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Text input
-          TextField(
-            controller: _contentController,
-            maxLines: 5,
-            maxLength: 1000,
-            decoration: const InputDecoration(
-              hintText: 'Share your moment...',
-              border: InputBorder.none,
-              counterText: '',
+    return Column(
+      children: [
+        // Main content area
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(MomentsTheme.paddingLarge),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Text input - Facebook "What's on your mind?" style
+                Container(
+                  decoration: BoxDecoration(
+                    color: MomentsTheme.lightSurface,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: TextField(
+                    controller: _contentController,
+                    maxLines: null,
+                    minLines: 3,
+                    maxLength: 1000,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: "What's on your mind?",
+                      hintStyle: TextStyle(
+                        fontSize: 17,
+                        color: MomentsTheme.lightTextTertiary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      border: InputBorder.none,
+                      counterText: '',
+                      filled: true,
+                      fillColor: MomentsTheme.lightSurface,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      color: MomentsTheme.lightTextPrimary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Media preview
+                if (_selectedMedia.isNotEmpty) _buildMediaPreview(),
+
+                // Location tag
+                if (_location != null) ...[
+                  const SizedBox(height: 12),
+                  _buildLocationTag(),
+                ],
+              ],
             ),
-            style: const TextStyle(fontSize: 16),
           ),
+        ),
 
-          const SizedBox(height: 16),
-
-          // Media preview
-          if (_selectedMedia.isNotEmpty) _buildMediaPreview(),
-
-          const SizedBox(height: 16),
-
-          // Location
-          if (_location != null) _buildLocationTag(),
-
-          const SizedBox(height: 24),
-
-          // Options
-          _buildOptions(),
-        ],
-      ),
+        // Bottom action bar - Facebook style
+        _buildBottomActionBar(),
+      ],
     );
   }
 
@@ -493,65 +535,143 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   }
 
   Widget _buildLocationTag() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
+    return InkWell(
+      onTap: _selectLocation,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: MomentsTheme.lightBackground,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: MomentsTheme.lightDivider),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.location_on,
+              size: 16,
+              color: MomentsTheme.lightTextSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _location!,
+              style: TextStyle(
+                fontSize: 15,
+                color: MomentsTheme.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() => _location = null),
+              child: Icon(
+                Icons.close,
+                size: 18,
+                color: MomentsTheme.lightTextSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Row(
+    );
+  }
+
+  // Facebook-style bottom action bar
+  Widget _buildBottomActionBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: MomentsTheme.lightSurface,
+        border: Border(
+          top: BorderSide(
+            color: MomentsTheme.lightDivider,
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: MomentsTheme.paddingLarge,
+        vertical: MomentsTheme.paddingMedium,
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on, size: 16),
-          const SizedBox(width: 4),
-          Text(_location!),
-          const SizedBox(width: 4),
-          GestureDetector(
-            onTap: () => setState(() => _location = null),
-            child: const Icon(Icons.close, size: 16),
+          // Add to your post section
+          Container(
+            padding: const EdgeInsets.all(MomentsTheme.paddingMedium),
+            decoration: BoxDecoration(
+              border: Border.all(color: MomentsTheme.lightDivider),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'Add to your post',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: MomentsTheme.lightTextPrimary,
+                  ),
+                ),
+                const Spacer(),
+                // Photo/Video buttons
+                _buildActionButton(
+                  icon: Icons.photo_library,
+                  color: const Color(0xFF45BD62),
+                  onTap: _showPhotoOptions,
+                ),
+                const SizedBox(width: 8),
+                _buildActionButton(
+                  icon: Icons.videocam,
+                  color: const Color(0xFFF3425F),
+                  onTap: _showVideoOptions,
+                ),
+                const SizedBox(width: 8),
+                _buildActionButton(
+                  icon: Icons.location_on,
+                  color: const Color(0xFFF5533D),
+                  onTap: _selectLocation,
+                ),
+                const SizedBox(width: 8),
+                _buildActionButton(
+                  icon: Icons.lock_outline,
+                  color: MomentsTheme.lightTextSecondary,
+                  onTap: _selectPrivacy,
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildOptions() {
-    return Column(
-      children: [
-        _buildOptionTile(
-          icon: Icons.photo_library_outlined,
-          title: 'Photos',
-          onTap: _showPhotoOptions,
-        ),
-        _buildOptionTile(
-          icon: Icons.videocam_outlined,
-          title: 'Video',
-          onTap: _showVideoOptions,
-        ),
-        _buildOptionTile(
-          icon: Icons.location_on_outlined,
-          title: 'Location',
-          onTap: _selectLocation,
-        ),
-        _buildOptionTile(
-          icon: Icons.lock_outline,
-          title: 'Privacy: ${_visibility.displayName}',
-          onTap: _selectPrivacy,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOptionTile({
+  Widget _buildActionButton({
     required IconData icon,
-    required String title,
+    required Color color,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: MomentsTheme.primaryBlue),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right),
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 24,
+          color: color,
+        ),
+      ),
     );
   }
 
@@ -615,30 +735,49 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
   Widget _buildUploadingState() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            'Uploading... ${(_uploadProgress * 100).toInt()}%',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              color: MomentsTheme.primaryBlue,
+              strokeWidth: 3,
             ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 48),
-            child: LinearProgressIndicator(
-              value: _uploadProgress,
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                MomentsTheme.primaryBlue,
+            const SizedBox(height: 20),
+            Text(
+              'Uploading your post',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: MomentsTheme.lightTextPrimary,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              '${(_uploadProgress * 100).toInt()}%',
+              style: TextStyle(
+                fontSize: 15,
+                color: MomentsTheme.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _uploadProgress,
+                  backgroundColor: MomentsTheme.lightBackground,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    MomentsTheme.primaryBlue,
+                  ),
+                  minHeight: 6,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/payment/providers/payment_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class WalletTopUpScreen extends ConsumerStatefulWidget {
@@ -18,7 +19,7 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
   final _phoneController = TextEditingController();
 
   // Predefined amounts in KES
-  final List<double> _quickAmounts = [100, 250, 500, 1000, 2000, 5000];
+  final List<double> _quickAmounts = [75, 150, 300, 450, 750, 1500];
   double? _selectedAmount;
   bool _isProcessing = false;
 
@@ -125,8 +126,12 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
       if (!mounted) return;
 
       if (checkoutRequestId != null) {
-        // Navigate to payment status screen
-        context.push('/payment-status/$checkoutRequestId');
+        // Check if this is a first-time activation payment
+        final currentUser = ref.read(currentUserProvider);
+        final isActivation = currentUser?.hasPaid == false;
+
+        // Navigate to payment status screen with isActivation parameter
+        context.push('/payment-status/$checkoutRequestId?isActivation=$isActivation');
       } else {
         // Show error from provider state
         final error = ref.read(paymentProvider).error;
@@ -166,6 +171,52 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
       _selectedAmount = amount;
       _amountController.clear();
     });
+  }
+
+  Widget _buildBenefitItem({
+    required IconData icon,
+    required String title,
+    required String description,
+    required ModernThemeExtension theme,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: theme.primaryColor!.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: theme.primaryColor, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.textSecondaryColor,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -215,12 +266,74 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '1 KES = 1 Coin\nYou will receive an M-Pesa prompt on your phone to complete the payment.',
+                      '1.5 KES = 1 Coin\nYou will receive an M-Pesa prompt on your phone to complete the payment.',
                       style: TextStyle(
                         fontSize: 14,
                         color: theme.textSecondaryColor,
                         height: 1.5,
                       ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // What you can do with coins
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.primaryColor!.withOpacity(0.1),
+                      theme.primaryColor!.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.primaryColor!.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.stars_rounded, color: theme.primaryColor, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'What You Can Do With Coins',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildBenefitItem(
+                      icon: Icons.card_giftcard,
+                      title: 'Send Virtual Gifts',
+                      description: 'Support your favorite creators by sending them virtual gifts',
+                      theme: theme,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildBenefitItem(
+                      icon: Icons.lock_open,
+                      title: 'Unlock Premium Content',
+                      description: 'Access exclusive videos and content from creators',
+                      theme: theme,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildBenefitItem(
+                      icon: Icons.rocket_launch,
+                      title: 'Boost Your Content',
+                      description: 'Promote your videos to reach more viewers and grow your audience',
+                      theme: theme,
                     ),
                   ],
                 ),
@@ -243,10 +356,11 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                 runSpacing: 8,
                 children: _quickAmounts.map((amount) {
                   final isSelected = _selectedAmount == amount;
+                  final coins = (amount / 1.5).round(); // Calculate coins: 1 coin = 1.5 KES
                   return InkWell(
                     onTap: () => _selectQuickAmount(amount),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: isSelected ? theme.primaryColor : theme.surfaceColor,
                         borderRadius: BorderRadius.circular(8),
@@ -255,13 +369,26 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                           width: 1.5,
                         ),
                       ),
-                      child: Text(
-                        'KES ${amount.toInt()}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.white : theme.textColor,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'KES ${amount.toInt()}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : theme.textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$coins coins',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isSelected ? Colors.white.withOpacity(0.9) : theme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );

@@ -58,6 +58,22 @@ class _MomentCardState extends ConsumerState<MomentCard> {
           // Location tag
           if (widget.moment.location != null) _buildLocation(),
 
+          // Like/comment counts (Facebook style - before interactions)
+          if (widget.moment.likesCount > 0 || widget.moment.commentsCount > 0)
+            _buildEngagementCounts(),
+
+          // Divider
+          if (widget.moment.likesCount > 0 || widget.moment.commentsCount > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: MomentsTheme.paddingLarge,
+              ),
+              child: Divider(
+                color: MomentsTheme.lightDivider,
+                height: 1,
+              ),
+            ),
+
           // Interactions (likes, comments)
           MomentInteractions(
             moment: widget.moment,
@@ -150,46 +166,104 @@ class _MomentCardState extends ConsumerState<MomentCard> {
   // Location tag
   Widget _buildLocation() {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: MomentsTheme.paddingLarge,
-        vertical: MomentsTheme.paddingSmall,
+      padding: const EdgeInsets.only(
+        left: MomentsTheme.paddingLarge,
+        right: MomentsTheme.paddingLarge,
+        top: MomentsTheme.paddingSmall,
+        bottom: MomentsTheme.paddingMedium,
       ),
       child: Row(
         children: [
           Icon(
             Icons.location_on_outlined,
             size: MomentsTheme.iconSizeSmall,
-            color: MomentsTheme.lightTextTertiary,
+            color: MomentsTheme.lightTextSecondary,
           ),
           const SizedBox(width: 4),
           Text(
             widget.moment.location!,
-            style: MomentsTheme.timestampStyle,
+            style: MomentsTheme.timestampStyle.copyWith(
+              color: MomentsTheme.lightTextSecondary,
+            ),
           ),
         ],
       ),
     );
   }
 
-  // Comments section
+  // Facebook-style engagement counts (likes and comments)
+  Widget _buildEngagementCounts() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: MomentsTheme.paddingLarge,
+        vertical: MomentsTheme.paddingMedium,
+      ),
+      child: Row(
+        children: [
+          // Likes count
+          if (widget.moment.likesCount > 0) ...[
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: MomentsTheme.likeRed,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.favorite,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${widget.moment.likesCount}',
+                  style: MomentsTheme.timestampStyle,
+                ),
+              ],
+            ),
+          ],
+          const Spacer(),
+          // Comments count
+          if (widget.moment.commentsCount > 0)
+            Text(
+              '${widget.moment.commentsCount} ${widget.moment.commentsCount == 1 ? 'comment' : 'comments'}',
+              style: MomentsTheme.timestampStyle,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Comments section - Facebook style
   Widget _buildCommentsSection() {
     return Container(
-      margin: const EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: MomentsTheme.paddingLarge,
         right: MomentsTheme.paddingLarge,
         bottom: MomentsTheme.paddingMedium,
         top: MomentsTheme.paddingSmall,
       ),
-      padding: const EdgeInsets.all(MomentsTheme.paddingMedium),
-      decoration: BoxDecoration(
-        color: MomentsTheme.lightBackground,
-        borderRadius: BorderRadius.circular(4),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Likes preview
-          if (widget.moment.likesPreview.isNotEmpty) _buildLikesPreview(),
+          // Show more comments button
+          if (widget.moment.commentsCount > 2 && !_showAllComments)
+            GestureDetector(
+              onTap: () => _navigateToComments(),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'View all ${widget.moment.commentsCount} comments',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: MomentsTheme.lightTextSecondary,
+                  ),
+                ),
+              ),
+            ),
 
           // Comments preview
           CommentList(
@@ -199,21 +273,6 @@ class _MomentCardState extends ConsumerState<MomentCard> {
             momentId: widget.moment.id,
             compact: true,
           ),
-
-          // Show more comments
-          if (widget.moment.commentsCount > 2 && !_showAllComments)
-            GestureDetector(
-              onTap: () => _navigateToComments(),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'View all ${widget.moment.commentsCount} comments',
-                  style: MomentsTheme.timestampStyle.copyWith(
-                    color: MomentsTheme.primaryBlue,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

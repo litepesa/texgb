@@ -183,10 +183,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
 
-    // Navigate to activation payment screen (KES 99 one-time fee)
-    // After successful payment, user will be navigated to home
-    debugPrint('🚀 Navigating to activation payment screen');
-    context.go('/activation-payment');
+    // Navigate to wallet top-up screen (minimum 50 coins = KES 75 first-time purchase)
+    // After successful payment, user will be marked as activated and navigated to home
+    debugPrint('🚀 Navigating to wallet top-up screen');
+    context.go('/wallet-topup');
   }
   
   void _handleFailure() {

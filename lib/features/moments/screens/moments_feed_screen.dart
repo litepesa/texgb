@@ -58,20 +58,16 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
     return Scaffold(
       backgroundColor: MomentsTheme.lightBackground,
       appBar: AppBar(
-        title: const Text(
-          'Moments',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
+        title: const Text('Moments'),
+        backgroundColor: MomentsTheme.lightSurface,
+        elevation: 0.5,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
         actions: [
-          // Camera button
+          // Camera button - Facebook style
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
             onPressed: _navigateToCreateMoment,
+            color: MomentsTheme.lightTextPrimary,
           ),
         ],
       ),
@@ -83,7 +79,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToCreateMoment,
         backgroundColor: MomentsTheme.primaryBlue,
-        child: const Icon(Icons.add),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        child: const Icon(Icons.add, size: 28),
       ),
     );
   }
@@ -99,14 +97,23 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          // Moments list
+          // Top spacing
+          const SliverToBoxAdapter(
+            child: SizedBox(height: MomentsTheme.cardSpacing),
+          ),
+
+          // Moments list with Facebook-style spacing
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 if (index < state.moments.length) {
                   final moment = state.moments[index];
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(
+                      left: MomentsTheme.cardSpacing,
+                      right: MomentsTheme.cardSpacing,
+                      bottom: MomentsTheme.cardSpacing,
+                    ),
                     child: MomentCard(moment: moment),
                   );
                 }
@@ -156,14 +163,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
+          CircularProgressIndicator(
+            color: MomentsTheme.primaryBlue,
+            strokeWidth: 3,
+          ),
           const SizedBox(height: 16),
           Text(
             'Loading moments...',
-            style: TextStyle(
-              color: MomentsTheme.lightTextSecondary,
-              fontSize: 14,
-            ),
+            style: MomentsTheme.timestampStyle,
           ),
         ],
       ),
@@ -172,96 +179,96 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 80,
-            color: MomentsTheme.lightTextTertiary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No moments yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: MomentsTheme.lightTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Share your first moment!',
-            style: TextStyle(
-              fontSize: 14,
-              color: MomentsTheme.lightTextTertiary,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _navigateToCreateMoment,
-            icon: const Icon(Icons.add),
-            label: const Text('Create Moment'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: MomentsTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: MomentsTheme.lightBackground,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.photo_library_outlined,
+                size: 64,
+                color: MomentsTheme.lightTextTertiary,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Text(
+              'No moments yet',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: MomentsTheme.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Share your first moment with friends',
+              style: MomentsTheme.timestampStyle.copyWith(
+                fontSize: 15,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _navigateToCreateMoment,
+              style: MomentsTheme.primaryButtonStyle,
+              child: const Text('Create Moment'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorState(String error) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Failed to load moments',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: MomentsTheme.lightTextSecondary,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: MomentsTheme.errorRed.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                size: 64,
+                color: MomentsTheme.errorRed,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              error,
+            const SizedBox(height: 20),
+            Text(
+              'Failed to load moments',
               style: TextStyle(
-                fontSize: 14,
-                color: MomentsTheme.lightTextTertiary,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: MomentsTheme.lightTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error,
+              style: MomentsTheme.timestampStyle.copyWith(
+                fontSize: 15,
               ),
               textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _handleRefresh,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Try Again'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: MomentsTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _handleRefresh,
+              style: MomentsTheme.primaryButtonStyle,
+              child: const Text('Try Again'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

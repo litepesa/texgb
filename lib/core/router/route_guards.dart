@@ -83,13 +83,13 @@ class RouteGuard {
       final hasPaid = _hasUserPaid();
       debugPrint('   - Has Paid: $hasPaid');
 
-      // 3a. User authenticated with profile but hasn't paid
+      // 3a. User authenticated with profile but hasn't paid (first wallet top-up required)
       if (!hasPaid) {
-        debugPrint('   ⚠️  User has not paid activation fee');
+        debugPrint('   ⚠️  User has not made first wallet top-up');
 
-        // Allow access to activation payment screen
-        if (currentPath == '/activation-payment') {
-          debugPrint('   ✅ Allowing access to activation payment screen');
+        // Allow access to wallet top-up screen
+        if (currentPath == '/wallet-topup') {
+          debugPrint('   ✅ Allowing access to wallet top-up screen');
           return null;
         }
 
@@ -105,13 +105,13 @@ class RouteGuard {
           return null;
         }
 
-        // Redirect to activation payment for all other routes
-        debugPrint('   ↩️  Redirecting to activation payment');
-        return '/activation-payment';
+        // Redirect to wallet top-up for all other routes (first-time purchase required)
+        debugPrint('   ↩️  Redirecting to wallet top-up (minimum 50 coins = KES 75)');
+        return '/wallet-topup';
       }
 
-      // 3b. User authenticated, has profile, and has paid
-      debugPrint('   ✅ User fully authenticated, has profile, and has paid');
+      // 3b. User authenticated, has profile, and has made first wallet top-up
+      debugPrint('   ✅ User fully authenticated, has profile, and has completed first wallet top-up');
 
       // Prevent authenticated users from accessing auth screens
       if (RoutePaths.isAuthRoute(currentPath)) {
@@ -119,13 +119,7 @@ class RouteGuard {
         return RoutePaths.home;
       }
 
-      // Prevent paid users from accessing activation payment screen
-      if (currentPath == '/activation-payment') {
-        debugPrint('   ↩️  Redirecting paid user away from activation payment');
-        return RoutePaths.home;
-      }
-
-      // Allow access to all other routes
+      // Allow access to all other routes (including wallet top-up for additional purchases)
       debugPrint('   ✅ Allowing access to protected route');
       return null;
     }

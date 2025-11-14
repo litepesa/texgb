@@ -146,7 +146,7 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
     ref.read(paymentProvider.notifier).clearCurrentTransaction();
 
     if (widget.isActivation) {
-      // For activation payments, navigate to home screen
+      // For first-time wallet top-up (activation), navigate to home screen
       context.go('/home');
     } else {
       // For wallet top-ups, pop back to wallet screen

@@ -1,33 +1,35 @@
 // ===============================
 // Moments Feature Theme
-// Light-based theme for feed, dark theme for media viewer
+// Facebook-inspired light theme (2025)
+// Independent of app theme colors
 // ===============================
 
 import 'package:flutter/material.dart';
 
 class MomentsTheme {
   // ===============================
-  // LIGHT THEME (Feed/Timeline)
+  // FACEBOOK LIGHT THEME (2025)
   // ===============================
 
-  static const Color lightBackground = Color(0xFFF7F7F7); // Light gray background
-  static const Color lightSurface = Color(0xFFFFFFFF); // White cards
-  static const Color lightDivider = Color(0xFFE5E5E5); // Subtle dividers
-  static const Color lightBorder = Color(0xFFDDDDDD); // Borders
+  // Main Background & Surface Colors
+  static const Color lightBackground = Color(0xFFF0F2F5); // Athens Gray - Facebook background
+  static const Color lightSurface = Color(0xFFFFFFFF); // Pure white cards/posts
+  static const Color lightDivider = Color(0xFFE4E6EB); // Facebook divider/border
+  static const Color lightBorder = Color(0xFFE4E6EB); // Facebook borders
 
-  // Text colors (light mode)
-  static const Color lightTextPrimary = Color(0xFF1A1A1A); // Dark text
-  static const Color lightTextSecondary = Color(0xFF666666); // Gray text
-  static const Color lightTextTertiary = Color(0xFF999999); // Light gray text
+  // Text colors (Facebook standard)
+  static const Color lightTextPrimary = Color(0xFF050505); // Near-black for main text
+  static const Color lightTextSecondary = Color(0xFF65676B); // Mid-gray for metadata
+  static const Color lightTextTertiary = Color(0xFF8A8D91); // Light gray for subtle info
 
-  // Interactive colors
-  static const Color primaryBlue = Color(0xFF576B95); // WeChat blue
-  static const Color primaryBlueLight = Color(0xFF7D8FB3); // Lighter blue
+  // Interactive colors (Facebook blue)
+  static const Color primaryBlue = Color(0xFF1877F2); // Azure Radiance - Facebook blue
+  static const Color primaryBlueLight = Color(0xFF4B93F1); // Lighter Facebook blue
   static const Color likeRed = Color(0xFFEB445A); // Like/heart color
 
   // Action colors
-  static const Color commentColor = Color(0xFF888888);
-  static const Color shareColor = Color(0xFF888888);
+  static const Color commentColor = Color(0xFF65676B); // Match secondary text
+  static const Color shareColor = Color(0xFF65676B); // Match secondary text
 
   // Status colors
   static const Color successGreen = Color(0xFF07C160); // WeChat green
@@ -48,16 +50,25 @@ class MomentsTheme {
   static const Color darkTextTertiary = Color(0xFF888888);
 
   // ===============================
-  // COMPONENT STYLES
+  // COMPONENT STYLES (Facebook-inspired)
   // ===============================
 
-  // Card style for moments
+  // Card style for moments - Facebook uses subtle elevation
   static BoxDecoration momentCardDecoration = BoxDecoration(
     color: lightSurface,
-    borderRadius: BorderRadius.circular(0),
-    border: Border(
-      bottom: BorderSide(color: lightDivider, width: 8),
-    ),
+    borderRadius: BorderRadius.circular(8), // Rounded corners like Facebook
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.1),
+        blurRadius: 1,
+        offset: const Offset(0, 1),
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.06),
+        blurRadius: 2,
+        offset: const Offset(0, 2),
+      ),
+    ],
   );
 
   // Image grid border radius
@@ -65,13 +76,14 @@ class MomentsTheme {
   static const double imageBorderRadius = 8.0;
   static const double imageGridSpacing = 4.0;
 
-  // Spacing
+  // Spacing (Facebook-style)
   static const double paddingSmall = 8.0;
   static const double paddingMedium = 12.0;
   static const double paddingLarge = 16.0;
   static const double paddingXLarge = 20.0;
+  static const double cardSpacing = 12.0; // Space between cards
 
-  // Avatar sizes
+  // Avatar sizes (Facebook standard)
   static const double avatarSizeSmall = 32.0;
   static const double avatarSizeMedium = 40.0;
   static const double avatarSizeLarge = 60.0;
@@ -82,50 +94,52 @@ class MomentsTheme {
   static const double iconSizeLarge = 24.0;
 
   // ===============================
-  // TEXT STYLES
+  // TEXT STYLES (Facebook-inspired)
   // ===============================
 
-  // User name
+  // User name (bold, near-black)
   static const TextStyle userNameStyle = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: lightTextPrimary,
-    height: 1.4,
+    height: 1.3333,
   );
 
-  // Content text
+  // Content text (regular, near-black)
   static const TextStyle contentStyle = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w400,
     color: lightTextPrimary,
-    height: 1.6,
+    height: 1.3333,
+    letterSpacing: 0,
   );
 
-  // Timestamp
+  // Timestamp (small, light gray)
   static const TextStyle timestampStyle = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w400,
-    color: lightTextTertiary,
+    color: lightTextSecondary,
+    height: 1.2308,
   );
 
   // Comment text
   static const TextStyle commentStyle = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: lightTextSecondary,
-    height: 1.5,
+    color: lightTextPrimary,
+    height: 1.3571,
   );
 
-  // Comment author name
+  // Comment author name (Facebook blue)
   static const TextStyle commentAuthorStyle = TextStyle(
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
-    color: primaryBlue,
+    color: lightTextPrimary,
   );
 
-  // Interaction count
+  // Interaction count (mid-gray)
   static const TextStyle interactionCountStyle = TextStyle(
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: FontWeight.w400,
     color: lightTextSecondary,
   );
@@ -134,59 +148,77 @@ class MomentsTheme {
   static const TextStyle privacyLabelStyle = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w400,
-    color: lightTextTertiary,
+    color: lightTextSecondary,
   );
 
   // ===============================
-  // BUTTON STYLES
+  // BUTTON STYLES (Facebook-inspired)
   // ===============================
 
   static ButtonStyle primaryButtonStyle = ElevatedButton.styleFrom(
     backgroundColor: primaryBlue,
     foregroundColor: Colors.white,
     elevation: 0,
-    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    textStyle: const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
     ),
   );
 
   static ButtonStyle secondaryButtonStyle = OutlinedButton.styleFrom(
-    foregroundColor: primaryBlue,
-    side: const BorderSide(color: primaryBlue, width: 1),
-    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    foregroundColor: lightTextSecondary,
+    backgroundColor: lightBackground,
+    side: BorderSide.none,
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    textStyle: const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
     ),
   );
 
   static ButtonStyle textButtonStyle = TextButton.styleFrom(
     foregroundColor: primaryBlue,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    textStyle: const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    ),
   );
 
   // ===============================
-  // SHADOWS
+  // SHADOWS (Facebook-style subtle elevation)
   // ===============================
 
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.04),
-      blurRadius: 8,
+      color: Colors.black.withValues(alpha: 0.1),
+      blurRadius: 1,
+      offset: const Offset(0, 1),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.06),
+      blurRadius: 2,
       offset: const Offset(0, 2),
     ),
   ];
 
   static List<BoxShadow> modalShadow = [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.15),
-      blurRadius: 20,
-      offset: const Offset(0, 8),
+      color: Colors.black.withValues(alpha: 0.2),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
     ),
   ];
 
   // ===============================
-  // THEME DATA
+  // THEME DATA (Facebook-inspired)
   // ===============================
 
   static ThemeData lightThemeData = ThemeData(
@@ -204,12 +236,14 @@ class MomentsTheme {
     appBarTheme: const AppBarTheme(
       backgroundColor: lightSurface,
       foregroundColor: lightTextPrimary,
-      elevation: 0,
-      centerTitle: true,
+      elevation: 0.5, // Subtle elevation like Facebook
+      shadowColor: Colors.black12,
+      centerTitle: false, // Left-aligned like Facebook
       titleTextStyle: TextStyle(
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
         color: lightTextPrimary,
+        letterSpacing: 0,
       ),
     ),
     textTheme: const TextTheme(
