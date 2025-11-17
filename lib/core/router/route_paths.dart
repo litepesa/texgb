@@ -123,6 +123,15 @@ class RoutePaths {
   static String momentVideoViewer(String momentId) => '/moment/$momentId/video';
   static const String momentVideoViewerPattern = '/moment/:momentId/video';
 
+  // ==================== STATUS ROUTES ====================
+  static const String statusFeed = '/status-feed';
+  static const String createStatus = '/create-status';
+  static const String statusViewer = '/status-viewer';
+
+  // Dynamic status routes
+  static String userStatus(String userId) => '/status/user/$userId';
+  static const String userStatusPattern = '/status/user/:userId';
+
   // ==================== SEARCH ROUTES ====================
   static const String search = '/search';
   static const String videoSearch = '/video-search';
@@ -176,6 +185,9 @@ class RoutePaths {
     if (path == createChannel) return 'create_channel';
     if (path == momentsFeed) return 'moments_feed';
     if (path == createMoment) return 'create_moment';
+    if (path == statusFeed) return 'status_feed';
+    if (path == createStatus) return 'create_status';
+    if (path == statusViewer) return 'status_viewer';
     if (path == chats) return 'chats';
     if (path == chatList) return 'chat_list';
     if (path == incomingCall) return 'incoming_call';
@@ -193,6 +205,7 @@ class RoutePaths {
     if (path.startsWith('/channel-video/')) return 'channel_video';
     if (path.startsWith('/moments/user/')) return 'user_moments';
     if (path.startsWith('/moment/')) return 'moment_detail';
+    if (path.startsWith('/status/user/')) return 'user_status';
     if (path.startsWith('/chat/')) return 'chat';
     if (path.startsWith('/call/')) return 'call';
 
@@ -264,6 +277,10 @@ class RouteNames {
   static const String momentDetail = 'momentDetail';
   static const String momentMediaViewer = 'momentMediaViewer';
   static const String momentVideoViewer = 'momentVideoViewer';
+  static const String statusFeed = 'statusFeed';
+  static const String createStatus = 'createStatus';
+  static const String statusViewer = 'statusViewer';
+  static const String userStatus = 'userStatus';
   static const String chats = 'chats';
   static const String chatList = 'chatList';
   static const String chat = 'chat';

@@ -68,6 +68,11 @@ import 'package:textgb/features/moments/widgets/media_viewer_screen.dart';
 import 'package:textgb/features/moments/widgets/video_viewer_screen.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 
+// Status screens
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+import 'package:textgb/features/status/models/status_model.dart';
+
 /// Provider for the GoRouter instance
 /// This is the main router for the entire app
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -349,6 +354,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return VideoViewerScreen(
             videoUrl: videoUrl,
             moment: moment!,
+          );
+        },
+      ),
+
+      // ==================== STATUS ROUTES ====================
+
+      GoRoute(
+        path: RoutePaths.createStatus,
+        name: RouteNames.createStatus,
+        builder: (context, state) => const CreateStatusScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.statusViewer,
+        name: RouteNames.statusViewer,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final group = extra?['group'] as StatusGroup;
+          final initialIndex = extra?['initialIndex'] as int? ?? 0;
+          return StatusViewerScreen(
+            statusGroup: group,
+            initialIndex: initialIndex,
           );
         },
       ),

@@ -14,6 +14,7 @@ import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/status/widgets/status_rings_list.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
   const ChatListScreen({super.key});
@@ -135,7 +136,17 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           children: [
             // Search bar
             _buildSearchBar(modernTheme),
-            
+
+            // Status rings list (WhatsApp-style)
+            if (!_isSearching) const StatusRingsList(),
+
+            // Divider
+            if (!_isSearching) Divider(
+              height: 1,
+              thickness: 1,
+              color: modernTheme.dividerColor,
+            ),
+
             // Chat list
             Expanded(
               child: chatListState.when(
