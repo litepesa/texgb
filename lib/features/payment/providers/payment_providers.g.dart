@@ -25,7 +25,7 @@ final paymentServiceProvider = AutoDisposeProvider<PaymentService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PaymentServiceRef = AutoDisposeProviderRef<PaymentService>;
-String _$paymentHash() => r'aa2a677c9b39a4b7f11a4f166b4431f88433c50b';
+String _$paymentHash() => r'442d06b09250d3e98f2907c8f4d6a61cc7e9fdaa';
 
 /// Payment provider for managing M-Pesa payment operations
 ///

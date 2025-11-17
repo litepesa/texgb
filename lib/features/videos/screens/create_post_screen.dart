@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -898,7 +899,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               const SizedBox(height: 16),
               
               // Price field (Required temporarily)
-              /*TextFormField(
+              TextFormField(
                 controller: _priceController,
                 decoration: InputDecoration(
                   labelText: 'Price (KES) *',
@@ -947,7 +948,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 enabled: !isLoading && !_isProcessing && !isUploading,
               ),
               
-              const SizedBox(height: 16),*/
+              const SizedBox(height: 16),
               
               // Tags (Optional)
               TextFormField(

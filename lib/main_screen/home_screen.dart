@@ -1,22 +1,22 @@
-// lib/main_screen/home_screen.dart (UPDATED VERSION WITH FAB)
+// lib/main_screen/home_screen.dart (WeChat-style Interface)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/features/channels/screens/channels_home_screen.dart';
-import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
+import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
+import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
-import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -32,29 +32,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool get wantKeepAlive => true;
   
   int _currentIndex = 0;
+  final PageController _pageController = PageController();
+  bool _isPageAnimating = false;
   
-  final List<String> _tabNames = [  
-    'Chats',        // Index 0 - Chats Tab (label)
-    'Contacts',     // Index 1 - Contacts Screen
-    '',             // Index 2 - Post (no label, special design)
-    'Discover',     // Index 3 - Discover Screen
-    'Profile'       // Index 4 - Profile
-  ];
-  
-  final List<String> _appBarTitles = [
-    'WemaChat',     // Index 0 - App name for Chats tab
-    'Contacts',     // Index 1 - Contacts Screen
-    '',             // Index 2 - Post (not used)
-    'Discover',     // Index 3 - Discover Screen
-    'My Profile'    // Index 4 - Profile
+  final List<String> _tabNames = [
+    'Chats',          // Index 0 - Chats Screen
+    'Groups',         // Index 1 - Groups (Coming Soon)
+    'Status',         // Index 2 - Status (Coming Soon)
+    'Marketplace',    // Index 3 - User List Screen
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_2,                 // Chats
-    CupertinoIcons.person_2_square_stack,         // Contacts
-    Icons.add,                                    // Post 
-    CupertinoIcons.compass,                       // Discover
-    CupertinoIcons.person                         // Profile
+    CupertinoIcons.chat_bubble_2_fill,             // Chats
+    Icons.group_outlined,                          // Groups
+    Icons.donut_large_rounded,                     // Status
+    CupertinoIcons.dot_radiowaves_left_right,      // Channels
   ];
 
   @override
@@ -70,6 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -102,82 +95,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildProfileTab(ModernThemeExtension modernTheme) {
-    final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    final currentUser = ref.watch(currentUserProvider);
-    final isLoading = ref.watch(isAuthLoadingProvider);
-    
-    if (isLoading) {
-      return Container(
-        color: modernTheme.backgroundColor,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                color: modernTheme.primaryColor,
-                strokeWidth: 3,
+  Widget _buildComingSoonScreen(String title, ModernThemeExtension modernTheme) {
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              title == 'Groups' ? Icons.group : Icons.donut_large_rounded,
+              size: 80,
+              color: modernTheme.textSecondaryColor,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: modernTheme.textColor,
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading...',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 16,
-                ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Coming Soon',
+              style: TextStyle(
+                fontSize: 16,
+                color: modernTheme.textSecondaryColor,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    }
-    
-    if (!isAuthenticated || currentUser == null) {
-      return Container(
-        color: modernTheme.backgroundColor,
-        child: const LoginRequiredWidget(
-          title: 'Sign In Required',
-          subtitle: 'Please sign in to view your profile and manage your content.',
-          actionText: 'Sign In',
-          icon: Icons.person,
-        ),
-      );
-    }
-    
-    return _KeepAliveWrapper(child: const MyProfileScreen());
+      ),
+    );
   }
 
   void _onTabTapped(int index) {
     if (!mounted || index == _currentIndex) return;
-    
-    if (index == 2) {
-      _showPostOptions();
-      return;
-    }
 
     debugPrint('HomeScreen: Navigating from $_currentIndex to $index');
-    
-    if (index == 4) {
-      final isAuthenticated = ref.read(isAuthenticatedProvider);
-      final currentUser = ref.read(currentUserProvider);
-      final isLoading = ref.read(isAuthLoadingProvider);
-      
-      debugPrint('HomeScreen: Profile Tab Access - Auth: $isAuthenticated, User: ${currentUser?.uid}, Loading: $isLoading');
-      
-      if (!isAuthenticated && !isLoading) {
-        debugPrint('HomeScreen: Triggering auth check for profile tab');
-        final authNotifier = ref.read(authenticationProvider.notifier);
-        authNotifier.loadUserDataFromSharedPreferences();
-      }
-    }
     
     HapticFeedback.lightImpact();
     
     setState(() {
       _currentIndex = index;
+      _setSystemUIOverlayStyle();
     });
     
-    _setSystemUIOverlayStyle();
+    // Use jumpToPage to avoid showing intermediate pages
+    _isPageAnimating = true;
+    _pageController.jumpToPage(index);
+    
+    // Reset animation flag after a brief delay
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        _isPageAnimating = false;
+      }
+    });
   }
 
   void _setSystemUIOverlayStyle() {
@@ -198,151 +172,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  void _showPostOptions() {
-    HapticFeedback.lightImpact();
-    final modernTheme = _getModernTheme();
+  void _onPageChanged(int index) {
+    // Only process page changes that aren't from programmatic jumps
+    if (_isPageAnimating) return;
     
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 20),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: modernTheme.textSecondaryColor?.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'Create Post',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: modernTheme.textColor,
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // Channels Post option
-              _buildPostOptionTile(
-                icon: CupertinoIcons.play_rectangle_fill,
-                title: 'Channels Post',
-                subtitle: 'Share a video on your channel',
-                color: Colors.red,
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push(RoutePaths.createPost);
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              // Moments Post option
-              _buildPostOptionTile(
-                icon: CupertinoIcons.camera_fill,
-                title: 'Moments Post',
-                subtitle: 'Share photos or videos with friends',
-                color: const Color(0xFF007AFF),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push(RoutePaths.createMoment);
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPostOptionTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: modernTheme.textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: modernTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                CupertinoIcons.chevron_right,
-                color: modernTheme.textSecondaryColor?.withOpacity(0.5),
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    setState(() {
+      _currentIndex = index;
+      _setSystemUIOverlayStyle();
+    });
   }
 
   @override
@@ -384,7 +221,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'WemaChat',
+                'WemaèŠ',
                 style: TextStyle(
                   color: isDarkMode ? Colors.white : Colors.black,
                   fontSize: 24,
@@ -407,39 +244,131 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       backgroundColor: modernTheme.backgroundColor,
       appBar: _buildAppBar(modernTheme, isDarkMode),
       
-      body: IndexedStack(
-        index: _currentIndex,
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: _onPageChanged,
         children: [
-          // Chats tab (index 0)
+          // Chats tab (index 0) - Chats Screen
           _KeepAliveWrapper(
             child: const ChatsTab(),
           ),
-          // Contacts Screen (index 1)
+          // Channels tab (index 1) - Channels Home Screenn
           _KeepAliveWrapper(
-            child: const ContactsScreen(),
+            child: const ChannelsHomeScreen(),
           ),
-          // Post tab (index 2) - Never shown (navigates directly)
+          // Moments tab (index 2) - Recommended Posts Screen
           _KeepAliveWrapper(
-            child: Container(
-              color: modernTheme.backgroundColor,
-              child: const Center(
-                child: Text('Create Post'),
-              ),
-            ),
+            child: const RecommendedPostsScreen(),
           ),
-          // Status tab (index 3)
+          // Stores tab (index 3) - Shops Home Screen
           _KeepAliveWrapper(
-            child: const DiscoverScreen(),
-          ),
-          // Profile tab (index 4)
-          _KeepAliveWrapper(
-            child: const MyProfileScreen(),
+            child: const UsersListScreen(),
           ),
         ],
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
+      floatingActionButton: _currentIndex == 0 ? _buildMultipleFabs(modernTheme) : _buildFab(modernTheme),
     );
+  }
+
+  Widget _buildMultipleFabs(ModernThemeExtension modernTheme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Wallet FAB
+        FloatingActionButton(
+          heroTag: 'wallet_fab',
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WalletScreenV2(),
+              ),
+            );
+          },
+          child: const Icon(CupertinoIcons.money_dollar_circle),
+        ),
+        const SizedBox(height: 16),
+        // Contacts FAB
+        FloatingActionButton(
+          heroTag: 'contacts_fab',
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ContactsScreen(),
+              ),
+            );
+          },
+          child: const Icon(CupertinoIcons.person_add),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFab(ModernThemeExtension modernTheme) {
+    if (_currentIndex == 1) {
+      // Groups tab - Coming soon
+      return FloatingActionButton(
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Coming Soon'),
+              backgroundColor: modernTheme.primaryColor,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        child: const Icon(Icons.group_add),
+      );
+    } else if (_currentIndex == 2) {
+      // Status tab - Coming soon
+      return FloatingActionButton(
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Coming Soon'),
+              backgroundColor: modernTheme.primaryColor,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        child: const Icon(Icons.camera_alt),
+      );
+    } else if (_currentIndex == 3) {
+      // Channels tab - Navigate to create post screen
+      return FloatingActionButton(
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreatePostScreen(),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      );
+    }
+    
+    return const SizedBox.shrink();
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -447,8 +376,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
 
-    // Get the AppBar title - use _appBarTitles instead of _tabNames
-    String title = _appBarTitles[_currentIndex];
+    // Get the title based on current tab
+    // For Chats tab (index 0), show "WemaChat" instead of "Chats"
+    String title = _currentIndex == 0 ? 'WemaChat' : _tabNames[_currentIndex];
 
     return AppBar(
       backgroundColor: appBarColor,
@@ -466,9 +396,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
       actions: [
-        // Three-dot menu for tabs 0, 1, 3, 4
-        if (_currentIndex != 2)
-          _buildThreeDotMenu(modernTheme, iconColor),
+        // Profile button (visible on Chats tab only)
+        if (_currentIndex == 0)
+          IconButton(
+            icon: Icon(
+              CupertinoIcons.person_circle,
+              color: iconColor,
+              size: 26,
+            ),
+            onPressed: () {
+              context.push(RoutePaths.myProfile);
+            },
+          ),
+        // Three-dot menu
+        _buildThreeDotMenu(modernTheme, iconColor),
         const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
@@ -487,99 +428,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final menuBgColor = isDark 
       ? modernTheme.surfaceColor!.withOpacity(0.98)
       : modernTheme.surfaceColor!.withOpacity(0.96);
-
-    // Different menu options based on current tab
-    List<PopupMenuItem<String>> menuItems = [];
-    
-    if (_currentIndex == 0) {
-      // Chats tab menu
-      menuItems = [
-        _buildMenuItem(
-          icon: CupertinoIcons.chat_bubble_2,
-          title: 'New Chat',
-          value: 'new_chat',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.group,
-          title: 'Create Group',
-          value: 'create_group',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.person_add,
-          title: 'Add Contact',
-          value: 'add_contact',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.qrcode,
-          title: 'Scan QR Code',
-          value: 'scan_qr',
-          modernTheme: modernTheme,
-        ),
-      ];
-    } else if (_currentIndex == 1) {
-      // Contacts tab menu
-      menuItems = [
-        _buildMenuItem(
-          icon: CupertinoIcons.person_add,
-          title: 'Add Contact',
-          value: 'add_contact',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: Icons.sync_rounded,
-          title: 'Sync Contacts',
-          value: 'sync_contacts',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: Icons.block_rounded,
-          title: 'Blocked Contacts',
-          value: 'blocked_contacts',
-          modernTheme: modernTheme,
-        ),
-      ];
-    } else if (_currentIndex == 3) {
-      // Discover tab menu
-      menuItems = [
-        _buildMenuItem(
-          icon: CupertinoIcons.search,
-          title: 'Search',
-          value: 'search',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.money_dollar_circle,
-          title: 'Wallet',
-          value: 'wallet',
-          modernTheme: modernTheme,
-        ),
-      ];
-    } else if (_currentIndex == 4) {
-      // Profile tab menu
-      menuItems = [
-        _buildMenuItem(
-          icon: CupertinoIcons.pencil,
-          title: 'Edit Profile',
-          value: 'edit_profile',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.money_dollar_circle,
-          title: 'Wallet',
-          value: 'wallet',
-          modernTheme: modernTheme,
-        ),
-        _buildMenuItem(
-          icon: CupertinoIcons.settings,
-          title: 'Settings',
-          value: 'settings',
-          modernTheme: modernTheme,
-        ),
-      ];
-    }
 
     return PopupMenuButton<String>(
       icon: Icon(
@@ -601,75 +449,89 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
       onSelected: (String value) {
-        _handleMenuAction(value, modernTheme);
+        switch (value) {
+          case 'new_chat':
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('New Chat - Coming Soon'),
+                backgroundColor: modernTheme.primaryColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'add_contact':
+            Navigator.pushNamed(context, Constants.addContactScreen);
+            break;
+          case 'create_group':
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Create Group - Coming Soon'),
+                backgroundColor: modernTheme.primaryColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'scan_qr':
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Scan QR Code - Coming Soon'),
+                backgroundColor: modernTheme.primaryColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'payment':
+            Navigator.pushNamed(context, Constants.walletScreen);
+            break;
+          case 'my_profile':
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MyProfileScreen(),
+              ),
+            );
+            break;
+        }
       },
-      itemBuilder: (BuildContext context) => menuItems,
+      itemBuilder: (BuildContext context) => [
+        _buildMenuItem(
+          icon: CupertinoIcons.chat_bubble_2,
+          title: 'New Chat',
+          value: 'new_chat',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_add,
+          title: 'Add Contact',
+          value: 'add_contact',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.group,
+          title: 'Create Group',
+          value: 'create_group',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.qrcode,
+          title: 'Scan QR Code',
+          value: 'scan_qr',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.money_dollar_circle,
+          title: 'Payment',
+          value: 'payment',
+          modernTheme: modernTheme,
+        ),
+        _buildMenuItem(
+          icon: CupertinoIcons.person_fill,
+          title: 'My Profile',
+          value: 'my_profile',
+          modernTheme: modernTheme,
+        ),
+      ],
     );
-  }
-
-  void _handleMenuAction(String value, ModernThemeExtension modernTheme) {
-    switch (value) {
-      case 'new_chat':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('New Chat - Coming Soon'),
-            backgroundColor: modernTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        break;
-      case 'add_contact':
-        context.push(RoutePaths.addContact);
-        break;
-      case 'create_group':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Create Group - Coming Soon'),
-            backgroundColor: modernTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        break;
-      case 'scan_qr':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Scan QR Code - Coming Soon'),
-            backgroundColor: modernTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        break;
-      case 'sync_contacts':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Syncing Contacts...'),
-            backgroundColor: modernTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        break;
-      case 'blocked_contacts':
-        context.push(RoutePaths.blockedContacts);
-        break;
-      case 'search':
-        context.push(RoutePaths.search);
-        break;
-      case 'wallet':
-        context.push(RoutePaths.wallet);
-        break;
-      case 'edit_profile':
-        context.push(RoutePaths.editProfile);
-        break;
-      case 'settings':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Settings - Coming Soon'),
-            backgroundColor: modernTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        break;
-    }
   }
 
   PopupMenuItem<String> _buildMenuItem({
@@ -723,47 +585,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(5, (index) {
-              if (index == 2) {
-                return _buildPostButton(modernTheme);
-              }
+            children: List.generate(4, (index) {
               return _buildNavItem(index, modernTheme);
             }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPostButton(ModernThemeExtension modernTheme) {
-    return GestureDetector(
-      onTap: () => _showPostOptions(),
-      child: Container(
-        width: 45,
-        height: 32,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          gradient: LinearGradient(
-            colors: [
-              modernTheme.primaryColor ?? const Color(0xFF07C160),
-              (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.7),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.add,
-            color: Colors.white,
-            size: 24,
           ),
         ),
       ),
@@ -780,10 +604,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ? (modernTheme.textColor ?? Colors.black)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
-    // Dummy unread counts
-    int unreadCount = 0;
-    if (index == 0) unreadCount = 5; // Chats
-    if (index == 3) unreadCount = 2; // Discover
+    // Dummy unread count for Chats (index 0) and Groups (index 1)
+    final int unreadCount = index == 0 ? 5 : (index == 1 ? 3 : 0);
 
     return Expanded(
       child: GestureDetector(
@@ -835,17 +657,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
               const SizedBox(height: 2),
-              if (_tabNames[index].isNotEmpty)
-                Text(
-                  _tabNames[index],
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                _tabNames[index],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
