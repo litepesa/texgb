@@ -183,10 +183,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
     );
 
-    // Navigate to wallet top-up screen (minimum 50 coins = KES 75 first-time purchase)
-    // After successful payment, user will be marked as activated and navigated to home
-    debugPrint('🚀 Navigating to wallet top-up screen');
-    context.go('/wallet-topup');
+    // Navigate directly to home - user can add coins later via persistent banner
+    debugPrint('🚀 Navigating to home screen');
+    context.go('/home');
   }
   
   void _handleFailure() {
