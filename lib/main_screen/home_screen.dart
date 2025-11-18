@@ -17,9 +17,6 @@ import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/groups/screens/groups_list_screen.dart';
 import 'package:textgb/features/status/screens/status_list_screen.dart';
-import 'package:textgb/features/groups/screens/create_group_screen.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -425,193 +422,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       flexibleSpace: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              // Premium Tab Switcher
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: modernTheme.surfaceColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: iconColor.withOpacity(0.08),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
-                        spreadRadius: -4,
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                        spreadRadius: -2,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _buildInboxTab(0, 'Chats', CupertinoIcons.chat_bubble_2_fill, modernTheme, iconColor, textColor),
-                      _buildInboxTab(1, 'Groups', CupertinoIcons.group_solid, modernTheme, iconColor, textColor),
-                      _buildInboxTab(2, 'Status', CupertinoIcons.circle_fill, modernTheme, iconColor, textColor),
-                    ],
-                  ),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                  width: 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: iconColor.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
-
-              const SizedBox(width: 12),
-
-              // Premium Action Button
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      iconColor,
-                      iconColor.withOpacity(0.8),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: iconColor.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: PopupMenuButton<String>(
-                    icon: const Icon(
-                      Icons.add_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    offset: const Offset(0, 8),
-                    color: modernTheme.surfaceColor,
-                    elevation: 8,
-                    onSelected: (value) {
-                      HapticFeedback.mediumImpact();
-                      if (value == 'new_chat') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ContactsScreen(),
-                          ),
-                        );
-                      } else if (value == 'create_group') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateGroupScreen(),
-                          ),
-                        );
-                      } else if (value == 'create_status') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateStatusScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem<String>(
-                        value: 'new_chat',
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: iconColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                CupertinoIcons.chat_bubble_2_fill,
-                                color: iconColor,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'New Chat',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<String>(
-                        value: 'create_group',
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: iconColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                CupertinoIcons.group_solid,
-                                color: iconColor,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Create Group',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<String>(
-                        value: 'create_status',
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: iconColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                CupertinoIcons.circle_fill,
-                                color: iconColor,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Create Status',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: Row(
+                children: [
+                  _buildInboxTab(0, 'Chats', CupertinoIcons.chat_bubble_2_fill, modernTheme, iconColor, textColor),
+                  _buildInboxTab(1, 'Groups', CupertinoIcons.group_solid, modernTheme, iconColor, textColor),
+                  _buildInboxTab(2, 'Status', CupertinoIcons.circle_fill, modernTheme, iconColor, textColor),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
