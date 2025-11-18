@@ -9,7 +9,6 @@ import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/constants/kenya_languages.dart';
 import 'package:textgb/constants/kenya_locations.dart';
-import 'package:textgb/core/router/app_router.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});

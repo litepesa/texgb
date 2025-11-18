@@ -7,7 +7,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
-import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/enums/enums.dart';
 
 class ChatDatabaseService {

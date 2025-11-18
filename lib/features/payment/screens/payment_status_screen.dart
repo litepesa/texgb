@@ -420,7 +420,7 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
                 if (!_isComplete) ...[
                   const SizedBox(height: 16),
                   Text(
-                    'Poll ${_pollCount}/$_maxPolls',
+                    'Poll $_pollCount/$_maxPolls',
                     style: TextStyle(
                       fontSize: 12,
                       color: theme.textTertiaryColor,

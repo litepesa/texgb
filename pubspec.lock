@@ -1240,6 +1240,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.2"
+  phoenix_socket:
+    dependency: "direct main"
+    description:
+      name: phoenix_socket
+      sha256: befa09b9861b69f922e8b4854de3e40bf9601e381a89460dacdd1198799ca28a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.0"
   pinput:
     dependency: "direct main"
     description:
@@ -1773,6 +1781,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.1.0"
+  video_compress:
+    dependency: "direct main"
+    description:
+      name: video_compress
+      sha256: "31bc5cdb9a02ba666456e5e1907393c28e6e0e972980d7d8d619a7beda0d4f20"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.4"
   video_player:
     dependency: "direct main"
     description:

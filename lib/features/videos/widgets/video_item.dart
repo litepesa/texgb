@@ -1372,7 +1372,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
               // Back Arrow
               GestureDetector(
                 onTap: _handleBackNavigation,
-                child: Container(
+                child: SizedBox(
                   width: 36,
                   height: 36,
                   child: const Icon(

@@ -114,13 +114,12 @@ class StatusRing extends StatelessWidget {
             ),
 
             // Time stamp
-            if (latestStatus != null)
-              Text(
-                StatusTimeService.formatRingTime(latestStatus.createdAt),
-                style: StatusTheme.ringTimeStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Text(
+              StatusTimeService.formatRingTime(latestStatus.createdAt),
+              style: StatusTheme.ringTimeStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

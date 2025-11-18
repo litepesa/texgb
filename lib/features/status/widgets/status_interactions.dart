@@ -105,14 +105,14 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
   }
 
   void _handleGiftTap() {
-    final currentUser = ref.read(userProvider);
+    final currentUser = ref.read(currentUserProvider);
 
     if (currentUser == null) {
       _showSnackBar('Please log in to send gifts');
       return;
     }
 
-    if (widget.status.userId == currentUser.id) {
+    if (widget.status.userId == currentUser.uid) {
       _showSnackBar('You cannot send gifts to yourself');
       return;
     }
@@ -128,12 +128,12 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
       builder: (context) => VirtualGiftsBottomSheet(
         recipientId: widget.status.userId,
         recipientName: widget.status.userName,
-        onGiftSent: (giftId) async {
+        onGiftSelected: (gift) async {
           try {
             await ref.read(statusFeedProvider.notifier).sendGift(
                   statusId: widget.status.id,
                   recipientId: widget.status.userId,
-                  giftId: giftId,
+                  giftId: gift.id,
                 );
             _showSnackBar(StatusConstants.successGiftSent);
           } catch (e) {
@@ -288,7 +288,7 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
   }
 
   void _handleLikeTap() async {
-    final currentUser = ref.read(userProvider);
+    final currentUser = ref.read(currentUserProvider);
 
     if (currentUser == null) {
       _showSnackBar('Please log in to like');
@@ -322,14 +322,14 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
   }
 
   void _handleDMTap() async {
-    final currentUser = ref.read(userProvider);
+    final currentUser = ref.read(currentUserProvider);
 
     if (currentUser == null) {
       _showSnackBar('Please log in to send messages');
       return;
     }
 
-    if (widget.status.userId == currentUser.id) {
+    if (widget.status.userId == currentUser.uid) {
       _showSnackBar('You cannot message yourself');
       return;
     }
@@ -337,11 +337,11 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
     try {
       // Get or create chat with this user
       final chatProvider = ref.read(chatListProvider.notifier);
-      final chat = await chatProvider.createOrGetChat(widget.status.userId);
+      final chatId = await chatProvider.createOrGetChat(widget.status.userId);
 
-      if (mounted && chat != null) {
+      if (mounted && chatId != null) {
         // Navigate to chat screen
-        context.push('${RoutePaths.chat}/${chat.id}');
+        context.push(RoutePaths.chat(chatId));
       }
     } catch (e) {
       _showSnackBar('Failed to open chat');

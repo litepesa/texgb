@@ -6,7 +6,6 @@ import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class RecommendedPostsScreen extends ConsumerStatefulWidget {

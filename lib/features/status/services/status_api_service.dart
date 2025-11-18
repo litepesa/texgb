@@ -3,14 +3,16 @@
 // Handles all API calls for status feature
 // ===============================
 
+import 'dart:convert';
 import 'package:textgb/shared/services/http_client.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
 
 class StatusApiService {
-  final HttpClient _httpClient;
+  final HttpClientService _httpClient;
 
-  StatusApiService({HttpClient? httpClient}) : _httpClient = httpClient ?? HttpClient();
+  StatusApiService({HttpClientService? httpClient})
+      : _httpClient = httpClient ?? HttpClientService();
 
   // ===============================
   // GET STATUSES
@@ -21,9 +23,10 @@ class StatusApiService {
     try {
       final response = await _httpClient.get(StatusConstants.apiGetStatuses);
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        final statusGroups = data['statusGroups'] as List<dynamic>? ?? data['status_groups'] as List<dynamic>?;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final statusGroups = data['statusGroups'] as List<dynamic>? ??
+                            data['status_groups'] as List<dynamic>?;
 
         if (statusGroups != null) {
           return statusGroups
@@ -44,8 +47,8 @@ class StatusApiService {
     try {
       final response = await _httpClient.get(StatusConstants.apiGetMyStatuses);
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         final statuses = data['statuses'] as List<dynamic>?;
 
         if (statuses != null) {
@@ -67,8 +70,8 @@ class StatusApiService {
     try {
       final response = await _httpClient.get('${StatusConstants.apiGetUserStatuses}/$userId');
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         final statuses = data['statuses'] as List<dynamic>?;
 
         if (statuses != null) {
@@ -94,11 +97,11 @@ class StatusApiService {
     try {
       final response = await _httpClient.post(
         StatusConstants.apiCreateStatus,
-        request.toJson(),
+        body: request.toJson(),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data as Map<String, dynamic>;
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         final status = data['status'] as Map<String, dynamic>? ?? data;
         return StatusModel.fromJson(status);
       }
@@ -134,7 +137,7 @@ class StatusApiService {
   Future<bool> viewStatus(String statusId) async {
     try {
       final endpoint = StatusConstants.apiViewStatus.replaceAll('{id}', statusId);
-      final response = await _httpClient.post(endpoint, {});
+      final response = await _httpClient.post(endpoint, body: {});
 
       return response.statusCode == 200;
     } catch (e) {
@@ -147,7 +150,7 @@ class StatusApiService {
   Future<bool> likeStatus(String statusId) async {
     try {
       final endpoint = StatusConstants.apiLikeStatus.replaceAll('{id}', statusId);
-      final response = await _httpClient.post(endpoint, {});
+      final response = await _httpClient.post(endpoint, body: {});
 
       return response.statusCode == 200;
     } catch (e) {
@@ -178,7 +181,7 @@ class StatusApiService {
     try {
       final response = await _httpClient.post(
         StatusConstants.apiSendGift,
-        {
+        body: {
           'recipientId': recipientId,
           'giftId': giftId,
           'source': 'status',
@@ -204,15 +207,17 @@ class StatusApiService {
       // This is a simplified version
       final response = await _httpClient.post(
         StatusConstants.apiUploadMedia,
-        {
+        body: {
           'filePath': filePath,
           'type': isVideo ? 'video' : 'image',
         },
       );
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        final mediaUrl = data['mediaUrl'] as String? ?? data['media_url'] as String? ?? data['url'] as String;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final mediaUrl = data['mediaUrl'] as String? ??
+                        data['media_url'] as String? ??
+                        data['url'] as String;
         return mediaUrl;
       }
 

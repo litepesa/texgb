@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/status/models/status_model.dart';
-import 'package:textgb/features/status/models/status_enums.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/status/theme/status_theme.dart';

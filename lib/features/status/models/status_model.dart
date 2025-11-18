@@ -5,6 +5,8 @@
 
 import 'status_enums.dart';
 
+export 'status_enums.dart';
+
 // ===============================
 // STATUS MODEL
 // ===============================
