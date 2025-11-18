@@ -313,7 +313,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
       child: Row(
         children: [
           // Back Button
-          Container(
+          /*Container(
             decoration: BoxDecoration(
               color: _primaryPurple.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
@@ -327,7 +327,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 16),*/
 
           // Title Section
           Expanded(

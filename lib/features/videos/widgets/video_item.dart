@@ -1370,7 +1370,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Back Arrow
-              GestureDetector(
+              /*GestureDetector(
                 onTap: _handleBackNavigation,
                 child: SizedBox(
                   width: 36,
@@ -1382,7 +1382,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   ),
                 ),
               ),
-              const SizedBox(width: 1),
+              const SizedBox(width: 1),*/
               // Profile Avatar
               Container(
                 width: 40,

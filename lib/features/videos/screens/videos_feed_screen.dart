@@ -11,12 +11,15 @@ import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 // Import search overlay
 import 'package:textgb/features/videos/widgets/search_overlay.dart';
 // Import video progress provider
 import 'package:textgb/features/videos/providers/video_progress_provider.dart';
+// Import wallet providers for balance banner
+import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 
 class VideosFeedScreen extends ConsumerStatefulWidget {
   final String? startVideoId; // For direct video navigation
@@ -51,6 +54,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   bool _isManuallyPaused = false;
   bool _isCommentsSheetOpen = false;
 
+  // Balance banner state
+  late AnimationController _bannerAnimationController;
+  late Animation<double> _bannerAnimation;
+
   // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -67,13 +74,24 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
     _setupCacheCleanup();
-    
+
+    // Initialize banner animation
+    _bannerAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _bannerAnimation = CurvedAnimation(
+      parent: _bannerAnimationController,
+      curve: Curves.elasticOut,
+    );
+
     // Handle initial video position and start precaching
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialVideoPosition();
       _precacheInitialVideos(); // Start precaching immediately
+      _bannerAnimationController.forward(); // Animate banner if needed
     });
-    
+
     _hasInitialized = true;
   }
 
@@ -104,6 +122,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
+        // Refresh wallet balance when app resumes from background
+        ref.invalidate(walletProvider);
+        debugPrint('🔄 App resumed - refreshing wallet balance');
         if (_isScreenActive && !_isNavigatingAway && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
@@ -623,10 +644,11 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     WidgetsBinding.instance.removeObserver(this);
 
     _stopPlayback();
-    
+
     _cacheCleanupTimer?.cancel();
 
     _pageController.dispose();
+    _bannerAnimationController.dispose();
 
     _restoreOriginalSystemUI();
 
@@ -694,6 +716,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               right: 0,
               child: _buildSimplifiedHeader(),
             ),
+
+          // Persistent balance banner (shows when balance == 0)
+          if (!_isCommentsSheetOpen) _buildBalanceBanner(),
         ],
       ),
     );
@@ -772,9 +797,195 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       ),
     );
   }
+
+  Widget _buildBalanceBanner() {
+    // Watch the coin balance
+    final balance = ref.watch(coinsBalanceProvider);
+
+    // Only show if balance is exactly 0
+    if (balance != 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: MediaQuery.of(context).size.height * 0.35,
+      left: 16,
+      right: 16,
+      child: ScaleTransition(
+        scale: _bannerAnimation,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF6366F1),
+                Color(0xFF8B5CF6),
+                Color(0xFF6366F1),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                context.push('/wallet-topup');
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Refresh button (instead of close)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            // Refresh wallet data
+                            ref.invalidate(walletProvider);
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.refresh,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Banner content
+                    Padding(
+                      padding: const EdgeInsets.only(right: 24),
+                      child: Row(
+                        children: [
+                          // Animated icon
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(seconds: 2),
+                            builder: (context, value, child) {
+                              return Transform.rotate(
+                                angle: value * 0.1,
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.3),
+                                        blurRadius: 10,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.account_balance_wallet,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(width: 16),
+
+                          // Text content
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      '💰 Add Coins to Get Started!',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.3),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'REQUIRED',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Tap here to top up and unlock all features',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-// Extension for tab management
 extension VideosFeedScreenExtension on VideosFeedScreenState {
   static void handleTabChanged(
       GlobalKey<VideosFeedScreenState> feedScreenKey, bool isActive) {
