@@ -1,20 +1,21 @@
 // ===============================
 // Status Upload Service
-// Handles media compression and upload for statuses
+// Handles media validation and upload for statuses
+// No compression - uploads original files with size/duration validation
 // ===============================
 
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:video_compress/video_compress.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:textgb/features/status/models/status_constants.dart';
 import 'package:textgb/features/status/models/status_enums.dart';
 import 'package:textgb/features/status/services/status_api_service.dart';
 
 class StatusUploadService {
   final StatusApiService _apiService;
   final ImagePicker _imagePicker;
+
+  // Validation constants
+  static const int maxFileSizeBytes = 100 * 1024 * 1024; // 100MB
+  static const int maxVideoDurationSeconds = 120; // 2 minutes
 
   StatusUploadService({
     StatusApiService? apiService,
@@ -31,7 +32,6 @@ class StatusUploadService {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        imageQuality: StatusConstants.imageQuality,
       );
 
       if (image != null) {
@@ -50,7 +50,6 @@ class StatusUploadService {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: StatusConstants.imageQuality,
       );
 
       if (image != null) {
@@ -69,7 +68,7 @@ class StatusUploadService {
     try {
       final XFile? video = await _imagePicker.pickVideo(
         source: ImageSource.camera,
-        maxDuration: const Duration(seconds: StatusConstants.videoStatusMaxDuration),
+        maxDuration: const Duration(seconds: maxVideoDurationSeconds),
       );
 
       if (video != null) {
@@ -88,7 +87,6 @@ class StatusUploadService {
     try {
       final XFile? video = await _imagePicker.pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(seconds: StatusConstants.videoStatusMaxDuration),
       );
 
       if (video != null) {
@@ -103,115 +101,51 @@ class StatusUploadService {
   }
 
   // ===============================
-  // COMPRESS MEDIA
+  // VALIDATION
   // ===============================
 
-  /// Compress image
-  Future<File> compressImage(File imageFile) async {
-    try {
-      // Check file size
-      final fileSize = await imageFile.length();
-      if (fileSize > StatusConstants.maxImageSizeBytes) {
-        throw Exception(StatusConstants.errorTooLarge);
-      }
+  /// Validate image file size
+  Future<void> validateImageFile(File imageFile) async {
+    final fileSize = await imageFile.length();
 
-      // Get temp directory
-      final tempDir = await getTemporaryDirectory();
-      final targetPath = '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    if (fileSize > maxFileSizeBytes) {
+      throw Exception('Image file size exceeds 100MB limit');
+    }
 
-      // Compress
-      final compressedFile = await FlutterImageCompress.compressAndGetFile(
-        imageFile.absolute.path,
-        targetPath,
-        quality: StatusConstants.imageQuality,
-      );
-
-      if (compressedFile != null) {
-        return File(compressedFile.path);
-      }
-
-      // If compression failed, return original
-      return imageFile;
-    } catch (e) {
-      print('Error compressing image: $e');
-      rethrow;
+    if (!isValidImage(imageFile)) {
+      throw Exception('Invalid image format. Supported: JPG, PNG, GIF, WEBP');
     }
   }
 
-  /// Compress video
-  Future<File?> compressVideo(File videoFile) async {
-    try {
-      // Check file size
-      final fileSize = await videoFile.length();
-      if (fileSize > StatusConstants.maxVideoSizeBytes) {
-        throw Exception(StatusConstants.errorTooLarge);
-      }
+  /// Validate video file size and duration
+  Future<void> validateVideoFile(File videoFile) async {
+    final fileSize = await videoFile.length();
 
-      // Compress video
-      final MediaInfo? info = await VideoCompress.compressVideo(
-        videoFile.path,
-        quality: _getVideoQuality(),
-        deleteOrigin: false,
-      );
-
-      if (info != null && info.file != null) {
-        return info.file!;
-      }
-
-      // If compression failed, return original
-      return videoFile;
-    } catch (e) {
-      print('Error compressing video: $e');
-      rethrow;
+    if (fileSize > maxFileSizeBytes) {
+      throw Exception('Video file size exceeds 100MB limit');
     }
-  }
 
-  /// Get video compression quality enum
-  VideoQuality _getVideoQuality() {
-    switch (StatusConstants.videoQuality) {
-      case 'low':
-        return VideoQuality.LowQuality;
-      case 'medium':
-        return VideoQuality.MediumQuality;
-      case 'high':
-        return VideoQuality.HighestQuality;
-      default:
-        return VideoQuality.MediumQuality;
+    if (!isValidVideo(videoFile)) {
+      throw Exception('Invalid video format. Supported: MP4, MOV, AVI, MKV, WEBM');
     }
-  }
 
-  // ===============================
-  // GENERATE THUMBNAIL
-  // ===============================
-
-  /// Generate thumbnail for video
-  Future<File?> generateVideoThumbnail(File videoFile) async {
-    try {
-      final thumbnailFile = await VideoCompress.getFileThumbnail(
-        videoFile.path,
-        quality: StatusConstants.thumbnailQuality,
-      );
-
-      return thumbnailFile;
-    } catch (e) {
-      print('Error generating video thumbnail: $e');
-      return null;
-    }
+    // Note: Duration validation would require video_player or similar
+    // For now, we rely on the picker's maxDuration parameter
   }
 
   // ===============================
   // UPLOAD WORKFLOW
   // ===============================
 
-  /// Complete upload workflow for image status
+  /// Upload image status (no compression - uploads original)
   Future<Map<String, String>> uploadImageStatus(File imageFile) async {
     try {
-      // Compress image
-      final compressedImage = await compressImage(imageFile);
+      // Validate file
+      await validateImageFile(imageFile);
 
-      // Upload to server
+      // Upload original file to server
       final mediaUrl = await _apiService.uploadMedia(
-        compressedImage.path,
+        imageFile.path,
         isVideo: false,
       );
 
@@ -224,37 +158,20 @@ class StatusUploadService {
     }
   }
 
-  /// Complete upload workflow for video status
+  /// Upload video status (no compression - uploads original)
   Future<Map<String, String>> uploadVideoStatus(File videoFile) async {
     try {
-      // Compress video
-      final compressedVideo = await compressVideo(videoFile);
+      // Validate file
+      await validateVideoFile(videoFile);
 
-      if (compressedVideo == null) {
-        throw Exception('Video compression failed');
-      }
-
-      // Generate thumbnail
-      final thumbnail = await generateVideoThumbnail(compressedVideo);
-
-      // Upload video
+      // Upload original video to server
       final mediaUrl = await _apiService.uploadMedia(
-        compressedVideo.path,
+        videoFile.path,
         isVideo: true,
       );
 
-      // Upload thumbnail if available
-      String? thumbnailUrl;
-      if (thumbnail != null) {
-        thumbnailUrl = await _apiService.uploadMedia(
-          thumbnail.path,
-          isVideo: false,
-        );
-      }
-
       return {
         'mediaUrl': mediaUrl,
-        if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
       };
     } catch (e) {
       print('Error uploading video status: $e');
@@ -263,16 +180,16 @@ class StatusUploadService {
   }
 
   // ===============================
-  // VALIDATION
+  // FILE FORMAT VALIDATION
   // ===============================
 
-  /// Validate image file
+  /// Validate image file format
   bool isValidImage(File file) {
     final extension = file.path.split('.').last.toLowerCase();
     return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension);
   }
 
-  /// Validate video file
+  /// Validate video file format
   bool isValidVideo(File file) {
     final extension = file.path.split('.').last.toLowerCase();
     return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension);
@@ -283,30 +200,9 @@ class StatusUploadService {
     return await file.length();
   }
 
-  /// Check if file size is within limits
+  /// Check if file size is within 100MB limit
   Future<bool> isFileSizeValid(File file, StatusMediaType mediaType) async {
     final size = await getFileSize(file);
-
-    if (mediaType == StatusMediaType.image) {
-      return size <= StatusConstants.maxImageSizeBytes;
-    } else if (mediaType == StatusMediaType.video) {
-      return size <= StatusConstants.maxVideoSizeBytes;
-    }
-
-    return true;
-  }
-
-  // ===============================
-  // CLEANUP
-  // ===============================
-
-  /// Cancel all video compression operations
-  void cancelVideoCompression() {
-    VideoCompress.cancelCompression();
-  }
-
-  /// Delete subscription (for video compress progress)
-  void dispose() {
-    VideoCompress.dispose();
+    return size <= maxFileSizeBytes;
   }
 }
