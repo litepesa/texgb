@@ -15,6 +15,12 @@ import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/features/groups/screens/groups_list_screen.dart';
+import 'package:textgb/features/status/screens/status_list_screen.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -28,10 +34,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   @override
   bool get wantKeepAlive => true;
-  
+
   int _currentIndex = 0;
-  
+
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
+
+  // Tab controller for inbox tab (Chats, Groups, Status)
+  late TabController _inboxTabController;
   
   final List<String> _tabNames = [  
     'Home',         // Index 0 - Videos Feed (hidden app bar, black background)
@@ -54,7 +63,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
-    
+    _inboxTabController = TabController(length: 3, vsync: this);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _setSystemUIOverlayStyle();
@@ -64,6 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _inboxTabController.dispose();
     _videoProgressNotifier.dispose();
     super.dispose();
   }
@@ -377,7 +388,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: Container(
               color: modernTheme.backgroundColor,
-              child: const ChatsTab(),
+              child: TabBarView(
+                controller: _inboxTabController,
+                children: const [
+                  ChatListScreen(),
+                  GroupsListScreen(),
+                  StatusListScreen(),
+                ],
+              ),
             ),
           ),
           // Profile tab (index 4)
@@ -394,6 +412,107 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? const Color(0xFFFE2C55);
 
+    // Special AppBar for inbox tab (index 3)
+    if (_currentIndex == 3) {
+      return AppBar(
+        backgroundColor: appBarColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(color: iconColor),
+        title: Text(
+          "WemaChat",
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            letterSpacing: -0.3,
+          ),
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.add, color: textColor),
+            onSelected: (value) {
+              if (value == 'new_chat') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ContactsScreen(),
+                  ),
+                );
+              } else if (value == 'create_group') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateGroupScreen(),
+                  ),
+                );
+              } else if (value == 'create_status') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateStatusScreen(),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'new_chat',
+                child: Row(
+                  children: [
+                    Icon(CupertinoIcons.chat_bubble_2, color: textColor, size: 20),
+                    const SizedBox(width: 12),
+                    Text('New Chat', style: TextStyle(color: textColor)),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'create_group',
+                child: Row(
+                  children: [
+                    Icon(CupertinoIcons.group_solid, color: textColor, size: 20),
+                    const SizedBox(width: 12),
+                    Text('Create Group', style: TextStyle(color: textColor)),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'create_status',
+                child: Row(
+                  children: [
+                    Icon(CupertinoIcons.circle_filled, color: textColor, size: 20),
+                    const SizedBox(width: 12),
+                    Text('Create Status', style: TextStyle(color: textColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+        bottom: TabBar(
+          controller: _inboxTabController,
+          indicatorColor: iconColor,
+          labelColor: textColor,
+          unselectedLabelColor: modernTheme.textSecondaryColor,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+          ),
+          tabs: const [
+            Tab(text: 'Chats'),
+            Tab(text: 'Groups'),
+            Tab(text: 'Status'),
+          ],
+        ),
+      );
+    }
+
+    // Default AppBar for other tabs
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,
@@ -406,7 +525,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             TextSpan(
               text: "Wema",
               style: TextStyle(
-                color: textColor,          
+                color: textColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 24,
                 letterSpacing: -0.3,
