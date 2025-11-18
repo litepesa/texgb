@@ -9,6 +9,7 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/features/channels/screens/channels_home_screen.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
@@ -622,13 +623,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         context.push(RoutePaths.addContact);
         break;
       case 'create_group':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Create Group - Coming Soon'),
-            backgroundColor: modernTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        context.push(RoutePaths.createGroup);
         break;
       case 'scan_qr':
         ScaffoldMessenger.of(context).showSnackBar(
@@ -780,10 +775,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ? (modernTheme.textColor ?? Colors.black)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
-    // Dummy unread counts
+    // Get real unread count for chats tab (index 0)
     int unreadCount = 0;
-    if (index == 0) unreadCount = 5; // Chats
-    if (index == 3) unreadCount = 2; // Discover
+    if (index == 0) {
+      final chatListAsync = ref.watch(chatListProvider);
+      chatListAsync.whenData((chatListState) {
+        final currentUserId = ref.read(currentUserIdProvider);
+        if (currentUserId != null) {
+          unreadCount = chatListState.chats.fold<int>(0, (total, chatItem) =>
+              total + chatItem.chat.getUnreadCount(currentUserId));
+        }
+      });
+    }
 
     return Expanded(
       child: GestureDetector(
@@ -803,8 +806,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     color: iconColor,
                     size: 26,
                   ),
-                  // Unread badge
-                  if (unreadCount > 0)
+                  // Unread badge - only show for chats tab (index 0)
+                  if (index == 0 && unreadCount > 0)
                     Positioned(
                       top: -4,
                       right: -8,
