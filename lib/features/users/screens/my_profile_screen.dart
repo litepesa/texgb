@@ -202,9 +202,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     _refreshUserData();
   }
 
-  Future<void> _navigateToWallet() async {
-    context.pushToWallet();
-    // No refresh needed for wallet
+  Future<void> _navigateToWatch() async {
+    context.goToVideosFeed();
+    // No refresh needed for watch
   }
 
   Future<void> _deleteVideo(String videoId) async {
@@ -1505,11 +1505,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               
               const SizedBox(width: 12),
               
-              // Wallet Button (smaller)
+              // Watch Button (smaller)
               Expanded(
                 flex: 1,
                 child: GestureDetector(
-                  onTap: _navigateToWallet,
+                  onTap: _navigateToWatch,
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -1527,13 +1527,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.account_balance_wallet_rounded,
+                          Icons.play_circle_rounded,
                           color: Colors.white,
                           size: 24,
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Wallet',
+                          'Watch',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
