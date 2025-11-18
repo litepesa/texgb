@@ -227,9 +227,11 @@ class GroupDetail extends _$GroupDetail {
 class GroupMembers extends _$GroupMembers {
   late final GroupApiService _apiService;
   late final GroupWebSocketService _wsService;
+  late String _groupId;
 
   @override
   Future<List<GroupMemberModel>> build(String groupId) async {
+    _groupId = groupId;
     _apiService = ref.read(groupApiServiceProvider);
     _wsService = ref.read(groupWebSocketServiceProvider);
 
@@ -266,10 +268,8 @@ class GroupMembers extends _$GroupMembers {
 
   // Add members
   Future<void> addMembers(List<String> userIds) async {
-    final groupId = arg;
-
     try {
-      await _apiService.addMembers(groupId: groupId, userIds: userIds);
+      await _apiService.addMembers(groupId: _groupId, userIds: userIds);
 
       // Refresh members list
       ref.invalidateSelf();
@@ -281,10 +281,8 @@ class GroupMembers extends _$GroupMembers {
 
   // Remove member
   Future<void> removeMember(String userId) async {
-    final groupId = arg;
-
     try {
-      await _apiService.removeMember(groupId: groupId, userId: userId);
+      await _apiService.removeMember(groupId: _groupId, userId: userId);
 
       // Remove from local state
       final currentMembers = state.valueOrNull ?? [];
@@ -299,10 +297,8 @@ class GroupMembers extends _$GroupMembers {
 
   // Promote member
   Future<void> promoteMember(String userId) async {
-    final groupId = arg;
-
     try {
-      await _apiService.promoteMember(groupId: groupId, userId: userId);
+      await _apiService.promoteMember(groupId: _groupId, userId: userId);
 
       // Refresh members list
       ref.invalidateSelf();
@@ -314,10 +310,8 @@ class GroupMembers extends _$GroupMembers {
 
   // Demote member
   Future<void> demoteMember(String userId) async {
-    final groupId = arg;
-
     try {
-      await _apiService.demoteMember(groupId: groupId, userId: userId);
+      await _apiService.demoteMember(groupId: _groupId, userId: userId);
 
       // Refresh members list
       ref.invalidateSelf();
@@ -346,9 +340,11 @@ class GroupMembers extends _$GroupMembers {
 class GroupMessages extends _$GroupMessages {
   late final GroupApiService _apiService;
   late final GroupWebSocketService _wsService;
+  late String _groupId;
 
   @override
   Future<List<GroupMessageModel>> build(String groupId) async {
+    _groupId = groupId;
     _apiService = ref.read(groupApiServiceProvider);
     _wsService = ref.read(groupWebSocketServiceProvider);
 
@@ -401,15 +397,13 @@ class GroupMessages extends _$GroupMessages {
     String? mediaUrl,
     MessageMediaType mediaType = MessageMediaType.text,
   }) async {
-    final groupId = arg;
-
     try {
       // Optimistic update - add temporary message
       final currentUser = ref.read(currentUserProvider);
       if (currentUser != null) {
         final tempMessage = GroupMessageModel(
           id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-          groupId: groupId,
+          groupId: _groupId,
           senderId: currentUser.uid,
           messageText: messageText,
           mediaUrl: mediaUrl,
@@ -425,7 +419,7 @@ class GroupMessages extends _$GroupMessages {
 
       // Send via API
       final sentMessage = await _apiService.sendMessage(
-        groupId: groupId,
+        groupId: _groupId,
         messageText: messageText,
         mediaUrl: mediaUrl,
         mediaType: mediaType,
@@ -458,10 +452,8 @@ class GroupMessages extends _$GroupMessages {
 
   // Delete message
   Future<void> deleteMessage(String messageId) async {
-    final groupId = arg;
-
     try {
-      await _apiService.deleteMessage(groupId: groupId, messageId: messageId);
+      await _apiService.deleteMessage(groupId: _groupId, messageId: messageId);
 
       // Remove from local state (also handled by WebSocket)
       final currentMessages = state.valueOrNull ?? [];
@@ -476,7 +468,6 @@ class GroupMessages extends _$GroupMessages {
 
   // Load more messages (pagination)
   Future<void> loadMore() async {
-    final groupId = arg;
     final currentMessages = state.valueOrNull ?? [];
 
     if (currentMessages.isEmpty) return;
@@ -484,7 +475,7 @@ class GroupMessages extends _$GroupMessages {
     try {
       final oldestMessage = currentMessages.first;
       final olderMessages = await _apiService.getGroupMessages(
-        groupId,
+        _groupId,
         limit: 50,
         offset: currentMessages.length,
       );
@@ -501,9 +492,8 @@ class GroupMessages extends _$GroupMessages {
 
   // Refresh messages
   Future<void> refresh() async {
-    final groupId = arg;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _fetchMessages(groupId));
+    state = await AsyncValue.guard(() => _fetchMessages(_groupId));
   }
 }
 
@@ -512,10 +502,12 @@ class GroupMessages extends _$GroupMessages {
 @riverpod
 class TypingIndicator extends _$TypingIndicator {
   late final GroupWebSocketService _wsService;
+  late String _groupId;
   final Map<String, String> _typingUsers = {}; // userId -> userName
 
   @override
   Map<String, String> build(String groupId) {
+    _groupId = groupId;
     _wsService = ref.read(groupWebSocketServiceProvider);
 
     // Listen to typing events
@@ -549,9 +541,8 @@ class TypingIndicator extends _$TypingIndicator {
 
   // Send typing indicator
   Future<void> sendTyping() async {
-    final groupId = arg;
     try {
-      await _wsService.sendTyping(groupId);
+      await _wsService.sendTyping(_groupId);
     } catch (e) {
       debugPrint('Error sending typing indicator: $e');
     }
@@ -559,9 +550,8 @@ class TypingIndicator extends _$TypingIndicator {
 
   // Send stop typing indicator
   Future<void> sendStopTyping() async {
-    final groupId = arg;
     try {
-      await _wsService.sendStopTyping(groupId);
+      await _wsService.sendStopTyping(_groupId);
     } catch (e) {
       debugPrint('Error sending stop typing indicator: $e');
     }

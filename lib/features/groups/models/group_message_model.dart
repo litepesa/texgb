@@ -1,19 +1,10 @@
 // lib/features/groups/models/group_message_model.dart
-import 'package:freezed_annotation/freezed_annotation.dart';
-
-part 'group_message_model.freezed.dart';
-part 'group_message_model.g.dart';
 
 enum MessageMediaType {
-  @JsonValue('text')
   text,
-  @JsonValue('image')
   image,
-  @JsonValue('video')
   video,
-  @JsonValue('audio')
   audio,
-  @JsonValue('file')
   file;
 
   String get displayName {
@@ -30,31 +21,123 @@ enum MessageMediaType {
         return 'File';
     }
   }
+
+  static MessageMediaType fromString(String value) {
+    switch (value.toLowerCase()) {
+      case 'text':
+        return MessageMediaType.text;
+      case 'image':
+        return MessageMediaType.image;
+      case 'video':
+        return MessageMediaType.video;
+      case 'audio':
+        return MessageMediaType.audio;
+      case 'file':
+        return MessageMediaType.file;
+      default:
+        return MessageMediaType.text;
+    }
+  }
+
+  String toJson() => name;
 }
 
-@freezed
-class GroupMessageModel with _$GroupMessageModel {
-  const factory GroupMessageModel({
-    required String id,
-    @JsonKey(name: 'group_id') required String groupId,
-    @JsonKey(name: 'sender_id') required String senderId,
-    @JsonKey(name: 'message_text') required String messageText,
-    @JsonKey(name: 'media_url') String? mediaUrl,
-    @JsonKey(name: 'media_type') @Default(MessageMediaType.text) MessageMediaType mediaType,
-    @JsonKey(name: 'read_by') @Default([]) List<String> readBy,
-    @JsonKey(name: 'inserted_at') required DateTime insertedAt,
-    @JsonKey(name: 'updated_at') DateTime? updatedAt,
-    // Optional sender details (populated from join query)
-    @JsonKey(name: 'sender_name') String? senderName,
-    @JsonKey(name: 'sender_image') String? senderImage,
-  }) = _GroupMessageModel;
+class GroupMessageModel {
+  final String id;
+  final String groupId;
+  final String senderId;
+  final String messageText;
+  final String? mediaUrl;
+  final MessageMediaType mediaType;
+  final List<String> readBy;
+  final DateTime insertedAt;
+  final DateTime? updatedAt;
+  final String? senderName;
+  final String? senderImage;
 
-  factory GroupMessageModel.fromJson(Map<String, dynamic> json) =>
-      _$GroupMessageModelFromJson(json);
-}
+  const GroupMessageModel({
+    required this.id,
+    required this.groupId,
+    required this.senderId,
+    required this.messageText,
+    this.mediaUrl,
+    this.mediaType = MessageMediaType.text,
+    this.readBy = const [],
+    required this.insertedAt,
+    this.updatedAt,
+    this.senderName,
+    this.senderImage,
+  });
 
-// Extension methods for GroupMessageModel
-extension GroupMessageModelExtension on GroupMessageModel {
+  factory GroupMessageModel.fromJson(Map<String, dynamic> json) {
+    return GroupMessageModel(
+      id: json['id'] ?? '',
+      groupId: json['group_id'] ?? '',
+      senderId: json['sender_id'] ?? '',
+      messageText: json['message_text'] ?? '',
+      mediaUrl: json['media_url'],
+      mediaType: json['media_type'] != null
+          ? MessageMediaType.fromString(json['media_type'])
+          : MessageMediaType.text,
+      readBy: json['read_by'] != null
+          ? List<String>.from(json['read_by'])
+          : [],
+      insertedAt: json['inserted_at'] != null
+          ? DateTime.parse(json['inserted_at'])
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
+      senderName: json['sender_name'],
+      senderImage: json['sender_image'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'group_id': groupId,
+      'sender_id': senderId,
+      'message_text': messageText,
+      'media_url': mediaUrl,
+      'media_type': mediaType.toJson(),
+      'read_by': readBy,
+      'inserted_at': insertedAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'sender_name': senderName,
+      'sender_image': senderImage,
+    };
+  }
+
+  GroupMessageModel copyWith({
+    String? id,
+    String? groupId,
+    String? senderId,
+    String? messageText,
+    String? mediaUrl,
+    MessageMediaType? mediaType,
+    List<String>? readBy,
+    DateTime? insertedAt,
+    DateTime? updatedAt,
+    String? senderName,
+    String? senderImage,
+  }) {
+    return GroupMessageModel(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      senderId: senderId ?? this.senderId,
+      messageText: messageText ?? this.messageText,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      mediaType: mediaType ?? this.mediaType,
+      readBy: readBy ?? this.readBy,
+      insertedAt: insertedAt ?? this.insertedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      senderName: senderName ?? this.senderName,
+      senderImage: senderImage ?? this.senderImage,
+    );
+  }
+
+  // Helper methods
   bool get hasMedia => mediaUrl != null && mediaUrl!.isNotEmpty;
 
   bool get isTextOnly => mediaType == MessageMediaType.text && !hasMedia;

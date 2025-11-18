@@ -66,6 +66,20 @@ class RoutePaths {
   static String chatWithUser(String userId) => '/chat/user/$userId';
   static const String chatWithUserPattern = '/chat/user/:userId';
 
+  // ==================== GROUPS ROUTES ====================
+  static const String groupsList = '/groups';
+  static const String createGroup = '/create-group';
+
+  // Dynamic group routes
+  static String groupChat(String groupId) => '/group/$groupId';
+  static const String groupChatPattern = '/group/:groupId';
+
+  static String groupSettings(String groupId) => '/group/$groupId/settings';
+  static const String groupSettingsPattern = '/group/:groupId/settings';
+
+  static String groupMembers(String groupId) => '/group/$groupId/members';
+  static const String groupMembersPattern = '/group/:groupId/members';
+
   // ==================== CALL ROUTES ====================
   static const String incomingCall = '/incoming-call';
   static const String outgoingCall = '/outgoing-call';
@@ -285,6 +299,11 @@ class RouteNames {
   static const String chatList = 'chatList';
   static const String chat = 'chat';
   static const String chatWithUser = 'chatWithUser';
+  static const String groupsList = 'groupsList';
+  static const String createGroup = 'createGroup';
+  static const String groupChat = 'groupChat';
+  static const String groupSettings = 'groupSettings';
+  static const String groupMembers = 'groupMembers';
   static const String incomingCall = 'incomingCall';
   static const String outgoingCall = 'outgoingCall';
   static const String activeCall = 'activeCall';

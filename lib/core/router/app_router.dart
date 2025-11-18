@@ -54,6 +54,13 @@ import 'package:textgb/features/channels/screens/members_management_screen.dart'
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 
+// Groups screens
+import 'package:textgb/features/groups/screens/groups_list_screen.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/groups/screens/group_chat_screen.dart';
+import 'package:textgb/features/groups/screens/group_settings_screen.dart';
+import 'package:textgb/features/groups/screens/group_members_screen.dart';
+
 // Call screens
 import 'package:textgb/features/calls/screens/incoming_call_screen.dart';
 import 'package:textgb/features/calls/screens/outgoing_call_screen.dart';
@@ -386,6 +393,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      // ==================== GROUPS ROUTES ====================
+
+      GoRoute(
+        path: RoutePaths.groupsList,
+        name: RouteNames.groupsList,
+        builder: (context, state) => const GroupsListScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.createGroup,
+        name: RouteNames.createGroup,
+        builder: (context, state) => const CreateGroupScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.groupChatPattern,
+        name: RouteNames.groupChat,
+        builder: (context, state) {
+          final groupId = state.pathParameters['groupId']!;
+          return GroupChatScreen(groupId: groupId);
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.groupSettingsPattern,
+        name: RouteNames.groupSettings,
+        builder: (context, state) {
+          final groupId = state.pathParameters['groupId']!;
+          return GroupSettingsScreen(groupId: groupId);
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.groupMembersPattern,
+        name: RouteNames.groupMembers,
+        builder: (context, state) {
+          final groupId = state.pathParameters['groupId']!;
+          return GroupMembersScreen(groupId: groupId);
+        },
+      ),
+
       // ==================== CALL ROUTES ====================
 
       GoRoute(
@@ -623,6 +671,18 @@ extension AppNavigationExtension on BuildContext {
     extra: {'channelId': channelId},
   );
   void goToChannelVideo(String videoId) => go(RoutePaths.channelVideo(videoId));
+
+  // ==================== GROUPS NAVIGATION ====================
+
+  void goToGroupsList() => go(RoutePaths.groupsList);
+  void goToCreateGroup() => go(RoutePaths.createGroup);
+  void goToGroupChat(String groupId) => go(RoutePaths.groupChat(groupId));
+  void goToGroupSettings(String groupId) => go(RoutePaths.groupSettings(groupId));
+  void goToGroupMembers(String groupId) => go(RoutePaths.groupMembers(groupId));
+
+  void pushToGroupChat(String groupId) => push(RoutePaths.groupChat(groupId));
+  void pushToGroupSettings(String groupId) => push(RoutePaths.groupSettings(groupId));
+  void pushToGroupMembers(String groupId) => push(RoutePaths.groupMembers(groupId));
 
   // ==================== MOMENTS NAVIGATION ====================
 
