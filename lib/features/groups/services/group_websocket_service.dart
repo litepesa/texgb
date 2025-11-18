@@ -113,8 +113,10 @@ class GroupWebSocketService {
     _eventControllers.clear();
 
     // Disconnect socket
-    _socket?.disconnect();
-    _socket = null;
+    if (_socket != null) {
+      await _socket!.dispose();
+      _socket = null;
+    }
 
     _isConnected = false;
   }
@@ -151,15 +153,21 @@ class GroupWebSocketService {
     });
 
     // Join the channel
-    final pushResponse = channel.join();
+    try {
+      final push = channel.join();
+      final pushResponse = await push.future;
 
-    if (pushResponse.isOk) {
-      _channels[groupId] = channel;
-      debugPrint('GroupWebSocket: Joined group $groupId successfully');
-      return channel;
-    } else {
-      debugPrint('GroupWebSocket: Failed to join group $groupId: ${pushResponse.response}');
-      throw Exception('Failed to join group channel');
+      if (pushResponse.isOk) {
+        _channels[groupId] = channel;
+        debugPrint('GroupWebSocket: Joined group $groupId successfully');
+        return channel;
+      } else {
+        debugPrint('GroupWebSocket: Failed to join group $groupId: ${pushResponse.response}');
+        throw Exception('Failed to join group channel');
+      }
+    } catch (e) {
+      debugPrint('GroupWebSocket: Error joining group $groupId: $e');
+      throw Exception('Failed to join group channel: $e');
     }
   }
 
