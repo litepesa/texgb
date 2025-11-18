@@ -64,6 +64,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     _inboxTabController = TabController(length: 3, vsync: this);
+    _inboxTabController.addListener(() {
+      if (mounted) setState(() {}); // Rebuild to update tab selection
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -412,143 +415,273 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? const Color(0xFFFE2C55);
 
-    // Special AppBar for inbox tab (index 3)
-    if (_currentIndex == 3) {
-      return AppBar(
-        backgroundColor: appBarColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        iconTheme: IconThemeData(color: iconColor),
-        title: Text(
-          "WemaChat",
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            letterSpacing: -0.3,
-          ),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.add, color: textColor),
-            onSelected: (value) {
-              if (value == 'new_chat') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ContactsScreen(),
-                  ),
-                );
-              } else if (value == 'create_group') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CreateGroupScreen(),
-                  ),
-                );
-              } else if (value == 'create_status') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CreateStatusScreen(),
-                  ),
-                );
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              PopupMenuItem<String>(
-                value: 'new_chat',
-                child: Row(
-                  children: [
-                    Icon(CupertinoIcons.chat_bubble_2, color: textColor, size: 20),
-                    const SizedBox(width: 12),
-                    Text('New Chat', style: TextStyle(color: textColor)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'create_group',
-                child: Row(
-                  children: [
-                    Icon(CupertinoIcons.group_solid, color: textColor, size: 20),
-                    const SizedBox(width: 12),
-                    Text('Create Group', style: TextStyle(color: textColor)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'create_status',
-                child: Row(
-                  children: [
-                    Icon(CupertinoIcons.circle_filled, color: textColor, size: 20),
-                    const SizedBox(width: 12),
-                    Text('Create Status', style: TextStyle(color: textColor)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-        bottom: TabBar(
-          controller: _inboxTabController,
-          indicatorColor: iconColor,
-          labelColor: textColor,
-          unselectedLabelColor: modernTheme.textSecondaryColor,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
-          ),
-          tabs: const [
-            Tab(text: 'Chats'),
-            Tab(text: 'Groups'),
-            Tab(text: 'Status'),
-          ],
-        ),
-      );
-    }
-
-    // Default AppBar for other tabs
+    // Premium AppBar for inbox tab (index 3) only
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,
       scrolledUnderElevation: 0,
-      centerTitle: true,
-      iconTheme: IconThemeData(color: iconColor),
-      title: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: "Wema",
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 24,
-                letterSpacing: -0.3,
+      toolbarHeight: 70,
+      automaticallyImplyLeading: false,
+      flexibleSpace: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              // Premium Tab Switcher
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: modernTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: (modernTheme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconColor.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                        spreadRadius: -4,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                        spreadRadius: -2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      _buildInboxTab(0, 'Chats', CupertinoIcons.chat_bubble_2_fill, modernTheme, iconColor, textColor),
+                      _buildInboxTab(1, 'Groups', CupertinoIcons.group_solid, modernTheme, iconColor, textColor),
+                      _buildInboxTab(2, 'Status', CupertinoIcons.circle_fill, modernTheme, iconColor, textColor),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            TextSpan(
-              text: "Chat",
-              style: TextStyle(
-                color: const Color(0xFFFE2C55),
-                fontWeight: FontWeight.w700,
-                fontSize: 24,
-                letterSpacing: -0.3,
+
+              const SizedBox(width: 12),
+
+              // Premium Action Button
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      iconColor,
+                      iconColor.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: iconColor.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: PopupMenuButton<String>(
+                    icon: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    offset: const Offset(0, 8),
+                    color: modernTheme.surfaceColor,
+                    elevation: 8,
+                    onSelected: (value) {
+                      HapticFeedback.mediumImpact();
+                      if (value == 'new_chat') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ContactsScreen(),
+                          ),
+                        );
+                      } else if (value == 'create_group') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CreateGroupScreen(),
+                          ),
+                        );
+                      } else if (value == 'create_status') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CreateStatusScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      PopupMenuItem<String>(
+                        value: 'new_chat',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: iconColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.chat_bubble_2_fill,
+                                color: iconColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'New Chat',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'create_group',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: iconColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.group_solid,
+                                color: iconColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Create Group',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'create_status',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: iconColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.circle_fill,
+                                color: iconColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Create Status',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(0.5),
+    );
+  }
+
+  Widget _buildInboxTab(int index, String label, IconData icon, ModernThemeExtension theme, Color iconColor, Color textColor) {
+    final isSelected = _inboxTabController.index == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _inboxTabController.animateTo(index);
+        },
         child: Container(
-          height: 0.5,
-          width: double.infinity,
-          color: modernTheme.dividerColor ?? Colors.grey[300],
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: isSelected ? Border(
+              bottom: BorderSide(
+                color: iconColor,
+                width: 3,
+              ),
+            ) : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isSelected
+                    ? iconColor.withOpacity(0.15)
+                    : iconColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected
+                    ? iconColor
+                    : theme.textSecondaryColor ?? Colors.grey[600],
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    color: isSelected
+                      ? iconColor
+                      : theme.textSecondaryColor ?? Colors.grey[600],
+                    fontWeight: isSelected
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                    fontSize: 12,
+                    letterSpacing: 0.1,
+                  ),
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
