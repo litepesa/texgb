@@ -933,7 +933,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                                 Row(
                                   children: [
                                     const Text(
-                                      '💰 Add Coins to Get Started!',
+                                      '💰 Tap to Top Up!',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
@@ -962,11 +962,46 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 const Text(
-                                  'Tap here to top up and unlock all features',
+                                  'Add coins to your wallet and unlock features',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Top Up Now',
+                                        style: TextStyle(
+                                          color: Color(0xFF6366F1),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(
+                                        Icons.arrow_forward,
+                                        color: Color(0xFF6366F1),
+                                        size: 14,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
