@@ -1,6 +1,5 @@
 // lib/features/groups/services/group_websocket_service.dart
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:phoenix_socket/phoenix_socket.dart';
 import 'package:firebase_auth/firebase_auth.dart';
