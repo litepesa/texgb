@@ -1,8 +1,4 @@
 // lib/features/groups/models/group_member_model.dart
-import 'package:freezed_annotation/freezed_annotation.dart';
-
-part 'group_member_model.freezed.dart';
-part 'group_member_model.g.dart';
 
 enum GroupMemberRole {
   admin,
@@ -16,28 +12,95 @@ enum GroupMemberRole {
         return 'Member';
     }
   }
+
+  static GroupMemberRole fromString(String value) {
+    switch (value.toLowerCase()) {
+      case 'admin':
+        return GroupMemberRole.admin;
+      case 'member':
+        return GroupMemberRole.member;
+      default:
+        return GroupMemberRole.member;
+    }
+  }
+
+  String toJson() => name;
 }
 
-@freezed
-class GroupMemberModel with _$GroupMemberModel {
-  const factory GroupMemberModel({
-    required String id,
-    @JsonKey(name: 'group_id') required String groupId,
-    @JsonKey(name: 'user_id') required String userId,
-    required GroupMemberRole role,
-    @JsonKey(name: 'joined_at') required DateTime joinedAt,
-    // Optional user details (populated from join query)
-    @JsonKey(name: 'user_name') String? userName,
-    @JsonKey(name: 'user_image') String? userImage,
-    @JsonKey(name: 'user_phone') String? userPhone,
-  }) = _GroupMemberModel;
+class GroupMemberModel {
+  final String id;
+  final String groupId;
+  final String userId;
+  final GroupMemberRole role;
+  final DateTime joinedAt;
+  final String? userName;
+  final String? userImage;
+  final String? userPhone;
 
-  factory GroupMemberModel.fromJson(Map<String, dynamic> json) =>
-      _$GroupMemberModelFromJson(json);
-}
+  const GroupMemberModel({
+    required this.id,
+    required this.groupId,
+    required this.userId,
+    required this.role,
+    required this.joinedAt,
+    this.userName,
+    this.userImage,
+    this.userPhone,
+  });
 
-// Extension methods for GroupMemberModel
-extension GroupMemberModelExtension on GroupMemberModel {
+  factory GroupMemberModel.fromJson(Map<String, dynamic> json) {
+    return GroupMemberModel(
+      id: json['id'] ?? '',
+      groupId: json['group_id'] ?? '',
+      userId: json['user_id'] ?? '',
+      role: json['role'] != null
+          ? GroupMemberRole.fromString(json['role'])
+          : GroupMemberRole.member,
+      joinedAt: json['joined_at'] != null
+          ? DateTime.parse(json['joined_at'])
+          : DateTime.now(),
+      userName: json['user_name'],
+      userImage: json['user_image'],
+      userPhone: json['user_phone'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'group_id': groupId,
+      'user_id': userId,
+      'role': role.toJson(),
+      'joined_at': joinedAt.toIso8601String(),
+      'user_name': userName,
+      'user_image': userImage,
+      'user_phone': userPhone,
+    };
+  }
+
+  GroupMemberModel copyWith({
+    String? id,
+    String? groupId,
+    String? userId,
+    GroupMemberRole? role,
+    DateTime? joinedAt,
+    String? userName,
+    String? userImage,
+    String? userPhone,
+  }) {
+    return GroupMemberModel(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      userId: userId ?? this.userId,
+      role: role ?? this.role,
+      joinedAt: joinedAt ?? this.joinedAt,
+      userName: userName ?? this.userName,
+      userImage: userImage ?? this.userImage,
+      userPhone: userPhone ?? this.userPhone,
+    );
+  }
+
+  // Helper methods
   bool get isAdmin => role == GroupMemberRole.admin;
 
   bool get isMember => role == GroupMemberRole.member;

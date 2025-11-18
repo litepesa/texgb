@@ -1,32 +1,105 @@
 // lib/features/groups/models/group_model.dart
-import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'group_model.freezed.dart';
-part 'group_model.g.dart';
+class GroupModel {
+  final String id;
+  final String name;
+  final String description;
+  final String? groupImageUrl;
+  final String creatorId;
+  final int memberCount;
+  final int maxMembers;
+  final String? lastMessageText;
+  final DateTime? lastMessageAt;
+  final bool isActive;
+  final DateTime? insertedAt;
+  final DateTime? updatedAt;
 
-@freezed
-class GroupModel with _$GroupModel {
-  const factory GroupModel({
-    required String id,
-    required String name,
-    required String description,
-    @JsonKey(name: 'group_image_url') String? groupImageUrl,
-    @JsonKey(name: 'creator_id') required String creatorId,
-    @JsonKey(name: 'member_count') @Default(0) int memberCount,
-    @JsonKey(name: 'max_members') @Default(256) int maxMembers,
-    @JsonKey(name: 'last_message_text') String? lastMessageText,
-    @JsonKey(name: 'last_message_at') DateTime? lastMessageAt,
-    @JsonKey(name: 'is_active') @Default(true) bool isActive,
-    @JsonKey(name: 'inserted_at') DateTime? insertedAt,
-    @JsonKey(name: 'updated_at') DateTime? updatedAt,
-  }) = _GroupModel;
+  const GroupModel({
+    required this.id,
+    required this.name,
+    required this.description,
+    this.groupImageUrl,
+    required this.creatorId,
+    this.memberCount = 0,
+    this.maxMembers = 256,
+    this.lastMessageText,
+    this.lastMessageAt,
+    this.isActive = true,
+    this.insertedAt,
+    this.updatedAt,
+  });
 
-  factory GroupModel.fromJson(Map<String, dynamic> json) =>
-      _$GroupModelFromJson(json);
-}
+  factory GroupModel.fromJson(Map<String, dynamic> json) {
+    return GroupModel(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      groupImageUrl: json['group_image_url'],
+      creatorId: json['creator_id'] ?? '',
+      memberCount: json['member_count'] ?? 0,
+      maxMembers: json['max_members'] ?? 256,
+      lastMessageText: json['last_message_text'],
+      lastMessageAt: json['last_message_at'] != null
+          ? DateTime.parse(json['last_message_at'])
+          : null,
+      isActive: json['is_active'] ?? true,
+      insertedAt: json['inserted_at'] != null
+          ? DateTime.parse(json['inserted_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
+    );
+  }
 
-// Extension methods for GroupModel
-extension GroupModelExtension on GroupModel {
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'group_image_url': groupImageUrl,
+      'creator_id': creatorId,
+      'member_count': memberCount,
+      'max_members': maxMembers,
+      'last_message_text': lastMessageText,
+      'last_message_at': lastMessageAt?.toIso8601String(),
+      'is_active': isActive,
+      'inserted_at': insertedAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  GroupModel copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? groupImageUrl,
+    String? creatorId,
+    int? memberCount,
+    int? maxMembers,
+    String? lastMessageText,
+    DateTime? lastMessageAt,
+    bool? isActive,
+    DateTime? insertedAt,
+    DateTime? updatedAt,
+  }) {
+    return GroupModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      groupImageUrl: groupImageUrl ?? this.groupImageUrl,
+      creatorId: creatorId ?? this.creatorId,
+      memberCount: memberCount ?? this.memberCount,
+      maxMembers: maxMembers ?? this.maxMembers,
+      lastMessageText: lastMessageText ?? this.lastMessageText,
+      lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      isActive: isActive ?? this.isActive,
+      insertedAt: insertedAt ?? this.insertedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  // Helper methods
   bool get hasImage => groupImageUrl != null && groupImageUrl!.isNotEmpty;
 
   bool get hasLastMessage => lastMessageText != null && lastMessageText!.isNotEmpty;

@@ -15,6 +15,7 @@ import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
+import 'package:textgb/features/groups/screens/groups_list_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 
@@ -253,9 +254,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const ChatsTab(),
           ),
-          // Channels tab (index 1) - Channels Home Screenn
+          // Groups tab (index 1) - Groups List Screen
           _KeepAliveWrapper(
-            child: const ChannelsHomeScreen(),
+            child: const GroupsListScreen(),
           ),
           // Moments tab (index 2) - Recommended Posts Screen
           _KeepAliveWrapper(
@@ -317,19 +318,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 1) {
-      // Groups tab - Coming soon
+      // Groups tab - Navigate to create group screen
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          context.goToCreateGroup();
         },
         child: const Icon(Icons.group_add),
       );
@@ -463,13 +458,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Navigator.pushNamed(context, Constants.addContactScreen);
             break;
           case 'create_group':
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Create Group - Coming Soon'),
-                backgroundColor: modernTheme.primaryColor,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            context.goToCreateGroup();
             break;
           case 'scan_qr':
             ScaffoldMessenger.of(context).showSnackBar(
