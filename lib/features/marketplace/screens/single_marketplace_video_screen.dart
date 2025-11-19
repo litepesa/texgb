@@ -1,4 +1,4 @@
-// lib/features/marketplace/screens/seller_video_screen.dart
+// lib/features/marketplace/screens/single_marketplace_video_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,20 +18,20 @@ import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-class SellerVideoScreen extends ConsumerStatefulWidget {
+class SingleMarketplaceVideoScreen extends ConsumerStatefulWidget {
   final String videoId;
 
-  const SellerVideoScreen({
+  const SingleMarketplaceVideoScreen({
     super.key,
     required this.videoId,
     String? userId,
   });
 
   @override
-  ConsumerState<SellerVideoScreen> createState() => _SellerVideoScreenState();
+  ConsumerState<SingleMarketplaceVideoScreen> createState() => _SingleMarketplaceVideoScreenState();
 }
 
-class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
+class _SingleMarketplaceVideoScreenState extends ConsumerState<SingleMarketplaceVideoScreen>
     with
         WidgetsBindingObserver,
         TickerProviderStateMixin,
@@ -246,13 +246,13 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
       return;
     }
 
-    debugPrint('SellerVideoScreen: Starting fresh playback');
+    debugPrint('SingleMarketplaceVideoScreen: Starting fresh playback');
 
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
-      debugPrint('SellerVideoScreen: Video controller playing');
+      debugPrint('SingleMarketplaceVideoScreen: Video controller playing');
     } else {
-      debugPrint('SellerVideoScreen: Video controller not ready, attempting initialization');
+      debugPrint('SingleMarketplaceVideoScreen: Video controller not ready, attempting initialization');
       if (_marketplaceItems.isNotEmpty && _currentMarketplaceItemIndex < _marketplaceItems.length) {
         setState(() {});
       }
@@ -263,7 +263,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   }
 
   void _stopPlayback() {
-    debugPrint('SellerVideoScreen: Stopping playback');
+    debugPrint('SingleMarketplaceVideoScreen: Stopping playback');
 
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
@@ -274,13 +274,13 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   }
 
   void _pauseForNavigation() {
-    debugPrint('SellerVideoScreen: Pausing for navigation');
+    debugPrint('SingleMarketplaceVideoScreen: Pausing for navigation');
     _isNavigatingAway = true;
     _stopPlayback();
   }
 
   void _resumeFromNavigation() {
-    debugPrint('SellerVideoScreen: Resuming from navigation');
+    debugPrint('SingleMarketplaceVideoScreen: Resuming from navigation');
     _isNavigatingAway = false;
     if (_isScreenActive &&
         _isAppInForeground &&
@@ -455,7 +455,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   }
 
   void onManualPlayPause(bool isPlaying) {
-    debugPrint('SellerVideoScreen: Manual play/pause - isPlaying: $isPlaying');
+    debugPrint('SingleMarketplaceVideoScreen: Manual play/pause - isPlaying: $isPlaying');
     setState(() {
       _isManuallyPaused = !isPlaying;
     });
