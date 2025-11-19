@@ -359,7 +359,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
   void _openVideoDetails(MarketplaceVideoModel marketplaceVideo) {
     // Using GoRouter to navigate to my listing screen
     context.push(
-      RoutePaths.myPost(marketplaceVideo.id),
+      RoutePaths.myListing(marketplaceVideo.id),
       extra: marketplaceVideo, // Pass the marketplaceVideo model as extra data
     ).then((_) => _loadUserData());
   }
