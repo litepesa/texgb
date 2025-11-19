@@ -138,8 +138,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
     
-    // Listen to authentication provider changes and reload when data becomes available
-    ref.listen<AsyncValue<AuthenticationState>>(
+    // Listen to marketplace videos provider changes and reload when data becomes available
+    ref.listen<List<MarketplaceVideoModel>>(
       marketplaceVideosProvider,
       (previous, next) {
         // When marketplace videos update, reload recommendations if needed

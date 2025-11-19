@@ -352,7 +352,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final itemId = state.pathParameters['itemId']!;
           return NoTransitionPage(
-            child: MyListingScreen(itemId: itemId),
+            child: MyListingScreen(videoId: itemId),
           );
         },
       ),
@@ -363,7 +363,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final itemId = state.pathParameters['itemId']!;
           return NoTransitionPage(
-            child: MyListingScreen(itemId: itemId),
+            child: MyListingScreen(videoId: itemId),
           );
         },
       ),
