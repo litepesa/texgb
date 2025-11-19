@@ -10,6 +10,8 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class FeaturedMarketplaceScreen extends ConsumerStatefulWidget {
   const FeaturedMarketplaceScreen({super.key});
@@ -903,8 +905,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () {
-                  // Navigate to Videos Feed Screen
-                  Navigator.pushNamed(context, Constants.marketplaceFeedScreen);
+                  // Navigate to Marketplace Feed Screen
+                  context.push(RoutePaths.marketplaceFeed);
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -949,14 +951,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   }
 
   void _navigateToVideoFeed(MarketplaceVideoModel marketplaceVideo) {
-    Navigator.pushNamed(
-      context,
-      Constants.marketplaceFeedScreen,
-      arguments: {
-        Constants.startVideoId: marketplaceVideo.id,
-        Constants.userId: marketplaceVideo.userId, 
-      },
-    );
+    // Navigate to marketplace feed screen
+    context.push(RoutePaths.marketplaceFeed);
   }
 
   String _formatCount(int count) {

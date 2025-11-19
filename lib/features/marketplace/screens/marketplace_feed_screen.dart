@@ -627,8 +627,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   void _showSearchOverlay() {
     // Pause marketplaceVideo before showing search
     _pauseForNavigation();
-    
-    SearchOverlayController.show(
+
+    MarketplaceSearchOverlayController.show(
       context,
       onVideoTap: (videoId) {
         // Jump to the selected marketplaceVideo in the feed

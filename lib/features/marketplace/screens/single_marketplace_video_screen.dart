@@ -716,7 +716,7 @@ class _SingleMarketplaceVideoScreenState extends ConsumerState<SingleMarketplace
           if (_isOwner) ...[
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, Constants.createPostScreen),
+              onPressed: () => context.push(RoutePaths.createMarketplaceListing),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF0050),
                 foregroundColor: Colors.white,

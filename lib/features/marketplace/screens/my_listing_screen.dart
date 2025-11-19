@@ -809,9 +809,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                 ),
               ),
               // Analytics Tab
-              AnalyticsTabWidget(marketplaceVideo: _marketplaceItem!),
+              MarketplaceAnalyticsTabWidget(marketplaceVideo: _marketplaceItem!),
               // Edit Tab
-              EditTabWidget(
+              MarketplaceEditTabWidget(
                 marketplaceVideo: _marketplaceItem,
                 onAddBannerText: _addBannerText,
                 onEditPost: _editPost,
