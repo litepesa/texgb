@@ -9,6 +9,7 @@ import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/channels/screens/channels_home_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/status/screens/status_list_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
@@ -36,9 +37,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Chats',          // Index 0 - Chats Screen
-    'Groups',         // Index 1 - Groups (Coming Soon)
-    'Status',         // Index 2 - Status (Coming Soon)
+    'Inbox',             // Index 0 - Chats Screen
+    'Channels',         // Index 1 - Groups / Channels
+    'Moments',         // Index 2 - Status / Moments
     'Marketplace',    // Index 3 - User List Screen
   ];
   
@@ -221,7 +222,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'WemaèŠ',
+                'Wema',
                 style: TextStyle(
                   color: isDarkMode ? Colors.white : Colors.black,
                   fontSize: 24,
