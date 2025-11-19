@@ -677,7 +677,7 @@ class _SingleMarketplaceVideoScreenState extends ConsumerState<SingleMarketplace
       itemBuilder: (context, index) {
         final marketplaceVideo = _marketplaceItems[index];
 
-        return MarketplaceItemWidget(
+        return MarketplaceItem(
           marketplaceVideo: marketplaceVideo,
           isActive: index == _currentMarketplaceItemIndex &&
               _isScreenActive &&
