@@ -4,17 +4,17 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/models/marketplace_comment_model.dart';
 import '../../../shared/services/http_client.dart';
 
 // Abstract repository interface for marketplace operations
 abstract class MarketplaceRepository {
-  // Marketplace item operations
-  Future<List<MarketplaceItemModel>> getMarketplaceItems();
-  Future<List<MarketplaceItemModel>> getUserMarketplaceItems(String userId);
-  Future<MarketplaceItemModel?> getMarketplaceItemById(String itemId);
-  Future<MarketplaceItemModel> createMarketplaceItem({
+  // Marketplace video operations
+  Future<List<MarketplaceVideoModel>> getMarketplaceVideos();
+  Future<List<MarketplaceVideoModel>> getUserMarketplaceVideos(String userId);
+  Future<MarketplaceVideoModel?> getMarketplaceVideoById(String videoId);
+  Future<MarketplaceVideoModel> createMarketplaceVideo({
     required String userId,
     required String userName,
     required String userImage,
@@ -24,7 +24,7 @@ abstract class MarketplaceRepository {
     List<String>? tags,
     double? price,
   });
-  Future<MarketplaceItemModel> createMarketplaceImagePost({
+  Future<MarketplaceVideoModel> createMarketplaceImagePost({
     required String userId,
     required String userName,
     required String userImage,
@@ -33,19 +33,19 @@ abstract class MarketplaceRepository {
     List<String>? tags,
     double? price,
   });
-  Future<MarketplaceItemModel> updateMarketplaceItem({
-    required String itemId,
+  Future<MarketplaceVideoModel> updateMarketplaceVideo({
+    required String videoId,
     String? caption,
     String? videoUrl,
     String? thumbnailUrl,
     List<String>? tags,
     double? price,
   });
-  Future<void> deleteMarketplaceItem(String itemId, String userId);
-  Future<void> likeMarketplaceItem(String itemId, String userId);
-  Future<void> unlikeMarketplaceItem(String itemId, String userId);
-  Future<List<String>> getLikedMarketplaceItems(String userId);
-  Future<void> incrementMarketplaceItemViewCount(String itemId);
+  Future<void> deleteMarketplaceVideo(String videoId, String userId);
+  Future<void> likeMarketplaceVideo(String videoId, String userId);
+  Future<void> unlikeMarketplaceVideo(String videoId, String userId);
+  Future<List<String>> getLikedMarketplaceVideos(String userId);
+  Future<void> incrementMarketplaceVideoViewCount(String videoId);
 
   // 🆕 ENHANCED Marketplace comment operations with media support
   Future<MarketplaceCommentModel> addMarketplaceComment({
@@ -58,18 +58,18 @@ abstract class MarketplaceRepository {
     String? repliedToCommentId,
     String? repliedToAuthorName,
   });
-  Future<List<MarketplaceCommentModel>> getMarketplaceItemComments(String itemId);
+  Future<List<MarketplaceCommentModel>> getMarketplaceVideoComments(String videoId);
   Future<void> deleteMarketplaceComment(String commentId, String userId);
   Future<void> likeMarketplaceComment(String commentId, String userId);
   Future<void> unlikeMarketplaceComment(String commentId, String userId);
 
   // 🆕 NEW: Pin/Unpin marketplace comment operations
-  Future<MarketplaceCommentModel> pinMarketplaceComment(String commentId, String itemId, String userId);
-  Future<MarketplaceCommentModel> unpinMarketplaceComment(String commentId, String itemId, String userId);
+  Future<MarketplaceCommentModel> pinMarketplaceComment(String commentId, String videoId, String userId);
+  Future<MarketplaceCommentModel> unpinMarketplaceComment(String commentId, String videoId, String userId);
 
   // Boost operations
-  Future<MarketplaceItemModel> boostMarketplaceItem({
-    required String itemId,
+  Future<MarketplaceVideoModel> boostMarketplaceVideo({
+    required String videoId,
     required String userId,
     required String boostTier,
     required int coinAmount,
@@ -104,68 +104,68 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
   }
 
   // ===============================
-  // MARKETPLACE ITEM OPERATIONS (WITH PRICE SUPPORT)
+  // MARKETPLACE VIDEO OPERATIONS (WITH PRICE SUPPORT)
   // ===============================
 
   @override
-  Future<List<MarketplaceItemModel>> getMarketplaceItems() async {
+  Future<List<MarketplaceVideoModel>> getMarketplaceVideos() async {
     try {
       final response = await _httpClient.get('/marketplace');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final List<dynamic> itemsData = responseData['items'] ?? responseData['videos'] ?? [];
-        return itemsData
-            .map((itemData) => MarketplaceItemModel.fromJson(itemData as Map<String, dynamic>))
+        final List<dynamic> videosData = responseData['items'] ?? responseData['videos'] ?? [];
+        return videosData
+            .map((videoData) => MarketplaceVideoModel.fromJson(videoData as Map<String, dynamic>))
             .toList();
       } else {
-        throw MarketplaceRepositoryException('Failed to get marketplace items: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to get marketplace videos: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to get marketplace items: $e');
+      throw MarketplaceRepositoryException('Failed to get marketplace videos: $e');
     }
   }
 
   @override
-  Future<List<MarketplaceItemModel>> getUserMarketplaceItems(String userId) async {
+  Future<List<MarketplaceVideoModel>> getUserMarketplaceVideos(String userId) async {
     try {
       final response = await _httpClient.get('/users/$userId/marketplace');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final List<dynamic> itemsData = responseData['items'] ?? responseData['videos'] ?? [];
-        return itemsData
-            .map((itemData) => MarketplaceItemModel.fromJson(itemData as Map<String, dynamic>))
+        final List<dynamic> videosData = responseData['items'] ?? responseData['videos'] ?? [];
+        return videosData
+            .map((videoData) => MarketplaceVideoModel.fromJson(videoData as Map<String, dynamic>))
             .toList();
       } else {
-        throw MarketplaceRepositoryException('Failed to get user marketplace items: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to get user marketplace videos: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to get user marketplace items: $e');
+      throw MarketplaceRepositoryException('Failed to get user marketplace videos: $e');
     }
   }
 
   @override
-  Future<MarketplaceItemModel?> getMarketplaceItemById(String itemId) async {
+  Future<MarketplaceVideoModel?> getMarketplaceVideoById(String videoId) async {
     try {
-      final response = await _httpClient.get('/marketplace/$itemId');
+      final response = await _httpClient.get('/marketplace/$videoId');
 
       if (response.statusCode == 200) {
-        final itemData = jsonDecode(response.body) as Map<String, dynamic>;
-        return MarketplaceItemModel.fromJson(itemData);
+        final videoData = jsonDecode(response.body) as Map<String, dynamic>;
+        return MarketplaceVideoModel.fromJson(videoData);
       } else if (response.statusCode == 404) {
         return null;
       } else {
-        throw MarketplaceRepositoryException('Failed to get marketplace item by ID: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to get marketplace video by ID: ${response.body}');
       }
     } catch (e) {
       if (e is NotFoundException) return null;
-      throw MarketplaceRepositoryException('Failed to get marketplace item by ID: $e');
+      throw MarketplaceRepositoryException('Failed to get marketplace video by ID: $e');
     }
   }
 
   @override
-  Future<MarketplaceItemModel> createMarketplaceItem({
+  Future<MarketplaceVideoModel> createMarketplaceVideo({
     required String userId,
     required String userName,
     required String userImage,
@@ -178,7 +178,7 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
     try {
       final timestamp = _createTimestamp();
 
-      final itemData = {
+      final videoData = {
         'userId': userId,
         'userName': userName,
         'userImage': userImage,
@@ -199,23 +199,23 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
         'imageUrls': <String>[],
       };
 
-      final response = await _httpClient.post('/marketplace', body: itemData);
+      final response = await _httpClient.post('/marketplace', body: videoData);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final itemMap = responseData.containsKey('item') ? responseData['item'] :
+        final videoMap = responseData.containsKey('video') ? responseData['video'] :
                        responseData.containsKey('video') ? responseData['video'] : responseData;
-        return MarketplaceItemModel.fromJson(itemMap);
+        return MarketplaceVideoModel.fromJson(videoMap);
       } else {
-        throw MarketplaceRepositoryException('Failed to create marketplace item: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to create marketplace video: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to create marketplace item: $e');
+      throw MarketplaceRepositoryException('Failed to create marketplace video: $e');
     }
   }
 
   @override
-  Future<MarketplaceItemModel> createMarketplaceImagePost({
+  Future<MarketplaceVideoModel> createMarketplaceImagePost({
     required String userId,
     required String userName,
     required String userImage,
@@ -252,9 +252,9 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final itemMap = responseData.containsKey('item') ? responseData['item'] :
+        final videoMap = responseData.containsKey('video') ? responseData['video'] :
                        responseData.containsKey('video') ? responseData['video'] : responseData;
-        return MarketplaceItemModel.fromJson(itemMap);
+        return MarketplaceVideoModel.fromJson(videoMap);
       } else {
         throw MarketplaceRepositoryException('Failed to create marketplace image post: ${response.body}');
       }
@@ -264,8 +264,8 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
-  Future<MarketplaceItemModel> updateMarketplaceItem({
-    required String itemId,
+  Future<MarketplaceVideoModel> updateMarketplaceVideo({
+    required String videoId,
     String? caption,
     double? price,
     String? videoUrl,
@@ -273,7 +273,7 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
     List<String>? tags,
   }) async {
     try {
-      debugPrint('🔄 Updating marketplace item: $itemId');
+      debugPrint('🔄 Updating marketplace video: $videoId');
 
       final Map<String, dynamic> updateData = {
         'updatedAt': _createTimestamp(),
@@ -285,87 +285,87 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
       if (thumbnailUrl != null) updateData['thumbnailUrl'] = thumbnailUrl;
       if (tags != null) updateData['tags'] = tags;
 
-      final response = await _httpClient.put('/marketplace/$itemId', body: updateData);
+      final response = await _httpClient.put('/marketplace/$videoId', body: updateData);
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final itemMap = responseData.containsKey('item') ? responseData['item'] :
+        final videoMap = responseData.containsKey('video') ? responseData['video'] :
                        responseData.containsKey('video') ? responseData['video'] : responseData;
-        return MarketplaceItemModel.fromJson(itemMap);
+        return MarketplaceVideoModel.fromJson(videoMap);
       } else {
-        throw MarketplaceRepositoryException('Failed to update marketplace item: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to update marketplace video: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to update marketplace item: $e');
+      throw MarketplaceRepositoryException('Failed to update marketplace video: $e');
     }
   }
 
   @override
-  Future<void> deleteMarketplaceItem(String itemId, String userId) async {
+  Future<void> deleteMarketplaceVideo(String videoId, String userId) async {
     try {
-      final response = await _httpClient.delete('/marketplace/$itemId');
+      final response = await _httpClient.delete('/marketplace/$videoId');
 
       if (response.statusCode != 200) {
-        throw MarketplaceRepositoryException('Failed to delete marketplace item: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to delete marketplace video: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to delete marketplace item: $e');
+      throw MarketplaceRepositoryException('Failed to delete marketplace video: $e');
     }
   }
 
   @override
-  Future<void> likeMarketplaceItem(String itemId, String userId) async {
+  Future<void> likeMarketplaceVideo(String videoId, String userId) async {
     try {
-      final response = await _httpClient.post('/marketplace/$itemId/like', body: {});
+      final response = await _httpClient.post('/marketplace/$videoId/like', body: {});
 
       if (response.statusCode != 200) {
-        throw MarketplaceRepositoryException('Failed to like marketplace item: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to like marketplace video: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to like marketplace item: $e');
+      throw MarketplaceRepositoryException('Failed to like marketplace video: $e');
     }
   }
 
   @override
-  Future<void> unlikeMarketplaceItem(String itemId, String userId) async {
+  Future<void> unlikeMarketplaceVideo(String videoId, String userId) async {
     try {
-      final response = await _httpClient.delete('/marketplace/$itemId/like');
+      final response = await _httpClient.delete('/marketplace/$videoId/like');
 
       if (response.statusCode != 200) {
-        throw MarketplaceRepositoryException('Failed to unlike marketplace item: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to unlike marketplace video: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to unlike marketplace item: $e');
+      throw MarketplaceRepositoryException('Failed to unlike marketplace video: $e');
     }
   }
 
   @override
-  Future<List<String>> getLikedMarketplaceItems(String userId) async {
+  Future<List<String>> getLikedMarketplaceVideos(String userId) async {
     try {
       final response = await _httpClient.get('/users/$userId/liked-marketplace');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final List<dynamic> likedItemsData = responseData['items'] ?? responseData['videos'] ?? [];
-        return likedItemsData.cast<String>();
+        final List<dynamic> likedVideosData = responseData['items'] ?? responseData['videos'] ?? [];
+        return likedVideosData.cast<String>();
       } else {
-        throw MarketplaceRepositoryException('Failed to get liked marketplace items: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to get liked marketplace videos: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to get liked marketplace items: $e');
+      throw MarketplaceRepositoryException('Failed to get liked marketplace videos: $e');
     }
   }
 
   @override
-  Future<void> incrementMarketplaceItemViewCount(String itemId) async {
+  Future<void> incrementMarketplaceVideoViewCount(String videoId) async {
     try {
-      final response = await _httpClient.post('/marketplace/$itemId/views', body: {});
+      final response = await _httpClient.post('/marketplace/$videoId/views', body: {});
 
       if (response.statusCode != 200) {
-        throw MarketplaceRepositoryException('Failed to increment marketplace item view count: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to increment marketplace video view count: ${response.body}');
       }
     } catch (e) {
-      throw MarketplaceRepositoryException('Failed to increment marketplace item view count: $e');
+      throw MarketplaceRepositoryException('Failed to increment marketplace video view count: $e');
     }
   }
 
@@ -428,10 +428,10 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
-  Future<List<MarketplaceCommentModel>> getMarketplaceItemComments(String itemId) async {
+  Future<List<MarketplaceCommentModel>> getMarketplaceVideoComments(String videoId) async {
     try {
-      debugPrint('📥 Fetching marketplace comments for item: $itemId');
-      final response = await _httpClient.get('/marketplace/$itemId/comments');
+      debugPrint('📥 Fetching marketplace comments for item: $videoId');
+      final response = await _httpClient.get('/marketplace/$videoId/comments');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -445,11 +445,11 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
         debugPrint('✅ Retrieved ${comments.length} marketplace comments');
         return comments;
       } else {
-        throw MarketplaceRepositoryException('Failed to get marketplace item comments: ${response.body}');
+        throw MarketplaceRepositoryException('Failed to get marketplace video comments: ${response.body}');
       }
     } catch (e) {
       debugPrint('❌ Error fetching marketplace comments: $e');
-      throw MarketplaceRepositoryException('Failed to get marketplace item comments: $e');
+      throw MarketplaceRepositoryException('Failed to get marketplace video comments: $e');
     }
   }
 
@@ -508,11 +508,11 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
 
   // 🆕 NEW: Pin marketplace comment operation
   @override
-  Future<MarketplaceCommentModel> pinMarketplaceComment(String commentId, String itemId, String userId) async {
+  Future<MarketplaceCommentModel> pinMarketplaceComment(String commentId, String videoId, String userId) async {
     try {
       debugPrint('📌 Pinning marketplace comment: $commentId');
       final response = await _httpClient.post('/marketplace/comments/$commentId/pin', body: {
-        'videoId': itemId,
+        'videoId': videoId,
         'userId': userId,
       });
 
@@ -532,10 +532,10 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
 
   // 🆕 NEW: Unpin marketplace comment operation
   @override
-  Future<MarketplaceCommentModel> unpinMarketplaceComment(String commentId, String itemId, String userId) async {
+  Future<MarketplaceCommentModel> unpinMarketplaceComment(String commentId, String videoId, String userId) async {
     try {
       debugPrint('📍 Unpinning marketplace comment: $commentId');
-      final response = await _httpClient.delete('/marketplace/comments/$commentId/pin?videoId=$itemId&userId=$userId');
+      final response = await _httpClient.delete('/marketplace/comments/$commentId/pin?videoId=$videoId&userId=$userId');
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -556,16 +556,16 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
   // ===============================
 
   @override
-  Future<MarketplaceItemModel> boostMarketplaceItem({
-    required String itemId,
+  Future<MarketplaceVideoModel> boostMarketplaceVideo({
+    required String videoId,
     required String userId,
     required String boostTier,
     required int coinAmount,
   }) async {
     try {
-      debugPrint('🚀 Boosting marketplace item: $itemId with tier: $boostTier');
+      debugPrint('🚀 Boosting marketplace video: $videoId with tier: $boostTier');
 
-      final response = await _httpClient.post('/marketplace/$itemId/boost', body: {
+      final response = await _httpClient.post('/marketplace/$videoId/boost', body: {
         'userId': userId,
         'boostTier': boostTier,
         'coinAmount': coinAmount,
@@ -573,22 +573,22 @@ class FirebaseMarketplaceRepository implements MarketplaceRepository {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final itemMap = responseData.containsKey('item') ? responseData['item'] :
+        final videoMap = responseData.containsKey('video') ? responseData['video'] :
                        responseData.containsKey('video') ? responseData['video'] : responseData;
-        debugPrint('✅ Marketplace item boosted successfully');
-        return MarketplaceItemModel.fromJson(itemMap);
+        debugPrint('✅ Marketplace video boosted successfully');
+        return MarketplaceVideoModel.fromJson(videoMap);
       } else {
         try {
           final errorData = jsonDecode(response.body) as Map<String, dynamic>;
           final errorMessage = errorData['error'] ?? errorData['message'] ?? 'Unknown error';
-          throw MarketplaceRepositoryException('Failed to boost marketplace item: $errorMessage');
+          throw MarketplaceRepositoryException('Failed to boost marketplace video: $errorMessage');
         } catch (_) {
-          throw MarketplaceRepositoryException('Failed to boost marketplace item: ${response.body}');
+          throw MarketplaceRepositoryException('Failed to boost marketplace video: ${response.body}');
         }
       }
     } catch (e) {
       if (e is MarketplaceRepositoryException) rethrow;
-      throw MarketplaceRepositoryException('Failed to boost marketplace item: $e');
+      throw MarketplaceRepositoryException('Failed to boost marketplace video: $e');
     }
   }
 

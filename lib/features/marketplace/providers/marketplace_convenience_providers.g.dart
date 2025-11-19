@@ -6,48 +6,48 @@ part of 'marketplace_convenience_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$marketplaceItemsHash() => r'b8c8e8e73f74253ac8a04dcf035492c94127e8ab';
+String _$marketplaceVideosHash() => r'8a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9';
 
-/// Convenience provider to get marketplace items
-///
-/// Copied from [marketplaceItems].
-@ProviderFor(marketplaceItems)
-final marketplaceItemsProvider =
-    AutoDisposeProvider<List<MarketplaceItemModel>>.internal(
-  marketplaceItems,
-  name: r'marketplaceItemsProvider',
+/// See also [marketplaceVideos].
+@ProviderFor(marketplaceVideos)
+final marketplaceVideosProvider =
+    AutoDisposeProvider<List<MarketplaceVideoModel>>.internal(
+  marketplaceVideos,
+  name: r'marketplaceVideosProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$marketplaceItemsHash,
+      : _$marketplaceVideosHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef MarketplaceItemsRef = AutoDisposeProviderRef<List<MarketplaceItemModel>>;
-String _$likedMarketplaceItemsHash() =>
-    r'a3d9f9f84f74253ac8a04dcf035492c94127e8ab';
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef MarketplaceVideosRef
+    = AutoDisposeProviderRef<List<MarketplaceVideoModel>>;
+String _$likedMarketplaceVideosHash() =>
+    r'9b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0';
 
-/// Convenience provider to get liked marketplace items
-///
-/// Copied from [likedMarketplaceItems].
-@ProviderFor(likedMarketplaceItems)
-final likedMarketplaceItemsProvider = AutoDisposeProvider<List<String>>.internal(
-  likedMarketplaceItems,
-  name: r'likedMarketplaceItemsProvider',
+/// See also [likedMarketplaceVideos].
+@ProviderFor(likedMarketplaceVideos)
+final likedMarketplaceVideosProvider =
+    AutoDisposeProvider<List<String>>.internal(
+  likedMarketplaceVideos,
+  name: r'likedMarketplaceVideosProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$likedMarketplaceItemsHash,
+      : _$likedMarketplaceVideosHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef LikedMarketplaceItemsRef = AutoDisposeProviderRef<List<String>>;
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef LikedMarketplaceVideosRef = AutoDisposeProviderRef<List<String>>;
 String _$isMarketplaceUploadingHash() =>
-    r'c5e0f0f95f74253ac8a04dcf035492c94127e8ab';
+    r'0c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1';
 
-/// Convenience provider to check if marketplace is uploading
-///
-/// Copied from [isMarketplaceUploading].
+/// See also [isMarketplaceUploading].
 @ProviderFor(isMarketplaceUploading)
 final isMarketplaceUploadingProvider = AutoDisposeProvider<bool>.internal(
   isMarketplaceUploading,
@@ -59,13 +59,13 @@ final isMarketplaceUploadingProvider = AutoDisposeProvider<bool>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef IsMarketplaceUploadingRef = AutoDisposeProviderRef<bool>;
 String _$marketplaceUploadProgressHash() =>
-    r'd6f1f1f06f74253ac8a04dcf035492c94127e8ab';
+    r'1d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2';
 
-/// Convenience provider to get marketplace upload progress
-///
-/// Copied from [marketplaceUploadProgress].
+/// See also [marketplaceUploadProgress].
 @ProviderFor(marketplaceUploadProgress)
 final marketplaceUploadProgressProvider = AutoDisposeProvider<double>.internal(
   marketplaceUploadProgress,
@@ -77,42 +77,57 @@ final marketplaceUploadProgressProvider = AutoDisposeProvider<double>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef MarketplaceUploadProgressRef = AutoDisposeProviderRef<double>;
-String _$isMarketplaceItemLikedHash() =>
-    r'e7g2g2g17f74253ac8a04dcf035492c94127e8ab';
+String _$isMarketplaceVideoLikedHash() =>
+    r'2e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3';
 
-/// Helper method as provider to check if item is liked
-///
-/// Copied from [isMarketplaceItemLiked].
-@ProviderFor(isMarketplaceItemLiked)
-const isMarketplaceItemLikedProvider = IsMarketplaceItemLikedFamily();
+/// Copied from Dart SDK
+class _SystemHash {
+  _SystemHash._();
 
-/// Helper method as provider to check if item is liked
-///
-/// Copied from [isMarketplaceItemLiked].
-class IsMarketplaceItemLikedFamily extends Family<bool> {
-  /// Helper method as provider to check if item is liked
-  ///
-  /// Copied from [isMarketplaceItemLiked].
-  const IsMarketplaceItemLikedFamily();
+  static int combine(int hash, int value) {
+    // ignore: parameter_assignments
+    hash = 0x1fffffff & (hash + value);
+    // ignore: parameter_assignments
+    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
+    return hash ^ (hash >> 6);
+  }
 
-  /// Helper method as provider to check if item is liked
-  ///
-  /// Copied from [isMarketplaceItemLiked].
-  IsMarketplaceItemLikedProvider call(
-    String itemId,
+  static int finish(int hash) {
+    // ignore: parameter_assignments
+    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
+    // ignore: parameter_assignments
+    hash = hash ^ (hash >> 11);
+    return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
+  }
+}
+
+/// See also [isMarketplaceVideoLiked].
+@ProviderFor(isMarketplaceVideoLiked)
+const isMarketplaceVideoLikedProvider = IsMarketplaceVideoLikedFamily();
+
+/// See also [isMarketplaceVideoLiked].
+class IsMarketplaceVideoLikedFamily extends Family<bool> {
+  /// See also [isMarketplaceVideoLiked].
+  const IsMarketplaceVideoLikedFamily();
+
+  /// See also [isMarketplaceVideoLiked].
+  IsMarketplaceVideoLikedProvider call(
+    String videoId,
   ) {
-    return IsMarketplaceItemLikedProvider(
-      itemId,
+    return IsMarketplaceVideoLikedProvider(
+      videoId,
     );
   }
 
   @override
-  IsMarketplaceItemLikedProvider getProviderOverride(
-    covariant IsMarketplaceItemLikedProvider provider,
+  IsMarketplaceVideoLikedProvider getProviderOverride(
+    covariant IsMarketplaceVideoLikedProvider provider,
   ) {
     return call(
-      provider.itemId,
+      provider.videoId,
     );
   }
 
@@ -128,102 +143,99 @@ class IsMarketplaceItemLikedFamily extends Family<bool> {
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'isMarketplaceItemLikedProvider';
+  String? get name => r'isMarketplaceVideoLikedProvider';
 }
 
-/// Helper method as provider to check if item is liked
-///
-/// Copied from [isMarketplaceItemLiked].
-class IsMarketplaceItemLikedProvider extends AutoDisposeProvider<bool> {
-  /// Helper method as provider to check if item is liked
-  ///
-  /// Copied from [isMarketplaceItemLiked].
-  IsMarketplaceItemLikedProvider(
-    String itemId,
+/// See also [isMarketplaceVideoLiked].
+class IsMarketplaceVideoLikedProvider extends AutoDisposeProvider<bool> {
+  /// See also [isMarketplaceVideoLiked].
+  IsMarketplaceVideoLikedProvider(
+    String videoId,
   ) : this._internal(
-          (ref) => isMarketplaceItemLiked(
-            ref as IsMarketplaceItemLikedRef,
-            itemId,
+          (ref) => isMarketplaceVideoLiked(
+            ref as IsMarketplaceVideoLikedRef,
+            videoId,
           ),
-          from: isMarketplaceItemLikedProvider,
-          name: r'isMarketplaceItemLikedProvider',
+          from: isMarketplaceVideoLikedProvider,
+          name: r'isMarketplaceVideoLikedProvider',
           debugGetCreateSourceHash:
               const bool.fromEnvironment('dart.vm.product')
                   ? null
-                  : _$isMarketplaceItemLikedHash,
-          dependencies: IsMarketplaceItemLikedFamily._dependencies,
+                  : _$isMarketplaceVideoLikedHash,
+          dependencies: IsMarketplaceVideoLikedFamily._dependencies,
           allTransitiveDependencies:
-              IsMarketplaceItemLikedFamily._allTransitiveDependencies,
-          itemId: itemId,
+              IsMarketplaceVideoLikedFamily._allTransitiveDependencies,
+          videoId: videoId,
         );
 
-  IsMarketplaceItemLikedProvider._internal(
+  IsMarketplaceVideoLikedProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
     required super.allTransitiveDependencies,
     required super.debugGetCreateSourceHash,
     required super.from,
-    required this.itemId,
+    required this.videoId,
   }) : super.internal();
 
-  final String itemId;
+  final String videoId;
 
   @override
   Override overrideWith(
-    bool Function(IsMarketplaceItemLikedRef provider) create,
+    bool Function(IsMarketplaceVideoLikedRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
-      override: IsMarketplaceItemLikedProvider._internal(
-        (ref) => create(ref as IsMarketplaceItemLikedRef),
+      override: IsMarketplaceVideoLikedProvider._internal(
+        (ref) => create(ref as IsMarketplaceVideoLikedRef),
         from: from,
         name: null,
         dependencies: null,
         allTransitiveDependencies: null,
         debugGetCreateSourceHash: null,
-        itemId: itemId,
+        videoId: videoId,
       ),
     );
   }
 
   @override
   AutoDisposeProviderElement<bool> createElement() {
-    return _IsMarketplaceItemLikedProviderElement(this);
+    return _IsMarketplaceVideoLikedProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is IsMarketplaceItemLikedProvider && other.itemId == itemId;
+    return other is IsMarketplaceVideoLikedProvider &&
+        other.videoId == videoId;
   }
 
   @override
   int get hashCode {
     var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, itemId.hashCode);
+    hash = _SystemHash.combine(hash, videoId.hashCode);
 
     return _SystemHash.finish(hash);
   }
 }
 
-mixin IsMarketplaceItemLikedRef on AutoDisposeProviderRef<bool> {
-  /// The parameter `itemId` of this provider.
-  String get itemId;
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin IsMarketplaceVideoLikedRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `videoId` of this provider.
+  String get videoId;
 }
 
-class _IsMarketplaceItemLikedProviderElement
-    extends AutoDisposeProviderElement<bool> with IsMarketplaceItemLikedRef {
-  _IsMarketplaceItemLikedProviderElement(super.provider);
+class _IsMarketplaceVideoLikedProviderElement
+    extends AutoDisposeProviderElement<bool> with IsMarketplaceVideoLikedRef {
+  _IsMarketplaceVideoLikedProviderElement(super.provider);
 
   @override
-  String get itemId => (origin as IsMarketplaceItemLikedProvider).itemId;
+  String get videoId => (origin as IsMarketplaceVideoLikedProvider).videoId;
 }
 
-String _$marketplaceErrorHash() => r'f8h3h3h28f74253ac8a04dcf035492c94127e8ab';
+String _$marketplaceErrorHash() => r'3f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4';
 
-/// Error provider
-///
-/// Copied from [marketplaceError].
+/// See also [marketplaceError].
 @ProviderFor(marketplaceError)
 final marketplaceErrorProvider = AutoDisposeProvider<String?>.internal(
   marketplaceError,
@@ -235,23 +247,8 @@ final marketplaceErrorProvider = AutoDisposeProvider<String?>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef MarketplaceErrorRef = AutoDisposeProviderRef<String?>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
-
-final _System Hash = $Hash();
-
-class $Hash {
-  static int combine(int hash, int value) {
-    // Jenkins hash function
-    hash = 0x1fffffff & (hash + value);
-    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    return hash ^ (hash >> 6);
-  }
-
-  static int finish(int hash) {
-    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-    hash = hash ^ (hash >> 11);
-    return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-  }
-}

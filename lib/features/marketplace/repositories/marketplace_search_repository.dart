@@ -5,7 +5,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/shared/services/http_client.dart';
 
 // ===============================
@@ -19,7 +19,7 @@ class MarketplaceSearchRepository {
       : _httpClient = httpClient ?? HttpClientService();
 
   /// Simple marketplace search - matches backend /marketplace/search endpoint
-  Future<SearchResponse> searchMarketplaceItems({
+  Future<SearchResponse> searchMarketplaceVideos({
     required String query,
     bool usernameOnly = false,
     int limit = 20,
@@ -97,7 +97,7 @@ class MarketplaceSearchRepository {
 // ===============================
 
 class SearchResponse {
-  final List<MarketplaceItemModel> marketplaceItems;
+  final List<MarketplaceVideoModel> marketplaceVideos;
   final int total;
   final String query;
   final bool usernameOnly;
@@ -106,7 +106,7 @@ class SearchResponse {
   final bool hasMore;
 
   const SearchResponse({
-    required this.marketplaceItems,
+    required this.marketplaceVideos,
     required this.total,
     required this.query,
     required this.usernameOnly,
@@ -116,13 +116,13 @@ class SearchResponse {
   });
 
   factory SearchResponse.fromJson(Map<String, dynamic> json) {
-    final marketplaceItemsJson = json['videos'] as List<dynamic>? ?? [];
-    final marketplaceItems = marketplaceItemsJson
-        .map((v) => MarketplaceItemModel.fromJson(v as Map<String, dynamic>))
+    final marketplaceVideosJson = json['videos'] as List<dynamic>? ?? [];
+    final marketplaceVideos = marketplaceVideosJson
+        .map((v) => MarketplaceVideoModel.fromJson(v as Map<String, dynamic>))
         .toList();
 
     return SearchResponse(
-      marketplaceItems: marketplaceItems,
+      marketplaceVideos: marketplaceVideos,
       total: json['total'] as int? ?? 0,
       query: json['query'] as String? ?? '',
       usernameOnly: json['usernameOnly'] as bool? ?? false,
@@ -132,8 +132,8 @@ class SearchResponse {
     );
   }
 
-  bool get isEmpty => marketplaceItems.isEmpty;
-  bool get isNotEmpty => marketplaceItems.isNotEmpty;
+  bool get isEmpty => marketplaceVideos.isEmpty;
+  bool get isNotEmpty => marketplaceVideos.isNotEmpty;
 }
 
 // ===============================

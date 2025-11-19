@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -21,8 +21,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
   
-  // Cache for recommended marketplaceItems to avoid reloading
-  List<MarketplaceItemModel> _recommendedMarketplaceItems = [];
+  // Cache for recommended marketplaceVideos to avoid reloading
+  List<MarketplaceVideoModel> _recommendedMarketplaceItems = [];
   bool _isLoadingRecommendations = false;
   String? _error;
   int _currentIndex = 0;
@@ -30,7 +30,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
   @override
   void initState() {
     super.initState();
-    // Load recommended marketplaceItems when screen initializes
+    // Load recommended marketplaceVideos when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadRecommendedMarketplaceItems();
     });
@@ -42,8 +42,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     super.dispose();
   }
 
-  /// Load recommended marketplaceItems efficiently
-  /// This method loads featured marketplaceItems from the backend
+  /// Load recommended marketplaceVideos efficiently
+  /// This method loads featured marketplaceVideos from the backend
   Future<void> _loadRecommendedMarketplaceItems({bool forceRefresh = false}) async {
     if (_isLoadingRecommendations && !forceRefresh) return;
 
@@ -62,11 +62,11 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
       final currentAuthState = authState.valueOrNull;
 
       // If no data and not forcing refresh, try to load it
-      if (currentAuthState == null || currentAuthState.marketplaceItems.isEmpty) {
-        debugPrint('📹 No marketplaceItems in state, loading from backend...');
+      if (currentAuthState == null || currentAuthState.marketplaceVideos.isEmpty) {
+        debugPrint('📹 No marketplaceVideos in state, loading from backend...');
 
         // Force refresh data if needed
-        await marketplaceNotifier.loadMarketplaceItems();
+        await marketplaceNotifier.loadMarketplaceVideos();
         await authNotifier.loadUsers();
         
         // Get updated state after loading
@@ -76,23 +76,23 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         }
         
         // Use updated state
-        _processVideos(updatedAuthState.marketplaceItems);
+        _processVideos(updatedAuthState.marketplaceVideos);
       } else {
         // Force refresh if requested
         if (forceRefresh) {
-          debugPrint('🔄 Force refreshing marketplaceItems from backend...');
-          await marketplaceNotifier.loadMarketplaceItems();
+          debugPrint('🔄 Force refreshing marketplaceVideos from backend...');
+          await marketplaceNotifier.loadMarketplaceVideos();
           await authNotifier.loadUsers();
           
           final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
           if (updatedAuthState != null) {
-            _processVideos(updatedAuthState.marketplaceItems);
+            _processVideos(updatedAuthState.marketplaceVideos);
           } else {
-            _processVideos(currentAuthState.marketplaceItems);
+            _processVideos(currentAuthState.marketplaceVideos);
           }
         } else {
           // Use existing state
-          _processVideos(currentAuthState.marketplaceItems);
+          _processVideos(currentAuthState.marketplaceVideos);
         }
       }
 
@@ -105,8 +105,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     }
   }
 
-  /// Extract marketplaceItem processing logic into separate method
-  void _processVideos(List<MarketplaceItemModel> allVideos) {
+  /// Extract marketplaceVideo processing logic into separate method
+  void _processVideos(List<MarketplaceVideoModel> allVideos) {
     if (allVideos.isEmpty) {
       setState(() {
         _recommendedMarketplaceItems = [];
@@ -115,15 +115,15 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
       return;
     }
 
-    // Filter featured marketplaceItems
+    // Filter featured marketplaceVideos
     final featuredVideos = allVideos
-        .where((marketplaceItem) => marketplaceItem.isFeatured)
+        .where((marketplaceVideo) => marketplaceVideo.isFeatured)
         .toList();
 
     // Sort by creation time (most recent first)
     featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
 
-    // Limit to 9 featured marketplaceItems
+    // Limit to 9 featured marketplaceVideos
     const maxTotalVideos = 9;
     final finalRecommendations = featuredVideos.take(maxTotalVideos).toList();
 
@@ -132,7 +132,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
       _isLoadingRecommendations = false;
     });
     
-    debugPrint('✅ Processed ${_recommendedMarketplaceItems.length} featured marketplaceItems');
+    debugPrint('✅ Processed ${_recommendedMarketplaceItems.length} featured marketplaceVideos');
   }
 
   @override
@@ -144,11 +144,11 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
       authenticationProvider,
       (previous, next) {
         next.whenData((authState) {
-          // When auth state updates with new marketplaceItems, reload recommendations if needed
-          if (authState.marketplaceItems.isNotEmpty && 
+          // When auth state updates with new marketplaceVideos, reload recommendations if needed
+          if (authState.marketplaceVideos.isNotEmpty && 
               _recommendedMarketplaceItems.isEmpty && 
               !_isLoadingRecommendations) {
-            debugPrint('🔄 Auth state updated with marketplaceItems, reloading recommendations');
+            debugPrint('🔄 Auth state updated with marketplaceVideos, reloading recommendations');
             _loadRecommendedMarketplaceItems();
           }
         });
@@ -268,7 +268,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     );
   }
 
-  Widget _buildVideoThumbnail(MarketplaceItemModel marketplaceItem, int index) {
+  Widget _buildVideoThumbnail(MarketplaceVideoModel marketplaceVideo, int index) {
     final theme = context.modernTheme;
     
     // Calculate scale based on current page position
@@ -280,7 +280,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     return Transform.scale(
       scale: scale,
       child: GestureDetector(
-        onTap: () => _navigateToVideoFeed(marketplaceItem),
+        onTap: () => _navigateToVideoFeed(marketplaceVideo),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 8.0),
           decoration: BoxDecoration(
@@ -332,7 +332,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                         SizedBox(
                           width: double.infinity,
                           height: double.infinity,
-                          child: _buildThumbnailContent(marketplaceItem),
+                          child: _buildThumbnailContent(marketplaceVideo),
                         ),
                         
                         // Enhanced gradient overlay
@@ -357,7 +357,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  marketplaceItem.caption.isNotEmpty ? marketplaceItem.caption : 'No caption',
+                                  marketplaceVideo.caption.isNotEmpty ? marketplaceVideo.caption : 'No caption',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -376,7 +376,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    '${_formatCount(marketplaceItem.views)} views',
+                                    '${_formatCount(marketplaceVideo.views)} views',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -422,9 +422,9 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(24),
-                            child: marketplaceItem.userImage.isNotEmpty
+                            child: marketplaceVideo.userImage.isNotEmpty
                                 ? Image.network(
-                                    marketplaceItem.userImage,
+                                    marketplaceVideo.userImage,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
@@ -434,8 +434,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                                         ),
                                         child: Center(
                                           child: Text(
-                                            marketplaceItem.userName.isNotEmpty 
-                                                ? marketplaceItem.userName[0].toUpperCase()
+                                            marketplaceVideo.userName.isNotEmpty 
+                                                ? marketplaceVideo.userName[0].toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -454,8 +454,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                                     ),
                                     child: Center(
                                       child: Text(
-                                        marketplaceItem.userName.isNotEmpty 
-                                            ? marketplaceItem.userName[0].toUpperCase()
+                                        marketplaceVideo.userName.isNotEmpty 
+                                            ? marketplaceVideo.userName[0].toUpperCase()
                                             : "U",
                                         style: TextStyle(
                                           color: theme.primaryColor,
@@ -478,7 +478,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            marketplaceItem.userName,
+                            marketplaceVideo.userName,
                             style: TextStyle(
                               color: theme.textColor,
                               fontSize: 16,
@@ -489,7 +489,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            _getUserBio(marketplaceItem.userId),
+                            _getUserBio(marketplaceVideo.userId),
                             style: TextStyle(
                               color: theme.textSecondaryColor,
                               fontSize: 12,
@@ -527,11 +527,11 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     }
   }
 
-  Widget _buildThumbnailContent(MarketplaceItemModel marketplaceItem) {
+  Widget _buildThumbnailContent(MarketplaceVideoModel marketplaceVideo) {
     // Use backend thumbnail for all content types
-    if (marketplaceItem.thumbnailUrl.isNotEmpty) {
+    if (marketplaceVideo.thumbnailUrl.isNotEmpty) {
       return Image.network(
-        marketplaceItem.thumbnailUrl,
+        marketplaceVideo.thumbnailUrl,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -541,9 +541,9 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         },
         errorBuilder: (context, error, stackTrace) {
           // Fallback to first image if thumbnail fails and it's an image listing
-          if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.isNotEmpty) {
+          if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty) {
             return Image.network(
-              marketplaceItem.imageUrls.first,
+              marketplaceVideo.imageUrls.first,
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
@@ -558,9 +558,9 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     }
     
     // Fallback: if no thumbnail, use first image for image listings
-    if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.isNotEmpty) {
+    if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty) {
       return Image.network(
-        marketplaceItem.imageUrls.first,
+        marketplaceVideo.imageUrls.first,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -825,7 +825,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () {
-                  // Navigate to marketplaceItems feed screen
+                  // Navigate to marketplaceVideos feed screen
                   context.push(RoutePaths.marketplaceFeed);
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -870,12 +870,12 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     );
   }
 
-  void _navigateToVideoFeed(MarketplaceItemModel marketplaceItem) {
+  void _navigateToVideoFeed(MarketplaceVideoModel marketplaceVideo) {
     context.push(
       RoutePaths.marketplaceFeed,
       extra: {
-        'startItemId': marketplaceItem.id,
-        'userId': marketplaceItem.userId,
+        'startItemId': marketplaceVideo.id,
+        'userId': marketplaceVideo.userId,
       },
     );
   }
@@ -909,20 +909,20 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
   }
 }
 
-/// Helper class for scoring marketplaceItems during recommendation calculation
+/// Helper class for scoring marketplaceVideos during recommendation calculation
 class _ScoredMarketplaceItem {
-  final MarketplaceItemModel marketplaceItem;
+  final MarketplaceVideoModel marketplaceVideo;
   final double score;
   final UserModel user;
 
   _ScoredMarketplaceItem({
-    required this.marketplaceItem,
+    required this.marketplaceVideo,
     required this.score,
     required this.user,
   });
 
   @override
   String toString() {
-    return '_ScoredMarketplaceItem(itemId: ${marketplaceItem.id}, score: ${score.toStringAsFixed(2)}, user: ${user.name})';
+    return '_ScoredMarketplaceItem(videoId: ${marketplaceVideo.id}, score: ${score.toStringAsFixed(2)}, user: ${user.name})';
   }
 }

@@ -9,7 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -29,23 +29,23 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     with TickerProviderStateMixin {
   bool _isLoading = true;
   UserModel? _user;
-  List<MarketplaceItemModel> _userMarketplaceItems = [];
+  List<MarketplaceVideoModel> _userMarketplaceVideos = [];
   String? _error;
   bool _isDeleting = false;
   late TabController _tabController;
-  final Map<String, String> _marketplaceItemThumbnails = {};
+  final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
   
   // Selection state for bulk operations
   bool _isSelectionMode = false;
-  Set<String> _selectedMarketplaceItemIds = {};
+  Set<String> _selectedVideoIds = {};
 
   // Sorting and filtering
   String _sortBy = 'date'; // 'date', 'views', 'likes', 'engagement'
   bool _sortDescending = true;
   String _filterBy = 'all'; // 'all', 'active', 'inactive', 'featured'
 
-  // Cache manager for marketplaceItem thumbnails
+  // Cache manager for marketplaceVideo thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
       'managePostsThumbnails',
@@ -105,25 +105,25 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
         return;
       }
 
-      // Load user's marketplaceItems
+      // Load user's marketplaceVideos
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-      await marketplaceNotifier.loadMarketplaceItems();
-      await marketplaceNotifier.loadUserMarketplaceItems(freshUserProfile.uid);
+      await marketplaceNotifier.loadMarketplaceVideos();
+      await marketplaceNotifier.loadUserMarketplaceVideos(freshUserProfile.uid);
 
-      final marketplaceItems = ref.read(marketplaceItemsProvider);
-      final userMarketplaceItems = marketplaceItems
-          .where((marketplaceItem) => marketplaceItem.userId == freshUserProfile.uid)
+      final marketplaceVideos = ref.read(marketplaceVideosProvider);
+      final userMarketplaceItems = marketplaceVideos
+          .where((marketplaceVideo) => marketplaceVideo.userId == freshUserProfile.uid)
           .toList();
 
       if (mounted) {
         setState(() {
           _user = freshUserProfile;
-          _userMarketplaceItems = userMarketplaceItems;
+          _userMarketplaceVideos = userMarketplaceItems;
           _isLoading = false;
         });
 
-        // Generate thumbnails for marketplaceItem content
-        _generateMarketplaceItemThumbnails();
+        // Generate thumbnails for marketplaceVideo content
+        _generateVideoThumbnails();
       }
     } catch (e) {
       debugPrint('❌ Error loading user data: $e');
@@ -136,22 +136,22 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     }
   }
 
-  Future<void> _generateMarketplaceItemThumbnails() async {
-    for (final marketplaceItem in _userMarketplaceItems) {
-      if (!marketplaceItem.isMultipleImages && marketplaceItem.itemUrl.isNotEmpty) {
+  Future<void> _generateVideoThumbnails() async {
+    for (final marketplaceVideo in _userMarketplaceVideos) {
+      if (!marketplaceVideo.isMultipleImages && marketplaceVideo.itemUrl.isNotEmpty) {
         try {
-          final cacheKey = 'manage_thumb_${marketplaceItem.id}';
+          final cacheKey = 'manage_thumb_${marketplaceVideo.id}';
           final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
 
           if (fileInfo != null && fileInfo.file.existsSync()) {
             if (mounted) {
               setState(() {
-                _marketplaceItemThumbnails[marketplaceItem.id] = fileInfo.file.path;
+                _videoThumbnails[marketplaceVideo.id] = fileInfo.file.path;
               });
             }
           } else {
-            final thumbnailPath = await MarketplaceItemThumbnail.thumbnailFile(
-              marketplaceItem: marketplaceItem.itemUrl,
+            final thumbnailPath = await VideoThumbnail.thumbnailFile(
+              marketplaceVideo: marketplaceVideo.itemUrl,
               thumbnailPath: (await getTemporaryDirectory()).path,
               imageFormat: ImageFormat.JPEG,
               maxHeight: 400,
@@ -168,12 +168,12 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               }
 
               setState(() {
-                _marketplaceItemThumbnails[marketplaceItem.id] = thumbnailPath;
+                _videoThumbnails[marketplaceVideo.id] = thumbnailPath;
               });
             }
           }
         } catch (e) {
-          debugPrint('❌ Error generating thumbnail for marketplaceItem ${marketplaceItem.id}: $e');
+          debugPrint('❌ Error generating thumbnail for marketplaceVideo ${marketplaceVideo.id}: $e');
         }
       }
     }
@@ -183,37 +183,37 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     setState(() {
       _isSelectionMode = !_isSelectionMode;
       if (!_isSelectionMode) {
-        _selectedMarketplaceItemIds.clear();
+        _selectedVideoIds.clear();
       }
     });
   }
 
-  void _toggleVideoSelection(String itemId) {
+  void _toggleVideoSelection(String videoId) {
     setState(() {
-      if (_selectedMarketplaceItemIds.contains(itemId)) {
-        _selectedMarketplaceItemIds.remove(itemId);
+      if (_selectedVideoIds.contains(videoId)) {
+        _selectedVideoIds.remove(videoId);
       } else {
-        _selectedMarketplaceItemIds.add(itemId);
+        _selectedVideoIds.add(videoId);
       }
     });
   }
 
   void _selectAllVideos() {
     setState(() {
-      if (_selectedMarketplaceItemIds.length == _getFilteredAndSortedVideos().length) {
-        _selectedMarketplaceItemIds.clear();
+      if (_selectedVideoIds.length == _getFilteredAndSortedVideos().length) {
+        _selectedVideoIds.clear();
       } else {
-        _selectedMarketplaceItemIds = _getFilteredAndSortedVideos()
-            .map((marketplaceItem) => marketplaceItem.id)
+        _selectedVideoIds = _getFilteredAndSortedVideos()
+            .map((marketplaceVideo) => marketplaceVideo.id)
             .toSet();
       }
     });
   }
 
   Future<void> _deleteSelectedVideos() async {
-    if (_selectedMarketplaceItemIds.isEmpty || _isDeleting) return;
+    if (_selectedVideoIds.isEmpty || _isDeleting) return;
 
-    final confirmed = await _showDeleteConfirmation(_selectedMarketplaceItemIds.length);
+    final confirmed = await _showDeleteConfirmation(_selectedVideoIds.length);
     if (!confirmed) return;
 
     setState(() {
@@ -223,12 +223,12 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     try {
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
 
-      // Delete marketplaceItems one by one
-      for (final itemId in _selectedMarketplaceItemIds) {
-        await marketplaceNotifier.deleteMarketplaceItem(
-          itemId,
+      // Delete marketplaceVideos one by one
+      for (final itemId in _selectedVideoIds) {
+        await marketplaceNotifier.deleteMarketplaceVideo(
+          videoId,
           (error) {
-            debugPrint('Error deleting marketplaceItem $itemId: $error');
+            debugPrint('Error deleting marketplaceVideo $videoId: $error');
           },
         );
       }
@@ -237,14 +237,14 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       await _loadUserData();
 
       setState(() {
-        _selectedMarketplaceItemIds.clear();
+        _selectedVideoIds.clear();
         _isSelectionMode = false;
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_selectedMarketplaceItemIds.length} listings deleted successfully'),
+            content: Text('${_selectedVideoIds.length} listings deleted successfully'),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
           ),
@@ -316,7 +316,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     ) ?? false;
   }
 
-  Future<void> _deleteSingleVideo(String itemId) async {
+  Future<void> _deleteSingleVideo(String videoId) async {
     final confirmed = await _showDeleteConfirmation(1);
     if (!confirmed || _isDeleting) return;
 
@@ -325,8 +325,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     });
 
     try {
-      await ref.read(marketplaceProvider.notifier).deleteMarketplaceItem(
-        itemId,
+      await ref.read(marketplaceProvider.notifier).deleteMarketplaceVideo(
+        videoId,
         (error) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -356,27 +356,27 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     }
   }
 
-  void _openVideoDetails(MarketplaceItemModel marketplaceItem) {
+  void _openVideoDetails(MarketplaceVideoModel marketplaceVideo) {
     // Using GoRouter to navigate to my listing screen
     context.push(
-      RoutePaths.myPost(marketplaceItem.id),
-      extra: marketplaceItem, // Pass the marketplaceItem model as extra data
+      RoutePaths.myPost(marketplaceVideo.id),
+      extra: marketplaceVideo, // Pass the marketplaceVideo model as extra data
     ).then((_) => _loadUserData());
   }
 
-  List<MarketplaceItemModel> _getFilteredAndSortedVideos() {
-    List<MarketplaceItemModel> filteredVideos = _userMarketplaceItems;
+  List<MarketplaceVideoModel> _getFilteredAndSortedVideos() {
+    List<MarketplaceVideoModel> filteredVideos = _userMarketplaceVideos;
 
     // Apply filters
     switch (_filterBy) {
       case 'active':
-        filteredVideos = filteredVideos.where((marketplaceItem) => marketplaceItem.isActive).toList();
+        filteredVideos = filteredVideos.where((marketplaceVideo) => marketplaceVideo.isActive).toList();
         break;
       case 'inactive':
-        filteredVideos = filteredVideos.where((marketplaceItem) => !marketplaceItem.isActive).toList();
+        filteredVideos = filteredVideos.where((marketplaceVideo) => !marketplaceVideo.isActive).toList();
         break;
       case 'featured':
-        filteredVideos = filteredVideos.where((marketplaceItem) => marketplaceItem.isFeatured).toList();
+        filteredVideos = filteredVideos.where((marketplaceVideo) => marketplaceVideo.isFeatured).toList();
         break;
       case 'all':
       default:
@@ -442,15 +442,15 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
   }
 
   double _calculateEngagementRate() {
-    if (_userMarketplaceItems.isEmpty) return 0.0;
+    if (_userMarketplaceVideos.isEmpty) return 0.0;
 
-    final totalEngagement = _userMarketplaceItems.fold<int>(
+    final totalEngagement = _userMarketplaceVideos.fold<int>(
       0,
-      (sum, marketplaceItem) => sum + marketplaceItem.likes + marketplaceItem.comments,
+      (sum, marketplaceVideo) => sum + marketplaceVideo.likes + marketplaceVideo.comments,
     );
-    final totalViews = _userMarketplaceItems.fold<int>(
+    final totalViews = _userMarketplaceVideos.fold<int>(
       0,
-      (sum, marketplaceItem) => sum + marketplaceItem.views,
+      (sum, marketplaceVideo) => sum + marketplaceVideo.views,
     );
 
     if (totalViews == 0) return 0.0;
@@ -481,26 +481,26 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       elevation: 0,
       title: Text(
         _isSelectionMode 
-            ? '${_selectedMarketplaceItemIds.length} selected'
+            ? '${_selectedVideoIds.length} selected'
             : 'Manage Listings',
       ),
       actions: [
-        if (!_isLoading && !_hasNoProfile && _error == null && _userMarketplaceItems.isNotEmpty) ...[
+        if (!_isLoading && !_hasNoProfile && _error == null && _userMarketplaceVideos.isNotEmpty) ...[
           if (_isSelectionMode) ...[
             // Selection mode actions
             IconButton(
               icon: Icon(
-                _selectedMarketplaceItemIds.length == _getFilteredAndSortedVideos().length
+                _selectedVideoIds.length == _getFilteredAndSortedVideos().length
                     ? Icons.deselect
                     : Icons.select_all,
                 color: modernTheme.primaryColor,
               ),
               onPressed: _selectAllVideos,
-              tooltip: _selectedMarketplaceItemIds.length == _getFilteredAndSortedVideos().length
+              tooltip: _selectedVideoIds.length == _getFilteredAndSortedVideos().length
                   ? 'Deselect All'
                   : 'Select All',
             ),
-            if (_selectedMarketplaceItemIds.isNotEmpty)
+            if (_selectedVideoIds.isNotEmpty)
               IconButton(
                 icon: Icon(
                   Icons.delete,
@@ -812,27 +812,27 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       ),
       itemCount: filteredVideos.length,
       itemBuilder: (context, index) {
-        final marketplaceItem = filteredVideos[index];
-        return _buildVideoCard(marketplaceItem, modernTheme);
+        final marketplaceVideo = filteredVideos[index];
+        return _buildVideoCard(marketplaceVideo, modernTheme);
       },
     );
   }
 
-  Widget _buildVideoCard(MarketplaceItemModel marketplaceItem, ModernThemeExtension modernTheme) {
-    final isSelected = _selectedMarketplaceItemIds.contains(marketplaceItem.id);
+  Widget _buildVideoCard(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
+    final isSelected = _selectedVideoIds.contains(marketplaceVideo.id);
     
     return GestureDetector(
       onTap: () {
         if (_isSelectionMode) {
-          _toggleVideoSelection(marketplaceItem.id);
+          _toggleVideoSelection(marketplaceVideo.id);
         } else {
-          _openVideoDetails(marketplaceItem);
+          _openVideoDetails(marketplaceVideo);
         }
       },
       onLongPress: () {
         if (!_isSelectionMode) {
           _toggleSelectionMode();
-          _toggleVideoSelection(marketplaceItem.id);
+          _toggleVideoSelection(marketplaceVideo.id);
         }
       },
       child: Stack(
@@ -854,9 +854,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                 fit: StackFit.expand,
                 children: [
                   // Thumbnail
-                  if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.isNotEmpty)
+                  if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty)
                     CachedNetworkImage(
-                      imageUrl: marketplaceItem.imageUrls.first,
+                      imageUrl: marketplaceVideo.imageUrls.first,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: modernTheme.surfaceColor,
@@ -878,14 +878,14 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                         ),
                       ),
                     )
-                  else if (!marketplaceItem.isMultipleImages && _marketplaceItemThumbnails.containsKey(marketplaceItem.id))
+                  else if (!marketplaceVideo.isMultipleImages && _videoThumbnails.containsKey(marketplaceVideo.id))
                     Image.file(
-                      File(_marketplaceItemThumbnails[marketplaceItem.id]!),
+                      File(_videoThumbnails[marketplaceVideo.id]!),
                       fit: BoxFit.cover,
                     )
-                  else if (!marketplaceItem.isMultipleImages && marketplaceItem.thumbnailUrl.isNotEmpty)
+                  else if (!marketplaceVideo.isMultipleImages && marketplaceVideo.thumbnailUrl.isNotEmpty)
                     CachedNetworkImage(
-                      imageUrl: marketplaceItem.thumbnailUrl,
+                      imageUrl: marketplaceVideo.thumbnailUrl,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: modernTheme.surfaceColor,
@@ -911,7 +911,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                     Container(
                       color: modernTheme.primaryColor!.withOpacity(0.1),
                       child: Icon(
-                        marketplaceItem.isMultipleImages
+                        marketplaceVideo.isMultipleImages
                             ? Icons.photo_library
                             : Icons.play_circle_fill,
                         color: modernTheme.primaryColor,
@@ -961,7 +961,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _formatViewCount(marketplaceItem.views),
+                                  _formatViewCount(marketplaceVideo.views),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -979,7 +979,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _formatViewCount(marketplaceItem.likes),
+                                  _formatViewCount(marketplaceVideo.likes),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -993,7 +993,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                         const SizedBox(height: 4),
                         // Post date
                         Text(
-                          _formatTimeAgo(marketplaceItem.createdAt),
+                          _formatTimeAgo(marketplaceVideo.createdAt),
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 10,
@@ -1009,7 +1009,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                     left: 8,
                     child: Row(
                       children: [
-                        if (!marketplaceItem.isActive)
+                        if (!marketplaceVideo.isActive)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
@@ -1025,9 +1025,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                               ),
                             ),
                           ),
-                        if (marketplaceItem.isFeatured)
+                        if (marketplaceVideo.isFeatured)
                           Container(
-                            margin: EdgeInsets.only(left: marketplaceItem.isActive ? 0 : 4),
+                            margin: EdgeInsets.only(left: marketplaceVideo.isActive ? 0 : 4),
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.amber.withOpacity(0.9),
@@ -1047,7 +1047,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                   ),
 
                   // Multiple images indicator
-                  if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.length > 1)
+                  if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.length > 1)
                     Positioned(
                       top: 8,
                       right: 8,
@@ -1067,7 +1067,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                             ),
                             const SizedBox(width: 2),
                             Text(
-                              '${marketplaceItem.imageUrls.length}',
+                              '${marketplaceVideo.imageUrls.length}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -1109,7 +1109,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               bottom: 8,
               right: 8,
               child: GestureDetector(
-                onTap: () => _showQuickActionsMenu(marketplaceItem, modernTheme),
+                onTap: () => _showQuickActionsMenu(marketplaceVideo, modernTheme),
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -1129,7 +1129,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  void _showQuickActionsMenu(MarketplaceItemModel marketplaceItem, ModernThemeExtension modernTheme) {
+  void _showQuickActionsMenu(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -1154,9 +1154,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
             // Post title
             Text(
-              marketplaceItem.caption.length > 50 
-                  ? '${marketplaceItem.caption.substring(0, 50)}...' 
-                  : marketplaceItem.caption,
+              marketplaceVideo.caption.length > 50 
+                  ? '${marketplaceVideo.caption.substring(0, 50)}...' 
+                  : marketplaceVideo.caption,
               style: TextStyle(
                 color: modernTheme.textColor,
                 fontSize: 16,
@@ -1172,7 +1172,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Icons.visibility,
               () {
                 Navigator.pop(context);
-                _openVideoDetails(marketplaceItem);
+                _openVideoDetails(marketplaceVideo);
               },
               modernTheme,
             ),
@@ -1196,7 +1196,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Icons.delete_outline,
               () {
                 Navigator.pop(context);
-                _deleteSingleVideo(marketplaceItem.id);
+                _deleteSingleVideo(marketplaceVideo.id);
               },
               modernTheme,
               isDestructive: true,
@@ -1319,15 +1319,15 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             children: [
               _buildAnalyticsCard(
                 'Total Posts',
-                _userMarketplaceItems.length.toString(),
+                _userMarketplaceVideos.length.toString(),
                 Icons.video_library,
-                '${_userMarketplaceItems.where((v) => v.isActive).length} active',
+                '${_userMarketplaceVideos.where((v) => v.isActive).length} active',
                 Colors.blue,
                 modernTheme,
               ),
               _buildAnalyticsCard(
                 'Total Views',
-                _formatViewCount(_userMarketplaceItems.fold<int>(0, (sum, marketplaceItem) => sum + marketplaceItem.views)),
+                _formatViewCount(_userMarketplaceVideos.fold<int>(0, (sum, marketplaceVideo) => sum + marketplaceVideo.views)),
                 Icons.visibility,
                 'Across all listings',
                 Colors.green,
@@ -1335,7 +1335,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Likes',
-                _formatViewCount(_userMarketplaceItems.fold<int>(0, (sum, marketplaceItem) => sum + marketplaceItem.likes)),
+                _formatViewCount(_userMarketplaceVideos.fold<int>(0, (sum, marketplaceVideo) => sum + marketplaceVideo.likes)),
                 Icons.favorite,
                 '${(_calculateEngagementRate()).toStringAsFixed(1)}% engagement',
                 Colors.red,
@@ -1343,7 +1343,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Comments',
-                _formatViewCount(_userMarketplaceItems.fold<int>(0, (sum, marketplaceItem) => sum + marketplaceItem.comments)),
+                _formatViewCount(_userMarketplaceVideos.fold<int>(0, (sum, marketplaceVideo) => sum + marketplaceVideo.comments)),
                 Icons.comment,
                 'Community feedback',
                 Colors.orange,
@@ -1366,9 +1366,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
           const SizedBox(height: 16),
           
           ...(() {
-            final sortedVideos = _userMarketplaceItems.toList()
+            final sortedVideos = _userMarketplaceVideos.toList()
               ..sort((a, b) => b.views.compareTo(a.views));
-            return sortedVideos.take(3).map((marketplaceItem) => _buildTopPostItem(marketplaceItem, modernTheme));
+            return sortedVideos.take(3).map((marketplaceVideo) => _buildTopPostItem(marketplaceVideo, modernTheme));
           })(),
           
           const SizedBox(height: 32),
@@ -1385,9 +1385,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
           const SizedBox(height: 16),
           
           ...(() {
-            final sortedVideos = _userMarketplaceItems.toList()
+            final sortedVideos = _userMarketplaceVideos.toList()
               ..sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
-            return sortedVideos.take(5).map((marketplaceItem) => _buildRecentActivityItem(marketplaceItem, modernTheme));
+            return sortedVideos.take(5).map((marketplaceVideo) => _buildRecentActivityItem(marketplaceVideo, modernTheme));
           })(),
         ],
       ),
@@ -1455,7 +1455,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  Widget _buildTopPostItem(MarketplaceItemModel marketplaceItem, ModernThemeExtension modernTheme) {
+  Widget _buildTopPostItem(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -1476,11 +1476,11 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               borderRadius: BorderRadius.circular(8),
               color: modernTheme.primaryColor!.withOpacity(0.1),
             ),
-            child: marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.isNotEmpty
+            child: marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: CachedNetworkImage(
-                      imageUrl: marketplaceItem.imageUrls.first,
+                      imageUrl: marketplaceVideo.imageUrls.first,
                       fit: BoxFit.cover,
                       errorWidget: (context, url, error) => Icon(
                         Icons.photo_library,
@@ -1489,7 +1489,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                     ),
                   )
                 : Icon(
-                    marketplaceItem.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    marketplaceVideo.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
                     color: modernTheme.primaryColor,
                   ),
           ),
@@ -1501,9 +1501,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  marketplaceItem.caption.length > 40 
-                      ? '${marketplaceItem.caption.substring(0, 40)}...' 
-                      : marketplaceItem.caption,
+                  marketplaceVideo.caption.length > 40 
+                      ? '${marketplaceVideo.caption.substring(0, 40)}...' 
+                      : marketplaceVideo.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 14,
@@ -1522,7 +1522,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _formatViewCount(marketplaceItem.views),
+                      _formatViewCount(marketplaceVideo.views),
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
                         fontSize: 12,
@@ -1536,7 +1536,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _formatViewCount(marketplaceItem.likes),
+                      _formatViewCount(marketplaceVideo.likes),
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
                         fontSize: 12,
@@ -1555,14 +1555,14 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               color: modernTheme.primaryColor,
               size: 16,
             ),
-            onPressed: () => _openVideoDetails(marketplaceItem),
+            onPressed: () => _openVideoDetails(marketplaceVideo),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentActivityItem(MarketplaceItemModel marketplaceItem, ModernThemeExtension modernTheme) {
+  Widget _buildRecentActivityItem(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1573,7 +1573,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       child: Row(
         children: [
           Icon(
-            marketplaceItem.isMultipleImages ? Icons.photo_library : Icons.video_library,
+            marketplaceVideo.isMultipleImages ? Icons.photo_library : Icons.video_library,
             color: modernTheme.primaryColor,
             size: 20,
           ),
@@ -1583,9 +1583,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  marketplaceItem.caption.length > 30 
-                      ? '${marketplaceItem.caption.substring(0, 30)}...' 
-                      : marketplaceItem.caption,
+                  marketplaceVideo.caption.length > 30 
+                      ? '${marketplaceVideo.caption.substring(0, 30)}...' 
+                      : marketplaceVideo.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 14,
@@ -1594,7 +1594,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Posted ${_formatTimeAgo(marketplaceItem.createdAt)}',
+                  'Posted ${_formatTimeAgo(marketplaceVideo.createdAt)}',
                   style: TextStyle(
                     color: modernTheme.textSecondaryColor,
                     fontSize: 12,
@@ -1604,7 +1604,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             ),
           ),
           Text(
-            '${_formatViewCount(marketplaceItem.views)} views',
+            '${_formatViewCount(marketplaceVideo.views)} views',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
               fontSize: 12,
@@ -1637,7 +1637,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Expanded(
                 child: _buildContentTypeCard(
                   'Videos',
-                  _userMarketplaceItems.where((v) => !v.isMultipleImages).length,
+                  _userMarketplaceVideos.where((v) => !v.isMultipleImages).length,
                   Icons.play_circle_fill,
                   Colors.red,
                   modernTheme,
@@ -1647,7 +1647,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Expanded(
                 child: _buildContentTypeCard(
                   'Images',
-                  _userMarketplaceItems.where((v) => v.isMultipleImages).length,
+                  _userMarketplaceVideos.where((v) => v.isMultipleImages).length,
                   Icons.photo_library,
                   Colors.blue,
                   modernTheme,
@@ -1663,7 +1663,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Expanded(
                 child: _buildContentTypeCard(
                   'Active',
-                  _userMarketplaceItems.where((v) => v.isActive).length,
+                  _userMarketplaceVideos.where((v) => v.isActive).length,
                   Icons.visibility,
                   Colors.green,
                   modernTheme,
@@ -1673,7 +1673,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Expanded(
                 child: _buildContentTypeCard(
                   'Featured',
-                  _userMarketplaceItems.where((v) => v.isFeatured).length,
+                  _userMarketplaceVideos.where((v) => v.isFeatured).length,
                   Icons.star,
                   Colors.amber,
                   modernTheme,

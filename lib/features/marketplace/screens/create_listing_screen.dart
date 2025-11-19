@@ -17,15 +17,15 @@ import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
-// Data classes for marketplaceItem processing
-class MarketplaceItemInfo {
+// Data classes for marketplaceVideo processing
+class VideoInfo {
   final Duration duration;
   final Size resolution;
   final double fileSizeMB;
   final int? currentBitrate;
   final double frameRate;
   
-  MarketplaceItemInfo({
+  VideoInfo({
     required this.duration,
     required this.resolution,
     required this.fileSizeMB,
@@ -63,7 +63,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   
   // Video selection
   File? _videoFile;
-  MarketplaceItemInfo? _marketplaceItemInfo;
+  VideoInfo? _videoInfo;
   VideoPlayerController? _videoController;
   bool _isVideoPlaying = false;
   
@@ -198,7 +198,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     }
   }
 
-  Future<MarketplaceItemInfo> _analyzeVideo(File videoFile) async {
+  Future<VideoInfo> _analyzeVideo(File videoFile) async {
     try {
       final controller = VideoPlayerController.file(videoFile);
       await controller.initialize();
@@ -215,7 +215,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
       await controller.dispose();
 
-      return MarketplaceItemInfo(
+      return VideoInfo(
         duration: duration,
         resolution: size,
         fileSizeMB: fileSizeMB,
@@ -224,7 +224,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       );
     } catch (e) {
       final fileSizeBytes = await videoFile.length();
-      return MarketplaceItemInfo(
+      return VideoInfo(
         duration: const Duration(seconds: 60),
         resolution: const Size(1920, 1080),
         fileSizeMB: fileSizeBytes / (1024 * 1024),
@@ -239,7 +239,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   // Get optimal preset based on video characteristics
-  String _getOptimalPreset(MarketplaceItemInfo info) {
+  String _getOptimalPreset(VideoInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
     final duration = info.duration.inSeconds;
     
@@ -253,7 +253,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   // Get optimal profile based on resolution
-  String _getOptimalProfile(MarketplaceItemInfo info) {
+  String _getOptimalProfile(VideoInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
     
     if (totalPixels >= 1920 * 1080) {
@@ -264,7 +264,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   // Build video filters for enhancement
-  String _buildVideoFilters(MarketplaceItemInfo info) {
+  String _buildVideoFilters(VideoInfo info) {
     List<String> filters = [];
     
     if (info.currentBitrate != null && info.currentBitrate! > 1000) {
@@ -287,7 +287,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   // Modified video processing - enhanced audio for all videos
-  Future<File?> _optimizeVideoQualitySize(File inputFile, MarketplaceItemInfo info) async {
+  Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
       final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
@@ -452,7 +452,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       _videoController = null;
     }
     _videoFile = null;
-    _marketplaceItemInfo = null;
+    _videoInfo = null;
 
     final authProvider = ref.read(authenticationProvider.notifier);
     if (!_isProcessing && !authProvider.isLoading) {
@@ -473,10 +473,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     });
   }
 
-  Future<void> _setVideoDirectly(File videoFile, MarketplaceItemInfo videoInfo) async {
+  Future<void> _setVideoDirectly(File videoFile, VideoInfo videoInfo) async {
     setState(() {
       _videoFile = videoFile;
-      _marketplaceItemInfo = videoInfo;
+      _videoInfo = videoInfo;
     });
 
     await _initializeVideoPlayer();
@@ -569,8 +569,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       debugPrint('🔧 Step 2: Processing video (audio enhancement)...');
       File videoToUpload = _videoFile!;
 
-      if (_marketplaceItemInfo != null) {
-        final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _marketplaceItemInfo!);
+      if (_videoInfo != null) {
+        final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
 
         if (processedVideo != null) {
           videoToUpload = processedVideo;
@@ -586,7 +586,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       // STEP 3: Upload with pre-generated thumbnail
       debugPrint('☁️ Step 3: Uploading video and thumbnail...');
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-      marketplaceNotifier.createMarketplaceItem(
+      marketplaceNotifier.createMarketplaceVideo(
         videoFile: videoToUpload,
         thumbnailFile: thumbnailFile, // Pass pre-generated thumbnail
         caption: _captionController.text,
@@ -782,7 +782,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _marketplaceItemInfo != null && _marketplaceItemInfo!.fileSizeMB < 50.0 
+                                  _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
                                       ? 'Processing...'
                                       : 'Processing...',
                                   style: const TextStyle(
@@ -989,7 +989,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     ),
                   ),
                   child: _isProcessing
-                      ? Text(_marketplaceItemInfo != null && _marketplaceItemInfo!.fileSizeMB < 50.0 
+                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
                           ? 'Processing...' 
                           : 'Processing...')
                       : (isUploading

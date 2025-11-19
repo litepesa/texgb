@@ -1,16 +1,16 @@
 // lib/features/marketplace/widgets/marketplace_edit_tab_widget.dart
 import 'package:flutter/material.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MarketplaceEditTabWidget extends StatelessWidget {
-  final MarketplaceItemModel? marketplaceItem;
+  final MarketplaceVideoModel? marketplaceVideo;
   final VoidCallback onAddBannerText;
   final VoidCallback onEditPost;
 
   const MarketplaceEditTabWidget({
     super.key,
-    required this.marketplaceItem,
+    required this.marketplaceVideo,
     required this.onAddBannerText,
     required this.onEditPost,
   });
@@ -120,7 +120,7 @@ class MarketplaceEditTabWidget extends StatelessWidget {
                     ),
                     const Spacer(),
                     Switch(
-                      value: marketplaceItem?.isActive ?? true,
+                      value: marketplaceVideo?.isActive ?? true,
                       onChanged: (value) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -138,7 +138,7 @@ class MarketplaceEditTabWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  marketplaceItem?.isActive ?? true
+                  marketplaceVideo?.isActive ?? true
                       ? 'Your post is visible to viewers'
                       : 'Your post is hidden from viewers',
                   style: TextStyle(

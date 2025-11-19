@@ -1,5 +1,5 @@
 // lib/features/marketplace/providers/marketplace_provider.dart
-// Marketplace-focused provider with marketplace item management and comment support
+// Marketplace-focused provider with marketplace video management and comment support
 // 🆕 EXTRACTED FROM: authentication_provider.dart (video/comment methods only)
 // ENHANCED: Simple force refresh solution for backend updates
 // UPGRADED: Enhanced comment system with media support and pinning
@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/marketplace/repositories/marketplace_repository.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/models/marketplace_comment_model.dart';
 import 'package:textgb/features/marketplace/services/marketplace_thumbnail_service.dart';
 
@@ -15,30 +15,30 @@ part 'marketplace_provider.g.dart';
 
 // State class for marketplace
 class MarketplaceState {
-  final List<MarketplaceItemModel> items;
-  final List<String> likedItems;
+  final List<MarketplaceVideoModel> videos;
+  final List<String> likedVideos;
   final bool isUploading;
   final double uploadProgress;
   final String? error;
 
   const MarketplaceState({
-    this.items = const [],
-    this.likedItems = const [],
+    this.videos = const [],
+    this.likedVideos = const [],
     this.isUploading = false,
     this.uploadProgress = 0.0,
     this.error,
   });
 
   MarketplaceState copyWith({
-    List<MarketplaceItemModel>? items,
-    List<String>? likedItems,
+    List<MarketplaceVideoModel>? videos,
+    List<String>? likedVideos,
     bool? isUploading,
     double? uploadProgress,
     String? error,
   }) {
     return MarketplaceState(
-      items: items ?? this.items,
-      likedItems: likedItems ?? this.likedItems,
+      videos: videos ?? this.videos,
+      likedVideos: likedVideos ?? this.likedVideos,
       isUploading: isUploading ?? this.isUploading,
       uploadProgress: uploadProgress ?? this.uploadProgress,
       error: error,
@@ -57,86 +57,86 @@ class Marketplace extends _$Marketplace {
 
   @override
   FutureOr<MarketplaceState> build() async {
-    // Load marketplace items on initialization
-    debugPrint('🛒 Loading marketplace items...');
-    await loadMarketplaceItems();
+    // Load marketplace videos on initialization
+    debugPrint('🛒 Loading marketplace videos...');
+    await loadMarketplaceVideos();
     return state.value ?? const MarketplaceState();
   }
 
   // ===============================
-  // MARKETPLACE ITEM METHODS
+  // MARKETPLACE VIDEO METHODS
   // ===============================
 
-  Future<void> loadMarketplaceItems() async {
+  Future<void> loadMarketplaceVideos() async {
     try {
-      debugPrint('🛒 Loading marketplace items from backend...');
+      debugPrint('🛒 Loading marketplace videos from backend...');
 
-      final items = await _repository.getMarketplaceItems();
+      final videos = await _repository.getMarketplaceVideos();
 
-      debugPrint('✅ Loaded ${items.length} marketplace items successfully');
+      debugPrint('✅ Loaded ${videos.length} marketplace videos successfully');
 
       final currentState = state.value ?? const MarketplaceState();
-      final itemsWithLikedStatus = items.map((item) {
-        final isLiked = currentState.likedItems.contains(item.id);
-        return item.copyWith(isLiked: isLiked);
+      final videosWithLikedStatus = videos.map((video) {
+        final isLiked = currentState.likedVideos.contains(video.id);
+        return video.copyWith(isLiked: isLiked);
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(items: itemsWithLikedStatus));
+      state = AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
 
     } catch (e) {
-      debugPrint('❌ Error loading marketplace items: $e');
+      debugPrint('❌ Error loading marketplace videos: $e');
       // Don't set error state - just log it to keep UI functional
     }
   }
 
-  Future<void> loadUserMarketplaceItems(String userId) async {
+  Future<void> loadUserMarketplaceVideos(String userId) async {
     try {
-      final userItems = await _repository.getUserMarketplaceItems(userId);
+      final userVideos = await _repository.getUserMarketplaceVideos(userId);
     } catch (e) {
-      debugPrint('Error loading user marketplace items: $e');
+      debugPrint('Error loading user marketplace videos: $e');
     }
   }
 
-  Future<void> likeMarketplaceItem(String itemId) async {
+  Future<void> likeMarketplaceVideo(String videoId) async {
     final currentState = state.value ?? const MarketplaceState();
 
     // For marketplace, we'll allow guest likes (remove authentication check)
     // Or you can add authentication check by getting userId from another provider
 
     try {
-      List<String> likedItems = List.from(currentState.likedItems);
-      bool isCurrentlyLiked = likedItems.contains(itemId);
+      List<String> likedVideos = List.from(currentState.likedVideos);
+      bool isCurrentlyLiked = likedVideos.contains(videoId);
 
       if (isCurrentlyLiked) {
-        likedItems.remove(itemId);
-        await _repository.unlikeMarketplaceItem(itemId, ''); // Pass actual userId
+        likedVideos.remove(videoId);
+        await _repository.unlikeMarketplaceVideo(videoId, ''); // Pass actual userId
       } else {
-        likedItems.add(itemId);
-        await _repository.likeMarketplaceItem(itemId, ''); // Pass actual userId
+        likedVideos.add(videoId);
+        await _repository.likeMarketplaceVideo(videoId, ''); // Pass actual userId
       }
 
-      final updatedItems = currentState.items.map((item) {
-        if (item.id == itemId) {
-          return item.copyWith(
+      final updatedVideos = currentState.videos.map((video) {
+        if (video.id == videoId) {
+          return video.copyWith(
             isLiked: !isCurrentlyLiked,
-            likes: isCurrentlyLiked ? item.likes - 1 : item.likes + 1,
+            likes: isCurrentlyLiked ? video.likes - 1 : video.likes + 1,
           );
         }
-        return item;
+        return video;
       }).toList();
 
       state = AsyncValue.data(currentState.copyWith(
-        items: updatedItems,
-        likedItems: likedItems,
+        videos: updatedVideos,
+        likedVideos: likedVideos,
       ));
     } catch (e) {
       debugPrint('Error toggling like: $e');
-      await loadMarketplaceItems();
-      await loadLikedMarketplaceItems(''); // Pass actual userId
+      await loadMarketplaceVideos();
+      await loadLikedMarketplaceVideos(''); // Pass actual userId
     }
   }
 
-  Future<void> createMarketplaceItem({
+  Future<void> createMarketplaceVideo({
     required File videoFile,
     File? thumbnailFile,
     required String caption,
@@ -222,11 +222,11 @@ class Marketplace extends _$Marketplace {
         uploadProgress: 0.9,
       ));
 
-      // Create marketplace item record in database with price
-      debugPrint('💾 Step 4/4: Creating marketplace item record in database...');
-      debugPrint('💰 Item price: ${price ?? 0.0} KES');
+      // Create marketplace video record in database with price
+      debugPrint('💾 Step 4/4: Creating marketplace video record in database...');
+      debugPrint('💰 Video price: ${price ?? 0.0} KES');
 
-      final itemData = await _repository.createMarketplaceItem(
+      final videoData = await _repository.createMarketplaceVideo(
         userId: userId,
         userName: userName,
         userImage: userImage,
@@ -236,24 +236,24 @@ class Marketplace extends _$Marketplace {
         tags: tags ?? [],
         price: price ?? 0.0,
       );
-      debugPrint('✅ Marketplace item record created in database with price: ${itemData.price}');
+      debugPrint('✅ Marketplace video record created in database with price: ${videoData.price}');
 
-      List<MarketplaceItemModel> updatedItems = [
-        itemData,
-        ...currentState.items,
+      List<MarketplaceVideoModel> updatedVideos = [
+        videoData,
+        ...currentState.videos,
       ];
 
       // Update progress: Complete (100%)
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 1.0,
-        items: updatedItems,
+        videos: updatedVideos,
       ));
 
-      debugPrint('✅ Marketplace item upload complete with thumbnail and price!');
-      onSuccess('Marketplace item uploaded successfully');
+      debugPrint('✅ Marketplace video upload complete with thumbnail and price!');
+      onSuccess('Marketplace video uploaded successfully');
     } catch (e) {
-      debugPrint('❌ Error uploading marketplace item: $e');
+      debugPrint('❌ Error uploading marketplace video: $e');
 
       // Clean up thumbnail file if it exists
       if (thumbnailFile != null) {
@@ -267,7 +267,7 @@ class Marketplace extends _$Marketplace {
         isUploading: false,
         uploadProgress: 0.0,
       ));
-      onError('Failed to upload marketplace item: $e');
+      onError('Failed to upload marketplace video: $e');
     }
   }
 
@@ -313,14 +313,14 @@ class Marketplace extends _$Marketplace {
         tags: tags ?? [],
       );
 
-      List<MarketplaceItemModel> updatedItems = [
+      List<MarketplaceVideoModel> updatedVideos = [
         postData,
-        ...currentState.items,
+        ...currentState.videos,
       ];
 
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
-        items: updatedItems,
+        videos: updatedVideos,
       ));
 
       onSuccess('Images uploaded successfully');
@@ -332,11 +332,11 @@ class Marketplace extends _$Marketplace {
   }
 
   // ===============================
-  // MARKETPLACE ITEM UPDATE METHODS
+  // MARKETPLACE VIDEO UPDATE METHODS
   // ===============================
 
-  Future<void> updateMarketplaceItem({
-    required String itemId,
+  Future<void> updateMarketplaceVideo({
+    required String videoId,
     String? caption,
     String? videoUrl,
     String? thumbnailUrl,
@@ -347,90 +347,90 @@ class Marketplace extends _$Marketplace {
     final currentState = state.value ?? const MarketplaceState();
 
     try {
-      final updatedItem = await _repository.updateMarketplaceItem(
-        itemId: itemId,
+      final updatedVideo = await _repository.updateMarketplaceVideo(
+        videoId: videoId,
         caption: caption,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         tags: tags,
       );
 
-      final updatedItems = currentState.items.map((item) {
-        if (item.id == itemId) {
-          return updatedItem;
+      final updatedVideos = currentState.videos.map((video) {
+        if (video.id == videoId) {
+          return updatedVideo;
         }
-        return item;
+        return video;
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(items: updatedItems));
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
 
-      onSuccess('Marketplace item updated successfully');
+      onSuccess('Marketplace video updated successfully');
     } catch (e) {
-      debugPrint('Error updating marketplace item: $e');
-      onError('Failed to update marketplace item: $e');
+      debugPrint('Error updating marketplace video: $e');
+      onError('Failed to update marketplace video: $e');
     }
   }
 
-  Future<void> updateMarketplaceItemCaption({
-    required String itemId,
+  Future<void> updateMarketplaceVideoCaption({
+    required String videoId,
     required String caption,
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
-    await updateMarketplaceItem(
-      itemId: itemId,
+    await updateMarketplaceVideo(
+      videoId: videoId,
       caption: caption,
       onSuccess: onSuccess,
       onError: onError,
     );
   }
 
-  Future<void> deleteMarketplaceItem(String itemId, Function(String) onError) async {
+  Future<void> deleteMarketplaceVideo(String videoId, Function(String) onError) async {
     final currentState = state.value ?? const MarketplaceState();
 
     try {
-      await _repository.deleteMarketplaceItem(itemId, ''); // Pass actual userId
+      await _repository.deleteMarketplaceVideo(videoId, ''); // Pass actual userId
 
-      final updatedItems = currentState.items.where((item) => item.id != itemId).toList();
-      state = AsyncValue.data(currentState.copyWith(items: updatedItems));
+      final updatedVideos = currentState.videos.where((video) => video.id != videoId).toList();
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } catch (e) {
-      debugPrint('Error deleting marketplace item: $e');
-      onError('Failed to delete marketplace item: $e');
+      debugPrint('Error deleting marketplace video: $e');
+      onError('Failed to delete marketplace video: $e');
     }
   }
 
-  Future<void> incrementMarketplaceItemViewCount(String itemId) async {
+  Future<void> incrementMarketplaceVideoViewCount(String videoId) async {
     try {
-      await _repository.incrementMarketplaceItemViewCount(itemId);
+      await _repository.incrementMarketplaceVideoViewCount(videoId);
 
       final currentState = state.value ?? const MarketplaceState();
-      final updatedItems = currentState.items.map((item) {
-        if (item.id == itemId) {
-          return item.copyWith(views: item.views + 1);
+      final updatedVideos = currentState.videos.map((video) {
+        if (video.id == videoId) {
+          return video.copyWith(views: video.views + 1);
         }
-        return item;
+        return video;
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(items: updatedItems));
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } catch (e) {
       debugPrint('Error incrementing view count: $e');
     }
   }
 
-  Future<void> loadLikedMarketplaceItems(String userId) async {
+  Future<void> loadLikedMarketplaceVideos(String userId) async {
     try {
-      final likedItems = await _repository.getLikedMarketplaceItems(userId);
+      final likedVideos = await _repository.getLikedMarketplaceVideos(userId);
       final currentState = state.value ?? const MarketplaceState();
 
-      state = AsyncValue.data(currentState.copyWith(likedItems: likedItems));
+      state = AsyncValue.data(currentState.copyWith(likedVideos: likedVideos));
 
-      final updatedItems = currentState.items.map((item) {
-        return item.copyWith(isLiked: likedItems.contains(item.id));
+      final updatedVideos = currentState.videos.map((video) {
+        return video.copyWith(isLiked: likedVideos.contains(video.id));
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(items: updatedItems));
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } catch (e) {
-      debugPrint('Error loading liked marketplace items: $e');
+      debugPrint('Error loading liked marketplace videos: $e');
     }
   }
 
@@ -438,9 +438,9 @@ class Marketplace extends _$Marketplace {
   // BOOST METHODS
   // ===============================
 
-  /// Purchase marketplace item boost using wallet coins
-  Future<void> boostMarketplaceItem({
-    required String itemId,
+  /// Purchase marketplace video boost using wallet coins
+  Future<void> boostMarketplaceVideo({
+    required String videoId,
     required String boostTier,
     required Function(String) onSuccess,
     required Function(String) onError,
@@ -448,7 +448,7 @@ class Marketplace extends _$Marketplace {
     final currentState = state.value ?? const MarketplaceState();
 
     try {
-      debugPrint('🚀 Starting boost purchase for marketplace item: $itemId');
+      debugPrint('🚀 Starting boost purchase for marketplace video: $videoId');
       debugPrint('   - Boost Tier: $boostTier');
 
       // Determine coin amount based on boost tier
@@ -470,29 +470,29 @@ class Marketplace extends _$Marketplace {
 
       debugPrint('   - Coin Amount: $coinAmount');
 
-      // Call repository to boost item (backend will handle wallet deduction)
-      final boostedItem = await _repository.boostMarketplaceItem(
-        itemId: itemId,
+      // Call repository to boost video (backend will handle wallet deduction)
+      final boostedVideo = await _repository.boostMarketplaceVideo(
+        videoId: videoId,
         userId: '', // Pass actual userId from auth provider
         boostTier: boostTier.toLowerCase(),
         coinAmount: coinAmount,
       );
 
       debugPrint('✅ Boost purchase successful');
-      debugPrint('   - Item now boosted: ${boostedItem.isBoosted}');
-      debugPrint('   - Boost tier: ${boostedItem.boostTier}');
+      debugPrint('   - Video now boosted: ${boostedVideo.isBoosted}');
+      debugPrint('   - Boost tier: ${boostedVideo.boostTier}');
 
-      // Update item in local state
-      final updatedItems = currentState.items.map((item) {
-        if (item.id == itemId) {
-          return boostedItem;
+      // Update video in local state
+      final updatedVideos = currentState.videos.map((video) {
+        if (video.id == videoId) {
+          return boostedVideo;
         }
-        return item;
+        return video;
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(items: updatedItems));
+      state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
 
-      onSuccess('Marketplace item boosted successfully! 🚀');
+      onSuccess('Marketplace video boosted successfully! 🚀');
 
     } catch (e) {
       debugPrint('❌ Boost purchase failed: $e');
@@ -501,9 +501,9 @@ class Marketplace extends _$Marketplace {
       if (e.toString().toLowerCase().contains('insufficient')) {
         onError('Insufficient wallet balance. Please top up your wallet.');
       } else if (e.toString().toLowerCase().contains('already boosted')) {
-        onError('This item is already boosted.');
+        onError('This video is already boosted.');
       } else {
-        onError('Failed to boost item: $e');
+        onError('Failed to boost video: $e');
       }
     }
   }
@@ -589,7 +589,7 @@ class Marketplace extends _$Marketplace {
 
   /// 🆕 ENHANCED: Add marketplace comment with optional image attachments
   Future<void> addMarketplaceComment({
-    required String itemId,
+    required String videoId,
     required String content,
     List<File>? imageFiles,
     String? repliedToCommentId,
@@ -605,7 +605,7 @@ class Marketplace extends _$Marketplace {
       final String userName = 'User Name'; // Get from auth provider
       final String userImage = ''; // Get from auth provider
 
-      debugPrint('💬 Adding marketplace comment to item: $itemId');
+      debugPrint('💬 Adding marketplace comment to video: $videoId');
       if (imageFiles != null && imageFiles.isNotEmpty) {
         debugPrint('📸 Marketplace comment includes ${imageFiles.length} image(s)');
       }
@@ -632,7 +632,7 @@ class Marketplace extends _$Marketplace {
 
       // Create marketplace comment with uploaded image URLs
       await _repository.addMarketplaceComment(
-        videoId: itemId,
+        videoId: videoId,
         authorId: userId,
         authorName: userName,
         authorImage: userImage,
@@ -650,14 +650,14 @@ class Marketplace extends _$Marketplace {
     }
   }
 
-  Future<List<MarketplaceCommentModel>> getMarketplaceItemComments(String itemId) async {
+  Future<List<MarketplaceCommentModel>> getMarketplaceVideoComments(String videoId) async {
     try {
-      debugPrint('📥 Fetching marketplace comments for item: $itemId');
-      final comments = await _repository.getMarketplaceItemComments(itemId);
+      debugPrint('📥 Fetching marketplace comments for video: $videoId');
+      final comments = await _repository.getMarketplaceVideoComments(videoId);
       debugPrint('✅ Retrieved ${comments.length} marketplace comments');
       return comments;
     } catch (e) {
-      debugPrint('❌ Error getting marketplace item comments: $e');
+      debugPrint('❌ Error getting marketplace video comments: $e');
       return [];
     }
   }
@@ -695,15 +695,15 @@ class Marketplace extends _$Marketplace {
     }
   }
 
-  // 🆕 NEW: Pin marketplace comment (item creator only)
+  // 🆕 NEW: Pin marketplace comment (video creator only)
   Future<void> pinMarketplaceComment(
     String commentId,
-    String itemId,
+    String videoId,
     Function(String) onError,
   ) async {
     try {
       debugPrint('📌 Pinning marketplace comment: $commentId');
-      await _repository.pinMarketplaceComment(commentId, itemId, ''); // Pass actual userId
+      await _repository.pinMarketplaceComment(commentId, videoId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment pinned successfully');
     } catch (e) {
       debugPrint('❌ Error pinning marketplace comment: $e');
@@ -711,15 +711,15 @@ class Marketplace extends _$Marketplace {
     }
   }
 
-  // 🆕 NEW: Unpin marketplace comment (item creator only)
+  // 🆕 NEW: Unpin marketplace comment (video creator only)
   Future<void> unpinMarketplaceComment(
     String commentId,
-    String itemId,
+    String videoId,
     Function(String) onError,
   ) async {
     try {
       debugPrint('📍 Unpinning marketplace comment: $commentId');
-      await _repository.unpinMarketplaceComment(commentId, itemId, ''); // Pass actual userId
+      await _repository.unpinMarketplaceComment(commentId, videoId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment unpinned successfully');
     } catch (e) {
       debugPrint('❌ Error unpinning marketplace comment: $e');
@@ -742,14 +742,14 @@ class Marketplace extends _$Marketplace {
     return currentState?.uploadProgress ?? 0.0;
   }
 
-  List<MarketplaceItemModel> get items {
+  List<MarketplaceVideoModel> get videos {
     final currentState = state.value;
-    return currentState?.items ?? [];
+    return currentState?.videos ?? [];
   }
 
-  bool isItemLiked(String itemId) {
+  bool isVideoLiked(String videoId) {
     final currentState = state.value;
-    return currentState?.likedItems.contains(itemId) ?? false;
+    return currentState?.likedVideos.contains(videoId) ?? false;
   }
 
   // File operations

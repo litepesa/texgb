@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/core/router/route_paths.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/features/marketplace/services/marketplace_cache_service.dart';
 import 'package:video_player/video_player.dart';
@@ -24,7 +24,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
 
 class MarketplaceItem extends ConsumerStatefulWidget {
-  final MarketplaceItemModel marketplaceItem;
+  final MarketplaceVideoModel marketplaceVideo;
   final bool isActive;
   final Function(VideoPlayerController)? onVideoControllerReady;
   final Function(bool isPlaying)? onManualPlayPause;
@@ -39,7 +39,7 @@ class MarketplaceItem extends ConsumerStatefulWidget {
 
   const MarketplaceItem({
     super.key,
-    required this.marketplaceItem,
+    required this.marketplaceVideo,
     required this.isActive,
     this.onVideoControllerReady,
     this.onManualPlayPause,
@@ -115,7 +115,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       _handleCommentsStateChange();
     }
 
-    if (widget.marketplaceItem.id != oldWidget.marketplaceItem.id) {
+    if (widget.marketplaceVideo.id != oldWidget.marketplaceVideo.id) {
       _cleanupCurrentController();
       _showFullCaption = false;
       if (widget.isActive) {
@@ -153,7 +153,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   void _handleActiveStateChange() {
-    if (widget.marketplaceItem.isMultipleImages) return;
+    if (widget.marketplaceVideo.isMultipleImages) return;
 
     if (widget.isActive) {
       _cleanupCurrentController();
@@ -188,7 +188,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
 
     try {
       return users.firstWhere(
-        (user) => user.uid == widget.marketplaceItem.userId,
+        (user) => user.uid == widget.marketplaceVideo.userId,
       );
     } catch (e) {
       return null;
@@ -249,16 +249,16 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if trying to follow self
-    if (widget.marketplaceItem.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotFollowSelfMessage();
       return;
     }
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      await authNotifier.followUser(widget.marketplaceItem.userId);
+      await authNotifier.followUser(widget.marketplaceVideo.userId);
 
-      _showSnackBar('You are now following ${widget.marketplaceItem.userName}');
+      _showSnackBar('You are now following ${widget.marketplaceVideo.userName}');
 
       // Trigger UI update
       if (mounted) {
@@ -337,7 +337,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if user is trying to gift their own video
-    if (widget.marketplaceItem.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotGiftOwnVideoMessage();
       return;
     }
@@ -347,8 +347,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => VirtualGiftsBottomSheet(
-        recipientName: widget.marketplaceItem.userName,
-        recipientImage: widget.marketplaceItem.userImage,
+        recipientName: widget.marketplaceVideo.userName,
+        recipientImage: widget.marketplaceVideo.userImage,
         onGiftSelected: (gift) {
           _handleGiftSent(gift);
         },
@@ -359,9 +359,9 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
 
   void _handleGiftSent(VirtualGift gift) {
     debugPrint(
-        'Gift sent: ${gift.name} (KES ${gift.price}) to ${widget.marketplaceItem.userName}');
+        'Gift sent: ${gift.name} (KES ${gift.price}) to ${widget.marketplaceVideo.userName}');
     _showSnackBar(
-        '${gift.emoji} ${gift.name} sent to ${widget.marketplaceItem.userName}!');
+        '${gift.emoji} ${gift.name} sent to ${widget.marketplaceVideo.userName}!');
   }
 
   void _showCannotGiftOwnVideoMessage() {
@@ -431,7 +431,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if user is trying to buy their own product
-    if (widget.marketplaceItem.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotBuyOwnProductMessage();
       return;
     }
@@ -568,12 +568,12 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       return;
     }
 
-    if (widget.marketplaceItem.isMultipleImages) {
+    if (widget.marketplaceVideo.isMultipleImages) {
       _showSnackBar('Cannot download image posts');
       return;
     }
 
-    if (widget.marketplaceItem.videoUrl.isEmpty) {
+    if (widget.marketplaceVideo.videoUrl.isEmpty) {
       _showSnackBar('Invalid video URL');
       return;
     }
@@ -629,7 +629,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
 
       Directory? directory;
       String fileName =
-          'textgb_${widget.marketplaceItem.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+          'textgb_${widget.marketplaceVideo.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
       if (Platform.isAndroid) {
         directory = Directory('/storage/emulated/0/Download');
@@ -646,7 +646,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       final savePath = '${directory.path}/$fileName';
 
       await dio.download(
-        widget.marketplaceItem.videoUrl,
+        widget.marketplaceVideo.videoUrl,
         savePath,
         onReceiveProgress: (received, total) {
           if (total != -1) {
@@ -721,14 +721,14 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   Future<void> _initializeMedia() async {
-    if (widget.marketplaceItem.isMultipleImages) {
+    if (widget.marketplaceVideo.isMultipleImages) {
       setState(() {
         _isInitialized = true;
       });
       return;
     }
 
-    if (widget.marketplaceItem.videoUrl.isEmpty) {
+    if (widget.marketplaceVideo.videoUrl.isEmpty) {
       return;
     }
 
@@ -787,7 +787,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   Future<void> _createControllerFromNetwork() async {
-    final cachedUri = MarketplaceCacheService().getLocalUri(widget.marketplaceItem.videoUrl);
+    final cachedUri = MarketplaceCacheService().getLocalUri(widget.marketplaceVideo.videoUrl);
 
     _videoPlayerController = VideoPlayerController.networkUrl(
       cachedUri,
@@ -843,7 +843,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   void _togglePlayPause() {
-    if (widget.marketplaceItem.isMultipleImages || _isCommentsSheetOpen) return;
+    if (widget.marketplaceVideo.isMultipleImages || _isCommentsSheetOpen) return;
 
     if (!_isInitialized) {
       if (!_isInitializing) {
@@ -887,7 +887,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     });
 
     final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-    marketplaceNotifier.likeMarketplaceItem(widget.marketplaceItem.id);
+    marketplaceNotifier.likeMarketplaceVideo(widget.marketplaceVideo.id);
 
     if (mounted) {
       setState(() {});
@@ -906,7 +906,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     if (!canInteract) return;
 
     final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-    marketplaceNotifier.likeMarketplaceItem(widget.marketplaceItem.id);
+    marketplaceNotifier.likeMarketplaceVideo(widget.marketplaceVideo.id);
   }
 
   // Show comments functionality
@@ -926,7 +926,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
         backgroundColor: Colors.transparent,
         barrierColor: Colors.transparent,
         builder: (context) => MarketplaceCommentsBottomSheet(
-          marketplaceItem: widget.marketplaceItem,
+          marketplaceVideo: widget.marketplaceVideo,
           onClose: () {},
         ),
       );
@@ -941,7 +941,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if trying to message own video
-    if (widget.marketplaceItem.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotDMOwnVideoMessage();
       return;
     }
@@ -953,7 +953,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       try {
         // Create or get existing chat using chat provider
         final chatNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatNotifier.createOrGetChat(widget.marketplaceItem.userId);
+        final chatId = await chatNotifier.createOrGetChat(widget.marketplaceVideo.userId);
 
         if (chatId != null) {
           context.push(RoutePaths.chat(chatId));
@@ -1036,7 +1036,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   // Timestamp parsing and formatting methods
   DateTime _parseVideoTimestamp() {
     try {
-      return DateTime.parse(widget.marketplaceItem.createdAt);
+      return DateTime.parse(widget.marketplaceVideo.createdAt);
     } catch (e) {
       return DateTime.now();
     }
@@ -1116,15 +1116,15 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
                 _buildMediaContent(),
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
-                if (!widget.marketplaceItem.isMultipleImages &&
+                if (!widget.marketplaceVideo.isMultipleImages &&
                     _isInitialized &&
                     !_isPlaying &&
                     !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
-                if (widget.marketplaceItem.isMultipleImages &&
-                    widget.marketplaceItem.imageUrls.length > 1 &&
+                if (widget.marketplaceVideo.isMultipleImages &&
+                    widget.marketplaceVideo.imageUrls.length > 1 &&
                     !_isCommentsSheetOpen)
                   _buildCarouselIndicators(),
               ],
@@ -1217,7 +1217,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   Widget _buildMediaContent() {
-    if (widget.marketplaceItem.isMultipleImages) {
+    if (widget.marketplaceVideo.isMultipleImages) {
       return _buildImageCarousel();
     } else {
       return _buildVideoPlayer();
@@ -1225,7 +1225,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   Widget _buildImageCarousel() {
-    if (widget.marketplaceItem.imageUrls.isEmpty) {
+    if (widget.marketplaceVideo.imageUrls.isEmpty) {
       return _buildPlaceholder(Icons.broken_image);
     }
 
@@ -1233,9 +1233,9 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       options: CarouselOptions(
         height: double.infinity,
         viewportFraction: 1.0,
-        enableInfiniteScroll: widget.marketplaceItem.imageUrls.length > 1,
+        enableInfiniteScroll: widget.marketplaceVideo.imageUrls.length > 1,
         autoPlay: widget.isActive &&
-            widget.marketplaceItem.imageUrls.length > 1 &&
+            widget.marketplaceVideo.imageUrls.length > 1 &&
             !_isCommentsSheetOpen,
         autoPlayInterval: const Duration(seconds: 4),
         autoPlayAnimationDuration: const Duration(milliseconds: 800),
@@ -1246,7 +1246,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
           });
         },
       ),
-      items: widget.marketplaceItem.imageUrls.map((imageUrl) {
+      videos: widget.marketplaceVideo.imageUrls.map((imageUrl) {
         return _buildFullScreenImage(imageUrl);
       }).toList(),
     );
@@ -1359,10 +1359,10 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       builder: (context, ref, child) {
         final videoUser = _getUserDataIfAvailable();
         final currentUser = ref.read(currentUserProvider);
-        final isCurrentUserVideo = currentUser?.uid == widget.marketplaceItem.userId;
+        final isCurrentUserVideo = currentUser?.uid == widget.marketplaceVideo.userId;
         final isFollowing = ref
             .read(authenticationProvider.notifier)
-            .isUserFollowed(widget.marketplaceItem.userId);
+            .isUserFollowed(widget.marketplaceVideo.userId);
 
         return GestureDetector(
           onTap: _navigateToUserProfile,
@@ -1393,9 +1393,9 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: widget.marketplaceItem.userImage.isNotEmpty == true
+                  child: widget.marketplaceVideo.userImage.isNotEmpty == true
                       ? Image.network(
-                          widget.marketplaceItem.userImage,
+                          widget.marketplaceVideo.userImage,
                           width: 40,
                           height: 40,
                           fit: BoxFit.cover,
@@ -1430,8 +1430,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
                               ),
                               child: Center(
                                 child: Text(
-                                  widget.marketplaceItem.userName.isNotEmpty == true
-                                      ? widget.marketplaceItem.userName[0].toUpperCase()
+                                  widget.marketplaceVideo.userName.isNotEmpty == true
+                                      ? widget.marketplaceVideo.userName[0].toUpperCase()
                                       : 'U',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -1452,8 +1452,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
                           ),
                           child: Center(
                             child: Text(
-                              widget.marketplaceItem.userName.isNotEmpty == true
-                                  ? widget.marketplaceItem.userName[0].toUpperCase()
+                              widget.marketplaceVideo.userName.isNotEmpty == true
+                                  ? widget.marketplaceVideo.userName[0].toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -1477,7 +1477,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
                       children: [
                         Flexible(
                           child: Text(
-                            widget.marketplaceItem.userName,
+                            widget.marketplaceVideo.userName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
@@ -1592,8 +1592,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.marketplaceItem.caption.isNotEmpty ||
-              widget.marketplaceItem.tags.isNotEmpty) ...[
+          if (widget.marketplaceVideo.caption.isNotEmpty ||
+              widget.marketplaceVideo.tags.isNotEmpty) ...[
             _buildCaptionWithHashtags(),
             const SizedBox(height: 8),
           ],
@@ -1604,7 +1604,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   Widget _buildCaptionWithHashtags() {
-    if (widget.marketplaceItem.caption.isEmpty && widget.marketplaceItem.tags.isEmpty) {
+    if (widget.marketplaceVideo.caption.isEmpty && widget.marketplaceVideo.tags.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -1627,11 +1627,11 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     );
 
     // Build text with caption and hashtags
-    String fullText = widget.marketplaceItem.caption;
+    String fullText = widget.marketplaceVideo.caption;
 
     // Add hashtags if they exist
-    if (widget.marketplaceItem.tags.isNotEmpty) {
-      final hashtags = widget.marketplaceItem.tags.map((tag) => '#$tag').join(' ');
+    if (widget.marketplaceVideo.tags.isNotEmpty) {
+      final hashtags = widget.marketplaceVideo.tags.map((tag) => '#$tag').join(' ');
       if (fullText.isNotEmpty) {
         fullText += '\n$hashtags';
       } else {
@@ -1724,7 +1724,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   void _navigateToUserProfile() {
-    context.push(RoutePaths.userProfile(widget.marketplaceItem.userId));
+    context.push(RoutePaths.userProfile(widget.marketplaceVideo.userId));
   }
 
   // Action row - conditionally shows Gift/Save OR Price/Buy based on video price
@@ -1736,7 +1736,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
           children: [
             // Show Gift/Save for free content (price = 0)
             // Show Price/Buy for paid content (price > 0)
-            if (widget.marketplaceItem.price == 0) ...[
+            if (widget.marketplaceVideo.price == 0) ...[
               _buildGiftButton(),
               const SizedBox(width: 8),
               _buildSaveButton(),
@@ -1750,10 +1750,10 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
 
             // Like button
             _buildActionButton(
-              icon: widget.marketplaceItem.isLiked == true
+              icon: widget.marketplaceVideo.isLiked == true
                   ? CupertinoIcons.heart_fill
                   : CupertinoIcons.heart,
-              count: widget.marketplaceItem.likes,
+              count: widget.marketplaceVideo.likes,
               gradient: const LinearGradient(
                 colors: [
                   Color(0xFFFF5252), // Red
@@ -1768,7 +1768,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             // Comment button
             _buildActionButton(
               icon: CupertinoIcons.text_bubble,
-              count: widget.marketplaceItem.comments,
+              count: widget.marketplaceVideo.comments,
               gradient: const LinearGradient(
                 colors: [
                   Color(0xFF4FC3F7), // Light blue
@@ -1956,7 +1956,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
           ),
           const SizedBox(width: 4),
           Text(
-            widget.marketplaceItem.formattedPrice,
+            widget.marketplaceVideo.formattedPrice,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -2127,7 +2127,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       right: 0,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(widget.marketplaceItem.imageUrls.length, (index) {
+        children: List.generate(widget.marketplaceVideo.imageUrls.length, (index) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: _currentImageIndex == index ? 8 : 6,

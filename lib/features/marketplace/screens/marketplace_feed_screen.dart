@@ -11,20 +11,20 @@ import 'package:textgb/features/marketplace/providers/marketplace_provider.dart'
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/marketplace/services/marketplace_cache_service.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_item.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_comments_bottom_sheet.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 // Import search overlay
 import 'package:textgb/features/marketplace/widgets/marketplace_search_overlay.dart';
-// Import marketplaceItem progress provider
+// Import marketplaceVideo progress provider
 import 'package:textgb/features/marketplace/providers/marketplace_progress_provider.dart';
 // Import wallet providers for balance banner
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 
 class MarketplaceFeedScreen extends ConsumerStatefulWidget {
-  final String? startItemId; // For direct marketplaceItem navigation
+  final String? startItemId; // For direct marketplaceVideo navigation
   final String? userId; // For user-specific filtering (optional)
 
   const MarketplaceFeedScreen({
@@ -48,7 +48,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
   // State management
   bool _isFirstLoad = true;
-  int _currentMarketplaceItemIndex = 0;
+  int _currentVideoIndex = 0;
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
@@ -87,7 +87,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       curve: Curves.elasticOut,
     );
 
-    // Handle initial marketplaceItem position and start precaching
+    // Handle initial marketplaceVideo position and start precaching
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialVideoPosition();
       _precacheInitialVideos(); // Start precaching immediately
@@ -218,30 +218,30 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     });
   }
 
-  // NEW: Precache initial marketplaceItems as soon as they load
+  // NEW: Precache initial marketplaceVideos as soon as they load
   void _precacheInitialVideos() {
-    final marketplaceItems = ref.read(marketplaceItemsProvider);
-    if (marketplaceItems.isEmpty) return;
+    final marketplaceVideos = ref.read(marketplaceVideosProvider);
+    if (marketplaceVideos.isEmpty) return;
 
-    debugPrint('Precaching initial marketplaceItems for instant playback...');
+    debugPrint('Precaching initial marketplaceVideos for instant playback...');
     
-    // Get first 3 marketplaceItem URLs (skip image posts)
-    final itemUrls = marketplaceItems
+    // Get first 3 marketplaceVideo URLs (skip image posts)
+    final itemUrls = marketplaceVideos
         .where((v) => !v.isMultipleImages && v.itemUrl.isNotEmpty)
         .take(3)
         .map((v) => v.itemUrl)
         .toList();
     
     if (itemUrls.isNotEmpty) {
-      MarketplaceItemCacheService().precacheMultiple(
+      MarketplaceCacheService().precacheMultiple(
         itemUrls,
-        cacheSegmentsPerVideo: 3, // Cache 6MB per marketplaceItem for instant start
+        cacheSegmentsPerVideo: 3, // Cache 6MB per marketplaceVideo for instant start
         maxConcurrent: 2,
       );
     }
   }
 
-  // UPDATED: Intelligent preloading with filtering for marketplaceItem-only content
+  // UPDATED: Intelligent preloading with filtering for marketplaceVideo-only content
   void _startIntelligentPreloading() {
     if (!_isScreenActive ||
         !_isAppInForeground ||
@@ -250,22 +250,22 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       return;
     }
 
-    final marketplaceItems = ref.read(marketplaceItemsProvider);
-    if (marketplaceItems.isEmpty) return;
+    final marketplaceVideos = ref.read(marketplaceVideosProvider);
+    if (marketplaceVideos.isEmpty) return;
 
-    debugPrint('Starting intelligent preloading for index: $_currentMarketplaceItemIndex');
+    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
     
-    // Filter to get only actual marketplaceItems (no image posts)
-    final videoOnlyList = marketplaceItems
+    // Filter to get only actual marketplaceVideos (no image posts)
+    final videoOnlyList = marketplaceVideos
         .where((v) => !v.isMultipleImages && v.itemUrl.isNotEmpty)
         .toList();
     
     if (videoOnlyList.isEmpty) return;
     
-    // Find current marketplaceItem in the filtered list
-    final currentVideo = marketplaceItems[_currentMarketplaceItemIndex];
+    // Find current marketplaceVideo in the filtered list
+    final currentVideo = marketplaceVideos[_currentVideoIndex];
     
-    // If current item is an image post, find nearest marketplaceItem
+    // If current item is an image post, find nearest marketplaceVideo
     if (currentVideo.isMultipleImages) {
       debugPrint('Current item is image post, skipping preload');
       return;
@@ -278,12 +278,12 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     
     final itemUrls = videoOnlyList.map((v) => v.itemUrl).toList();
     
-    MarketplaceItemCacheService().intelligentPreload(
+    MarketplaceCacheService().intelligentPreload(
       itemUrls: itemUrls,
       currentIndex: currentIndexInVideoList,
-      preloadNext: 5,           // Preload next 5 marketplaceItems
-      preloadPrevious: 2,       // Preload previous 2 marketplaceItems
-      cacheSegmentsPerVideo: 3, // 6MB per marketplaceItem (increased from 2)
+      preloadNext: 5,           // Preload next 5 marketplaceVideos
+      preloadPrevious: 2,       // Preload previous 2 marketplaceVideos
+      cacheSegmentsPerVideo: 3, // 6MB per marketplaceVideo (increased from 2)
     );
   }
 
@@ -304,8 +304,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       debugPrint('MarketplaceFeedScreen: Video controller playing');
     } else {
       debugPrint('MarketplaceFeedScreen: Video controller not ready, attempting initialization');
-      final marketplaceItems = ref.read(marketplaceItemsProvider);
-      if (marketplaceItems.isNotEmpty && _currentMarketplaceItemIndex < marketplaceItems.length) {
+      final marketplaceVideos = ref.read(marketplaceVideosProvider);
+      if (marketplaceVideos.isNotEmpty && _currentVideoIndex < marketplaceVideos.length) {
         setState(() {});
       }
     }
@@ -363,23 +363,23 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   }
 
   void _jumpToVideo(String videoId) {
-    final marketplaceItems = ref.read(marketplaceItemsProvider);
-    final videoIndex = marketplaceItems.indexWhere((marketplaceItem) => marketplaceItem.id == videoId);
+    final marketplaceVideos = ref.read(marketplaceVideosProvider);
+    final videoIndex = marketplaceVideos.indexWhere((marketplaceVideo) => marketplaceVideo.id == videoId);
 
     if (videoIndex != -1) {
-      debugPrint('MarketplaceFeedScreen: Jumping to marketplaceItem at index $videoIndex');
+      debugPrint('MarketplaceFeedScreen: Jumping to marketplaceVideo at index $videoIndex');
 
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && _pageController.hasClients) {
           _pageController.jumpToPage(videoIndex);
 
           setState(() {
-            _currentMarketplaceItemIndex = videoIndex;
+            _currentVideoIndex = videoIndex;
           });
 
           _startIntelligentPreloading();
 
-          debugPrint('MarketplaceFeedScreen: Successfully jumped to marketplaceItem $videoId at index $videoIndex');
+          debugPrint('MarketplaceFeedScreen: Successfully jumped to marketplaceVideo $videoId at index $videoIndex');
         }
       });
     } else {
@@ -402,16 +402,16 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       _currentVideoController = controller;
     });
 
-    // Add listener to track marketplaceItem progress
+    // Add listener to track marketplaceVideo progress
     controller.addListener(() {
       if (mounted && controller.value.isInitialized) {
         final position = controller.value.position.inMilliseconds;
         final duration = controller.value.duration.inMilliseconds;
         if (duration > 0) {
           final progress = position / duration;
-          ref.read(marketplaceItemProgressProvider.notifier).state = progress.clamp(0.0, 1.0);
+          ref.read(marketplaceProgressProvider.notifier).state = progress.clamp(0.0, 1.0);
         }
-        ref.read(isMarketplaceItemPlayingProvider.notifier).state = controller.value.isPlaying;
+        ref.read(isMarketplacePlayingProvider.notifier).state = controller.value.isPlaying;
       }
     });
 
@@ -438,7 +438,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       return;
     }
 
-    debugPrint('MarketplaceFeedScreen: Starting fresh marketplaceItem from beginning');
+    debugPrint('MarketplaceFeedScreen: Starting fresh marketplaceVideo from beginning');
 
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.seekTo(Duration.zero);
@@ -456,13 +456,13 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   }
 
   void _onPageChanged(int index) {
-    final marketplaceItems = ref.read(marketplaceItemsProvider);
-    if (index >= marketplaceItems.length || !_isScreenActive) return;
+    final marketplaceVideos = ref.read(marketplaceVideosProvider);
+    if (index >= marketplaceVideos.length || !_isScreenActive) return;
 
     debugPrint('Page changed to: $index');
 
     setState(() {
-      _currentMarketplaceItemIndex = index;
+      _currentVideoIndex = index;
       _isManuallyPaused = false;
     });
 
@@ -476,7 +476,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     }
 
     final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-    marketplaceNotifier.incrementMarketplaceItemViewCount(marketplaceItems[index].id);
+    marketplaceNotifier.incrementMarketplaceVideoViewCount(marketplaceVideos[index].id);
   }
 
   Widget _buildSmallVideoWindow() {
@@ -535,13 +535,13 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   }
 
   Widget _buildVideoContentOnly() {
-    final marketplaceItems = ref.read(marketplaceItemsProvider);
+    final marketplaceVideos = ref.read(marketplaceVideosProvider);
 
-    if (marketplaceItems.isEmpty || _currentMarketplaceItemIndex >= marketplaceItems.length) {
+    if (marketplaceVideos.isEmpty || _currentVideoIndex >= marketplaceVideos.length) {
       return Container(color: Colors.black);
     }
 
-    final currentVideo = marketplaceItems[_currentMarketplaceItemIndex];
+    final currentVideo = marketplaceVideos[_currentVideoIndex];
 
     if (currentVideo.isMultipleImages) {
       return _buildImageCarouselOnly(currentVideo.imageUrls);
@@ -603,8 +603,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     );
   }
 
-  // Show comments with small marketplaceItem window
-  void _showCommentsForCurrentVideo(MarketplaceItemModel marketplaceItem) {
+  // Show comments with small marketplaceVideo window
+  void _showCommentsForCurrentVideo(MarketplaceVideoModel marketplaceVideo) {
     _setVideoWindowMode(true);
 
     showModalBottomSheet(
@@ -613,7 +613,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
       builder: (context) => MarketplaceCommentsBottomSheet(
-        marketplaceItem: marketplaceItem,
+        marketplaceVideo: marketplaceVideo,
         onClose: () {
           _setVideoWindowMode(false);
         },
@@ -625,13 +625,13 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
   // Show search overlay method
   void _showSearchOverlay() {
-    // Pause marketplaceItem before showing search
+    // Pause marketplaceVideo before showing search
     _pauseForNavigation();
     
     SearchOverlayController.show(
       context,
       onVideoTap: (videoId) {
-        // Jump to the selected marketplaceItem in the feed
+        // Jump to the selected marketplaceVideo in the feed
         _jumpToVideo(videoId);
         // Resume playback after search
         _resumeFromNavigation();
@@ -663,11 +663,11 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final marketplaceItems = ref.watch(marketplaceItemsProvider);
+    final marketplaceVideos = ref.watch(marketplaceVideosProvider);
     final isAppInitializing = ref.watch(isAppInitializingProvider);
 
     // Show loading only while app is initializing
-    if (isAppInitializing || (_isFirstLoad && marketplaceItems.isEmpty)) {
+    if (isAppInitializing || (_isFirstLoad && marketplaceVideos.isEmpty)) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -702,12 +702,12 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Full screen marketplaceItem - NO padding, NO ClipRRect
+          // Full screen marketplaceVideo - NO padding, NO ClipRRect
           Positioned.fill(
-            child: _buildBody(marketplaceItems),
+            child: _buildBody(marketplaceVideos),
           ),
 
-          // Small marketplaceItem window when comments are open
+          // Small marketplaceVideo window when comments are open
           if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
 
           // Header with search button (hidden when comments open)
@@ -726,21 +726,21 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     );
   }
 
-  Widget _buildBody(List<MarketplaceItemModel> marketplaceItems) {
+  Widget _buildBody(List<MarketplaceVideoModel> marketplaceVideos) {
     return PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
-      itemCount: marketplaceItems.length,
+      itemCount: marketplaceVideos.length,
       onPageChanged: _onPageChanged,
       physics: _isScreenActive && !_isCommentsSheetOpen
           ? null
           : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
-        final marketplaceItem = marketplaceItems[index];
+        final marketplaceVideo = marketplaceVideos[index];
 
-        return MarketplaceItemWidget(
-          marketplaceItem: marketplaceItem,
-          isActive: index == _currentMarketplaceItemIndex &&
+        return MarketplaceItem(
+          marketplaceVideo: marketplaceVideo,
+          isActive: index == _currentVideoIndex &&
               _isScreenActive &&
               _isAppInForeground &&
               !_isNavigatingAway,
@@ -748,8 +748,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
           isFeedScreen: true,
-          // Pass callback to show comments with small marketplaceItem window
-          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceItem),
+          // Pass callback to show comments with small marketplaceVideo window
+          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceVideo),
         );
       },
     );

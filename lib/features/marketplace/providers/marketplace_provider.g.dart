@@ -6,12 +6,12 @@ part of 'marketplace_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$marketplaceHash() => r'43a089488f74253ac8a04dcf035492c94127e8ab';
+String _$marketplaceHash() => r'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0';
 
 /// See also [Marketplace].
 @ProviderFor(Marketplace)
-final marketplaceProvider = AutoDisposeAsyncNotifierProvider<Marketplace,
-    MarketplaceState>.internal(
+final marketplaceProvider =
+    AutoDisposeAsyncNotifierProvider<Marketplace, MarketplaceState>.internal(
   Marketplace.new,
   name: r'marketplaceProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')

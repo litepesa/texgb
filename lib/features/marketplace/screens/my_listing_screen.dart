@@ -8,7 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -20,11 +20,11 @@ import 'package:textgb/features/marketplace/widgets/marketplace_analytics_tab_wi
 import 'package:intl/intl.dart';
 
 class MyListingScreen extends ConsumerStatefulWidget {
-  final String itemId;
+  final String videoId;
   
   const MyListingScreen({
     super.key,
-    required this.itemId,
+    required this.videoId,
   });
 
   @override
@@ -33,7 +33,7 @@ class MyListingScreen extends ConsumerStatefulWidget {
 
 class _MyListingScreenState extends ConsumerState<MyListingScreen>
     with TickerProviderStateMixin {
-  MarketplaceItemModel? _marketplaceItem;
+  MarketplaceVideoModel? _marketplaceItem;
   bool _isLoading = true;
   String? _error;
   String? _videoThumbnail;
@@ -88,21 +88,21 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     });
 
     try {
-      // Load the specific marketplaceItem from the authentication provider
-      final marketplaceItems = ref.read(marketplaceItemsProvider);
-      final marketplaceItem = marketplaceItems.firstWhere(
-        (v) => v.id == widget.itemId,
+      // Load the specific marketplaceVideo from the authentication provider
+      final marketplaceVideos = ref.read(marketplaceVideosProvider);
+      final marketplaceVideo = marketplaceVideos.firstWhere(
+        (v) => v.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
       
       if (mounted) {
         setState(() {
-          _marketplaceItem = marketplaceItem;
+          _marketplaceItem = marketplaceVideo;
           _isLoading = false;
         });
 
         // Generate thumbnail if it's a video
-        if (!marketplaceItem.isMultipleImages && marketplaceItem.itemUrl.isNotEmpty) {
+        if (!marketplaceVideo.isMultipleImages && marketplaceVideo.itemUrl.isNotEmpty) {
           _generateVideoThumbnail();
         }
       }
@@ -320,13 +320,13 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     );
 
     // Call boost function
-    await ref.read(marketplaceProvider.notifier).boostMarketplaceItem(
-      itemId: _marketplaceItem!.id,
+    await ref.read(marketplaceProvider.notifier).boostMarketplaceVideo(
+      videoId: _marketplaceItem!.id,
       boostTier: boostTier,
       onSuccess: (message) {
         Navigator.of(context).pop(); // Close loading dialog
         
-        // Reload marketplaceItem data
+        // Reload marketplaceVideo data
         _loadVideoData();
         
         // Show success message
@@ -475,7 +475,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
               Navigator.of(context).pop();
 
               try {
-                await ref.read(marketplaceProvider.notifier).deleteMarketplaceItem(
+                await ref.read(marketplaceProvider.notifier).deleteMarketplaceVideo(
                   _marketplaceItem!.id,
                   (error) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -809,10 +809,10 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                 ),
               ),
               // Analytics Tab
-              AnalyticsTabWidget(marketplaceItem: _marketplaceItem!),
+              AnalyticsTabWidget(marketplaceVideo: _marketplaceItem!),
               // Edit Tab
               EditTabWidget(
-                marketplaceItem: _marketplaceItem,
+                marketplaceVideo: _marketplaceItem,
                 onAddBannerText: _addBannerText,
                 onEditPost: _editPost,
               ),
@@ -823,7 +823,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     );
   }
 
-  Widget _buildPostPreviewCard(MarketplaceItemModel marketplaceItem, ModernThemeExtension modernTheme) {
+  Widget _buildPostPreviewCard(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -845,11 +845,11 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
             fit: StackFit.expand,
             children: [
               // Media Content - Full coverage
-              if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.isNotEmpty)
+              if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty)
                 PageView.builder(
-                  itemCount: marketplaceItem.imageUrls.length,
+                  itemCount: marketplaceVideo.imageUrls.length,
                   itemBuilder: (context, index) => CachedNetworkImage(
-                    imageUrl: marketplaceItem.imageUrls[index],
+                    imageUrl: marketplaceVideo.imageUrls[index],
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: modernTheme.surfaceColor,
@@ -872,19 +872,19 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                     ),
                   ),
                 )
-              else if (!marketplaceItem.isMultipleImages && _videoController != null && _videoController!.value.isInitialized)
+              else if (!marketplaceVideo.isMultipleImages && _videoController != null && _videoController!.value.isInitialized)
                 AspectRatio(
                   aspectRatio: _videoController!.value.aspectRatio,
                   child: VideoPlayer(_videoController!),
                 )
-              else if (!marketplaceItem.isMultipleImages && _videoThumbnail != null)
+              else if (!marketplaceVideo.isMultipleImages && _videoThumbnail != null)
                 Image.file(
                   File(_videoThumbnail!),
                   fit: BoxFit.cover,
                 )
-              else if (!marketplaceItem.isMultipleImages && marketplaceItem.thumbnailUrl.isNotEmpty)
+              else if (!marketplaceVideo.isMultipleImages && marketplaceVideo.thumbnailUrl.isNotEmpty)
                 CachedNetworkImage(
-                  imageUrl: marketplaceItem.thumbnailUrl,
+                  imageUrl: marketplaceVideo.thumbnailUrl,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     color: modernTheme.surfaceColor,
@@ -910,7 +910,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                 Container(
                   color: modernTheme.primaryColor!.withOpacity(0.1),
                   child: Icon(
-                    marketplaceItem.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    marketplaceVideo.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
                     color: modernTheme.primaryColor,
                     size: 64,
                   ),
@@ -935,7 +935,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
               ),
               
               // Play/Pause button for videos
-              if (!marketplaceItem.isMultipleImages)
+              if (!marketplaceVideo.isMultipleImages)
                 Center(
                   child: GestureDetector(
                     onTap: _toggleVideoPlayback,
@@ -976,13 +976,13 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                             backgroundColor: Colors.white,
                             child: CircleAvatar(
                               radius: 15,
-                              backgroundImage: marketplaceItem.userImage.isNotEmpty
-                                  ? CachedNetworkImageProvider(marketplaceItem.userImage)
+                              backgroundImage: marketplaceVideo.userImage.isNotEmpty
+                                  ? CachedNetworkImageProvider(marketplaceVideo.userImage)
                                   : null,
-                              child: marketplaceItem.userImage.isEmpty
+                              child: marketplaceVideo.userImage.isEmpty
                                   ? Text(
-                                      marketplaceItem.userName.isNotEmpty
-                                          ? marketplaceItem.userName[0].toUpperCase()
+                                      marketplaceVideo.userName.isNotEmpty
+                                          ? marketplaceVideo.userName[0].toUpperCase()
                                           : 'U',
                                       style: TextStyle(
                                         color: Colors.white,
@@ -998,7 +998,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  marketplaceItem.userName,
+                                  marketplaceVideo.userName,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -1013,7 +1013,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                                   ),
                                 ),
                                 Text(
-                                  _formatTimeAgo(marketplaceItem.createdAt), // UPDATED: Pass string directly
+                                  _formatTimeAgo(marketplaceVideo.createdAt), // UPDATED: Pass string directly
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -1036,7 +1036,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                       
                       // Caption
                       Text(
-                        marketplaceItem.caption,
+                        marketplaceVideo.caption,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -1056,11 +1056,11 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                       const SizedBox(height: 12),
                       
                       // Tags
-                      if (marketplaceItem.tags.isNotEmpty)
+                      if (marketplaceVideo.tags.isNotEmpty)
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: marketplaceItem.tags.take(3).map((tag) {
+                          children: marketplaceVideo.tags.take(3).map((tag) {
                             return Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -1092,28 +1092,28 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                         children: [
                           _buildStatChip(
                             Icons.favorite,
-                            _formatViewCount(marketplaceItem.likes),
+                            _formatViewCount(marketplaceVideo.likes),
                             modernTheme,
                             isOverlay: true,
                           ),
                           const SizedBox(width: 12),
                           _buildStatChip(
                             Icons.comment,
-                            _formatViewCount(marketplaceItem.comments),
+                            _formatViewCount(marketplaceVideo.comments),
                             modernTheme,
                             isOverlay: true,
                           ),
                           const SizedBox(width: 12),
                           _buildStatChip(
                             Icons.visibility,
-                            _formatViewCount(marketplaceItem.views),
+                            _formatViewCount(marketplaceVideo.views),
                             modernTheme,
                             isOverlay: true,
                           ),
                           const SizedBox(width: 12),
                           _buildStatChip(
                             Icons.share,
-                            _formatViewCount(marketplaceItem.shares),
+                            _formatViewCount(marketplaceVideo.shares),
                             modernTheme,
                             isOverlay: true,
                           ),
@@ -1125,7 +1125,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
               ),
               
               // Page indicator for multiple images
-              if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.length > 1)
+              if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.length > 1)
                 Positioned(
                   top: 16,
                   right: 16,
@@ -1136,7 +1136,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${marketplaceItem.imageUrls.length} photos',
+                      '${marketplaceVideo.imageUrls.length} photos',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,

@@ -314,28 +314,28 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        itemCount: state.marketplaceItems.length + (state.isLoading && state.hasResults ? 1 : 0),
+        itemCount: state.marketplaceVideos.length + (state.isLoading && state.hasResults ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == state.marketplaceItems.length) {
+          if (index == state.marketplaceVideos.length) {
             return const Center(
               child: CircularProgressIndicator(color: Colors.black87, strokeWidth: 2),
             );
           }
 
-          final marketplaceItem = state.marketplaceItems[index];
-          return _buildVideoCard(marketplaceItem);
+          final marketplaceVideo = state.marketplaceVideos[index];
+          return _buildVideoCard(marketplaceVideo);
         },
       ),
     );
   }
 
-  Widget _buildVideoCard(marketplaceItem) {
+  Widget _buildVideoCard(marketplaceVideo) {
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         _close();
         Future.delayed(const Duration(milliseconds: 300), () {
-          widget.onVideoTap?.call(marketplaceItem.id);
+          widget.onVideoTap?.call(marketplaceVideo.id);
         });
       },
       child: Container(
@@ -349,9 +349,9 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
             // Thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: marketplaceItem.thumbnailUrl.isNotEmpty
+              child: marketplaceVideo.thumbnailUrl.isNotEmpty
                   ? CachedNetworkImage(
-                      imageUrl: marketplaceItem.thumbnailUrl,
+                      imageUrl: marketplaceVideo.thumbnailUrl,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: Colors.grey[300],
@@ -399,7 +399,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                 children: [
                   // Username
                   Text(
-                    marketplaceItem.userName,
+                    marketplaceVideo.userName,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -415,7 +415,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                       const Icon(CupertinoIcons.eye, color: Colors.white, size: 10),
                       const SizedBox(width: 3),
                       Text(
-                        _formatCount(marketplaceItem.views),
+                        _formatCount(marketplaceVideo.views),
                         style: const TextStyle(color: Colors.white, fontSize: 10),
                       ),
                     ],

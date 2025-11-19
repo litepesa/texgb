@@ -7,7 +7,7 @@ import 'package:textgb/features/marketplace/providers/marketplace_provider.dart'
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -29,7 +29,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   );
   
   // Cache for featured marketplace items to avoid reloading
-  List<MarketplaceItemModel> _featuredMarketplaceItems = [];
+  List<MarketplaceVideoModel> _featuredMarketplaceItems = [];
   bool _isLoadingFeatured = false;
   String? _error;
   int _currentIndex = 0;
@@ -57,7 +57,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   }
 
   /// Load featured marketplace items efficiently
-  /// This method selects marketplaceItems marked as featured from the available marketplaceItems
+  /// This method selects marketplaceVideos marked as featured from the available marketplaceVideos
   Future<void> _loadFeaturedMarketplaceItems({bool forceRefresh = false}) async {
     if (_isLoadingFeatured && !forceRefresh) return;
 
@@ -73,7 +73,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
       // Force refresh data if needed
       if (forceRefresh) {
-        await marketplaceNotifier.loadMarketplaceItems();
+        await marketplaceNotifier.loadMarketplaceVideos();
         await authNotifier.loadUsers();
       }
 
@@ -85,8 +85,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
         throw Exception('Authentication state not available');
       }
 
-      // Step 1: Get all marketplaceItems
-      final allVideos = currentAuthState.marketplaceItems;
+      // Step 1: Get all marketplaceVideos
+      final allVideos = currentAuthState.marketplaceVideos;
       
       if (allVideos.isEmpty) {
         setState(() {
@@ -96,9 +96,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
         return;
       }
 
-      // Step 2: Filter marketplaceItems that are marked as featured
+      // Step 2: Filter marketplaceVideos that are marked as featured
       final featuredMarketplaceItems = allVideos
-          .where((marketplaceItem) => marketplaceItem.isFeatured && marketplaceItem.isActive)
+          .where((marketplaceVideo) => marketplaceVideo.isFeatured && marketplaceVideo.isActive)
           .toList();
 
       // Step 3: Sort featured marketplace items by creation time (most recent first)
@@ -127,8 +127,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     
     final theme = context.modernTheme;
     
-    // Watch for marketplaceItem data changes and refresh automatically
-    ref.listen(marketplaceItemsProvider, (previous, next) {
+    // Watch for marketplaceVideo data changes and refresh automatically
+    ref.listen(marketplaceVideosProvider, (previous, next) {
       if (mounted && previous != next) {
         Future.microtask(() => _loadFeaturedMarketplaceItems());
       }
@@ -252,7 +252,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     );
   }
 
-  Widget _buildMarketplaceItemThumbnail(MarketplaceItemModel marketplaceItem, int index) {
+  Widget _buildMarketplaceItemThumbnail(MarketplaceVideoModel marketplaceVideo, int index) {
     final theme = context.modernTheme;
     
     // Calculate scale based on current page position
@@ -264,7 +264,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     return Transform.scale(
       scale: scale,
       child: GestureDetector(
-        onTap: () => _navigateToVideoFeed(marketplaceItem),
+        onTap: () => _navigateToVideoFeed(marketplaceVideo),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 8.0),
           decoration: BoxDecoration(
@@ -316,7 +316,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                         SizedBox(
                           width: double.infinity,
                           height: double.infinity,
-                          child: _buildThumbnailContent(marketplaceItem),
+                          child: _buildThumbnailContent(marketplaceVideo),
                         ),
                         
                         // Featured badge at top-right
@@ -380,7 +380,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  marketplaceItem.caption.isNotEmpty ? marketplaceItem.caption : 'No caption',
+                                  marketplaceVideo.caption.isNotEmpty ? marketplaceVideo.caption : 'No caption',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -401,7 +401,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        '${_formatCount(marketplaceItem.views)} views',
+                                        '${_formatCount(marketplaceVideo.views)} views',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 12,
@@ -417,7 +417,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        '${_formatCount(marketplaceItem.likes)} likes',
+                                        '${_formatCount(marketplaceVideo.likes)} likes',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 12,
@@ -465,9 +465,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(24),
-                            child: marketplaceItem.userImage.isNotEmpty
+                            child: marketplaceVideo.userImage.isNotEmpty
                                 ? Image.network(
-                                    marketplaceItem.userImage,
+                                    marketplaceVideo.userImage,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
@@ -477,8 +477,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                         ),
                                         child: Center(
                                           child: Text(
-                                            marketplaceItem.userName.isNotEmpty 
-                                                ? marketplaceItem.userName[0].toUpperCase()
+                                            marketplaceVideo.userName.isNotEmpty 
+                                                ? marketplaceVideo.userName[0].toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -497,8 +497,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                     ),
                                     child: Center(
                                       child: Text(
-                                        marketplaceItem.userName.isNotEmpty 
-                                            ? marketplaceItem.userName[0].toUpperCase()
+                                        marketplaceVideo.userName.isNotEmpty 
+                                            ? marketplaceVideo.userName[0].toUpperCase()
                                             : "U",
                                         style: TextStyle(
                                           color: theme.primaryColor,
@@ -521,7 +521,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            marketplaceItem.userName,
+                            marketplaceVideo.userName,
                             style: TextStyle(
                               color: theme.textColor,
                               fontSize: 16,
@@ -551,7 +551,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '${_formatCount(_getUserFollowers(marketplaceItem.userId))} followers',
+                                  '${_formatCount(_getUserFollowers(marketplaceVideo.userId))} followers',
                                   style: TextStyle(
                                     color: theme.textSecondaryColor,
                                     fontSize: 12,
@@ -589,10 +589,10 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     }
   }
 
-  Widget _buildThumbnailContent(MarketplaceItemModel marketplaceItem) {
-    if (marketplaceItem.isMultipleImages && marketplaceItem.imageUrls.isNotEmpty) {
+  Widget _buildThumbnailContent(MarketplaceVideoModel marketplaceVideo) {
+    if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty) {
       return Image.network(
-        marketplaceItem.imageUrls.first,
+        marketplaceVideo.imageUrls.first,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -604,9 +604,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
           return _buildErrorThumbnail();
         },
       );
-    } else if (marketplaceItem.itemUrl.isNotEmpty) {
+    } else if (marketplaceVideo.itemUrl.isNotEmpty) {
       return FutureBuilder<Uint8List?>(
-        future: _generateMarketplaceItemThumbnail(marketplaceItem.itemUrl),
+        future: _generateMarketplaceItemThumbnail(marketplaceVideo.itemUrl),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildLoadingThumbnail();
@@ -621,9 +621,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
             );
           }
           
-          if (marketplaceItem.thumbnailUrl.isNotEmpty) {
+          if (marketplaceVideo.thumbnailUrl.isNotEmpty) {
             return Image.network(
-              marketplaceItem.thumbnailUrl,
+              marketplaceVideo.thumbnailUrl,
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
@@ -644,7 +644,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   Future<Uint8List?> _generateMarketplaceItemThumbnail(String itemUrl) async {
     try {
       final thumbnail = await MarketplaceItemThumbnail.thumbnailData(
-        marketplaceItem: itemUrl,
+        marketplaceVideo: itemUrl,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 300,
         quality: 75,
@@ -948,13 +948,13 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     );
   }
 
-  void _navigateToVideoFeed(MarketplaceItemModel marketplaceItem) {
+  void _navigateToVideoFeed(MarketplaceVideoModel marketplaceVideo) {
     Navigator.pushNamed(
       context,
       Constants.marketplaceFeedScreen,
       arguments: {
-        Constants.startVideoId: marketplaceItem.id,
-        Constants.userId: marketplaceItem.userId, 
+        Constants.startVideoId: marketplaceVideo.id,
+        Constants.userId: marketplaceVideo.userId, 
       },
     );
   }

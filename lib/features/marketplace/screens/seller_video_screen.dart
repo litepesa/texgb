@@ -8,7 +8,7 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_item.dart';
 import 'package:textgb/constants.dart';
@@ -19,11 +19,11 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class SellerVideoScreen extends ConsumerStatefulWidget {
-  final String itemId;
+  final String videoId;
 
   const SellerVideoScreen({
     super.key,
-    required this.itemId,
+    required this.videoId,
     String? userId,
   });
 
@@ -49,7 +49,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
 
   // Video data
   UserModel? _marketplaceItemAuthor;
-  List<MarketplaceItemModel> _marketplaceItems = [];
+  List<MarketplaceVideoModel> _marketplaceItems = [];
   bool _isLoading = true;
   String? _error;
   bool _isFollowing = false;
@@ -147,10 +147,10 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
     });
 
     try {
-      // Get the specific marketplaceItem first to find the user
-      final allVideos = ref.read(marketplaceItemsProvider);
+      // Get the specific marketplaceVideo first to find the user
+      final allVideos = ref.read(marketplaceVideosProvider);
       final targetVideo = allVideos.firstWhere(
-        (marketplaceItem) => marketplaceItem.id == widget.itemId,
+        (marketplaceVideo) => marketplaceVideo.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
 
@@ -161,9 +161,9 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
         orElse: () => throw Exception('User not found'),
       );
 
-      // Load all user marketplaceItems
+      // Load all user marketplaceVideos
       final userVideos = allVideos
-          .where((marketplaceItem) => marketplaceItem.userId == targetVideo.userId)
+          .where((marketplaceVideo) => marketplaceVideo.userId == targetVideo.userId)
           .toList();
 
       // Sort by newest first
@@ -177,9 +177,9 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
         }
       });
 
-      // Find the index of the target marketplaceItem
+      // Find the index of the target marketplaceVideo
       final targetIndex =
-          userVideos.indexWhere((marketplaceItem) => marketplaceItem.id == widget.itemId);
+          userVideos.indexWhere((marketplaceVideo) => marketplaceVideo.id == widget.videoId);
 
       final followedUsers = ref.read(followedUsersProvider);
       final isFollowing = followedUsers.contains(targetVideo.userId);
@@ -196,7 +196,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
           _currentMarketplaceItemIndex = targetIndex >= 0 ? targetIndex : 0;
         });
 
-        // Set the page controller to the target marketplaceItem after the widget is built
+        // Set the page controller to the target marketplaceVideo after the widget is built
         if (targetIndex >= 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _pageController.hasClients) {
@@ -480,7 +480,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
       WakelockPlus.enable();
     }
 
-    ref.read(marketplaceProvider.notifier).incrementMarketplaceItemViewCount(_marketplaceItems[index].id);
+    ref.read(marketplaceProvider.notifier).incrementMarketplaceVideoViewCount(_marketplaceItems[index].id);
   }
 
   void _handleBackNavigation() {
@@ -514,8 +514,8 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
     });
   }
 
-  // Show comments with small marketplaceItem window
-  void _showCommentsForCurrentVideo(MarketplaceItemModel marketplaceItem) {
+  // Show comments with small marketplaceVideo window
+  void _showCommentsForCurrentVideo(MarketplaceVideoModel marketplaceVideo) {
     _setVideoWindowMode(true);
 
     showModalBottomSheet(
@@ -524,7 +524,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
       builder: (context) => MarketplaceCommentsBottomSheet(
-        marketplaceItem: marketplaceItem,
+        marketplaceVideo: marketplaceVideo,
         onClose: () {
           _setVideoWindowMode(false);
         },
@@ -535,7 +535,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   }
 
   // Direct message functionality
-  Future<void> _openDirectMessage(MarketplaceItemModel marketplaceItem) async {
+  Future<void> _openDirectMessage(MarketplaceVideoModel marketplaceVideo) async {
     _pauseForNavigation();
 
     try {
@@ -548,7 +548,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
       );
 
       final chatNotifier = ref.read(chatListProvider.notifier);
-      final chatId = await chatNotifier.createOrGetChat(marketplaceItem.userId);
+      final chatId = await chatNotifier.createOrGetChat(marketplaceVideo.userId);
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -648,12 +648,12 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
         extendBody: true,
         body: Stack(
           children: [
-            // Main marketplaceItem content - full screen
+            // Main marketplaceVideo content - full screen
             Positioned.fill(
               child: _buildVideoFeed(),
             ),
 
-            // Small marketplaceItem window when comments are open
+            // Small marketplaceVideo window when comments are open
             if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
           ],
         ),
@@ -675,10 +675,10 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
           ? null
           : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
-        final marketplaceItem = _marketplaceItems[index];
+        final marketplaceVideo = _marketplaceItems[index];
 
         return MarketplaceItemWidget(
-          marketplaceItem: marketplaceItem,
+          marketplaceVideo: marketplaceVideo,
           isActive: index == _currentMarketplaceItemIndex &&
               _isScreenActive &&
               _isAppInForeground &&
@@ -687,8 +687,8 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
           showVerificationBadge: true,
-          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceItem),
-          onDirectMessagePressed: () => _openDirectMessage(marketplaceItem),
+          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceVideo),
+          onDirectMessagePressed: () => _openDirectMessage(marketplaceVideo),
         );
       },
     );
@@ -708,8 +708,8 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
           const SizedBox(height: 8),
           Text(
             _isOwner
-                ? 'Create your first marketplaceItem to share with your followers'
-                : 'This user hasn\'t posted any marketplaceItems yet',
+                ? 'Create your first marketplaceVideo to share with your followers'
+                : 'This user hasn\'t posted any marketplaceVideos yet',
             style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 16),
             textAlign: TextAlign.center,
           ),

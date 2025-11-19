@@ -1,14 +1,14 @@
 // lib/features/marketplace/widgets/marketplace_analytics_tab_widget.dart
 import 'package:flutter/material.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MarketplaceAnalyticsTabWidget extends StatelessWidget {
-  final MarketplaceItemModel marketplaceItem;
+  final MarketplaceVideoModel marketplaceVideo;
 
   const MarketplaceAnalyticsTabWidget({
     super.key,
-    required this.marketplaceItem,
+    required this.marketplaceVideo,
   });
 
   String _formatViewCount(int views) {
@@ -23,8 +23,8 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    final engagementRate = marketplaceItem.views > 0
-        ? ((marketplaceItem.likes + marketplaceItem.comments + marketplaceItem.shares) / marketplaceItem.views * 100)
+    final engagementRate = marketplaceVideo.views > 0
+        ? ((marketplaceVideo.likes + marketplaceVideo.comments + marketplaceVideo.shares) / marketplaceVideo.views * 100)
         : 0.0;
 
     return SingleChildScrollView(
@@ -54,25 +54,25 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
             children: [
               _buildAnalyticsCard(
                 'Total Views',
-                _formatViewCount(marketplaceItem.views),
+                _formatViewCount(marketplaceVideo.views),
                 Icons.visibility,
-                marketplaceItem.isFeatured ? '⭐ Featured' : '↗ Growing',
+                marketplaceVideo.isFeatured ? '⭐ Featured' : '↗ Growing',
                 Colors.green,
                 modernTheme,
               ),
               _buildAnalyticsCard(
                 'Likes',
-                _formatViewCount(marketplaceItem.likes),
+                _formatViewCount(marketplaceVideo.likes),
                 Icons.favorite,
-                '${(marketplaceItem.likes / (marketplaceItem.views > 0 ? marketplaceItem.views : 1) * 100).toStringAsFixed(1)}% rate',
+                '${(marketplaceVideo.likes / (marketplaceVideo.views > 0 ? marketplaceVideo.views : 1) * 100).toStringAsFixed(1)}% rate',
                 Colors.red,
                 modernTheme,
               ),
               _buildAnalyticsCard(
                 'Comments',
-                _formatViewCount(marketplaceItem.comments),
+                _formatViewCount(marketplaceVideo.comments),
                 Icons.comment,
-                '${(marketplaceItem.comments / (marketplaceItem.views > 0 ? marketplaceItem.views : 1) * 100).toStringAsFixed(1)}% rate',
+                '${(marketplaceVideo.comments / (marketplaceVideo.views > 0 ? marketplaceVideo.views : 1) * 100).toStringAsFixed(1)}% rate',
                 Colors.blue,
                 modernTheme,
               ),
@@ -96,7 +96,7 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
               color: modernTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: marketplaceItem.isActive
+                color: marketplaceVideo.isActive
                     ? Colors.green.withOpacity(0.3)
                     : Colors.orange.withOpacity(0.3),
               ),
@@ -104,8 +104,8 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  marketplaceItem.isActive ? Icons.check_circle : Icons.pause_circle,
-                  color: marketplaceItem.isActive ? Colors.green : Colors.orange,
+                  marketplaceVideo.isActive ? Icons.check_circle : Icons.pause_circle,
+                  color: marketplaceVideo.isActive ? Colors.green : Colors.orange,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -120,7 +120,7 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        marketplaceItem.isActive ? 'Active' : 'Paused',
+                        marketplaceVideo.isActive ? 'Active' : 'Paused',
                         style: TextStyle(
                           color: modernTheme.textColor,
                           fontSize: 16,
@@ -130,7 +130,7 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (marketplaceItem.isFeatured)
+                if (marketplaceVideo.isFeatured)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,

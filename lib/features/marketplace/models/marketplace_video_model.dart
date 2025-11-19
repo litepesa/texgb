@@ -1,12 +1,12 @@
 // ===============================
-// lib/features/marketplace/models/marketplace_item_model.dart
-// Complete Marketplace Item Model for PostgreSQL Backend (100% Compatible)
+// lib/features/marketplace/models/marketplace_video_model.dart
+// Complete Marketplace Video Model for PostgreSQL Backend (100% Compatible)
 // Enhanced with Verified Field + BOOST FIELDS
 // ===============================
 
 import 'dart:convert';
 
-class MarketplaceItemModel {
+class MarketplaceVideoModel {
   final String id;
   final String userId;
   final String userName;
@@ -14,14 +14,14 @@ class MarketplaceItemModel {
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
-  final double price; // Price field for business posts 
-  
+  final double price; // Price field for business posts
+
   // 🔧 CRITICAL FIX: Use correct field names that match backend database
   final int views;        // Backend: views_count -> Frontend: views
-  final int likes;        // Backend: likes_count -> Frontend: likes  
+  final int likes;        // Backend: likes_count -> Frontend: likes
   final int comments;     // Backend: comments_count -> Frontend: comments
   final int shares;       // Backend: shares_count -> Frontend: shares
-  
+
   final List<String> tags;
   final bool isActive;
   final bool isFeatured;
@@ -40,7 +40,7 @@ class MarketplaceItemModel {
   final bool isLiked;
   final bool isFollowing;
 
-  const MarketplaceItemModel({
+  const MarketplaceVideoModel({
     required this.id,
     required this.userId,
     required this.userName,
@@ -69,9 +69,9 @@ class MarketplaceItemModel {
   });
 
   // 🔧 CRITICAL FIX: fromJson method with PostgreSQL-compatible field mapping + BOOST FIELDS
-  factory MarketplaceItemModel.fromJson(Map<String, dynamic> json) {
+  factory MarketplaceVideoModel.fromJson(Map<String, dynamic> json) {
     try {
-      return MarketplaceItemModel(
+      return MarketplaceVideoModel(
         id: _parseString(json['id']),
         userId: _parseString(json['userId'] ?? json['user_id']),
         userName: _parseString(json['userName'] ?? json['user_name']),
@@ -80,37 +80,37 @@ class MarketplaceItemModel {
         thumbnailUrl: _parseString(json['thumbnailUrl'] ?? json['thumbnail_url']),
         caption: _parseString(json['caption']),
         price: _parsePrice(json['price']),
-        
+
         // 🔧 CRITICAL FIX: Map backend field names to frontend names
         views: _parseCount(
-          json['views'] ?? 
-          json['viewsCount'] ?? 
-          json['views_count'] ?? 
-          json['ViewsCount'] ?? 
+          json['views'] ??
+          json['viewsCount'] ??
+          json['views_count'] ??
+          json['ViewsCount'] ??
           0
         ),
         likes: _parseCount(
-          json['likes'] ?? 
-          json['likesCount'] ?? 
-          json['likes_count'] ?? 
-          json['LikesCount'] ?? 
+          json['likes'] ??
+          json['likesCount'] ??
+          json['likes_count'] ??
+          json['LikesCount'] ??
           0
         ),
         comments: _parseCount(
-          json['comments'] ?? 
-          json['commentsCount'] ?? 
-          json['comments_count'] ?? 
-          json['CommentsCount'] ?? 
+          json['comments'] ??
+          json['commentsCount'] ??
+          json['comments_count'] ??
+          json['CommentsCount'] ??
           0
         ),
         shares: _parseCount(
-          json['shares'] ?? 
-          json['sharesCount'] ?? 
-          json['shares_count'] ?? 
-          json['SharesCount'] ?? 
+          json['shares'] ??
+          json['sharesCount'] ??
+          json['shares_count'] ??
+          json['SharesCount'] ??
           0
         ),
-        
+
         tags: _parseStringList(json['tags']),
         isActive: _parseBool(json['isActive'] ?? json['is_active'] ?? true),
         isFeatured: _parseBool(json['isFeatured'] ?? json['is_featured'] ?? false),
@@ -119,21 +119,21 @@ class MarketplaceItemModel {
         imageUrls: _parseStringList(json['imageUrls'] ?? json['image_urls']),
         createdAt: _parseTimestamp(json['createdAt'] ?? json['created_at']),
         updatedAt: _parseTimestamp(json['updatedAt'] ?? json['updated_at']),
-        
+
         // 🆕 PARSE BOOST FIELDS
         isBoosted: _parseBool(json['isBoosted'] ?? json['is_boosted'] ?? false),
         boostTier: _parseBoostTier(json['boostTier'] ?? json['boost_tier']),
         superBoost: _parseBool(json['superBoost'] ?? json['super_boost'] ?? false),
-        
+
         isLiked: _parseBool(json['isLiked'] ?? false),
         isFollowing: _parseBool(json['isFollowing'] ?? false),
       );
     } catch (e) {
-      print('❌ Error parsing MarketplaceItemModel from JSON: $e');
+      print('❌ Error parsing MarketplaceVideoModel from JSON: $e');
       print('📄 JSON data: $json');
-      
+
       // Return a default video model to prevent crashes
-      return MarketplaceItemModel(
+      return MarketplaceVideoModel(
         id: _parseString(json['id'] ?? ''),
         userId: _parseString(json['userId'] ?? json['user_id'] ?? ''),
         userName: _parseString(json['userName'] ?? json['user_name'] ?? 'Unknown'),
@@ -183,17 +183,17 @@ class MarketplaceItemModel {
   // 🔧 NEW HELPER: Safely parse price fields
   static double _parsePrice(dynamic value) {
     if (value == null) return 0.0;
-    
+
     if (value is double) return value < 0 ? 0.0 : value;
     if (value is int) return value < 0 ? 0.0 : value.toDouble();
-    
+
     if (value is String) {
       if (value.trim().isEmpty) return 0.0;
-      
+
       final parsed = double.tryParse(value.trim());
       if (parsed != null) return parsed < 0 ? 0.0 : parsed;
     }
-    
+
     print('⚠️ Warning: Could not parse price value: $value (type: ${value.runtimeType})');
     return 0.0;
   }
@@ -201,15 +201,15 @@ class MarketplaceItemModel {
   // 🆕 NEW HELPER: Safely parse boost tier
   static String _parseBoostTier(dynamic value) {
     if (value == null) return 'none';
-    
+
     final tierStr = value.toString().toLowerCase().trim();
-    
+
     // Validate boost tier
     const validTiers = ['none', 'basic', 'standard', 'advanced'];
     if (validTiers.contains(tierStr)) {
       return tierStr;
     }
-    
+
     print('⚠️ Warning: Invalid boost tier: $value, defaulting to "none"');
     return 'none';
   }
@@ -217,24 +217,24 @@ class MarketplaceItemModel {
   // 🔧 HELPER: Safely parse count fields with enhanced error handling
   static int _parseCount(dynamic value) {
     if (value == null) return 0;
-    
+
     if (value is int) return value < 0 ? 0 : value;
-    
+
     if (value is double) return value < 0 ? 0 : value.round();
-    
+
     if (value is String) {
       // Handle empty strings
       if (value.trim().isEmpty) return 0;
-      
+
       // Try parsing as integer
       final parsed = int.tryParse(value.trim());
       if (parsed != null) return parsed < 0 ? 0 : parsed;
-      
+
       // Try parsing as double then convert to int
       final parsedDouble = double.tryParse(value.trim());
       if (parsedDouble != null) return parsedDouble < 0 ? 0 : parsedDouble.round();
     }
-    
+
     print('⚠️ Warning: Could not parse count value: $value (type: ${value.runtimeType})');
     return 0;
   }
@@ -242,7 +242,7 @@ class MarketplaceItemModel {
   // 🔧 HELPER: Safely parse string lists (PostgreSQL arrays and JSON arrays)
   static List<String> _parseStringList(dynamic value) {
     if (value == null) return [];
-    
+
     // Handle List<dynamic>
     if (value is List) {
       return value
@@ -250,16 +250,16 @@ class MarketplaceItemModel {
           .where((s) => s.isNotEmpty)
           .toList();
     }
-    
+
     // Handle String (could be JSON array or PostgreSQL array format)
     if (value is String && value.isNotEmpty) {
       final trimmed = value.trim();
-      
+
       // Handle PostgreSQL array format: {item1,item2,item3} or {"item1","item2","item3"}
       if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
         final content = trimmed.substring(1, trimmed.length - 1);
         if (content.isEmpty) return [];
-        
+
         // Split by comma and clean up each item
         return content
             .split(',')
@@ -280,7 +280,7 @@ class MarketplaceItemModel {
             })
             .toList();
       }
-      
+
       // Handle JSON array format: ["item1","item2","item3"]
       if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
         try {
@@ -295,7 +295,7 @@ class MarketplaceItemModel {
           print('⚠️ Warning: Could not parse JSON array: $trimmed');
         }
       }
-      
+
       // Handle comma-separated string: "item1,item2,item3"
       if (trimmed.contains(',')) {
         return trimmed
@@ -304,11 +304,11 @@ class MarketplaceItemModel {
             .where((s) => s.isNotEmpty)
             .toList();
       }
-      
+
       // Single item
       return [trimmed];
     }
-    
+
     print('⚠️ Warning: Could not parse string list: $value (type: ${value.runtimeType})');
     return [];
   }
@@ -316,12 +316,12 @@ class MarketplaceItemModel {
   // 🔧 HELPER: Parse timestamp (PostgreSQL RFC3339 strings and other formats)
   static String _parseTimestamp(dynamic value) {
     if (value == null) return DateTime.now().toIso8601String();
-    
+
     // Handle String (RFC3339 from PostgreSQL)
     if (value is String) {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return DateTime.now().toIso8601String();
-      
+
       try {
         // Validate and parse RFC3339/ISO8601 format
         final dateTime = DateTime.parse(trimmed);
@@ -331,12 +331,12 @@ class MarketplaceItemModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     // Handle DateTime object
     if (value is DateTime) {
       return value.toIso8601String();
     }
-    
+
     // Handle Unix timestamp (milliseconds)
     if (value is int) {
       try {
@@ -347,7 +347,7 @@ class MarketplaceItemModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     // Handle Unix timestamp (seconds)
     if (value is double) {
       try {
@@ -359,14 +359,14 @@ class MarketplaceItemModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     print('⚠️ Warning: Unknown timestamp format: $value (type: ${value.runtimeType})');
     return DateTime.now().toIso8601String();
   }
 
-  // 🔧 NEW: Formatted price getter matching ChannelMarketplaceItemModel
+  // 🔧 NEW: Formatted price getter matching ChannelMarketplaceVideoModel
   /// Formats the price for display
-  /// Rules: 
+  /// Rules:
   /// - Up to 999,999: "KES 999,999"
   /// - 1,000,000+: "KES 1M", "KES 1.5M", etc.
   /// - Default (0): "KES 0"
@@ -374,7 +374,7 @@ class MarketplaceItemModel {
     if (price == 0) {
       return 'KES 0';
     }
-    
+
     if (price < 1000000) {
       // Format with commas for thousands
       return 'KES ${price.toInt().toString().replaceAllMapped(
@@ -395,19 +395,19 @@ class MarketplaceItemModel {
   }
 
   // 🆕 BOOST HELPER METHODS
-  
+
   /// Returns true if video has any boost tier active
   bool get hasBoost => isBoosted && boostTier != 'none';
-  
+
   /// Returns true if video has basic boost
   bool get hasBasicBoost => isBoosted && boostTier == 'basic';
-  
+
   /// Returns true if video has standard boost
   bool get hasStandardBoost => isBoosted && boostTier == 'standard';
-  
+
   /// Returns true if video has advanced boost
   bool get hasAdvancedBoost => isBoosted && boostTier == 'advanced';
-  
+
   /// Returns boost tier display name
   String get boostTierDisplayName {
     switch (boostTier) {
@@ -421,7 +421,7 @@ class MarketplaceItemModel {
         return 'No Boost';
     }
   }
-  
+
   /// Returns boost tier view range
   String get boostViewRange {
     switch (boostTier) {
@@ -435,7 +435,7 @@ class MarketplaceItemModel {
         return 'No boost active';
     }
   }
-  
+
   /// Returns boost tier price in KES
   int get boostPrice {
     switch (boostTier) {
@@ -449,7 +449,7 @@ class MarketplaceItemModel {
         return 0;
     }
   }
-  
+
   /// Returns formatted boost price
   String get formattedBoostPrice {
     if (boostPrice == 0) return 'KES 0';
@@ -458,7 +458,7 @@ class MarketplaceItemModel {
       (Match m) => '${m[1]},',
     )}';
   }
-  
+
   /// Returns boost tier icon
   String get boostTierIcon {
     switch (boostTier) {
@@ -472,13 +472,13 @@ class MarketplaceItemModel {
         return '';
     }
   }
-  
+
   /// Returns boost status text
   String get boostStatusText {
     if (!isBoosted || boostTier == 'none') {
       return 'Not Boosted';
     }
-    
+
     String status = boostTierDisplayName;
     if (superBoost) {
       status += ' + Super Boost';
@@ -515,13 +515,13 @@ class MarketplaceItemModel {
   // 🆕 NEW: Verification status helpers
   /// Returns true if the video is verified
   bool get isVerifiedContent => isVerified;
-  
+
   /// Returns verification status text for display
   String get verificationStatus => isVerified ? 'Verified' : 'Unverified';
-  
+
   /// Returns verification badge emoji/symbol
   String get verificationBadge => isVerified ? '✓' : '';
-  
+
   /// Returns verification badge with text
   String get verificationBadgeText => isVerified ? '✓ Verified' : '';
 
@@ -532,7 +532,7 @@ class MarketplaceItemModel {
 
   /// Returns true if this is premium content (verified and has a price)
   bool get isPremiumContent => isVerified && price > 0;
-  
+
   /// Returns true if this is verified free content
   bool get isVerifiedFreeContent => isVerified && price == 0;
 
@@ -628,7 +628,7 @@ class MarketplaceItemModel {
   }
 
   // 🔧 NEW: copyWith method for state updates with boost fields
-  MarketplaceItemModel copyWith({
+  MarketplaceVideoModel copyWith({
     String? id,
     String? userId,
     String? userName,
@@ -655,7 +655,7 @@ class MarketplaceItemModel {
     bool? isLiked,
     bool? isFollowing,
   }) {
-    return MarketplaceItemModel(
+    return MarketplaceVideoModel(
       id: id ?? this.id,
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
@@ -685,7 +685,7 @@ class MarketplaceItemModel {
   }
 
   // 🔧 NEW: Update counts (for real-time updates)
-  MarketplaceItemModel updateCounts({
+  MarketplaceVideoModel updateCounts({
     int? views,
     int? likes,
     int? comments,
@@ -701,7 +701,7 @@ class MarketplaceItemModel {
   }
 
   // 🔧 NEW: Toggle like status
-  MarketplaceItemModel toggleLike() {
+  MarketplaceVideoModel toggleLike() {
     return copyWith(
       isLiked: !isLiked,
       likes: isLiked ? likes - 1 : likes + 1,
@@ -710,7 +710,7 @@ class MarketplaceItemModel {
   }
 
   // 🆕 NEW: Toggle verification status
-  MarketplaceItemModel toggleVerification() {
+  MarketplaceVideoModel toggleVerification() {
     return copyWith(
       isVerified: !isVerified,
       updatedAt: DateTime.now().toIso8601String(),
@@ -718,7 +718,7 @@ class MarketplaceItemModel {
   }
 
   // 🆕 NEW: Set verification status
-  MarketplaceItemModel setVerified(bool verified) {
+  MarketplaceVideoModel setVerified(bool verified) {
     return copyWith(
       isVerified: verified,
       updatedAt: DateTime.now().toIso8601String(),
@@ -726,7 +726,7 @@ class MarketplaceItemModel {
   }
 
   // 🆕 NEW: Set boost status
-  MarketplaceItemModel setBoost({
+  MarketplaceVideoModel setBoost({
     required bool isBoosted,
     required String boostTier,
     bool? superBoost,
@@ -740,7 +740,7 @@ class MarketplaceItemModel {
   }
 
   // 🆕 NEW: Activate boost
-  MarketplaceItemModel activateBoost(String tier) {
+  MarketplaceVideoModel activateBoost(String tier) {
     return copyWith(
       isBoosted: true,
       boostTier: tier,
@@ -749,7 +749,7 @@ class MarketplaceItemModel {
   }
 
   // 🆕 NEW: Deactivate boost
-  MarketplaceItemModel deactivateBoost() {
+  MarketplaceVideoModel deactivateBoost() {
     return copyWith(
       isBoosted: false,
       boostTier: 'none',
@@ -759,7 +759,7 @@ class MarketplaceItemModel {
   }
 
   // 🔧 NEW: Increment view count
-  MarketplaceItemModel incrementViews() {
+  MarketplaceVideoModel incrementViews() {
     return copyWith(
       views: views + 1,
       updatedAt: DateTime.now().toIso8601String(),
@@ -767,7 +767,7 @@ class MarketplaceItemModel {
   }
 
   // 🔧 NEW: Increment share count
-  MarketplaceItemModel incrementShares() {
+  MarketplaceVideoModel incrementShares() {
     return copyWith(
       shares: shares + 1,
       updatedAt: DateTime.now().toIso8601String(),
@@ -776,39 +776,39 @@ class MarketplaceItemModel {
 
   // 🔧 NEW: Validation methods
   bool get isValid {
-    return id.isNotEmpty && 
-           userId.isNotEmpty && 
-           userName.isNotEmpty && 
-           caption.isNotEmpty && 
+    return id.isNotEmpty &&
+           userId.isNotEmpty &&
+           userName.isNotEmpty &&
+           caption.isNotEmpty &&
            hasValidContent;
   }
 
   List<String> get validationErrors {
     final errors = <String>[];
-    
+
     if (id.isEmpty) errors.add('ID is required');
     if (userId.isEmpty) errors.add('User ID is required');
     if (userName.isEmpty) errors.add('User name is required');
     if (caption.isEmpty) errors.add('Caption is required');
     if (!hasValidContent) errors.add('Valid video or image content is required');
-    
+
     if (isImageContent && imageUrls.isEmpty) {
       errors.add('Image URLs are required for image posts');
     }
-    
+
     if (isVideoContent && videoUrl.isEmpty) {
       errors.add('Video URL is required for video posts');
     }
-    
+
     return errors;
   }
 
   // 🔧 NEW: Search helpers
   bool containsQuery(String query) {
     if (query.isEmpty) return true;
-    
+
     final searchQuery = query.toLowerCase();
-    
+
     return caption.toLowerCase().contains(searchQuery) ||
            userName.toLowerCase().contains(searchQuery) ||
            tags.any((tag) => tag.toLowerCase().contains(searchQuery));
@@ -821,13 +821,13 @@ class MarketplaceItemModel {
   // 🔧 DEBUGGING: toString method
   @override
   String toString() {
-    return 'MarketplaceItemModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, verified: $isVerified, boosted: $isBoosted, boostTier: $boostTier, user: $userName)';
+    return 'MarketplaceVideoModel(id: $id, caption: "${caption.length > 30 ? "${caption.substring(0, 30)}..." : caption}", views: $views, likes: $likes, comments: $comments, shares: $shares, price: $formattedPrice, verified: $isVerified, boosted: $isBoosted, boostTier: $boostTier, user: $userName)';
   }
 
   // 🔧 DEBUGGING: Detailed debug string
   String toDebugString() {
     return '''
-MarketplaceItemModel {
+MarketplaceVideoModel {
   id: $id
   userId: $userId
   userName: $userName
@@ -863,7 +863,7 @@ MarketplaceItemModel {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is MarketplaceItemModel && other.id == id;
+    return other is MarketplaceVideoModel && other.id == id;
   }
 
   @override
@@ -871,60 +871,60 @@ MarketplaceItemModel {
 }
 
 // 🔧 NEW: Extensions for additional functionality
-extension MarketplaceItemModelList on List<MarketplaceItemModel> {
-  List<MarketplaceItemModel> get activeVideos => where((video) => video.isActive).toList();
-  List<MarketplaceItemModel> get featuredVideos => where((video) => video.isFeatured).toList();
-  List<MarketplaceItemModel> get verifiedVideos => where((video) => video.isVerified).toList();
-  List<MarketplaceItemModel> get unverifiedVideos => where((video) => !video.isVerified).toList();
-  List<MarketplaceItemModel> get premiumVideos => where((video) => video.isPremiumContent).toList();
-  List<MarketplaceItemModel> get verifiedFreeVideos => where((video) => video.isVerifiedFreeContent).toList();
-  List<MarketplaceItemModel> get imageVideos => where((video) => video.isImageContent).toList();
-  List<MarketplaceItemModel> get videoContent => where((video) => video.isVideoContent).toList();
-  
+extension MarketplaceVideoModelList on List<MarketplaceVideoModel> {
+  List<MarketplaceVideoModel> get activeVideos => where((video) => video.isActive).toList();
+  List<MarketplaceVideoModel> get featuredVideos => where((video) => video.isFeatured).toList();
+  List<MarketplaceVideoModel> get verifiedVideos => where((video) => video.isVerified).toList();
+  List<MarketplaceVideoModel> get unverifiedVideos => where((video) => !video.isVerified).toList();
+  List<MarketplaceVideoModel> get premiumVideos => where((video) => video.isPremiumContent).toList();
+  List<MarketplaceVideoModel> get verifiedFreeVideos => where((video) => video.isVerifiedFreeContent).toList();
+  List<MarketplaceVideoModel> get imageVideos => where((video) => video.isImageContent).toList();
+  List<MarketplaceVideoModel> get videoContent => where((video) => video.isVideoContent).toList();
+
   // 🆕 NEW: Boost filtering
-  List<MarketplaceItemModel> get boostedVideos => where((video) => video.isBoosted).toList();
-  List<MarketplaceItemModel> get unboostedVideos => where((video) => !video.isBoosted).toList();
-  List<MarketplaceItemModel> get basicBoostedVideos => where((video) => video.hasBasicBoost).toList();
-  List<MarketplaceItemModel> get standardBoostedVideos => where((video) => video.hasStandardBoost).toList();
-  List<MarketplaceItemModel> get advancedBoostedVideos => where((video) => video.hasAdvancedBoost).toList();
-  List<MarketplaceItemModel> get superBoostedVideos => where((video) => video.superBoost).toList();
-  
-  List<MarketplaceItemModel> sortByViews({bool descending = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
+  List<MarketplaceVideoModel> get boostedVideos => where((video) => video.isBoosted).toList();
+  List<MarketplaceVideoModel> get unboostedVideos => where((video) => !video.isBoosted).toList();
+  List<MarketplaceVideoModel> get basicBoostedVideos => where((video) => video.hasBasicBoost).toList();
+  List<MarketplaceVideoModel> get standardBoostedVideos => where((video) => video.hasStandardBoost).toList();
+  List<MarketplaceVideoModel> get advancedBoostedVideos => where((video) => video.hasAdvancedBoost).toList();
+  List<MarketplaceVideoModel> get superBoostedVideos => where((video) => video.superBoost).toList();
+
+  List<MarketplaceVideoModel> sortByViews({bool descending = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
     sorted.sort((a, b) => descending ? b.views.compareTo(a.views) : a.views.compareTo(b.views));
     return sorted;
   }
-  
-  List<MarketplaceItemModel> sortByLikes({bool descending = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
+
+  List<MarketplaceVideoModel> sortByLikes({bool descending = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
     sorted.sort((a, b) => descending ? b.likes.compareTo(a.likes) : a.likes.compareTo(b.likes));
     return sorted;
   }
-  
-  List<MarketplaceItemModel> sortByPrice({bool descending = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
+
+  List<MarketplaceVideoModel> sortByPrice({bool descending = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
     sorted.sort((a, b) => descending ? b.price.compareTo(a.price) : a.price.compareTo(b.price));
     return sorted;
   }
-  
-  List<MarketplaceItemModel> sortByEngagement({bool descending = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
-    sorted.sort((a, b) => descending 
-        ? b.engagementRate.compareTo(a.engagementRate) 
+
+  List<MarketplaceVideoModel> sortByEngagement({bool descending = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
+    sorted.sort((a, b) => descending
+        ? b.engagementRate.compareTo(a.engagementRate)
         : a.engagementRate.compareTo(b.engagementRate));
     return sorted;
   }
-  
-  List<MarketplaceItemModel> sortByDate({bool descending = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
-    sorted.sort((a, b) => descending 
+
+  List<MarketplaceVideoModel> sortByDate({bool descending = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
+    sorted.sort((a, b) => descending
         ? b.createdAtDateTime.compareTo(a.createdAtDateTime)
         : a.createdAtDateTime.compareTo(b.createdAtDateTime));
     return sorted;
   }
 
-  List<MarketplaceItemModel> sortByVerification({bool verifiedFirst = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
+  List<MarketplaceVideoModel> sortByVerification({bool verifiedFirst = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
     sorted.sort((a, b) {
       if (verifiedFirst) {
         if (a.isVerified && !b.isVerified) return -1;
@@ -940,8 +940,8 @@ extension MarketplaceItemModelList on List<MarketplaceItemModel> {
   }
 
   // 🆕 NEW: Sort by boost status
-  List<MarketplaceItemModel> sortByBoost({bool boostedFirst = true}) {
-    final sorted = List<MarketplaceItemModel>.from(this);
+  List<MarketplaceVideoModel> sortByBoost({bool boostedFirst = true}) {
+    final sorted = List<MarketplaceVideoModel>.from(this);
     sorted.sort((a, b) {
       if (boostedFirst) {
         if (a.isBoosted && !b.isBoosted) return -1;
@@ -963,19 +963,19 @@ extension MarketplaceItemModelList on List<MarketplaceItemModel> {
     return sorted;
   }
 
-  List<MarketplaceItemModel> sortByContentTier() {
-    final sorted = List<MarketplaceItemModel>.from(this);
+  List<MarketplaceVideoModel> sortByContentTier() {
+    final sorted = List<MarketplaceVideoModel>.from(this);
     final tierOrder = {
-      'Premium++': 0, 
-      'Premium+': 1, 
+      'Premium++': 0,
+      'Premium+': 1,
       'Premium Boosted': 2,
-      'Premium': 3, 
+      'Premium': 3,
       'Featured': 4,
       'Boosted': 5,
-      'Popular': 6, 
+      'Popular': 6,
       'Standard': 7
     };
-    
+
     sorted.sort((a, b) {
       final aTier = tierOrder[a.contentTier] ?? 8;
       final bTier = tierOrder[b.contentTier] ?? 8;
@@ -983,40 +983,40 @@ extension MarketplaceItemModelList on List<MarketplaceItemModel> {
     });
     return sorted;
   }
-  
-  List<MarketplaceItemModel> filterByUser(String userId) {
+
+  List<MarketplaceVideoModel> filterByUser(String userId) {
     return where((video) => video.userId == userId).toList();
   }
-  
-  List<MarketplaceItemModel> filterByTag(String tag) {
+
+  List<MarketplaceVideoModel> filterByTag(String tag) {
     return where((video) => video.hasTag(tag)).toList();
   }
-  
-  List<MarketplaceItemModel> filterByPriceRange(double minPrice, double maxPrice) {
+
+  List<MarketplaceVideoModel> filterByPriceRange(double minPrice, double maxPrice) {
     return where((video) => video.price >= minPrice && video.price <= maxPrice).toList();
   }
 
-  List<MarketplaceItemModel> filterByVerification(bool isVerified) {
+  List<MarketplaceVideoModel> filterByVerification(bool isVerified) {
     return where((video) => video.isVerified == isVerified).toList();
   }
 
   // 🆕 NEW: Filter by boost tier
-  List<MarketplaceItemModel> filterByBoostTier(String tier) {
+  List<MarketplaceVideoModel> filterByBoostTier(String tier) {
     return where((video) => video.boostTier == tier).toList();
   }
 
-  List<MarketplaceItemModel> filterByContentTier(String tier) {
+  List<MarketplaceVideoModel> filterByContentTier(String tier) {
     return where((video) => video.contentTier == tier).toList();
   }
 
-  List<MarketplaceItemModel> get premiumContent => where((video) => video.isPremiumContent).toList();
+  List<MarketplaceVideoModel> get premiumContent => where((video) => video.isPremiumContent).toList();
 
-  List<MarketplaceItemModel> get freeVerifiedContent => where((video) => video.isVerifiedFreeContent).toList();
-  
-  List<MarketplaceItemModel> search(String query) {
+  List<MarketplaceVideoModel> get freeVerifiedContent => where((video) => video.isVerifiedFreeContent).toList();
+
+  List<MarketplaceVideoModel> search(String query) {
     return where((video) => video.containsQuery(query)).toList();
   }
-  
+
   int get totalViews => fold<int>(0, (sum, video) => sum + video.views);
   int get totalLikes => fold<int>(0, (sum, video) => sum + video.likes);
   int get totalComments => fold<int>(0, (sum, video) => sum + video.comments);
@@ -1072,7 +1072,7 @@ extension MarketplaceItemModelList on List<MarketplaceItemModel> {
     final totalEngagement = fold<double>(0.0, (sum, video) => sum + video.engagementRate);
     return totalEngagement / length;
   }
-  
+
   double get averagePrice {
     if (isEmpty) return 0.0;
     return totalPrice / length;
@@ -1107,28 +1107,28 @@ extension MarketplaceItemModelList on List<MarketplaceItemModel> {
     return totalEngagement / unboosted.length;
   }
 
-  List<MarketplaceItemModel> get topVerifiedVideos => verifiedVideos.sortByEngagement().take(10).toList();
-  List<MarketplaceItemModel> get topPremiumVideos => premiumVideos.sortByEngagement().take(10).toList();
-  
+  List<MarketplaceVideoModel> get topVerifiedVideos => verifiedVideos.sortByEngagement().take(10).toList();
+  List<MarketplaceVideoModel> get topPremiumVideos => premiumVideos.sortByEngagement().take(10).toList();
+
   // 🆕 NEW: Top boosted videos
-  List<MarketplaceItemModel> get topBoostedVideos => boostedVideos.sortByEngagement().take(10).toList();
-  
+  List<MarketplaceVideoModel> get topBoostedVideos => boostedVideos.sortByEngagement().take(10).toList();
+
   double get overallQualityScore {
     if (isEmpty) return 0.0;
-    
+
     double score = 0.0;
     for (final video in this) {
       double videoScore = 0.0;
-      
+
       // Base engagement score (0-40 points)
       videoScore += (video.engagementRate * 4).clamp(0.0, 40.0);
-      
+
       // Verification bonus (0-20 points)
       if (video.isVerified) videoScore += 20;
-      
+
       // Featured bonus (0-15 points)
       if (video.isFeatured) videoScore += 15;
-      
+
       // Boost bonus (0-15 points)
       if (video.hasAdvancedBoost) {
         videoScore += 15;
@@ -1137,16 +1137,16 @@ extension MarketplaceItemModelList on List<MarketplaceItemModel> {
       } else if (video.hasBasicBoost) {
         videoScore += 5;
       }
-      
+
       // Premium content bonus (0-10 points)
       if (video.isPremiumContent) videoScore += 10;
-      
+
       // Activity bonus (0-5 points)
       if (video.isActive) videoScore += 5;
-      
+
       score += videoScore;
     }
-    
+
     return score / length; // Average quality score per video (0-100+)
   }
 }

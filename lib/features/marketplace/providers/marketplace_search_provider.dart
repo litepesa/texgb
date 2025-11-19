@@ -6,7 +6,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/repositories/marketplace_search_repository.dart';
 
 part 'marketplace_search_provider.g.dart';
@@ -20,7 +20,7 @@ enum SearchStatus { idle, loading, success, error, empty }
 class SimpleSearchState {
   final SearchStatus status;
   final String query;
-  final List<MarketplaceItemModel> marketplaceItems;
+  final List<MarketplaceVideoModel> marketplaceVideos;
   final int totalResults;
   final bool hasMore;
   final String? errorMessage;
@@ -29,7 +29,7 @@ class SimpleSearchState {
   const SimpleSearchState({
     this.status = SearchStatus.idle,
     this.query = '',
-    this.marketplaceItems = const [],
+    this.marketplaceVideos = const [],
     this.totalResults = 0,
     this.hasMore = false,
     this.errorMessage,
@@ -39,7 +39,7 @@ class SimpleSearchState {
   SimpleSearchState copyWith({
     SearchStatus? status,
     String? query,
-    List<MarketplaceItemModel>? marketplaceItems,
+    List<MarketplaceVideoModel>? marketplaceVideos,
     int? totalResults,
     bool? hasMore,
     String? errorMessage,
@@ -48,7 +48,7 @@ class SimpleSearchState {
     return SimpleSearchState(
       status: status ?? this.status,
       query: query ?? this.query,
-      marketplaceItems: marketplaceItems ?? this.marketplaceItems,
+      marketplaceVideos: marketplaceVideos ?? this.marketplaceVideos,
       totalResults: totalResults ?? this.totalResults,
       hasMore: hasMore ?? this.hasMore,
       errorMessage: errorMessage,
@@ -60,11 +60,11 @@ class SimpleSearchState {
   bool get isSuccess => status == SearchStatus.success;
   bool get isEmpty => status == SearchStatus.empty;
   bool get isError => status == SearchStatus.error;
-  bool get hasResults => marketplaceItems.isNotEmpty;
+  bool get hasResults => marketplaceVideos.isNotEmpty;
 
   @override
   String toString() {
-    return 'SimpleSearchState(status: $status, query: "$query", marketplaceItems: ${marketplaceItems.length}, total: $totalResults, usernameOnly: $usernameOnly)';
+    return 'SimpleSearchState(status: $status, query: "$query", marketplaceVideos: ${marketplaceVideos.length}, total: $totalResults, usernameOnly: $usernameOnly)';
   }
 }
 
@@ -139,24 +139,24 @@ class MarketplaceSearch extends _$MarketplaceSearch {
     if (!state.hasMore || state.isLoading) return;
 
     try {
-      debugPrint('📄 Loading more results (offset: ${state.marketplaceItems.length})');
+      debugPrint('📄 Loading more results (offset: ${state.marketplaceVideos.length})');
 
       final repository = ref.read(marketplaceSearchRepositoryProvider);
-      final response = await repository.searchMarketplaceItems(
+      final response = await repository.searchMarketplaceVideos(
         query: state.query,
         usernameOnly: state.usernameOnly,
         limit: 20,
-        offset: state.marketplaceItems.length,
+        offset: state.marketplaceVideos.length,
       );
 
-      // Append new marketplaceItems to existing list
+      // Append new marketplaceVideos to existing list
       state = state.copyWith(
-        marketplaceItems: [...state.marketplaceItems, ...response.marketplaceItems],
+        marketplaceVideos: [...state.marketplaceVideos, ...response.marketplaceVideos],
         hasMore: response.hasMore,
         totalResults: response.total,
       );
 
-      debugPrint('✅ Loaded more: ${response.marketplaceItems.length} marketplaceItems (total: ${state.marketplaceItems.length})');
+      debugPrint('✅ Loaded more: ${response.marketplaceVideos.length} marketplaceVideos (total: ${state.marketplaceVideos.length})');
     } catch (e) {
       debugPrint('❌ Load more error: $e');
       // Don't update state on pagination errors - just log it
@@ -202,7 +202,7 @@ class MarketplaceSearch extends _$MarketplaceSearch {
       );
 
       final repository = ref.read(marketplaceSearchRepositoryProvider);
-      final response = await repository.searchMarketplaceItems(
+      final response = await repository.searchMarketplaceVideos(
         query: query,
         usernameOnly: usernameOnly,
         limit: 20,
@@ -212,7 +212,7 @@ class MarketplaceSearch extends _$MarketplaceSearch {
       if (response.isEmpty) {
         state = state.copyWith(
           status: SearchStatus.empty,
-          marketplaceItems: [],
+          marketplaceVideos: [],
           totalResults: 0,
           hasMore: false,
         );
@@ -220,18 +220,18 @@ class MarketplaceSearch extends _$MarketplaceSearch {
       } else {
         state = state.copyWith(
           status: SearchStatus.success,
-          marketplaceItems: response.marketplaceItems,
+          marketplaceVideos: response.marketplaceVideos,
           totalResults: response.total,
           hasMore: response.hasMore,
         );
-        debugPrint('✅ Search complete: ${response.marketplaceItems.length} marketplaceItems (total: ${response.total})');
+        debugPrint('✅ Search complete: ${response.marketplaceVideos.length} marketplaceVideos (total: ${response.total})');
       }
     } catch (e) {
       debugPrint('❌ Search failed: $e');
       state = state.copyWith(
         status: SearchStatus.error,
         errorMessage: e.toString(),
-        marketplaceItems: [],
+        marketplaceVideos: [],
       );
     }
   }
@@ -252,8 +252,8 @@ SimpleSearchState searchState(SearchStateRef ref) {
 
 /// Search results (list of marketplace items)
 @riverpod
-List<MarketplaceItemModel> searchResults(SearchResultsRef ref) {
-  return ref.watch(marketplaceSearchProvider).marketplaceItems;
+List<MarketplaceVideoModel> searchResults(SearchResultsRef ref) {
+  return ref.watch(marketplaceSearchProvider).marketplaceVideos;
 }
 
 /// Is currently searching

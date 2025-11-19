@@ -2,16 +2,16 @@
 // Convenience providers for marketplace to simplify access to marketplace state
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 
 part 'marketplace_convenience_providers.g.dart';
 
 // Convenience provider to get marketplace items
 @riverpod
-List<MarketplaceItemModel> marketplaceItems(MarketplaceItemsRef ref) {
+List<MarketplaceVideoModel> marketplaceVideos(MarketplaceVideosRef ref) {
   final marketplaceState = ref.watch(marketplaceProvider);
   return marketplaceState.when(
-    data: (data) => data.items,
+    data: (data) => data.videos,
     loading: () => [], // Return empty list while loading
     error: (_, __) => [],
   );
@@ -19,10 +19,10 @@ List<MarketplaceItemModel> marketplaceItems(MarketplaceItemsRef ref) {
 
 // Convenience provider to get liked marketplace items
 @riverpod
-List<String> likedMarketplaceItems(LikedMarketplaceItemsRef ref) {
+List<String> likedMarketplaceVideos(LikedMarketplaceVideosRef ref) {
   final marketplaceState = ref.watch(marketplaceProvider);
   return marketplaceState.when(
-    data: (data) => data.likedItems,
+    data: (data) => data.likedVideos,
     loading: () => [], // Return empty list while loading
     error: (_, __) => [],
   );
@@ -50,11 +50,11 @@ double marketplaceUploadProgress(MarketplaceUploadProgressRef ref) {
   );
 }
 
-// Helper method as provider to check if item is liked
+// Helper method as provider to check if video is liked
 @riverpod
-bool isMarketplaceItemLiked(IsMarketplaceItemLikedRef ref, String itemId) {
-  final likedItems = ref.watch(likedMarketplaceItemsProvider);
-  return likedItems.contains(itemId);
+bool isMarketplaceVideoLiked(IsMarketplaceVideoLikedRef ref, String videoId) {
+  final likedVideos = ref.watch(likedMarketplaceVideosProvider);
+  return likedVideos.contains(videoId);
 }
 
 // Error provider

@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/models/marketplace_comment_model.dart'; // ✅ Using thread comment model
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -174,12 +174,12 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
 }
 
 class MarketplaceCommentsBottomSheet extends ConsumerStatefulWidget {
-  final MarketplaceItemModel marketplaceItem;
+  final MarketplaceVideoModel marketplaceVideo;
   final VoidCallback? onClose;
 
   const MarketplaceCommentsBottomSheet({
     super.key,
-    required this.marketplaceItem,
+    required this.marketplaceVideo,
     this.onClose,
   });
 
@@ -273,7 +273,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
     try {
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-      final comments = await marketplaceNotifier.getMarketplaceItemComments(widget.marketplaceItem.id);
+      final comments = await marketplaceNotifier.getMarketplaceVideoComments(widget.marketplaceVideo.id);
 
       if (mounted) {
         setState(() {
@@ -649,14 +649,14 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundImage: widget.marketplaceItem.userImage.isNotEmpty
-                ? NetworkImage(widget.marketplaceItem.userImage)
+            backgroundImage: widget.marketplaceVideo.userImage.isNotEmpty
+                ? NetworkImage(widget.marketplaceVideo.userImage)
                 : null,
             backgroundColor: _lightGray,
-            child: widget.marketplaceItem.userImage.isEmpty
+            child: widget.marketplaceVideo.userImage.isEmpty
                 ? Text(
-                    widget.marketplaceItem.userName.isNotEmpty 
-                        ? widget.marketplaceItem.userName[0].toUpperCase()
+                    widget.marketplaceVideo.userName.isNotEmpty 
+                        ? widget.marketplaceVideo.userName[0].toUpperCase()
                         : "U",
                     style: const TextStyle(
                       color: _mediumGray,
@@ -671,7 +671,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.marketplaceItem.userName,
+                  widget.marketplaceVideo.userName,
                   style: const TextStyle(
                     color: _pureBlack,
                     fontSize: 16,
@@ -680,7 +680,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _formatVideoTime(widget.marketplaceItem.createdAt),
+                  _formatVideoTime(widget.marketplaceVideo.createdAt),
                   style: const TextStyle(
                     color: _mediumGray,
                     fontSize: 12,
@@ -934,7 +934,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     
     final isLiked = currentUserId != null && comment.likes > 0; // Simplified like check
     final isOwn = currentUserId != null && comment.userId == currentUserId;
-    final isVideoCreator = currentUserId != null && widget.marketplaceItem.userId == currentUserId;
+    final isVideoCreator = currentUserId != null && widget.marketplaceVideo.userId == currentUserId;
     final canPin = isVideoCreator && !isReply; // Only video creator can pin top-level comments
 
     return Container(
@@ -1765,13 +1765,13 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
 
       if (comment.isPinned) {
-        await marketplaceNotifier.unpinMarketplaceComment(comment.id, widget.marketplaceItem.id, (error) {
+        await marketplaceNotifier.unpinMarketplaceComment(comment.id, widget.marketplaceVideo.id, (error) {
           if (mounted) {
             showSnackBar(context, error);
           }
         });
       } else {
-        await marketplaceNotifier.pinMarketplaceComment(comment.id, widget.marketplaceItem.id, (error) {
+        await marketplaceNotifier.pinMarketplaceComment(comment.id, widget.marketplaceVideo.id, (error) {
           if (mounted) {
             showSnackBar(context, error);
           }
@@ -1890,7 +1890,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
       // 🔧 FIXED: Pass imageFiles directly to provider, which will handle the upload
       await ref.read(marketplaceProvider.notifier).addMarketplaceComment(
-        itemId: widget.marketplaceItem.id,
+        videoId: widget.marketplaceVideo.id,
         content: content,
         imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null, // 🔧 Changed from imageUrls to imageFiles
         repliedToCommentId: _replyingToCommentId,

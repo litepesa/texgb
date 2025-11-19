@@ -249,7 +249,7 @@ class MarketplaceCommentModel {
         final content = trimmed.substring(1, trimmed.length - 1);
         if (content.isEmpty) return [];
         
-        final items = content
+        final videos = content
             .split(',')
             .map((item) {
               final cleaned = item.trim();
