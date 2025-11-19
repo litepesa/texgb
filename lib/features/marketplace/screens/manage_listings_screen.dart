@@ -138,7 +138,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
   Future<void> _generateVideoThumbnails() async {
     for (final marketplaceVideo in _userMarketplaceVideos) {
-      if (!marketplaceVideo.isMultipleImages && marketplaceVideo.itemUrl.isNotEmpty) {
+      if (!marketplaceVideo.isMultipleImages && marketplaceVideo.videoUrl.isNotEmpty) {
         try {
           final cacheKey = 'manage_thumb_${marketplaceVideo.id}';
           final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
@@ -151,7 +151,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             }
           } else {
             final thumbnailPath = await VideoThumbnail.thumbnailFile(
-              marketplaceVideo: marketplaceVideo.itemUrl,
+              video: marketplaceVideo.videoUrl,
               thumbnailPath: (await getTemporaryDirectory()).path,
               imageFormat: ImageFormat.JPEG,
               maxHeight: 400,

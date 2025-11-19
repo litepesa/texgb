@@ -604,9 +604,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
           return _buildErrorThumbnail();
         },
       );
-    } else if (marketplaceVideo.itemUrl.isNotEmpty) {
+    } else if (marketplaceVideo.videoUrl.isNotEmpty) {
       return FutureBuilder<Uint8List?>(
-        future: _generateMarketplaceItemThumbnail(marketplaceVideo.itemUrl),
+        future: _generateMarketplaceItemThumbnail(marketplaceVideo.videoUrl),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildLoadingThumbnail();
@@ -641,10 +641,10 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     }
   }
 
-  Future<Uint8List?> _generateMarketplaceItemThumbnail(String itemUrl) async {
+  Future<Uint8List?> _generateMarketplaceItemThumbnail(String videoUrl) async {
     try {
-      final thumbnail = await MarketplaceItemThumbnail.thumbnailData(
-        marketplaceVideo: itemUrl,
+      final thumbnail = await VideoThumbnail.thumbnailData(
+        video: videoUrl,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 300,
         quality: 75,

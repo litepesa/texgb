@@ -226,15 +226,15 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     debugPrint('Precaching initial marketplaceVideos for instant playback...');
     
     // Get first 3 marketplaceVideo URLs (skip image posts)
-    final itemUrls = marketplaceVideos
-        .where((v) => !v.isMultipleImages && v.itemUrl.isNotEmpty)
+    final videoUrls = marketplaceVideos
+        .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
         .take(3)
-        .map((v) => v.itemUrl)
+        .map((v) => v.videoUrl)
         .toList();
-    
-    if (itemUrls.isNotEmpty) {
+
+    if (videoUrls.isNotEmpty) {
       MarketplaceCacheService().precacheMultiple(
-        itemUrls,
+        videoUrls,
         cacheSegmentsPerVideo: 3, // Cache 6MB per marketplaceVideo for instant start
         maxConcurrent: 2,
       );
@@ -257,7 +257,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     
     // Filter to get only actual marketplaceVideos (no image posts)
     final videoOnlyList = marketplaceVideos
-        .where((v) => !v.isMultipleImages && v.itemUrl.isNotEmpty)
+        .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
         .toList();
     
     if (videoOnlyList.isEmpty) return;
@@ -272,14 +272,14 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     }
     
     final currentIndexInVideoList = videoOnlyList
-        .indexWhere((v) => v.itemUrl == currentVideo.itemUrl);
-    
+        .indexWhere((v) => v.videoUrl == currentVideo.videoUrl);
+
     if (currentIndexInVideoList == -1) return;
-    
-    final itemUrls = videoOnlyList.map((v) => v.itemUrl).toList();
-    
+
+    final videoUrls = videoOnlyList.map((v) => v.videoUrl).toList();
+
     MarketplaceCacheService().intelligentPreload(
-      itemUrls: itemUrls,
+      videoUrls: videoUrls,
       currentIndex: currentIndexInVideoList,
       preloadNext: 5,           // Preload next 5 marketplaceVideos
       preloadPrevious: 2,       // Preload previous 2 marketplaceVideos

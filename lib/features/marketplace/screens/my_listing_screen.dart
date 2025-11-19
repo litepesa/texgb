@@ -102,7 +102,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
         });
 
         // Generate thumbnail if it's a video
-        if (!marketplaceVideo.isMultipleImages && marketplaceVideo.itemUrl.isNotEmpty) {
+        if (!marketplaceVideo.isMultipleImages && marketplaceVideo.videoUrl.isNotEmpty) {
           _generateVideoThumbnail();
         }
       }
@@ -117,7 +117,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   }
 
   Future<void> _generateVideoThumbnail() async {
-    if (_marketplaceItem == null || _marketplaceItem!.itemUrl.isEmpty) return;
+    if (_marketplaceItem == null || _marketplaceItem!.videoUrl.isEmpty) return;
 
     try {
       // Check if thumbnail is already cached
@@ -134,7 +134,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
       } else {
         // Generate new thumbnail
         final thumbnailPath = await VideoThumbnail.thumbnailFile(
-          video: _marketplaceItem!.itemUrl,
+          video: _marketplaceItem!.videoUrl,
           thumbnailPath: (await getTemporaryDirectory()).path,
           imageFormat: ImageFormat.JPEG,
           maxHeight: 400,
@@ -162,10 +162,10 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   }
 
   Future<void> _initializeVideoPlayer() async {
-    if (_marketplaceItem == null || _marketplaceItem!.isMultipleImages || _marketplaceItem!.itemUrl.isEmpty) return;
+    if (_marketplaceItem == null || _marketplaceItem!.isMultipleImages || _marketplaceItem!.videoUrl.isEmpty) return;
 
     try {
-      _videoController = VideoPlayerController.network(_marketplaceItem!.itemUrl);
+      _videoController = VideoPlayerController.network(_marketplaceItem!.videoUrl);
       await _videoController!.initialize();
       if (mounted) {
         setState(() {});
