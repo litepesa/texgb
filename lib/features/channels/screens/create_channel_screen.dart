@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/core/router/app_router.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
 /// Screen for creating a new channel
 class CreateChannelScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
       appBar: AppBar(
         title: const Text('Create Channel'),
         actions: [
@@ -49,11 +51,11 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
           else
             TextButton(
               onPressed: _createChannel,
-              child: const Text(
+              child: Text(
                 'Create',
-                style: TextStyle(
+                style: ChannelsTheme.headingSmall.copyWith(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  color: ChannelsTheme.facebookBlue,
                 ),
               ),
             ),
@@ -67,11 +69,12 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
             // Channel Name
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              decoration: ChannelsTheme.inputDecoration(
                 labelText: 'Channel Name',
                 hintText: 'Enter channel name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.tv),
+                prefixIcon: const Icon(Icons.tv),
+              ).copyWith(
+                border: const OutlineInputBorder(),
               ),
               maxLength: 50,
               validator: (value) {
@@ -89,11 +92,12 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
             // Description
             TextFormField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
+              decoration: ChannelsTheme.inputDecoration(
                 labelText: 'Description',
                 hintText: 'Describe what your channel is about',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
+                prefixIcon: const Icon(Icons.description),
+              ).copyWith(
+                border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
               maxLines: 4,
@@ -111,12 +115,9 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
             const SizedBox(height: 24),
 
             // Channel Type
-            const Text(
+            Text(
               'Channel Type',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: ChannelsTheme.headingSmall,
             ),
             const SizedBox(height: 12),
 
@@ -126,7 +127,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
               icon: Icons.public,
               title: 'Public',
               description: 'Anyone can discover and subscribe to your channel',
-              color: Colors.green,
+              color: ChannelsTheme.publicChannelColor,
             ),
             const SizedBox(height: 12),
 
@@ -136,7 +137,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
               icon: Icons.lock,
               title: 'Private',
               description: 'Only people you invite can see and subscribe',
-              color: Colors.purple,
+              color: ChannelsTheme.privateChannelColor,
             ),
             const SizedBox(height: 12),
 
@@ -146,14 +147,14 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
               icon: Icons.star,
               title: 'Premium',
               description: 'Subscribers pay to access your content',
-              color: Colors.amber,
+              color: ChannelsTheme.premiumChannelColor,
             ),
 
             // Premium Subscription Price
             if (_selectedType == ChannelType.premium) ...[
               const SizedBox(height: 16),
               Card(
-                color: Colors.amber.withOpacity(0.1),
+                color: ChannelsTheme.warning.withOpacity(0.1),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -161,26 +162,25 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.info_outline, color: Colors.amber),
+                          const Icon(Icons.info_outline, color: ChannelsTheme.warning),
                           const SizedBox(width: 8),
                           Text(
                             'Premium Channel Settings',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[900],
+                            style: ChannelsTheme.headingSmall.copyWith(
+                              color: ChannelsTheme.warning,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        decoration: const InputDecoration(
+                        decoration: ChannelsTheme.inputDecoration(
                           labelText: 'Subscription Price (Coins)',
                           hintText: 'e.g., 100',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.attach_money),
-                          filled: true,
-                          fillColor: Colors.white,
+                          prefixIcon: const Icon(Icons.attach_money),
+                        ).copyWith(
+                          border: const OutlineInputBorder(),
+                          fillColor: ChannelsTheme.cardBackground,
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -207,10 +207,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Note: Platform takes 20% of subscription fees',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
+                        style: ChannelsTheme.bodySmall,
                       ),
                     ],
                   ),
@@ -222,7 +219,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
 
             // Guidelines
             Card(
-              color: Colors.blue.withOpacity(0.1),
+              color: ChannelsTheme.facebookBlue.withOpacity(0.1),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -230,13 +227,12 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.lightbulb_outline, color: Colors.blue),
+                        const Icon(Icons.lightbulb_outline, color: ChannelsTheme.facebookBlue),
                         const SizedBox(width: 8),
                         Text(
                           'Channel Guidelines',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[900],
+                          style: ChannelsTheme.headingSmall.copyWith(
+                            color: ChannelsTheme.facebookBlue,
                           ),
                         ),
                       ],
@@ -276,24 +272,24 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.grey[100],
+          color: isSelected ? color.withOpacity(0.1) : ChannelsTheme.hoverColor,
           border: Border.all(
-            color: isSelected ? color : Colors.grey[300]!,
+            color: isSelected ? color : ChannelsTheme.divider,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isSelected ? color : Colors.grey[300],
+                color: isSelected ? color : ChannelsTheme.textTertiary,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
-                color: Colors.white,
+                color: ChannelsTheme.white,
                 size: 24,
               ),
             ),
@@ -304,19 +300,14 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? color : Colors.black,
+                    style: ChannelsTheme.headingSmall.copyWith(
+                      color: isSelected ? color : ChannelsTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                    ),
+                    style: ChannelsTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -342,16 +333,13 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
           const Icon(
             Icons.check_circle_outline,
             size: 16,
-            color: Colors.blue,
+            color: ChannelsTheme.facebookBlue,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[800],
-              ),
+              style: ChannelsTheme.bodyMedium,
             ),
           ),
         ],
@@ -383,7 +371,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${channel.name} created successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: ChannelsTheme.success,
             ),
           );
           // Navigate to channel detail
@@ -393,7 +381,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to create channel. Please try again.'),
-              backgroundColor: Colors.red,
+              backgroundColor: ChannelsTheme.error,
             ),
           );
           setState(() => _isCreating = false);
@@ -404,7 +392,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: ChannelsTheme.error,
           ),
         );
         setState(() => _isCreating = false);

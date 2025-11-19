@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/channels/models/channel_post_model.dart';
 import 'package:textgb/features/channels/providers/channel_posts_provider.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
 /// Screen for creating a new post in a channel
 class CreateChannelPostScreen extends ConsumerStatefulWidget {
@@ -42,6 +43,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
       appBar: AppBar(
         title: const Text('Create Post'),
         actions: [
@@ -62,11 +64,11 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           else
             TextButton(
               onPressed: _createPost,
-              child: const Text(
+              child: Text(
                 'Post',
-                style: TextStyle(
+                style: ChannelsTheme.headingSmall.copyWith(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  color: ChannelsTheme.facebookBlue,
                 ),
               ),
             ),
@@ -100,12 +102,9 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
             const SizedBox(height: 16),
 
             // Media Content Type Selection
-            const Text(
+            Text(
               'Content Type',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: ChannelsTheme.headingSmall,
             ),
             const SizedBox(height: 12),
 
@@ -155,16 +154,16 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                   _isPremium = value;
                 });
               },
-              title: const Text('Premium Content'),
-              subtitle: const Text('Charge subscribers to view this post'),
-              secondary: const Icon(Icons.star, color: Colors.amber),
+              title: Text('Premium Content', style: ChannelsTheme.bodyLarge),
+              subtitle: Text('Charge subscribers to view this post', style: ChannelsTheme.bodySmall),
+              secondary: const Icon(Icons.star, color: ChannelsTheme.warning),
             ),
 
             // Premium Settings
             if (_isPremium) ...[
               const SizedBox(height: 8),
               Card(
-                color: Colors.amber.withOpacity(0.1),
+                color: ChannelsTheme.warning.withOpacity(0.1),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -172,13 +171,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.monetization_on, color: Colors.amber),
+                          const Icon(Icons.monetization_on, color: ChannelsTheme.warning),
                           const SizedBox(width: 8),
                           Text(
                             'Premium Settings',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[900],
+                            style: ChannelsTheme.headingSmall.copyWith(
+                              color: ChannelsTheme.warning,
                             ),
                           ),
                         ],
@@ -187,12 +185,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
 
                       // Price
                       TextFormField(
-                        decoration: const InputDecoration(
+                        decoration: ChannelsTheme.inputDecoration(
                           labelText: 'Price (Coins)',
                           hintText: 'e.g., 50',
-                          border: OutlineInputBorder(),
-                          filled: true,
-                          fillColor: Colors.white,
+                        ).copyWith(
+                          border: const OutlineInputBorder(),
+                          fillColor: ChannelsTheme.cardBackground,
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -222,12 +220,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                       if (_contentType == PostContentType.video ||
                           _contentType == PostContentType.textVideo) ...[
                         TextFormField(
-                          decoration: const InputDecoration(
+                          decoration: ChannelsTheme.inputDecoration(
                             labelText: 'Free Preview Duration (seconds)',
                             hintText: 'e.g., 30',
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.white,
+                          ).copyWith(
+                            border: const OutlineInputBorder(),
+                            fillColor: ChannelsTheme.cardBackground,
                             helperText:
                                 'How long users can watch before payment is required',
                           ),
@@ -243,10 +241,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
 
                       Text(
                         'Note: Platform takes 20% (You get 80%)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
+                        style: ChannelsTheme.bodySmall,
                       ),
                     ],
                   ),
@@ -258,7 +253,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
 
             // Guidelines
             Card(
-              color: Colors.blue.withOpacity(0.1),
+              color: ChannelsTheme.facebookBlue.withOpacity(0.1),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -266,13 +261,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.info_outline, color: Colors.blue),
+                        const Icon(Icons.info_outline, color: ChannelsTheme.facebookBlue),
                         const SizedBox(width: 8),
                         Text(
                           'Content Guidelines',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[900],
+                          style: ChannelsTheme.headingSmall.copyWith(
+                            color: ChannelsTheme.facebookBlue,
                           ),
                         ),
                       ],
@@ -314,7 +308,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           Icon(
             icon,
             size: 16,
-            color: isSelected ? Colors.white : Colors.grey[700],
+            color: isSelected ? ChannelsTheme.white : ChannelsTheme.textSecondary,
           ),
           const SizedBox(width: 4),
           Text(label),
@@ -331,9 +325,9 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           });
         }
       },
-      selectedColor: Theme.of(context).primaryColor,
+      selectedColor: ChannelsTheme.facebookBlue,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.grey[700],
+        color: isSelected ? ChannelsTheme.white : ChannelsTheme.textSecondary,
       ),
     );
   }
@@ -342,12 +336,9 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Media',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: ChannelsTheme.headingSmall,
         ),
         const SizedBox(height: 12),
 
@@ -430,9 +421,9 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
               height: 150,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[400]!),
+                color: ChannelsTheme.hoverColor,
+                borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+                border: Border.all(color: ChannelsTheme.divider),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -443,7 +434,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                         ? Icons.videocam
                         : Icons.image,
                     size: 48,
-                    color: Colors.grey[600],
+                    color: ChannelsTheme.textSecondary,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -451,10 +442,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                             _contentType == PostContentType.textVideo
                         ? 'Tap to select video'
                         : 'Tap to select image(s)',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
+                    style: ChannelsTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -474,16 +462,13 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           const Icon(
             Icons.check_circle_outline,
             size: 16,
-            color: Colors.blue,
+            color: ChannelsTheme.facebookBlue,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[800],
-              ),
+              style: ChannelsTheme.bodyMedium,
             ),
           ),
         ],
@@ -555,7 +540,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Post created successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: ChannelsTheme.success,
             ),
           );
           Navigator.of(context).pop();
@@ -563,7 +548,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to create post. Please try again.'),
-              backgroundColor: Colors.red,
+              backgroundColor: ChannelsTheme.error,
             ),
           );
           setState(() => _isUploading = false);
@@ -574,7 +559,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: ChannelsTheme.error,
           ),
         );
         setState(() => _isUploading = false);

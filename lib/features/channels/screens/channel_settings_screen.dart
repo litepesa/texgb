@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
 /// Screen for managing channel settings (owner/admin only)
 class ChannelSettingsScreen extends ConsumerStatefulWidget {
@@ -75,6 +76,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
     }
 
     return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
       appBar: AppBar(
         title: const Text('Channel Settings'),
         actions: [
@@ -92,11 +94,11 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           else
             TextButton(
               onPressed: _saveSettings,
-              child: const Text(
+              child: Text(
                 'Save',
-                style: TextStyle(
+                style: ChannelsTheme.headingSmall.copyWith(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  color: ChannelsTheme.facebookBlue,
                 ),
               ),
             ),
@@ -106,22 +108,20 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // Channel Info Section
-          const Text(
+          Text(
             'Channel Information',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: ChannelsTheme.headingMedium,
           ),
           const SizedBox(height: 16),
 
           // Channel Name
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
+            decoration: ChannelsTheme.inputDecoration(
               labelText: 'Channel Name',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.tv),
+              prefixIcon: const Icon(Icons.tv),
+            ).copyWith(
+              border: const OutlineInputBorder(),
             ),
             maxLength: 50,
           ),
@@ -130,10 +130,11 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           // Description
           TextField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
+            decoration: ChannelsTheme.inputDecoration(
               labelText: 'Description',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.description),
+              prefixIcon: const Icon(Icons.description),
+            ).copyWith(
+              border: const OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
             maxLines: 4,
@@ -164,12 +165,9 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           ],
 
           // Stats Section
-          const Text(
+          Text(
             'Statistics',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: ChannelsTheme.headingMedium,
           ),
           const SizedBox(height: 16),
 
@@ -180,7 +178,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
                   icon: Icons.people,
                   label: 'Subscribers',
                   value: '${_channel!.subscriberCount}',
-                  color: Colors.blue,
+                  color: ChannelsTheme.facebookBlue,
                 ),
               ),
               const SizedBox(width: 16),
@@ -189,7 +187,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
                   icon: Icons.post_add,
                   label: 'Posts',
                   value: '${_channel!.postCount}',
-                  color: Colors.green,
+                  color: ChannelsTheme.success,
                 ),
               ),
             ],
@@ -197,12 +195,9 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           const SizedBox(height: 24),
 
           // Management Section
-          const Text(
+          Text(
             'Management',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: ChannelsTheme.headingMedium,
           ),
           const SizedBox(height: 16),
 
@@ -218,7 +213,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           if (_channel!.isVerified)
             _buildManagementOption(
               icon: Icons.verified,
-              iconColor: Colors.blue,
+              iconColor: ChannelsTheme.facebookBlue,
               title: 'Verified Channel',
               subtitle: 'This channel is verified',
               onTap: null,
@@ -234,12 +229,10 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           const SizedBox(height: 24),
 
           // Danger Zone
-          const Text(
+          Text(
             'Danger Zone',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
+            style: ChannelsTheme.headingMedium.copyWith(
+              color: ChannelsTheme.error,
             ),
           ),
           const SizedBox(height: 16),
@@ -263,6 +256,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
     required String subtitle,
   }) {
     return Card(
+      color: ChannelsTheme.cardBackground,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -282,26 +276,17 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: ChannelsTheme.bodySmall,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     value,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: ChannelsTheme.headingMedium,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                    ),
+                    style: ChannelsTheme.caption,
                   ),
                 ],
               ),
@@ -319,6 +304,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
     required Color color,
   }) {
     return Card(
+      color: ChannelsTheme.cardBackground,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -327,18 +313,12 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingLarge,
             ),
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodySmall,
             ),
           ],
         ),
@@ -354,10 +334,11 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
     Color? iconColor,
   }) {
     return Card(
+      color: ChannelsTheme.cardBackground,
       child: ListTile(
         leading: Icon(icon, color: iconColor),
-        title: Text(title),
-        subtitle: Text(subtitle),
+        title: Text(title, style: ChannelsTheme.bodyLarge),
+        subtitle: Text(subtitle, style: ChannelsTheme.bodySmall),
         trailing: onTap != null ? const Icon(Icons.chevron_right) : null,
         onTap: onTap,
       ),
@@ -371,12 +352,12 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
     required VoidCallback onTap,
   }) {
     return Card(
-      color: Colors.red.withOpacity(0.1),
+      color: ChannelsTheme.error.withOpacity(0.1),
       child: ListTile(
-        leading: const Icon(Icons.delete_forever, color: Colors.red),
-        title: Text(title, style: const TextStyle(color: Colors.red)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right, color: Colors.red),
+        leading: const Icon(Icons.delete_forever, color: ChannelsTheme.error),
+        title: Text(title, style: ChannelsTheme.bodyLarge.copyWith(color: ChannelsTheme.error)),
+        subtitle: Text(subtitle, style: ChannelsTheme.bodySmall),
+        trailing: const Icon(Icons.chevron_right, color: ChannelsTheme.error),
         onTap: onTap,
       ),
     );
@@ -396,11 +377,11 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
   Color _getTypeColor(ChannelType type) {
     switch (type) {
       case ChannelType.public:
-        return Colors.green;
+        return ChannelsTheme.publicChannelColor;
       case ChannelType.private:
-        return Colors.purple;
+        return ChannelsTheme.privateChannelColor;
       case ChannelType.premium:
-        return Colors.amber;
+        return ChannelsTheme.premiumChannelColor;
     }
   }
 
@@ -441,7 +422,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Settings saved successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: ChannelsTheme.success,
             ),
           );
           Navigator.of(context).pop();
@@ -449,7 +430,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to save settings'),
-              backgroundColor: Colors.red,
+              backgroundColor: ChannelsTheme.error,
             ),
           );
         }
@@ -515,7 +496,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: ChannelsTheme.error),
             child: const Text('Delete'),
           ),
         ],
@@ -539,7 +520,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Channel deleted successfully'),
-              backgroundColor: Colors.green,
+              backgroundColor: ChannelsTheme.success,
             ),
           );
           // Navigate back to channels home
@@ -548,7 +529,7 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to delete channel'),
-              backgroundColor: Colors.red,
+              backgroundColor: ChannelsTheme.error,
             ),
           );
           setState(() => _isSaving = false);

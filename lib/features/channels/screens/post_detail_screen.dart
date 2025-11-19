@@ -5,6 +5,7 @@ import 'package:textgb/features/channels/models/channel_comment_model.dart';
 import 'package:textgb/features/channels/providers/channel_posts_provider.dart';
 import 'package:textgb/features/channels/providers/channel_comments_provider.dart';
 import 'package:textgb/features/channels/widgets/post_card.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
 /// Post detail screen with multi-threaded comments
 class PostDetailScreen extends ConsumerStatefulWidget {
@@ -41,6 +42,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final sortType = ref.watch(commentSortProvider);
 
     return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
       appBar: AppBar(
         title: const Text('Post'),
         actions: [
@@ -59,7 +61,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       Icons.arrow_upward,
                       size: 18,
                       color: sortType == CommentSortType.top
-                          ? Theme.of(context).primaryColor
+                          ? ChannelsTheme.facebookBlue
                           : null,
                     ),
                     const SizedBox(width: 8),
@@ -75,7 +77,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       Icons.new_releases,
                       size: 18,
                       color: sortType == CommentSortType.new_
-                          ? Theme.of(context).primaryColor
+                          ? ChannelsTheme.facebookBlue
                           : null,
                     ),
                     const SizedBox(width: 8),
@@ -91,7 +93,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       Icons.access_time,
                       size: 18,
                       color: sortType == CommentSortType.old
-                          ? Theme.of(context).primaryColor
+                          ? ChannelsTheme.facebookBlue
                           : null,
                     ),
                     const SizedBox(width: 8),
@@ -136,18 +138,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.comment_outlined,
                                 size: 20,
-                                color: Colors.grey[700],
+                                color: ChannelsTheme.textSecondary,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 '${post.commentsCount} Comments',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: ChannelsTheme.headingSmall,
                               ),
                             ],
                           ),
@@ -204,7 +203,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           margin: EdgeInsets.only(left: depth * 24.0),
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            color: comment.isPinned ? Colors.amber.withOpacity(0.1) : null,
+            color: comment.isPinned ? ChannelsTheme.warning.withOpacity(0.1) : ChannelsTheme.cardBackground,
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -232,17 +231,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           children: [
                             Text(
                               comment.username,
-                              style: const TextStyle(
+                              style: ChannelsTheme.bodyMedium.copyWith(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
                               ),
                             ),
                             Text(
                               comment.timeAgo,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                              ),
+                              style: ChannelsTheme.caption,
                             ),
                           ],
                         ),
@@ -256,15 +251,14 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.amber,
+                            color: ChannelsTheme.warning,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
+                          child: Text(
                             'PINNED',
-                            style: TextStyle(
-                              fontSize: 10,
+                            style: ChannelsTheme.caption.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              color: ChannelsTheme.black,
                             ),
                           ),
                         ),
@@ -284,9 +278,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   // Comment Text
                   Text(
                     comment.text,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDeleted ? Colors.grey[600] : null,
+                    style: ChannelsTheme.bodyMedium.copyWith(
+                      color: isDeleted ? ChannelsTheme.textTertiary : null,
                       fontStyle: isDeleted ? FontStyle.italic : null,
                     ),
                   ),
@@ -321,16 +314,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     : Icons.thumb_up_outlined,
                                 size: 16,
                                 color: comment.hasLiked == true
-                                    ? Theme.of(context).primaryColor
-                                    : Colors.grey[600],
+                                    ? ChannelsTheme.facebookBlue
+                                    : ChannelsTheme.textSecondary,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 '${comment.likes}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
+                                style: ChannelsTheme.bodySmall,
                               ),
                             ],
                           ),
@@ -342,17 +332,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           onTap: () => _startReply(comment),
                           child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.reply,
                                 size: 16,
-                                color: Colors.grey[600],
+                                color: ChannelsTheme.textSecondary,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Reply',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
+                                style: ChannelsTheme.bodySmall.copyWith(
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -365,10 +353,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           const SizedBox(width: 16),
                           Text(
                             '${comment.repliesCount} ${comment.repliesCount == 1 ? 'reply' : 'replies'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
+                            style: ChannelsTheme.bodySmall,
                           ),
                         ],
                       ],
@@ -407,18 +392,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             if (_replyingToCommentId != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: Colors.grey[200],
+                color: ChannelsTheme.hoverColor,
                 child: Row(
                   children: [
-                    Icon(Icons.reply, size: 16, color: Colors.grey[700]),
+                    const Icon(Icons.reply, size: 16, color: ChannelsTheme.textSecondary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Replying to $_replyingToUsername',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[700],
-                        ),
+                        style: ChannelsTheme.bodyMedium,
                       ),
                     ),
                     IconButton(
@@ -443,7 +425,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       decoration: InputDecoration(
                         hintText: 'Add a comment...',
                         filled: true,
-                        fillColor: Colors.grey[200],
+                        fillColor: ChannelsTheme.hoverColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
@@ -451,6 +433,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 10,
+                        ),
+                        hintStyle: ChannelsTheme.bodyMedium.copyWith(
+                          color: ChannelsTheme.textTertiary,
                         ),
                       ),
                       maxLines: null,
@@ -460,9 +445,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: _submitComment,
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.send,
-                      color: Theme.of(context).primaryColor,
+                      color: ChannelsTheme.facebookBlue,
                     ),
                   ),
                 ],
@@ -482,23 +467,17 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           Icon(
             Icons.comment_outlined,
             size: 64,
-            color: Colors.grey[400],
+            color: ChannelsTheme.textTertiary.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'No comments yet',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+            style: ChannelsTheme.headingSmall,
           ),
           const SizedBox(height: 8),
           Text(
             'Be the first to comment',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            style: ChannelsTheme.bodyMedium,
           ),
         ],
       ),
@@ -515,27 +494,22 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             Icon(
               Icons.error_outline,
               size: 80,
-              color: Colors.grey[400],
+              color: ChannelsTheme.textTertiary.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Post not found',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               'This post may have been deleted',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
+              style: ChannelsTheme.primaryButtonStyle,
               child: const Text('Go Back'),
             ),
           ],
@@ -551,26 +525,20 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               size: 80,
-              color: Colors.red[400],
+              color: ChannelsTheme.error,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               error,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -581,6 +549,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                 ref.invalidate(channelPostProvider(widget.postId));
                 ref.invalidate(postCommentsProvider(widget.postId));
               },
+              style: ChannelsTheme.primaryButtonStyle,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),

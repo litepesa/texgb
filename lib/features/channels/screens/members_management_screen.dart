@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
 /// Screen for managing channel members (admins/moderators)
 class MembersManagementScreen extends ConsumerStatefulWidget {
@@ -34,6 +35,7 @@ class _MembersManagementScreenState
     final membersAsync = ref.watch(channelMembersProvider(widget.channelId));
 
     return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
       appBar: AppBar(
         title: const Text('Manage Members'),
         actions: [
@@ -63,10 +65,13 @@ class _MembersManagementScreenState
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.grey[200],
+                fillColor: ChannelsTheme.hoverColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
+                ),
+                hintStyle: ChannelsTheme.bodyMedium.copyWith(
+                  color: ChannelsTheme.textTertiary,
                 ),
               ),
               onChanged: (value) {
@@ -174,7 +179,7 @@ class _MembersManagementScreenState
 
     return Card(
       margin: const EdgeInsets.all(16),
-      color: isAtLimit ? Colors.orange.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+      color: isAtLimit ? ChannelsTheme.warning.withOpacity(0.1) : ChannelsTheme.facebookBlue.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -185,48 +190,41 @@ class _MembersManagementScreenState
               children: [
                 Text(
                   'Members: $totalMembers / $maxMembers',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: ChannelsTheme.headingMedium,
                 ),
                 Icon(
                   isAtLimit ? Icons.warning : Icons.info_outline,
-                  color: isAtLimit ? Colors.orange : Colors.blue,
+                  color: isAtLimit ? ChannelsTheme.warning : ChannelsTheme.facebookBlue,
                 ),
               ],
             ),
             const SizedBox(height: 8),
             LinearProgressIndicator(
               value: totalMembers / maxMembers,
-              backgroundColor: Colors.grey[300],
-              color: isAtLimit ? Colors.orange : Colors.blue,
+              backgroundColor: ChannelsTheme.divider,
+              color: isAtLimit ? ChannelsTheme.warning : ChannelsTheme.facebookBlue,
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                _buildStatChip('Admins', admins, Colors.purple),
+                _buildStatChip('Admins', admins, ChannelsTheme.privateChannelColor),
                 const SizedBox(width: 8),
-                _buildStatChip('Moderators', moderators, Colors.green),
+                _buildStatChip('Moderators', moderators, ChannelsTheme.success),
               ],
             ),
             if (isAtLimit) ...[
               const SizedBox(height: 8),
               Text(
                 'Member limit reached. Remove a member to add a new one.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.orange[800],
+                style: ChannelsTheme.bodySmall.copyWith(
+                  color: ChannelsTheme.warning,
                 ),
               ),
             ] else ...[
               const SizedBox(height: 8),
               Text(
                 '$spotsLeft spot${spotsLeft == 1 ? '' : 's'} remaining',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[700],
-                ),
+                style: ChannelsTheme.bodySmall,
               ),
             ],
           ],
@@ -245,8 +243,7 @@ class _MembersManagementScreenState
       ),
       child: Text(
         '$label: $count',
-        style: TextStyle(
-          fontSize: 11,
+        style: ChannelsTheme.caption.copyWith(
           fontWeight: FontWeight.w600,
           color: color,
         ),
@@ -259,10 +256,8 @@ class _MembersManagementScreenState
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Text(
         '$title ($count)',
-        style: const TextStyle(
-          fontSize: 14,
+        style: ChannelsTheme.bodyMedium.copyWith(
           fontWeight: FontWeight.bold,
-          color: Colors.grey,
         ),
       ),
     );
@@ -281,7 +276,7 @@ class _MembersManagementScreenState
             ? const Icon(Icons.person)
             : null,
       ),
-      title: Text(member.userName),
+      title: Text(member.userName, style: ChannelsTheme.bodyLarge),
       subtitle: Row(
         children: [
           Container(
@@ -293,8 +288,7 @@ class _MembersManagementScreenState
             ),
             child: Text(
               _getRoleName(member.role),
-              style: TextStyle(
-                fontSize: 11,
+              style: ChannelsTheme.caption.copyWith(
                 fontWeight: FontWeight.w600,
                 color: roleColor,
               ),
@@ -304,7 +298,7 @@ class _MembersManagementScreenState
             const SizedBox(width: 8),
             Text(
               'Added ${_timeAgo(member.addedAt!)}',
-              style: const TextStyle(fontSize: 11),
+              style: ChannelsTheme.caption,
             ),
           ],
         ],
@@ -355,23 +349,17 @@ class _MembersManagementScreenState
             Icon(
               Icons.people_outline,
               size: 80,
-              color: Colors.grey[400],
+              color: ChannelsTheme.textTertiary.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No team members yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               'Add admins and moderators to help manage your channel',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
           ],
@@ -387,26 +375,20 @@ class _MembersManagementScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               size: 80,
-              color: Colors.red[400],
+              color: ChannelsTheme.error,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Failed to load members',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               error,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -414,6 +396,7 @@ class _MembersManagementScreenState
               onPressed: () {
                 ref.invalidate(channelMembersProvider(widget.channelId));
               },
+              style: ChannelsTheme.primaryButtonStyle,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),
@@ -468,7 +451,7 @@ class _MembersManagementScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Member limit reached (8 members max)'),
-            backgroundColor: Colors.orange,
+            backgroundColor: ChannelsTheme.warning,
           ),
         );
       }
@@ -574,7 +557,7 @@ class _MembersManagementScreenState
           content: Text(
             success ? 'Member added successfully!' : 'Failed to add member',
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? ChannelsTheme.success : ChannelsTheme.error,
         ),
       );
     }
@@ -633,7 +616,7 @@ class _MembersManagementScreenState
           content: Text(
             success ? 'Role changed successfully!' : 'Failed to change role',
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? ChannelsTheme.success : ChannelsTheme.error,
         ),
       );
     }
@@ -654,7 +637,7 @@ class _MembersManagementScreenState
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: ChannelsTheme.error),
             child: const Text('Remove'),
           ),
         ],
@@ -679,7 +662,7 @@ class _MembersManagementScreenState
           content: Text(
             success ? 'Member removed successfully!' : 'Failed to remove member',
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? ChannelsTheme.success : ChannelsTheme.error,
         ),
       );
     }
@@ -688,13 +671,13 @@ class _MembersManagementScreenState
   Color _getRoleColor(MemberRole role) {
     switch (role) {
       case MemberRole.owner:
-        return Colors.amber;
+        return ChannelsTheme.warning;
       case MemberRole.admin:
-        return Colors.purple;
+        return ChannelsTheme.privateChannelColor;
       case MemberRole.moderator:
-        return Colors.green;
+        return ChannelsTheme.success;
       case MemberRole.subscriber:
-        return Colors.blue;
+        return ChannelsTheme.facebookBlue;
     }
   }
 

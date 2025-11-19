@@ -4,9 +4,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/models/channel_post_model.dart';
 import 'package:textgb/features/channels/providers/channel_posts_provider.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
-/// Post card widget for channel posts
-class PostCard extends ConsumerWidget {
+/// Facebook-quality post card widget for channel posts
+class PostCard extends ConsumerStatefulWidget {
   final ChannelPost post;
   final String channelId;
   final VoidCallback? onTap;
@@ -21,76 +22,95 @@ class PostCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Post Header (author info, timestamp)
-            _buildPostHeader(context),
+  ConsumerState<PostCard> createState() => _PostCardState();
+}
 
-            // Post Content
-            if (post.text != null && post.text!.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  post.text!,
-                  style: const TextStyle(fontSize: 15),
-                  maxLines: 10,
-                  overflow: TextOverflow.ellipsis,
+class _PostCardState extends ConsumerState<PostCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.symmetric(
+          horizontal: ChannelsTheme.spacingL,
+          vertical: ChannelsTheme.spacingS,
+        ),
+        decoration: ChannelsTheme.cardDecoration(
+          boxShadow: _isHovered ? ChannelsTheme.hoverShadow : ChannelsTheme.cardShadow,
+        ),
+        child: Material(
+          color: ChannelsTheme.cardBackground,
+          borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+            splashColor: ChannelsTheme.hoverColor.withOpacity(0.5),
+            highlightColor: ChannelsTheme.hoverColor.withOpacity(0.3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Post Header (author info, timestamp)
+                _buildPostHeader(),
+
+                // Post Content
+                if (widget.post.text != null && widget.post.text!.isNotEmpty)
+                  _buildTextContent(),
+
+                // Media Content (images/videos)
+                if (widget.post.mediaUrl != null) _buildMediaContent(),
+
+                // Premium Badge/Unlock
+                if (widget.post.isPremium) _buildPremiumSection(),
+
+                // Divider before engagement
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: ChannelsTheme.spacingL),
+                  child: ChannelsTheme.dividerWidget,
                 ),
-              ),
-            ],
 
-            // Media Content (images/videos)
-            if (post.mediaUrl != null) _buildMediaContent(context),
-
-            // Premium Badge/Unlock
-            if (post.isPremium) _buildPremiumSection(context, ref),
-
-            // Engagement Bar (likes, comments, shares)
-            _buildEngagementBar(context, ref),
-          ],
+                // Engagement Bar (likes, comments, shares)
+                _buildEngagementBar(),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPostHeader(BuildContext context) {
+  Widget _buildPostHeader() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(ChannelsTheme.spacingL),
       child: Row(
         children: [
           // Channel Avatar
-          if (showChannelInfo) ...[
+          if (widget.showChannelInfo) ...[
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[300],
-                image: post.channelAvatarUrl != null
+                borderRadius: BorderRadius.circular(ChannelsTheme.avatarRadius),
+                color: ChannelsTheme.hoverColor,
+                image: widget.post.channelAvatarUrl != null
                     ? DecorationImage(
-                        image: NetworkImage(post.channelAvatarUrl!),
+                        image: NetworkImage(widget.post.channelAvatarUrl!),
                         fit: BoxFit.cover,
                       )
                     : null,
               ),
-              child: post.channelAvatarUrl == null
+              child: widget.post.channelAvatarUrl == null
                   ? Icon(
                       CupertinoIcons.tv_circle_fill,
                       size: 20,
-                      color: Colors.grey[600],
+                      color: ChannelsTheme.textTertiary,
                     )
                   : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: ChannelsTheme.spacingM),
           ],
 
           // Channel Name + Timestamp
@@ -98,22 +118,16 @@ class PostCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (showChannelInfo && post.channelName != null) ...[
+                if (widget.showChannelInfo && widget.post.channelName != null) ...[
                   Text(
-                    post.channelName!,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
+                    widget.post.channelName!,
+                    style: ChannelsTheme.headingSmall.copyWith(fontSize: 15),
                   ),
                   const SizedBox(height: 2),
                 ],
                 Text(
-                  post.timeAgo,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
+                  widget.post.timeAgo,
+                  style: ChannelsTheme.bodySmall,
                 ),
               ],
             ),
@@ -124,8 +138,12 @@ class PostCard extends ConsumerWidget {
 
           // More Options
           IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () => _showPostOptions(context),
+            icon: Icon(
+              Icons.more_horiz,
+              color: ChannelsTheme.textSecondary,
+            ),
+            onPressed: _showPostOptions,
+            splashRadius: 20,
           ),
         ],
       ),
@@ -133,27 +151,21 @@ class PostCard extends ConsumerWidget {
   }
 
   Widget _buildContentTypeBadge() {
-    IconData icon;
-    Color color;
+    IconData? icon;
+    Color? color;
 
-    switch (post.contentType) {
+    switch (widget.post.contentType) {
       case PostContentType.text:
         return const SizedBox.shrink();
       case PostContentType.image:
-        icon = Icons.image;
-        color = Colors.blue;
+      case PostContentType.textImage:
+        icon = Icons.image_outlined;
+        color = ChannelsTheme.tiktokCyan;
         break;
       case PostContentType.video:
-        icon = Icons.play_circle_outline;
-        color = Colors.red;
-        break;
-      case PostContentType.textImage:
-        icon = Icons.image;
-        color = Colors.blue;
-        break;
       case PostContentType.textVideo:
         icon = Icons.play_circle_outline;
-        color = Colors.red;
+        color = ChannelsTheme.tiktokPink;
         break;
     }
 
@@ -161,165 +173,251 @@ class PostCard extends ConsumerWidget {
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Icon(icon, size: 16, color: color),
+      child: Icon(icon, size: 18, color: color),
     );
   }
 
-  Widget _buildMediaContent(BuildContext context) {
-    final isVideo = post.contentType == PostContentType.video ||
-        post.contentType == PostContentType.textVideo;
+  Widget _buildTextContent() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        ChannelsTheme.spacingL,
+        0,
+        ChannelsTheme.spacingL,
+        ChannelsTheme.spacingM,
+      ),
+      child: Text(
+        widget.post.text!,
+        style: ChannelsTheme.bodyLarge,
+        maxLines: 10,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Media thumbnail/preview
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Container(
-            color: Colors.grey[300],
-            child: post.mediaUrl != null
-                ? Image.network(
-                    post.mediaUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        isVideo ? Icons.videocam_off : Icons.broken_image,
-                        size: 40,
-                        color: Colors.grey[600],
-                      );
-                    },
-                  )
-                : Icon(
-                    isVideo ? Icons.videocam : Icons.image,
-                    size: 40,
-                    color: Colors.grey[600],
-                  ),
-          ),
-        ),
+  Widget _buildMediaContent() {
+    final isVideo = widget.post.contentType == PostContentType.video ||
+        widget.post.contentType == PostContentType.textVideo;
+    final isLocked = widget.post.isPremium && widget.post.hasUnlocked != true;
 
-        // Video Play Overlay
-        if (isVideo)
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
-              shape: BoxShape.circle,
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(0),
+        topRight: Radius.circular(0),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Media thumbnail/preview
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              color: ChannelsTheme.hoverColor,
+              child: widget.post.mediaUrl != null
+                  ? Image.network(
+                      widget.post.mediaUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          isVideo ? Icons.videocam_off : Icons.broken_image,
+                          size: 48,
+                          color: ChannelsTheme.textTertiary,
+                        );
+                      },
+                    )
+                  : Icon(
+                      isVideo ? Icons.videocam : Icons.image,
+                      size: 48,
+                      color: ChannelsTheme.textTertiary,
+                    ),
             ),
-            child: const Icon(
-              Icons.play_arrow,
-              size: 40,
-              color: Colors.white,
-            ),
           ),
 
-        // Premium Lock Overlay (if not unlocked)
-        if (post.isPremium && post.hasUnlocked != true)
-          Container(
-            color: Colors.black.withOpacity(0.6),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.lock,
-                  size: 48,
-                  color: Colors.amber,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Premium Content',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+          // Video Play Overlay
+          if (isVideo && !isLocked)
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: ChannelsTheme.black.withOpacity(0.7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.play_arrow,
+                size: 40,
+                color: ChannelsTheme.white,
+              ),
+            ),
+
+          // Premium Lock Overlay (if not unlocked)
+          if (isLocked)
+            Container(
+              color: ChannelsTheme.black.withOpacity(0.75),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.lock_rounded,
+                    size: 56,
+                    color: ChannelsTheme.tiktokPink,
                   ),
-                ),
-                if (post.previewDuration != null && post.previewDuration! > 0)
-                  Text(
-                    'Preview: ${_formatDuration(post.previewDuration!)}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
+                  const SizedBox(height: ChannelsTheme.spacingM),
+                  const Text(
+                    'Premium Content',
+                    style: TextStyle(
+                      color: ChannelsTheme.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-              ],
+                  const SizedBox(height: ChannelsTheme.spacingXs),
+                  if (widget.post.previewDuration != null &&
+                      widget.post.previewDuration! > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: ChannelsTheme.spacingM,
+                        vertical: ChannelsTheme.spacingXs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: ChannelsTheme.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Preview: ${_formatDuration(widget.post.previewDuration!)}',
+                        style: ChannelsTheme.bodySmall.copyWith(
+                          color: ChannelsTheme.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildPremiumSection(BuildContext context, WidgetRef ref) {
-    final hasUnlocked = post.hasUnlocked ?? false;
+  Widget _buildPremiumSection() {
+    final hasUnlocked = widget.post.hasUnlocked ?? false;
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.all(ChannelsTheme.spacingL),
+      padding: const EdgeInsets.all(ChannelsTheme.spacingM),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber, width: 1),
+        gradient: LinearGradient(
+          colors: [
+            ChannelsTheme.tiktokPink.withOpacity(0.1),
+            ChannelsTheme.tiktokCyan.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+        border: Border.all(
+          color: hasUnlocked ? ChannelsTheme.success : ChannelsTheme.tiktokPink,
+          width: 1.5,
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.star, color: Colors.amber, size: 20),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(ChannelsTheme.spacingS),
+            decoration: BoxDecoration(
+              color: hasUnlocked
+                  ? ChannelsTheme.success
+                  : ChannelsTheme.tiktokPink,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              hasUnlocked ? Icons.lock_open : Icons.star,
+              color: ChannelsTheme.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: ChannelsTheme.spacingM),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasUnlocked ? 'Premium Content (Unlocked)' : 'Premium Content',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber,
+                  hasUnlocked ? 'Premium Content Unlocked' : 'Premium Content',
+                  style: ChannelsTheme.headingSmall.copyWith(
+                    fontSize: 14,
+                    color: hasUnlocked
+                        ? ChannelsTheme.success
+                        : ChannelsTheme.tiktokPink,
                   ),
                 ),
-                if (!hasUnlocked && post.priceCoins != null) ...[
+                if (!hasUnlocked && widget.post.priceCoins != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '${post.priceCoins} coins to unlock',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[700],
-                    ),
+                    '${widget.post.priceCoins} coins to unlock full content',
+                    style: ChannelsTheme.bodySmall,
                   ),
                 ],
-                if (post.fileSize != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Size: ${post.fileSizeFormatted}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-                if (post.fullDuration != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Duration: ${_formatDuration(post.fullDuration!)}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                    ),
+                if (widget.post.fileSize != null ||
+                    widget.post.fullDuration != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (widget.post.fullDuration != null) ...[
+                        Icon(
+                          Icons.schedule,
+                          size: 12,
+                          color: ChannelsTheme.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatDuration(widget.post.fullDuration!),
+                          style: ChannelsTheme.caption,
+                        ),
+                      ],
+                      if (widget.post.fileSize != null) ...[
+                        if (widget.post.fullDuration != null)
+                          const Text(' • ', style: ChannelsTheme.caption),
+                        Icon(
+                          Icons.file_present,
+                          size: 12,
+                          color: ChannelsTheme.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          widget.post.fileSizeFormatted,
+                          style: ChannelsTheme.caption,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ],
             ),
           ),
-          if (!hasUnlocked && post.priceCoins != null) ...[
-            const SizedBox(width: 8),
+          if (!hasUnlocked && widget.post.priceCoins != null) ...[
+            const SizedBox(width: ChannelsTheme.spacingS),
             ElevatedButton(
-              onPressed: () => _unlockPost(context, ref),
+              onPressed: _unlockPost,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                backgroundColor: ChannelsTheme.tiktokPink,
+                foregroundColor: ChannelsTheme.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: ChannelsTheme.spacingL,
+                  vertical: ChannelsTheme.spacingS,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(ChannelsTheme.buttonRadius),
+                ),
+                elevation: 0,
               ),
-              child: const Text('Unlock'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_open, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Unlock',
+                    style: ChannelsTheme.buttonText.copyWith(fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -327,68 +425,72 @@ class PostCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildEngagementBar(BuildContext context, WidgetRef ref) {
-    final isLiked = post.hasLiked ?? false;
+  Widget _buildEngagementBar() {
+    final isLiked = widget.post.hasLiked ?? false;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: ChannelsTheme.spacingL,
+        vertical: ChannelsTheme.spacingM,
+      ),
       child: Row(
         children: [
           // Like Button
-          IconButton(
-            onPressed: () => _toggleLike(ref),
-            icon: Icon(
-              isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-              color: isLiked ? Theme.of(context).primaryColor : Colors.grey[600],
-            ),
+          ChannelsTheme.engagementButton(
+            icon: isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+            label: _formatCount(widget.post.likes),
+            onTap: _toggleLike,
+            isActive: isLiked,
+            activeColor: ChannelsTheme.facebookBlue,
           ),
-          Text(
-            '${post.likes}',
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-          ),
-          const SizedBox(width: 16),
 
           // Comment Button
-          IconButton(
-            onPressed: onTap,
-            icon: Icon(Icons.comment_outlined, color: Colors.grey[600]),
+          ChannelsTheme.engagementButton(
+            icon: Icons.chat_bubble_outline,
+            label: _formatCount(widget.post.commentsCount),
+            onTap: widget.onTap ?? () {},
+            isActive: false,
           ),
-          Text(
-            '${post.commentsCount}',
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-          ),
-          const SizedBox(width: 16),
 
           // Share Button
-          IconButton(
-            onPressed: () => _sharePost(context),
-            icon: Icon(Icons.share_outlined, color: Colors.grey[600]),
-          ),
-          Text(
-            '${post.shares}',
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+          ChannelsTheme.engagementButton(
+            icon: Icons.share_outlined,
+            label: _formatCount(widget.post.shares),
+            onTap: _sharePost,
+            isActive: false,
           ),
 
           const Spacer(),
 
           // Views Count
-          if (post.views > 0) ...[
-            Icon(Icons.visibility_outlined, size: 16, color: Colors.grey[600]),
+          if (widget.post.views > 0) ...[
+            Icon(
+              Icons.visibility_outlined,
+              size: 16,
+              color: ChannelsTheme.textTertiary,
+            ),
             const SizedBox(width: 4),
             Text(
-              _formatCount(post.views),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              _formatCount(widget.post.views),
+              style: ChannelsTheme.bodySmall,
             ),
           ],
 
           // Unlocks Count (for premium)
-          if (post.isPremium && post.unlocksCount > 0) ...[
-            const SizedBox(width: 12),
-            Icon(Icons.lock_open, size: 16, color: Colors.grey[600]),
+          if (widget.post.isPremium && widget.post.unlocksCount > 0) ...[
+            const SizedBox(width: ChannelsTheme.spacingM),
+            Icon(
+              Icons.lock_open,
+              size: 16,
+              color: ChannelsTheme.tiktokPink,
+            ),
             const SizedBox(width: 4),
             Text(
-              '${post.unlocksCount}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              '${widget.post.unlocksCount}',
+              style: ChannelsTheme.bodySmall.copyWith(
+                color: ChannelsTheme.tiktokPink,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ],
@@ -397,34 +499,44 @@ class PostCard extends ConsumerWidget {
   }
 
   // Action methods
-  Future<void> _toggleLike(WidgetRef ref) async {
-    final isLiked = post.hasLiked ?? false;
+  Future<void> _toggleLike() async {
+    final isLiked = widget.post.hasLiked ?? false;
     final actionsNotifier = ref.read(channelPostActionsProvider.notifier);
 
     if (isLiked) {
-      await actionsNotifier.unlikePost(post.id, channelId);
+      await actionsNotifier.unlikePost(widget.post.id, widget.channelId);
     } else {
-      await actionsNotifier.likePost(post.id, channelId);
+      await actionsNotifier.likePost(widget.post.id, widget.channelId);
     }
   }
 
-  Future<void> _unlockPost(BuildContext context, WidgetRef ref) async {
+  Future<void> _unlockPost() async {
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unlock Premium Content'),
+        backgroundColor: ChannelsTheme.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+        ),
+        title: Text(
+          'Unlock Premium Content',
+          style: ChannelsTheme.headingMedium,
+        ),
         content: Text(
-          'Unlock this post for ${post.priceCoins} coins?\n\n'
+          'Unlock this post for ${widget.post.priceCoins} coins?\n\n'
           'This will deduct coins from your wallet.',
+          style: ChannelsTheme.bodyLarge,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
+            style: ChannelsTheme.secondaryButtonStyle,
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: ChannelsTheme.accentButtonStyle,
             child: const Text('Unlock'),
           ),
         ],
@@ -435,9 +547,9 @@ class PostCard extends ConsumerWidget {
 
     // Unlock post
     final actionsNotifier = ref.read(channelPostActionsProvider.notifier);
-    final success = await actionsNotifier.unlockPost(post.id, channelId);
+    final success = await actionsNotifier.unlockPost(widget.post.id, widget.channelId);
 
-    if (context.mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -445,37 +557,48 @@ class PostCard extends ConsumerWidget {
                 ? 'Content unlocked successfully!'
                 : 'Failed to unlock content. Please try again.',
           ),
+          backgroundColor: success
+              ? ChannelsTheme.success
+              : ChannelsTheme.error,
         ),
       );
     }
   }
 
-  void _showPostOptions(BuildContext context) {
+  void _showPostOptions() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: ChannelsTheme.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ChannelsTheme.cardRadius),
+        ),
+      ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Share'),
+              leading: Icon(Icons.share, color: ChannelsTheme.textPrimary),
+              title: Text('Share', style: ChannelsTheme.bodyLarge),
               onTap: () {
                 Navigator.pop(context);
-                _sharePost(context);
+                _sharePost();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.bookmark_outline),
-              title: const Text('Save'),
+              leading: Icon(Icons.bookmark_outline, color: ChannelsTheme.textPrimary),
+              title: Text('Save', style: ChannelsTheme.bodyLarge),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement save
               },
             ),
             ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('Report'),
+              leading: Icon(Icons.flag_outlined, color: ChannelsTheme.error),
+              title: Text('Report', style: ChannelsTheme.bodyLarge.copyWith(
+                color: ChannelsTheme.error,
+              )),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement report
@@ -487,19 +610,28 @@ class PostCard extends ConsumerWidget {
     );
   }
 
-  void _sharePost(BuildContext context) {
+  void _sharePost() {
     // TODO: Implement share functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share functionality coming soon')),
+      const SnackBar(
+        content: Text('Share functionality coming soon'),
+        backgroundColor: ChannelsTheme.textSecondary,
+      ),
     );
   }
 
   // Helper methods
   String _formatCount(int count) {
     if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
+      final millions = count / 1000000;
+      return millions % 1 == 0
+          ? '${millions.toInt()}M'
+          : '${millions.toStringAsFixed(1)}M';
     } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
+      final thousands = count / 1000;
+      return thousands % 1 == 0
+          ? '${thousands.toInt()}K'
+          : '${thousands.toStringAsFixed(1)}K';
     }
     return count.toString();
   }

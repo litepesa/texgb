@@ -8,6 +8,7 @@ import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/models/channel_post_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/providers/channel_posts_provider.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
 /// Channel detail screen showing channel info and posts
 class ChannelDetailScreen extends ConsumerStatefulWidget {
@@ -63,6 +64,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
     final postsAsync = ref.watch(channelPostsProvider(widget.channelId));
 
     return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
       body: channelAsync.when(
         data: (channel) {
           if (channel == null) {
@@ -146,7 +148,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.grey[300],
+                color: ChannelsTheme.hoverColor,
                 image: channel.avatarUrl != null
                     ? DecorationImage(
                         image: NetworkImage(channel.avatarUrl!),
@@ -155,10 +157,10 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                     : null,
               ),
               child: channel.avatarUrl == null
-                  ? Icon(
+                  ? const Icon(
                       CupertinoIcons.tv_circle_fill,
                       size: 40,
-                      color: Colors.grey[600],
+                      color: ChannelsTheme.textSecondary,
                     )
                   : null,
             ),
@@ -171,10 +173,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                 Flexible(
                   child: Text(
                     channel.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: ChannelsTheme.headingMedium,
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -184,7 +183,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                   const SizedBox(width: 4),
                   const Icon(
                     Icons.verified,
-                    color: Colors.blue,
+                    color: ChannelsTheme.facebookBlue,
                     size: 20,
                   ),
                 ],
@@ -197,10 +196,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 channel.description,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: ChannelsTheme.bodyMedium,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -260,21 +256,15 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
   }) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: Colors.grey[600]),
+        Icon(icon, size: 20, color: ChannelsTheme.textSecondary),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: ChannelsTheme.headingSmall.copyWith(fontSize: 16),
         ),
         Text(
           subtitle,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: ChannelsTheme.bodySmall,
         ),
       ],
     );
@@ -292,8 +282,10 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
               onPressed: () => _navigateToChannelSettings(channel),
               icon: const Icon(Icons.settings),
               label: const Text('Manage Channel'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+              style: ChannelsTheme.primaryButtonStyle.copyWith(
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
           ),
@@ -308,13 +300,17 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
             onPressed: () => _toggleSubscription(channel),
             icon: Icon(isSubscribed ? Icons.check : Icons.add),
             label: Text(isSubscribed ? 'Subscribed' : 'Subscribe'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isSubscribed
-                  ? Colors.grey[300]
-                  : Theme.of(context).primaryColor,
-              foregroundColor: isSubscribed ? Colors.black : Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
+            style: isSubscribed
+                ? ChannelsTheme.secondaryButtonStyle.copyWith(
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  )
+                : ChannelsTheme.primaryButtonStyle.copyWith(
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
           ),
         ),
         if (channel.type == ChannelType.premium && !isSubscribed) ...[
@@ -322,19 +318,19 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.amber),
+              color: ChannelsTheme.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+              border: Border.all(color: ChannelsTheme.warning),
             ),
             child: Row(
               children: [
-                const Icon(Icons.star, color: Colors.amber, size: 16),
+                const Icon(Icons.star, color: ChannelsTheme.warning, size: 16),
                 const SizedBox(width: 4),
                 Text(
                   '${channel.subscriptionPriceCoins} coins',
-                  style: const TextStyle(
+                  style: ChannelsTheme.bodyMedium.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Colors.amber,
+                    color: ChannelsTheme.warning,
                   ),
                 ),
               ],
@@ -349,6 +345,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
     // TODO: Replace with actual PostCard widget
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: ChannelsTheme.cardBackground,
       child: InkWell(
         onTap: () => _navigateToPostDetail(post),
         child: Padding(
@@ -359,7 +356,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
               if (post.text != null) ...[
                 Text(
                   post.text!,
-                  style: const TextStyle(fontSize: 16),
+                  style: ChannelsTheme.bodyLarge,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -369,20 +366,19 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.1),
+                    color: ChannelsTheme.warning.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 14),
+                      const Icon(Icons.star, color: ChannelsTheme.warning, size: 14),
                       const SizedBox(width: 4),
                       Text(
                         'Premium - ${post.priceCoins} coins',
-                        style: const TextStyle(
-                          fontSize: 12,
+                        style: ChannelsTheme.bodySmall.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Colors.amber,
+                          color: ChannelsTheme.warning,
                         ),
                       ),
                     ],
@@ -392,18 +388,18 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
               ],
               Row(
                 children: [
-                  Icon(Icons.thumb_up_outlined, size: 16, color: Colors.grey[600]),
+                  const Icon(Icons.thumb_up_outlined, size: 16, color: ChannelsTheme.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     '${post.likes}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: ChannelsTheme.bodySmall,
                   ),
                   const SizedBox(width: 16),
-                  Icon(Icons.comment_outlined, size: 16, color: Colors.grey[600]),
+                  const Icon(Icons.comment_outlined, size: 16, color: ChannelsTheme.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     '${post.commentsCount}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: ChannelsTheme.bodySmall,
                   ),
                 ],
               ),
@@ -426,25 +422,19 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
             Icon(
               Icons.post_add_outlined,
               size: 80,
-              color: Colors.grey[400],
+              color: ChannelsTheme.textTertiary.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No posts yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               canPost
                   ? 'Be the first to post in this channel'
                   : 'Check back later for new posts',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
           ],
@@ -463,28 +453,23 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
             Icon(
               Icons.tv_off,
               size: 80,
-              color: Colors.grey[400],
+              color: ChannelsTheme.textTertiary.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Channel not found',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               'This channel may have been deleted or is no longer available',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
+              style: ChannelsTheme.primaryButtonStyle,
               child: const Text('Go Back'),
             ),
           ],
@@ -500,26 +485,20 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               size: 80,
-              color: Colors.red[400],
+              color: ChannelsTheme.error,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: ChannelsTheme.headingMedium,
             ),
             const SizedBox(height: 8),
             Text(
               error,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -530,6 +509,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
                 ref.invalidate(channelProvider(widget.channelId));
                 ref.invalidate(channelPostsProvider(widget.channelId));
               },
+              style: ChannelsTheme.primaryButtonStyle,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),

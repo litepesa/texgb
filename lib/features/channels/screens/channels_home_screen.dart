@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/core/router/app_router.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/widgets/channel_card.dart';
-import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/features/channels/theme/channels_theme.dart';
 
-/// Main channels discovery/home screen with tabs
+/// Main channels discovery/home screen with tabs - Facebook-quality UI
 class ChannelsHomeScreen extends ConsumerStatefulWidget {
   const ChannelsHomeScreen({super.key});
 
@@ -42,71 +42,44 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
     super.dispose();
   }
 
-  // Helper method to get safe theme with fallback
-  ModernThemeExtension _getSafeTheme() {
-    if (!mounted) {
-      return _getFallbackTheme();
-    }
-    
-    try {
-      final extension = Theme.of(context).extension<ModernThemeExtension>();
-      return extension ?? _getFallbackTheme();
-    } catch (e) {
-      debugPrint('Modern theme error: $e');
-      return _getFallbackTheme();
-    }
-  }
-
-  ModernThemeExtension _getFallbackTheme() {
-    final isDark = mounted ? Theme.of(context).brightness == Brightness.dark : false;
-    
-    return ModernThemeExtension(
-      primaryColor: const Color(0xFF07C160), // WeChat green
-      surfaceColor: isDark ? Colors.grey[900] : Colors.grey[50],
-      textColor: isDark ? Colors.white : Colors.black,
-      textSecondaryColor: isDark ? Colors.grey[400] : Colors.grey[600],
-      dividerColor: isDark ? Colors.grey[800] : Colors.grey[300],
-      textTertiaryColor: isDark ? Colors.grey[500] : Colors.grey[400],
-      surfaceVariantColor: isDark ? Colors.grey[800] : Colors.grey[100],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = _getSafeTheme();
-    
-    return Container(
-      color: theme.surfaceColor,
-      child: Column(
+    return Scaffold(
+      backgroundColor: ChannelsTheme.screenBackground,
+      body: Column(
         children: [
-          // Search bar (matching chat list screen style)
+          // Search bar with Facebook-quality design
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              ChannelsTheme.spacingL,
+              ChannelsTheme.spacingM,
+              ChannelsTheme.spacingL,
+              ChannelsTheme.spacingM,
+            ),
             decoration: BoxDecoration(
-              color: theme.backgroundColor?.withOpacity(0.6),
+              color: ChannelsTheme.white,
               border: Border(
                 bottom: BorderSide(
-                  color: (theme.dividerColor ?? Colors.grey).withOpacity(0.3),
-                  width: 0.5,
+                  color: ChannelsTheme.divider,
+                  width: 1,
                 ),
               ),
             ),
             child: TextField(
               controller: _searchController,
-              style: TextStyle(color: theme.textColor),
-              decoration: InputDecoration(
-                hintText: 'Search',
-                hintStyle: TextStyle(color: theme.textSecondaryColor),
+              style: ChannelsTheme.bodyLarge,
+              decoration: ChannelsTheme.inputDecoration(
+                hintText: 'Search channels',
                 prefixIcon: Icon(
                   CupertinoIcons.search,
-                  color: theme.textSecondaryColor,
+                  color: ChannelsTheme.textTertiary,
                   size: 20,
                 ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: Icon(
                           CupertinoIcons.clear_circled_solid,
-                          color: theme.textSecondaryColor,
+                          color: ChannelsTheme.textTertiary,
                           size: 20,
                         ),
                         onPressed: () {
@@ -114,66 +87,36 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                         },
                       )
                     : null,
-                filled: true,
-                fillColor: theme.surfaceColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ),
 
-          // Tabs (matching user list screen style)
+          // Tabs with Facebook-quality design
           Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            margin: const EdgeInsets.symmetric(
+              horizontal: ChannelsTheme.spacingL,
+              vertical: ChannelsTheme.spacingM,
+            ),
             decoration: BoxDecoration(
-              color: theme.surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                  spreadRadius: -4,
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                  spreadRadius: -2,
-                ),
-              ],
+              color: ChannelsTheme.white,
+              borderRadius: BorderRadius.circular(ChannelsTheme.cardRadius),
+              boxShadow: ChannelsTheme.cardShadow,
             ),
             child: TabBar(
               controller: _tabController,
               indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.primaryColor ?? const Color(0xFF07C160),
-                    width: 3,
-                  ),
-                ),
+                color: ChannelsTheme.facebookBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(ChannelsTheme.buttonRadius),
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              labelColor: theme.primaryColor ?? const Color(0xFF07C160),
-              unselectedLabelColor: theme.textSecondaryColor,
-              labelStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.1,
+              labelColor: ChannelsTheme.facebookBlue,
+              unselectedLabelColor: ChannelsTheme.textSecondary,
+              labelStyle: ChannelsTheme.buttonText.copyWith(
+                fontSize: 13,
               ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+              unselectedLabelStyle: ChannelsTheme.bodyMedium.copyWith(
+                fontWeight: FontWeight.w600,
               ),
               tabs: [
                 Tab(
@@ -181,30 +124,12 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: _tabController.index == 0
-                              ? (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.15)
-                              : (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          Icons.explore,
-                          size: 14,
-                          color: _tabController.index == 0
-                              ? theme.primaryColor ?? const Color(0xFF07C160)
-                              : theme.textSecondaryColor,
-                        ),
+                      Icon(
+                        Icons.explore_outlined,
+                        size: 18,
                       ),
-                      const SizedBox(width: 4),
-                      const Flexible(
-                        child: Text(
-                          'Discovery',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                      const SizedBox(width: ChannelsTheme.spacingXs),
+                      const Text('Discovery'),
                     ],
                   ),
                 ),
@@ -213,30 +138,12 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: _tabController.index == 1
-                              ? (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.15)
-                              : (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          Icons.trending_up,
-                          size: 14,
-                          color: _tabController.index == 1
-                              ? theme.primaryColor ?? const Color(0xFF07C160)
-                              : theme.textSecondaryColor,
-                        ),
+                      Icon(
+                        Icons.trending_up,
+                        size: 18,
                       ),
-                      const SizedBox(width: 4),
-                      const Flexible(
-                        child: Text(
-                          'Trending',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                      const SizedBox(width: ChannelsTheme.spacingXs),
+                      const Text('Trending'),
                     ],
                   ),
                 ),
@@ -245,30 +152,12 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: _tabController.index == 2
-                              ? (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.15)
-                              : (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          CupertinoIcons.bell_fill,
-                          size: 14,
-                          color: _tabController.index == 2
-                              ? theme.primaryColor ?? const Color(0xFF07C160)
-                              : theme.textSecondaryColor,
-                        ),
+                      Icon(
+                        CupertinoIcons.bell_fill,
+                        size: 18,
                       ),
-                      const SizedBox(width: 4),
-                      const Flexible(
-                        child: Text(
-                          'Subscribed',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                      const SizedBox(width: ChannelsTheme.spacingXs),
+                      const Text('Subscribed'),
                     ],
                   ),
                 ),
@@ -281,9 +170,9 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildDiscoveryTab(theme),
-                _buildTrendingTab(theme),
-                _buildSubscribedTab(theme),
+                _buildDiscoveryTab(),
+                _buildTrendingTab(),
+                _buildSubscribedTab(),
               ],
             ),
           ),
@@ -293,7 +182,7 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
   }
 
   // Discovery tab - all channels with filters
-  Widget _buildDiscoveryTab(ModernThemeExtension theme) {
+  Widget _buildDiscoveryTab() {
     final channelsAsync = ref.watch(
       channelsListProvider(
         page: 1,
@@ -312,7 +201,6 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
             subtitle: _searchQuery.isEmpty
                 ? 'Be the first to create a channel'
                 : 'Try a different search term',
-            theme: theme,
           );
         }
 
@@ -320,20 +208,20 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
           onRefresh: () async {
             ref.invalidate(channelsListProvider);
           },
-          color: theme.primaryColor ?? const Color(0xFF07C160),
-          backgroundColor: theme.surfaceColor,
+          color: ChannelsTheme.facebookBlue,
+          backgroundColor: ChannelsTheme.white,
           child: ListView.builder(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80), // FAB clearance
+            padding: const EdgeInsets.only(
+              top: ChannelsTheme.spacingS,
+              bottom: 80,
+            ),
             itemCount: channels.length,
             itemBuilder: (context, index) {
               final channel = channels[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ChannelCard(
-                  channel: channel,
-                  onTap: () => _navigateToChannelDetail(channel.id),
-                  showSubscribeButton: true,
-                ),
+              return ChannelCard(
+                channel: channel,
+                onTap: () => _navigateToChannelDetail(channel.id),
+                showSubscribeButton: true,
               );
             },
           ),
@@ -341,7 +229,7 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
       },
       loading: () => Center(
         child: CircularProgressIndicator(
-          color: theme.primaryColor ?? const Color(0xFF07C160),
+          color: ChannelsTheme.facebookBlue,
           strokeWidth: 3,
         ),
       ),
@@ -350,13 +238,12 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
         onRetry: () {
           ref.invalidate(channelsListProvider);
         },
-        theme: theme,
       ),
     );
   }
 
   // Trending tab - trending channels
-  Widget _buildTrendingTab(ModernThemeExtension theme) {
+  Widget _buildTrendingTab() {
     final trendingAsync = ref.watch(trendingChannelsProvider);
 
     return trendingAsync.when(
@@ -366,7 +253,6 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
             icon: Icons.trending_up,
             title: 'No trending channels',
             subtitle: 'Check back later for trending content',
-            theme: theme,
           );
         }
 
@@ -374,20 +260,20 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
           onRefresh: () async {
             ref.invalidate(trendingChannelsProvider);
           },
-          color: theme.primaryColor ?? const Color(0xFF07C160),
-          backgroundColor: theme.surfaceColor,
+          color: ChannelsTheme.facebookBlue,
+          backgroundColor: ChannelsTheme.white,
           child: ListView.builder(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
+            padding: const EdgeInsets.only(
+              top: ChannelsTheme.spacingS,
+              bottom: 80,
+            ),
             itemCount: channels.length,
             itemBuilder: (context, index) {
               final channel = channels[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ChannelCard(
-                  channel: channel,
-                  onTap: () => _navigateToChannelDetail(channel.id),
-                  showSubscribeButton: true,
-                ),
+              return ChannelCard(
+                channel: channel,
+                onTap: () => _navigateToChannelDetail(channel.id),
+                showSubscribeButton: true,
               );
             },
           ),
@@ -395,7 +281,7 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
       },
       loading: () => Center(
         child: CircularProgressIndicator(
-          color: theme.primaryColor ?? const Color(0xFF07C160),
+          color: ChannelsTheme.facebookBlue,
           strokeWidth: 3,
         ),
       ),
@@ -404,13 +290,12 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
         onRetry: () {
           ref.invalidate(trendingChannelsProvider);
         },
-        theme: theme,
       ),
     );
   }
 
   // Subscribed tab - user's subscribed channels
-  Widget _buildSubscribedTab(ModernThemeExtension theme) {
+  Widget _buildSubscribedTab() {
     final subscribedAsync = ref.watch(subscribedChannelsProvider);
 
     return subscribedAsync.when(
@@ -420,7 +305,6 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
             icon: CupertinoIcons.bell,
             title: 'No subscriptions yet',
             subtitle: 'Subscribe to channels to see them here',
-            theme: theme,
           );
         }
 
@@ -428,20 +312,20 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
           onRefresh: () async {
             ref.invalidate(subscribedChannelsProvider);
           },
-          color: theme.primaryColor ?? const Color(0xFF07C160),
-          backgroundColor: theme.surfaceColor,
+          color: ChannelsTheme.facebookBlue,
+          backgroundColor: ChannelsTheme.white,
           child: ListView.builder(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
+            padding: const EdgeInsets.only(
+              top: ChannelsTheme.spacingS,
+              bottom: 80,
+            ),
             itemCount: channels.length,
             itemBuilder: (context, index) {
               final channel = channels[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ChannelCard(
-                  channel: channel,
-                  onTap: () => _navigateToChannelDetail(channel.id),
-                  showSubscribeButton: false, // Already subscribed
-                ),
+              return ChannelCard(
+                channel: channel,
+                onTap: () => _navigateToChannelDetail(channel.id),
+                showSubscribeButton: false, // Already subscribed
               );
             },
           ),
@@ -449,7 +333,7 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
       },
       loading: () => Center(
         child: CircularProgressIndicator(
-          color: theme.primaryColor ?? const Color(0xFF07C160),
+          color: ChannelsTheme.facebookBlue,
           strokeWidth: 3,
         ),
       ),
@@ -458,7 +342,6 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
         onRetry: () {
           ref.invalidate(subscribedChannelsProvider);
         },
-        theme: theme,
       ),
     );
   }
@@ -468,43 +351,35 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
     required IconData icon,
     required String title,
     required String subtitle,
-    required ModernThemeExtension theme,
   }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(ChannelsTheme.spacingXxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(ChannelsTheme.spacingXl),
               decoration: BoxDecoration(
-                color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
+                color: ChannelsTheme.hoverColor,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 64,
-                color: theme.textTertiaryColor ?? Colors.grey[400],
+                color: ChannelsTheme.textTertiary,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: ChannelsTheme.spacingXl),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.textColor,
-              ),
+              style: ChannelsTheme.headingMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: ChannelsTheme.spacingS),
             Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 14,
-                color: theme.textSecondaryColor,
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
           ],
@@ -517,67 +392,52 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
   Widget _buildErrorState({
     required String error,
     required VoidCallback onRetry,
-    required ModernThemeExtension theme,
   }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(ChannelsTheme.spacingXxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(ChannelsTheme.spacingXl),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: ChannelsTheme.error.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.error_outline,
                 size: 64,
-                color: Colors.red.shade600,
+                color: ChannelsTheme.error,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: ChannelsTheme.spacingXl),
             Text(
               'Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.textColor,
-              ),
+              style: ChannelsTheme.headingMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: ChannelsTheme.spacingS),
             Text(
               error,
-              style: TextStyle(
-                fontSize: 14,
-                color: theme.textSecondaryColor,
-              ),
+              style: ChannelsTheme.bodyMedium,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: ChannelsTheme.spacingXl),
             ElevatedButton.icon(
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor ?? const Color(0xFF07C160),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+              style: ChannelsTheme.primaryButtonStyle.copyWith(
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(
+                    horizontal: ChannelsTheme.spacingXl,
+                    vertical: ChannelsTheme.spacingM,
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
               ),
               icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Try Again',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
+              label: const Text('Try Again'),
             ),
           ],
         ),
