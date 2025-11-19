@@ -61,38 +61,37 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
       final authState = ref.read(authenticationProvider);
       final currentAuthState = authState.valueOrNull;
 
+      // Get marketplace videos from provider
+      final allVideos = ref.read(marketplaceVideosProvider);
+
       // If no data and not forcing refresh, try to load it
-      if (currentAuthState == null || currentAuthState.marketplaceVideos.isEmpty) {
+      if (currentAuthState == null || allVideos.isEmpty) {
         debugPrint('📹 No marketplaceVideos in state, loading from backend...');
 
         // Force refresh data if needed
         await marketplaceNotifier.loadMarketplaceVideos();
         await authNotifier.loadUsers();
-        
-        // Get updated state after loading
-        final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
-        if (updatedAuthState == null) {
-          throw Exception('Authentication state not available after loading');
+
+        // Get updated videos after loading
+        final updatedVideos = ref.read(marketplaceVideosProvider);
+        if (updatedVideos.isEmpty) {
+          throw Exception('No marketplace videos available after loading');
         }
-        
-        // Use updated state
-        _processVideos(updatedAuthState.marketplaceVideos);
+
+        // Use updated videos
+        _processVideos(updatedVideos);
       } else {
         // Force refresh if requested
         if (forceRefresh) {
           debugPrint('🔄 Force refreshing marketplaceVideos from backend...');
           await marketplaceNotifier.loadMarketplaceVideos();
           await authNotifier.loadUsers();
-          
-          final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
-          if (updatedAuthState != null) {
-            _processVideos(updatedAuthState.marketplaceVideos);
-          } else {
-            _processVideos(currentAuthState.marketplaceVideos);
-          }
+
+          final updatedVideos = ref.read(marketplaceVideosProvider);
+          _processVideos(updatedVideos);
         } else {
-          // Use existing state
-          _processVideos(currentAuthState.marketplaceVideos);
+          // Use existing videos
+          _processVideos(allVideos);
         }
       }
 
@@ -141,17 +140,15 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     
     // Listen to authentication provider changes and reload when data becomes available
     ref.listen<AsyncValue<AuthenticationState>>(
-      authenticationProvider,
+      marketplaceVideosProvider,
       (previous, next) {
-        next.whenData((authState) {
-          // When auth state updates with new marketplaceVideos, reload recommendations if needed
-          if (authState.marketplaceVideos.isNotEmpty && 
-              _recommendedMarketplaceItems.isEmpty && 
-              !_isLoadingRecommendations) {
-            debugPrint('🔄 Auth state updated with marketplaceVideos, reloading recommendations');
-            _loadRecommendedMarketplaceItems();
-          }
-        });
+        // When marketplace videos update, reload recommendations if needed
+        if (next.isNotEmpty &&
+            _recommendedMarketplaceItems.isEmpty &&
+            !_isLoadingRecommendations) {
+          debugPrint('🔄 Marketplace videos updated, reloading recommendations');
+          _loadRecommendedMarketplaceItems();
+        }
       },
     );
     

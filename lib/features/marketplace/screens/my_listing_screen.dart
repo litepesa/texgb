@@ -793,7 +793,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
             controller: _tabController,
             children: [
               // Boost Tab
-              BoostTabWidget(
+              MarketplaceBoostTabWidget(
                 rocketAnimationController: _rocketAnimationController,
                 rocketAnimation: _rocketAnimation,
                 onBoostPost: _boostPost,

@@ -226,9 +226,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       // Delete marketplaceVideos one by one
       for (final itemId in _selectedVideoIds) {
         await marketplaceNotifier.deleteMarketplaceVideo(
-          videoId,
+          itemId,
           (error) {
-            debugPrint('Error deleting marketplaceVideo $videoId: $error');
+            debugPrint('Error deleting marketplaceVideo $itemId: $error');
           },
         );
       }

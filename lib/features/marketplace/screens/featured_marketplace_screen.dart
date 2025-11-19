@@ -82,13 +82,13 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
       // Get current state
       final authState = ref.read(authenticationProvider);
       final currentAuthState = authState.value;
-      
+
       if (currentAuthState == null) {
         throw Exception('Authentication state not available');
       }
 
-      // Step 1: Get all marketplaceVideos
-      final allVideos = currentAuthState.marketplaceVideos;
+      // Step 1: Get all marketplace videos
+      final allVideos = ref.read(marketplaceVideosProvider);
       
       if (allVideos.isEmpty) {
         setState(() {
