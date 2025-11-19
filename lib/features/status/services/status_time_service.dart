@@ -101,6 +101,37 @@ class StatusTimeService {
     }
   }
 
+  /// Format timestamp for status list (WhatsApp-style: "Today, 10:30 AM" or "Yesterday")
+  static String formatListTime(DateTime statusTime) {
+    final now = DateTime.now();
+    final difference = now.difference(statusTime);
+
+    final hour = statusTime.hour;
+    final minute = statusTime.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    final timeStr = '$displayHour:$minute $period';
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inHours < 24 && statusTime.day == now.day) {
+      return 'Today, $timeStr';
+    } else if (difference.inDays == 1 || (difference.inHours < 48 && statusTime.day == now.day - 1)) {
+      return 'Yesterday, $timeStr';
+    } else if (difference.inDays < 7) {
+      final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final weekday = weekdays[statusTime.weekday - 1];
+      return '$weekday, $timeStr';
+    } else {
+      final day = statusTime.day.toString().padLeft(2, '0');
+      final month = statusTime.month.toString().padLeft(2, '0');
+      final year = statusTime.year;
+      return '$day/$month/$year, $timeStr';
+    }
+  }
+
   // ===============================
   // FILTERING
   // ===============================
