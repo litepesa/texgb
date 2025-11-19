@@ -491,7 +491,7 @@ class _GroupDetailProviderElement
   String get groupId => (origin as GroupDetailProvider).groupId;
 }
 
-String _$groupMembersHash() => r'847ded8727363e7406a7470c0f94588ce358845d';
+String _$groupMembersHash() => r'a9c85f3e826bdd26128faa69448bb84ed45d9f4d';
 
 abstract class _$GroupMembers
     extends BuildlessAutoDisposeAsyncNotifier<List<GroupMemberModel>> {
@@ -638,7 +638,7 @@ class _GroupMembersProviderElement
   String get groupId => (origin as GroupMembersProvider).groupId;
 }
 
-String _$groupMessagesHash() => r'8d7036bcb6b350f026fb3e2efc5e83d4ad4fe538';
+String _$groupMessagesHash() => r'24972a6360d04a20f81ad9a41492065de3c70f07';
 
 abstract class _$GroupMessages
     extends BuildlessAutoDisposeAsyncNotifier<List<GroupMessageModel>> {
@@ -785,7 +785,7 @@ class _GroupMessagesProviderElement
   String get groupId => (origin as GroupMessagesProvider).groupId;
 }
 
-String _$typingIndicatorHash() => r'8bb0cd1f6c639623969639849472546d544e26cc';
+String _$typingIndicatorHash() => r'3a2e120317f797c20fa0aa2a1f97690a9767660f';
 
 abstract class _$TypingIndicator
     extends BuildlessAutoDisposeNotifier<Map<String, String>> {

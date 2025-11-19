@@ -46,7 +46,24 @@ class RoutePaths {
   
   static String postDetail(String videoId) => '/post-detail/$videoId';
   static const String postDetailPattern = '/post-detail/:videoId';
-  
+
+  // ==================== MARKETPLACE ROUTES ====================
+  static const String marketplaceFeed = '/marketplace-feed';
+  static const String createMarketplaceListing = '/create-marketplace-listing';
+  static const String recommendedMarketplaceListings = '/recommended-marketplace-listings';
+  static const String featuredMarketplace = '/featured-marketplace';
+  static const String manageMarketplaceListings = '/manage-marketplace-listings';
+
+  // Dynamic marketplace routes
+  static String sellerVideo(String itemId) => '/marketplace-item/$itemId';
+  static const String sellerVideoPattern = '/marketplace-item/:itemId';
+
+  static String myListing(String itemId) => '/my-marketplace-listing/$itemId';
+  static const String myListingPattern = '/my-marketplace-listing/:itemId';
+
+  static String listingDetail(String itemId) => '/marketplace-listing-detail/$itemId';
+  static const String listingDetailPattern = '/marketplace-listing-detail/:itemId';
+
   // ==================== CONTACTS ROUTES ====================
   static const String contacts = '/contacts';
   static const String addContact = '/add-contact';
@@ -268,6 +285,13 @@ class RouteNames {
   static const String recommendedPosts = 'recommendedPosts';
   static const String managePosts = 'managePosts';
   static const String featuredVideos = 'featuredVideos';
+  static const String marketplaceFeed = 'marketplaceFeed';
+  static const String sellerVideo = 'sellerVideo';
+  static const String myListing = 'myListing';
+  static const String createMarketplaceListing = 'createMarketplaceListing';
+  static const String recommendedMarketplaceListings = 'recommendedMarketplaceListings';
+  static const String manageMarketplaceListings = 'manageMarketplaceListings';
+  static const String featuredMarketplace = 'featuredMarketplace';
   static const String contacts = 'contacts';
   static const String addContact = 'addContact';
   static const String blockedContacts = 'blockedContacts';

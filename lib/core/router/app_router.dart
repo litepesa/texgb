@@ -30,6 +30,14 @@ import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 
+import 'package:textgb/features/marketplace/screens/marketplace_feed_screen.dart';
+import 'package:textgb/features/marketplace/screens/seller_video_screen.dart';
+import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
+import 'package:textgb/features/marketplace/screens/my_listing_screen.dart';
+import 'package:textgb/features/marketplace/screens/recommended_listings_screen.dart';
+import 'package:textgb/features/marketplace/screens/manage_listings_screen.dart';
+import 'package:textgb/features/marketplace/screens/featured_marketplace_screen.dart';
+
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -275,7 +283,91 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.featuredVideos,
         builder: (context, state) => const FeaturedVideosScreen(),
       ),
-      
+
+      // ==================== MARKETPLACE ROUTES ====================
+
+      // Marketplace feed
+      GoRoute(
+        path: RoutePaths.marketplaceFeed,
+        name: RouteNames.marketplaceFeed,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: MarketplaceFeedScreen(),
+        ),
+      ),
+
+      // Create marketplace listing
+      GoRoute(
+        path: RoutePaths.createMarketplaceListing,
+        name: RouteNames.createMarketplaceListing,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: CreateListingScreen(),
+        ),
+      ),
+
+      // Recommended marketplace listings
+      GoRoute(
+        path: RoutePaths.recommendedMarketplaceListings,
+        name: RouteNames.recommendedMarketplaceListings,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: RecommendedListingsScreen(),
+        ),
+      ),
+
+      // Featured marketplace
+      GoRoute(
+        path: RoutePaths.featuredMarketplace,
+        name: RouteNames.featuredMarketplace,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: FeaturedMarketplaceScreen(),
+        ),
+      ),
+
+      // Manage marketplace listings
+      GoRoute(
+        path: RoutePaths.manageMarketplaceListings,
+        name: RouteNames.manageMarketplaceListings,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: ManageListingsScreen(),
+        ),
+      ),
+
+      // Single marketplace item (seller video screen)
+      GoRoute(
+        path: RoutePaths.sellerVideoPattern,
+        name: RouteNames.sellerVideo,
+        pageBuilder: (context, state) {
+          final itemId = state.pathParameters['itemId']!;
+          return NoTransitionPage(
+            child: SellerVideoScreen(
+              itemId: itemId,
+            ),
+          );
+        },
+      ),
+
+      // My marketplace listing
+      GoRoute(
+        path: RoutePaths.myListingPattern,
+        name: RouteNames.myListing,
+        pageBuilder: (context, state) {
+          final itemId = state.pathParameters['itemId']!;
+          return NoTransitionPage(
+            child: MyListingScreen(itemId: itemId),
+          );
+        },
+      ),
+
+      // Marketplace listing detail
+      GoRoute(
+        path: RoutePaths.listingDetailPattern,
+        pageBuilder: (context, state) {
+          final itemId = state.pathParameters['itemId']!;
+          return NoTransitionPage(
+            child: MyListingScreen(itemId: itemId),
+          );
+        },
+      ),
+
       // ==================== CONTACTS ROUTES ====================
       
       GoRoute(
@@ -708,7 +800,26 @@ extension AppNavigationExtension on BuildContext {
   void goToRecommendedPosts() => go(RoutePaths.recommendedPosts);
   void goToManagePosts() => go(RoutePaths.managePosts);
   void goToFeaturedVideos() => go(RoutePaths.featuredVideos);
-  
+
+  // ==================== MARKETPLACE NAVIGATION ====================
+
+  void goToMarketplaceFeed() => go(RoutePaths.marketplaceFeed);
+
+  void goToMarketplaceItem(String itemId) {
+    go(RoutePaths.sellerVideo(itemId));
+  }
+
+  void goToMyListing(String itemId) => go(RoutePaths.myListing(itemId));
+  void goToListingDetail(String itemId) => go(RoutePaths.listingDetail(itemId));
+
+  void goToCreateMarketplaceListing() => go(RoutePaths.createMarketplaceListing);
+  void goToRecommendedMarketplaceListings() => go(RoutePaths.recommendedMarketplaceListings);
+  void goToManageMarketplaceListings() => go(RoutePaths.manageMarketplaceListings);
+  void goToFeaturedMarketplace() => go(RoutePaths.featuredMarketplace);
+
+  void pushToMarketplaceItem(String itemId) => push(RoutePaths.sellerVideo(itemId));
+  void pushToMyListing(String itemId) => push(RoutePaths.myListing(itemId));
+
   // ==================== CONTACTS NAVIGATION ====================
   
   void goToContacts() => go(RoutePaths.contacts);
