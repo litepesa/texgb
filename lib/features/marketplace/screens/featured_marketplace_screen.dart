@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:typed_data';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
@@ -67,10 +69,11 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+
       // Force refresh data if needed
       if (forceRefresh) {
-        await authNotifier.loadMarketplaceItems();
+        await marketplaceNotifier.loadMarketplaceItems();
         await authNotifier.loadUsers();
       }
 

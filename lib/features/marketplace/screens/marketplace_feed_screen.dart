@@ -7,6 +7,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/marketplace/services/marketplace_cache_service.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_item.dart';
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
@@ -473,8 +475,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       WakelockPlus.enable();
     }
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.incrementViewCount(marketplaceItems[index].id);
+    final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+    marketplaceNotifier.incrementMarketplaceItemViewCount(marketplaceItems[index].id);
   }
 
   Widget _buildSmallVideoWindow() {

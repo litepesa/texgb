@@ -8,6 +8,7 @@ import 'package:textgb/features/authentication/widgets/login_required_widget.dar
 import 'package:textgb/features/marketplace/services/marketplace_cache_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -885,8 +886,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
       }
     });
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.likeVideo(widget.marketplaceItem.id);
+    final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+    marketplaceNotifier.likeMarketplaceItem(widget.marketplaceItem.id);
 
     if (mounted) {
       setState(() {});
@@ -904,8 +905,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     final canInteract = await _requireAuthentication('like videos');
     if (!canInteract) return;
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.likeVideo(widget.marketplaceItem.id);
+    final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+    marketplaceNotifier.likeMarketplaceItem(widget.marketplaceItem.id);
   }
 
   // Show comments functionality

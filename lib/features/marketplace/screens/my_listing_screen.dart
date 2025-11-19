@@ -9,6 +9,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -316,9 +318,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
         ),
       ),
     );
-    
+
     // Call boost function
-    await ref.read(authenticationProvider.notifier).boostMarketplaceItem(
+    await ref.read(marketplaceProvider.notifier).boostMarketplaceItem(
       itemId: _marketplaceItem!.id,
       boostTier: boostTier,
       onSuccess: (message) {
@@ -471,9 +473,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              
+
               try {
-                await ref.read(authenticationProvider.notifier).deleteMarketplaceItem(
+                await ref.read(marketplaceProvider.notifier).deleteMarketplaceItem(
                   _marketplaceItem!.id,
                   (error) {
                     ScaffoldMessenger.of(context).showSnackBar(

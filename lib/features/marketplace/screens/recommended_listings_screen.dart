@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/core/router/route_paths.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -54,17 +55,18 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+
       // Get current state
       final authState = ref.read(authenticationProvider);
       final currentAuthState = authState.valueOrNull;
-      
+
       // If no data and not forcing refresh, try to load it
       if (currentAuthState == null || currentAuthState.marketplaceItems.isEmpty) {
         debugPrint('📹 No marketplaceItems in state, loading from backend...');
-        
+
         // Force refresh data if needed
-        await authNotifier.loadMarketplaceItems();
+        await marketplaceNotifier.loadMarketplaceItems();
         await authNotifier.loadUsers();
         
         // Get updated state after loading
@@ -79,7 +81,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         // Force refresh if requested
         if (forceRefresh) {
           debugPrint('🔄 Force refreshing marketplaceItems from backend...');
-          await authNotifier.loadMarketplaceItems();
+          await marketplaceNotifier.loadMarketplaceItems();
           await authNotifier.loadUsers();
           
           final updatedAuthState = ref.read(authenticationProvider).valueOrNull;

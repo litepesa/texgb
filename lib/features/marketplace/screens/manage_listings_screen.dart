@@ -10,6 +10,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -104,8 +106,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       }
 
       // Load user's marketplaceItems
-      await authNotifier.loadMarketplaceItems();
-      await authNotifier.loadUserMarketplaceItems(freshUserProfile.uid);
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+      await marketplaceNotifier.loadMarketplaceItems();
+      await marketplaceNotifier.loadUserMarketplaceItems(freshUserProfile.uid);
 
       final marketplaceItems = ref.read(marketplaceItemsProvider);
       final userMarketplaceItems = marketplaceItems
@@ -218,11 +221,11 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     });
 
     try {
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+
       // Delete marketplaceItems one by one
       for (final itemId in _selectedMarketplaceItemIds) {
-        await authNotifier.deleteMarketplaceItem(
+        await marketplaceNotifier.deleteMarketplaceItem(
           itemId,
           (error) {
             debugPrint('Error deleting marketplaceItem $itemId: $error');
@@ -322,7 +325,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     });
 
     try {
-      await ref.read(authenticationProvider.notifier).deleteMarketplaceItem(
+      await ref.read(marketplaceProvider.notifier).deleteMarketplaceItem(
         itemId,
         (error) {
           ScaffoldMessenger.of(context).showSnackBar(

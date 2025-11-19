@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_comments_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_item.dart';
@@ -478,7 +480,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
       WakelockPlus.enable();
     }
 
-    ref.read(authenticationProvider.notifier).incrementViewCount(_marketplaceItems[index].id);
+    ref.read(marketplaceProvider.notifier).incrementMarketplaceItemViewCount(_marketplaceItems[index].id);
   }
 
   void _handleBackNavigation() {

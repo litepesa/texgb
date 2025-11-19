@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:textgb/features/marketplace/models/marketplace_item_model.dart';
 import 'package:textgb/features/marketplace/models/marketplace_comment_model.dart'; // ✅ Using thread comment model
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -271,8 +272,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     });
 
     try {
-      final authProvider = ref.read(authenticationProvider.notifier);
-      final comments = await authProvider.getMarketplaceItemComments(widget.marketplaceItem.id);
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+      final comments = await marketplaceNotifier.getMarketplaceItemComments(widget.marketplaceItem.id);
 
       if (mounted) {
         setState(() {
@@ -1705,13 +1706,18 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     }
     
     try {
-      final authProvider = ref.read(authenticationProvider.notifier);
-      
-      // Simple like/unlike (backend handles the logic)
-      await authProvider.likeComment(comment.id);
-      
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+
+      // Toggle like/unlike for marketplace comments
+      final isCurrentlyLiked = comment.likes > 0; // Simplified check
+      if (isCurrentlyLiked) {
+        await marketplaceNotifier.unlikeMarketplaceComment(comment.id);
+      } else {
+        await marketplaceNotifier.likeMarketplaceComment(comment.id);
+      }
+
       _loadComments();
-      
+
       HapticFeedback.lightImpact();
     } catch (e) {
       if (mounted) {
@@ -1756,22 +1762,22 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     if (!isAuthenticated) return;
     
     try {
-      final authProvider = ref.read(authenticationProvider.notifier);
-      
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+
       if (comment.isPinned) {
-        await authProvider.unpinComment(comment.id, widget.marketplaceItem.id, (error) {
+        await marketplaceNotifier.unpinMarketplaceComment(comment.id, widget.marketplaceItem.id, (error) {
           if (mounted) {
             showSnackBar(context, error);
           }
         });
       } else {
-        await authProvider.pinComment(comment.id, widget.marketplaceItem.id, (error) {
+        await marketplaceNotifier.pinMarketplaceComment(comment.id, widget.marketplaceItem.id, (error) {
           if (mounted) {
             showSnackBar(context, error);
           }
         });
       }
-      
+
       _loadComments();
       HapticFeedback.lightImpact();
     } catch (e) {
@@ -1820,19 +1826,19 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                
+
                 try {
-                  await ref.read(authenticationProvider.notifier)
-                      .deleteComment(comment.id, (error) {
+                  await ref.read(marketplaceProvider.notifier)
+                      .deleteMarketplaceComment(comment.id, (error) {
                     if (mounted) {
                       showSnackBar(context, error);
                     }
                   });
-                  
+
                   _loadComments();
-                  
+
                   HapticFeedback.lightImpact();
-                  
+
                   if (mounted) {
                     showSnackBar(context, Constants.commentDeleted);
                   }
@@ -1883,8 +1889,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
       });
 
       // 🔧 FIXED: Pass imageFiles directly to provider, which will handle the upload
-      await ref.read(authenticationProvider.notifier).addComment(
-        videoId: widget.marketplaceItem.id,
+      await ref.read(marketplaceProvider.notifier).addMarketplaceComment(
+        itemId: widget.marketplaceItem.id,
         content: content,
         imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null, // 🔧 Changed from imageUrls to imageFiles
         repliedToCommentId: _replyingToCommentId,

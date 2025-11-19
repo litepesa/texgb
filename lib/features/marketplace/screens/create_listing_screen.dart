@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/marketplace/services/marketplace_thumbnail_service.dart';
@@ -581,10 +582,11 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       
       // Start upload simulation
       _startUploadSimulation();
-      
+
       // STEP 3: Upload with pre-generated thumbnail
       debugPrint('☁️ Step 3: Uploading marketplaceItem and thumbnail...');
-      authProvider.createMarketplaceItem(
+      final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+      marketplaceNotifier.createMarketplaceItem(
         marketplaceItemFile: videoToUpload,
         thumbnailFile: thumbnailFile, // Pass pre-generated thumbnail
         caption: _captionController.text,
