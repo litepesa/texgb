@@ -10,6 +10,8 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:go_router/go_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class FeaturedMarketplaceScreen extends ConsumerStatefulWidget {
   const FeaturedMarketplaceScreen({super.key});
@@ -80,13 +82,13 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
       // Get current state
       final authState = ref.read(authenticationProvider);
       final currentAuthState = authState.value;
-      
+
       if (currentAuthState == null) {
         throw Exception('Authentication state not available');
       }
 
-      // Step 1: Get all marketplaceVideos
-      final allVideos = currentAuthState.marketplaceVideos;
+      // Step 1: Get all marketplace videos
+      final allVideos = ref.read(marketplaceVideosProvider);
       
       if (allVideos.isEmpty) {
         setState(() {
@@ -604,9 +606,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
           return _buildErrorThumbnail();
         },
       );
-    } else if (marketplaceVideo.itemUrl.isNotEmpty) {
+    } else if (marketplaceVideo.videoUrl.isNotEmpty) {
       return FutureBuilder<Uint8List?>(
-        future: _generateMarketplaceItemThumbnail(marketplaceVideo.itemUrl),
+        future: _generateMarketplaceItemThumbnail(marketplaceVideo.videoUrl),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildLoadingThumbnail();
@@ -641,10 +643,10 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     }
   }
 
-  Future<Uint8List?> _generateMarketplaceItemThumbnail(String itemUrl) async {
+  Future<Uint8List?> _generateMarketplaceItemThumbnail(String videoUrl) async {
     try {
-      final thumbnail = await MarketplaceItemThumbnail.thumbnailData(
-        marketplaceVideo: itemUrl,
+      final thumbnail = await VideoThumbnail.thumbnailData(
+        video: videoUrl,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 300,
         quality: 75,
@@ -903,8 +905,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () {
-                  // Navigate to Videos Feed Screen
-                  Navigator.pushNamed(context, Constants.marketplaceFeedScreen);
+                  // Navigate to Marketplace Feed Screen
+                  context.push(RoutePaths.marketplaceFeed);
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -949,14 +951,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   }
 
   void _navigateToVideoFeed(MarketplaceVideoModel marketplaceVideo) {
-    Navigator.pushNamed(
-      context,
-      Constants.marketplaceFeedScreen,
-      arguments: {
-        Constants.startVideoId: marketplaceVideo.id,
-        Constants.userId: marketplaceVideo.userId, 
-      },
-    );
+    // Navigate to marketplace feed screen
+    context.push(RoutePaths.marketplaceFeed);
   }
 
   String _formatCount(int count) {

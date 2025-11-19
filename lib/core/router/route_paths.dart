@@ -55,8 +55,8 @@ class RoutePaths {
   static const String manageMarketplaceListings = '/manage-marketplace-listings';
 
   // Dynamic marketplace routes
-  static String sellerVideo(String itemId) => '/marketplace-item/$itemId';
-  static const String sellerVideoPattern = '/marketplace-item/:itemId';
+  static String singleMarketplaceVideo(String itemId) => '/marketplace-video/$itemId';
+  static const String singleMarketplaceVideoPattern = '/marketplace-video/:itemId';
 
   static String myListing(String itemId) => '/my-marketplace-listing/$itemId';
   static const String myListingPattern = '/my-marketplace-listing/:itemId';
@@ -286,7 +286,7 @@ class RouteNames {
   static const String managePosts = 'managePosts';
   static const String featuredVideos = 'featuredVideos';
   static const String marketplaceFeed = 'marketplaceFeed';
-  static const String sellerVideo = 'sellerVideo';
+  static const String singleMarketplaceVideo = 'singleMarketplaceVideo';
   static const String myListing = 'myListing';
   static const String createMarketplaceListing = 'createMarketplaceListing';
   static const String recommendedMarketplaceListings = 'recommendedMarketplaceListings';

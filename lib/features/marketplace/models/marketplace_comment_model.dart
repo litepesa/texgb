@@ -249,7 +249,7 @@ class MarketplaceCommentModel {
         final content = trimmed.substring(1, trimmed.length - 1);
         if (content.isEmpty) return [];
         
-        final videos = content
+        final images = content
             .split(',')
             .map((item) {
               final cleaned = item.trim();
@@ -260,9 +260,9 @@ class MarketplaceCommentModel {
             })
             .where((s) => s.isNotEmpty)
             .toList();
-        
+
         // Enforce single image limit
-        return items.isEmpty ? [] : [items.first];
+        return images.isEmpty ? [] : [images.first];
       }
       
       // JSON array format

@@ -1246,7 +1246,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
           });
         },
       ),
-      videos: widget.marketplaceVideo.imageUrls.map((imageUrl) {
+      items: widget.marketplaceVideo.imageUrls.map((imageUrl) {
         return _buildFullScreenImage(imageUrl);
       }).toList(),
     );

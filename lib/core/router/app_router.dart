@@ -31,7 +31,7 @@ import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 
 import 'package:textgb/features/marketplace/screens/marketplace_feed_screen.dart';
-import 'package:textgb/features/marketplace/screens/seller_video_screen.dart';
+import 'package:textgb/features/marketplace/screens/single_marketplace_video_screen.dart';
 import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
 import 'package:textgb/features/marketplace/screens/my_listing_screen.dart';
 import 'package:textgb/features/marketplace/screens/recommended_listings_screen.dart';
@@ -331,15 +331,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Single marketplace item (seller video screen)
+      // Single marketplace video screen
       GoRoute(
-        path: RoutePaths.sellerVideoPattern,
-        name: RouteNames.sellerVideo,
+        path: RoutePaths.singleMarketplaceVideoPattern,
+        name: RouteNames.singleMarketplaceVideo,
         pageBuilder: (context, state) {
           final itemId = state.pathParameters['itemId']!;
           return NoTransitionPage(
-            child: SellerVideoScreen(
-              itemId: itemId,
+            child: SingleMarketplaceVideoScreen(
+              videoId: itemId,
             ),
           );
         },
@@ -352,7 +352,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final itemId = state.pathParameters['itemId']!;
           return NoTransitionPage(
-            child: MyListingScreen(itemId: itemId),
+            child: MyListingScreen(videoId: itemId),
           );
         },
       ),
@@ -363,7 +363,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final itemId = state.pathParameters['itemId']!;
           return NoTransitionPage(
-            child: MyListingScreen(itemId: itemId),
+            child: MyListingScreen(videoId: itemId),
           );
         },
       ),
@@ -806,7 +806,7 @@ extension AppNavigationExtension on BuildContext {
   void goToMarketplaceFeed() => go(RoutePaths.marketplaceFeed);
 
   void goToMarketplaceItem(String itemId) {
-    go(RoutePaths.sellerVideo(itemId));
+    go(RoutePaths.singleMarketplaceVideo(itemId));
   }
 
   void goToMyListing(String itemId) => go(RoutePaths.myListing(itemId));
@@ -817,7 +817,7 @@ extension AppNavigationExtension on BuildContext {
   void goToManageMarketplaceListings() => go(RoutePaths.manageMarketplaceListings);
   void goToFeaturedMarketplace() => go(RoutePaths.featuredMarketplace);
 
-  void pushToMarketplaceItem(String itemId) => push(RoutePaths.sellerVideo(itemId));
+  void pushToMarketplaceItem(String itemId) => push(RoutePaths.singleMarketplaceVideo(itemId));
   void pushToMyListing(String itemId) => push(RoutePaths.myListing(itemId));
 
   // ==================== CONTACTS NAVIGATION ====================
