@@ -62,10 +62,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   );
   
   // Video selection
-  File? _marketplaceItemFile;
+  File? _videoFile;
   MarketplaceItemInfo? _marketplaceItemInfo;
-  MarketplaceItemPlayerController? _marketplaceItemPlayerController;
-  bool _isMarketplaceItemPlaying = false;
+  VideoPlayerController? _videoController;
+  bool _isVideoPlaying = false;
   
   // Processing state
   bool _isProcessing = false;
@@ -90,7 +90,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
   @override
   void dispose() {
-    _marketplaceItemPlayerController?.dispose();
+    _videoController?.dispose();
     _captionController.dispose();
     _tagsController.dispose();
     _priceController.dispose();
@@ -123,45 +123,45 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     }
   }
 
-  Future<void> _initializeMarketplaceItemPlayer() async {
-    if (_marketplaceItemFile == null) return;
-    
+  Future<void> _initializeVideoPlayer() async {
+    if (_videoFile == null) return;
+
     try {
-      _marketplaceItemPlayerController?.dispose();
-      _marketplaceItemPlayerController = MarketplaceItemPlayerController.file(_marketplaceItemFile!);
-      
-      await _marketplaceItemPlayerController!.initialize();
-      _marketplaceItemPlayerController!.setLooping(true);
-      
+      _videoController?.dispose();
+      _videoController = VideoPlayerController.file(_videoFile!);
+
+      await _videoController!.initialize();
+      _videoController!.setLooping(true);
+
       setState(() {});
     } catch (e) {
-      _showError('Failed to initialize marketplaceItem player');
+      _showError('Failed to initialize video player');
     }
   }
 
   Future<void> _pickItemFromGallery() async {
     try {
       await _enableWakelock();
-      
-      final marketplaceItem = await _picker.pickVideo(
+
+      final video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
       );
-      
-      if (marketplaceItem != null) {
-        final marketplaceItemFile = File(marketplaceItem.path);
-        
-        if (await marketplaceItemFile.exists()) {
-          await _processAndSetVideo(marketplaceItemFile);
+
+      if (video != null) {
+        final videoFile = File(video.path);
+
+        if (await videoFile.exists()) {
+          await _processAndSetVideo(videoFile);
         } else {
-          _showError('Selected marketplaceItem file not found');
+          _showError('Selected video file not found');
           await _disableWakelock();
         }
       } else {
         await _disableWakelock();
       }
     } catch (e) {
-      _showError('Failed to pick marketplaceItem');
+      _showError('Failed to pick video');
       await _disableWakelock();
     }
   }
@@ -170,25 +170,25 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     _showMessage('Unavailable');
   }
 
-  Future<void> _processAndSetVideo(File marketplaceItemFile) async {
+  Future<void> _processAndSetVideo(File videoFile) async {
     await _enableWakelock();
-    
-    final videoInfo = await _analyzeVideo(marketplaceItemFile);
-    
-    // Check if marketplaceItem is longer than 5 minutes
+
+    final videoInfo = await _analyzeVideo(videoFile);
+
+    // Check if video is longer than 5 minutes
     if (videoInfo.duration.inSeconds > 300) {
       _showError('Video must be under 5 minutes');
       await _disableWakelock();
       return;
     }
-    
-    // Set marketplaceItem directly without trim dialog
-    await _setVideoDirectly(marketplaceItemFile, videoInfo);
+
+    // Set video directly without trim dialog
+    await _setVideoDirectly(videoFile, videoInfo);
   }
 
   Future<Duration> _getVideoDuration(File file) async {
     try {
-      final controller = MarketplaceItemPlayerController.file(file);
+      final controller = VideoPlayerController.file(file);
       await controller.initialize();
       final duration = controller.value.duration;
       await controller.dispose();
@@ -198,23 +198,23 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     }
   }
 
-  Future<MarketplaceItemInfo> _analyzeVideo(File marketplaceItemFile) async {
+  Future<MarketplaceItemInfo> _analyzeVideo(File videoFile) async {
     try {
-      final controller = MarketplaceItemPlayerController.file(marketplaceItemFile);
+      final controller = VideoPlayerController.file(videoFile);
       await controller.initialize();
-      
+
       final duration = controller.value.duration;
       final size = controller.value.size;
-      final fileSizeBytes = await marketplaceItemFile.length();
+      final fileSizeBytes = await videoFile.length();
       final fileSizeMB = fileSizeBytes / (1024 * 1024);
-      
+
       int? currentBitrate;
       if (duration.inSeconds > 0) {
         currentBitrate = ((fileSizeBytes * 8) / duration.inSeconds / 1000).round();
       }
-      
+
       await controller.dispose();
-      
+
       return MarketplaceItemInfo(
         duration: duration,
         resolution: size,
@@ -223,7 +223,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         frameRate: 30.0,
       );
     } catch (e) {
-      final fileSizeBytes = await marketplaceItemFile.length();
+      final fileSizeBytes = await videoFile.length();
       return MarketplaceItemInfo(
         duration: const Duration(seconds: 60),
         resolution: const Size(1920, 1080),
@@ -238,7 +238,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     return 23;
   }
 
-  // Get optimal preset based on marketplaceItem characteristics
+  // Get optimal preset based on video characteristics
   String _getOptimalPreset(MarketplaceItemInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
     final duration = info.duration.inSeconds;
@@ -263,7 +263,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     }
   }
 
-  // Build marketplaceItem filters for enhancement
+  // Build video filters for enhancement
   String _buildVideoFilters(MarketplaceItemInfo info) {
     List<String> filters = [];
     
@@ -286,7 +286,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     return 'loudnorm=I=-6:TP=-0.5:LRA=11:linear=true';
   }
 
-  // Modified marketplaceItem processing - enhanced audio for all marketplaceItems
+  // Modified video processing - enhanced audio for all videos
   Future<File?> _optimizeVideoQualitySize(File inputFile, MarketplaceItemInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
@@ -300,24 +300,24 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       });
 
       String command;
-      
-      // Check if marketplaceItem is under 20MB - only process audio
+
+      // Check if video is under 20MB - only process audio
       if (info.fileSizeMB < 50.0) {
-        // Audio-only processing for marketplaceItems under 50MB with enhanced audio chain
+        // Audio-only processing for videos under 50MB with enhanced audio chain
         command = '-y -i "${inputFile.path}" ';
-        command += '-c:v copy '; // Copy marketplaceItem stream without re-encoding
+        command += '-c:v copy '; // Copy video stream without re-encoding
         command += '-af "${_buildEnhancedAudioFilters()}" ';
         command += '-movflags +faststart ';
         command += '-f mp4 "$outputPath"';
       } else {
-        // Full marketplaceItem and audio processing for larger files
+        // Full video and audio processing for larger files
         final crf = _getFixedCRF();
         final preset = _getOptimalPreset(info);
         final profile = _getOptimalProfile(info);
         final videoFilters = _buildVideoFilters(info);
 
         command = '-y -i "${inputFile.path}" ';
-        
+
         // Video encoding with enhancement
         command += '-c:v libx264 ';
         command += '-crf $crf ';
@@ -325,15 +325,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         command += '-profile:v $profile ';
         command += '-level 4.1 ';
         command += '-pix_fmt yuv420p ';
-        
-        // Add marketplaceItem filters if available
+
+        // Add video filters if available
         if (videoFilters.isNotEmpty) {
           command += '-vf "$videoFilters" ';
         }
-        
+
         // Enhanced audio processing with fuller sound
         command += '-af "${_buildEnhancedAudioFilters()}" ';
-        
+
         // Output optimization
         command += '-movflags +faststart ';
         command += '-f mp4 "$outputPath"';
@@ -447,13 +447,13 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   void _clearVideo() {
-    if (_marketplaceItemPlayerController != null) {
-      _marketplaceItemPlayerController!.dispose();
-      _marketplaceItemPlayerController = null;
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
     }
-    _marketplaceItemFile = null;
+    _videoFile = null;
     _marketplaceItemInfo = null;
-    
+
     final authProvider = ref.read(authenticationProvider.notifier);
     if (!_isProcessing && !authProvider.isLoading) {
       _disableWakelock();
@@ -461,25 +461,25 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   void _togglePlayPause() {
-    if (_marketplaceItemPlayerController == null) return;
-    
+    if (_videoController == null) return;
+
     setState(() {
-      if (_isMarketplaceItemPlaying) {
-        _marketplaceItemPlayerController!.pause();
+      if (_isVideoPlaying) {
+        _videoController!.pause();
       } else {
-        _marketplaceItemPlayerController!.play();
+        _videoController!.play();
       }
-      _isMarketplaceItemPlaying = !_isMarketplaceItemPlaying;
+      _isVideoPlaying = !_isVideoPlaying;
     });
   }
 
-  Future<void> _setVideoDirectly(File marketplaceItemFile, MarketplaceItemInfo videoInfo) async {
+  Future<void> _setVideoDirectly(File videoFile, MarketplaceItemInfo videoInfo) async {
     setState(() {
-      _marketplaceItemFile = marketplaceItemFile;
+      _videoFile = videoFile;
       _marketplaceItemInfo = videoInfo;
     });
-    
-    await _initializeMarketplaceItemPlayer();
+
+    await _initializeVideoPlayer();
   }
 
   Future<bool> _checkUserAuthentication() async {
@@ -524,8 +524,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         return;
       }
       
-      if (_marketplaceItemFile == null) {
-        _showError('Please select a marketplaceItem');
+      if (_videoFile == null) {
+        _showError('Please select a video');
         return;
       }
       
@@ -543,51 +543,51 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         price = double.tryParse(_priceController.text) ?? 0.0;
       }
       
-      // STEP 1: Generate thumbnail FIRST from the original, unprocessed marketplaceItem
-      debugPrint('🎬 Step 1: Generating thumbnail from original marketplaceItem...');
+      // STEP 1: Generate thumbnail FIRST from the original, unprocessed video
+      debugPrint('🎬 Step 1: Generating thumbnail from original video...');
       File? thumbnailFile;
       try {
-        final thumbnailService = MarketplaceItemThumbnailService();
+        final thumbnailService = MarketplaceThumbnailService();
         thumbnailFile = await thumbnailService.generateBestThumbnailFile(
-          marketplaceItemFile: _marketplaceItemFile!,
+          videoFile: _videoFile!,
           maxWidth: 400,
           maxHeight: 600,
           quality: 85,
         );
-        
+
         if (thumbnailFile == null) {
           debugPrint('⚠️ Warning: Failed to generate thumbnail, continuing without it');
         } else {
-          debugPrint('✅ Thumbnail generated successfully from original marketplaceItem: ${thumbnailFile.path}');
+          debugPrint('✅ Thumbnail generated successfully from original video: ${thumbnailFile.path}');
         }
       } catch (e) {
         debugPrint('❌ Error generating thumbnail: $e');
         // Continue without thumbnail
       }
-      
-      // STEP 2: Process marketplaceItem (audio enhancement, etc.) AFTER thumbnail generation
-      debugPrint('🔧 Step 2: Processing marketplaceItem (audio enhancement)...');
-      File videoToUpload = _marketplaceItemFile!;
-      
+
+      // STEP 2: Process video (audio enhancement, etc.) AFTER thumbnail generation
+      debugPrint('🔧 Step 2: Processing video (audio enhancement)...');
+      File videoToUpload = _videoFile!;
+
       if (_marketplaceItemInfo != null) {
-        final processedVideo = await _optimizeVideoQualitySize(_marketplaceItemFile!, _marketplaceItemInfo!);
-        
+        final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _marketplaceItemInfo!);
+
         if (processedVideo != null) {
           videoToUpload = processedVideo;
           debugPrint('✅ Video processed successfully');
         } else {
-          debugPrint('⚠️ Video processing failed, using original marketplaceItem');
+          debugPrint('⚠️ Video processing failed, using original video');
         }
       }
-      
+
       // Start upload simulation
       _startUploadSimulation();
 
       // STEP 3: Upload with pre-generated thumbnail
-      debugPrint('☁️ Step 3: Uploading marketplaceItem and thumbnail...');
+      debugPrint('☁️ Step 3: Uploading video and thumbnail...');
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
       marketplaceNotifier.createMarketplaceItem(
-        marketplaceItemFile: videoToUpload,
+        videoFile: videoToUpload,
         thumbnailFile: thumbnailFile, // Pass pre-generated thumbnail
         caption: _captionController.text,
         tags: tags,
@@ -699,7 +699,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         ),
         body: const InlineLoginRequiredWidget(
           title: 'Sign In to Create',
-          subtitle: 'You need to sign in before you can upload marketplaceItems. Join WeiBao to share your content with the world!',
+          subtitle: 'You need to sign in before you can upload videos. Join WeiBao to share your content with the world!',
         ),
       );
     }
@@ -727,7 +727,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           },
         ),
         actions: [
-          if (_marketplaceItemFile != null)
+          if (_videoFile != null)
             TextButton(
               onPressed: (isLoading || _isProcessing || isUploading) ? null : _submitForm,
               child: Text(
@@ -751,7 +751,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Video preview or picker
-              _marketplaceItemFile == null
+              _videoFile == null
                   ? _buildVideoPickerPlaceholder(modernTheme)
                   : _buildVideoPreview(modernTheme),
                 
@@ -1091,16 +1091,16 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   Widget _buildVideoPreview(ModernThemeExtension modernTheme) {
-    if (_marketplaceItemPlayerController != null &&
-        _marketplaceItemPlayerController!.value.isInitialized) {
+    if (_videoController != null &&
+        _videoController!.value.isInitialized) {
       return Stack(
         alignment: Alignment.center,
         children: [
           AspectRatio(
-            aspectRatio: _marketplaceItemPlayerController!.value.aspectRatio,
-            child: MarketplaceItemPlayer(_marketplaceItemPlayerController!),
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: VideoPlayer(_videoController!),
           ),
-          
+
           GestureDetector(
             onTap: _togglePlayPause,
             child: Container(
@@ -1110,7 +1110,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                _isMarketplaceItemPlaying ? Icons.pause : Icons.play_arrow,
+                _isVideoPlaying ? Icons.pause : Icons.play_arrow,
                 color: Colors.white,
                 size: 32,
               ),

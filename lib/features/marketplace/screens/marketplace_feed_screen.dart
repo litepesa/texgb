@@ -61,7 +61,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   late Animation<double> _bannerAnimation;
 
   // Video controllers
-  VideoPlayerController? _currentMarketplaceItemController;
+  VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
   
   // Store original system UI for restoration
@@ -299,8 +299,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
     debugPrint('MarketplaceFeedScreen: Starting fresh playback');
 
-    if (_currentMarketplaceItemController?.value.isInitialized == true) {
-      _currentMarketplaceItemController!.play();
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.play();
       debugPrint('MarketplaceFeedScreen: Video controller playing');
     } else {
       debugPrint('MarketplaceFeedScreen: Video controller not ready, attempting initialization');
@@ -317,10 +317,10 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   void _stopPlayback() {
     debugPrint('MarketplaceFeedScreen: Stopping playback');
 
-    if (_currentMarketplaceItemController?.value.isInitialized == true) {
-      _currentMarketplaceItemController!.pause();
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.pause();
       if (!_isCommentsSheetOpen) {
-        _currentMarketplaceItemController!.seekTo(Duration.zero);
+        _currentVideoController!.seekTo(Duration.zero);
       }
     }
   }
@@ -399,7 +399,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     debugPrint('Video controller ready, setting up fresh playback');
 
     setState(() {
-      _currentMarketplaceItemController = controller;
+      _currentVideoController = controller;
     });
 
     // Add listener to track marketplaceItem progress
@@ -440,9 +440,9 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
     debugPrint('MarketplaceFeedScreen: Starting fresh marketplaceItem from beginning');
 
-    if (_currentMarketplaceItemController?.value.isInitialized == true) {
-      _currentMarketplaceItemController!.seekTo(Duration.zero);
-      _currentMarketplaceItemController!.play();
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.seekTo(Duration.zero);
+      _currentVideoController!.play();
     }
 
     _startFreshPlayback();
@@ -551,7 +551,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   }
 
   Widget _buildVideoPlayerOnly() {
-    if (_currentMarketplaceItemController?.value.isInitialized != true) {
+    if (_currentVideoController?.value.isInitialized != true) {
       return Container(
         color: Colors.black,
         child: const Center(
@@ -564,9 +564,9 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       child: FittedBox(
         fit: BoxFit.cover,
         child: SizedBox(
-          width: _currentMarketplaceItemController!.value.size.width,
-          height: _currentMarketplaceItemController!.value.size.height,
-          child: VideoPlayer(_currentMarketplaceItemController!),
+          width: _currentVideoController!.value.size.width,
+          height: _currentVideoController!.value.size.height,
+          child: VideoPlayer(_currentVideoController!),
         ),
       ),
     );

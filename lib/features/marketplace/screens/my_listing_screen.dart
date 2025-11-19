@@ -36,17 +36,17 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   MarketplaceItemModel? _marketplaceItem;
   bool _isLoading = true;
   String? _error;
-  String? _marketplaceItemThumbnail;
+  String? _videoThumbnail;
   late AnimationController _rocketAnimationController;
   late Animation<double> _rocketAnimation;
   late TabController _tabController;
-  MarketplaceItemPlayerController? _marketplaceItemPlayerController;
+  VideoPlayerController? _videoController;
   bool _isPlaying = false;
-  
-  // Cache manager for marketplaceItem thumbnails
+
+  // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
-      'postMarketplaceItemThumbnails',
+      'postVideoThumbnails',
       stalePeriod: const Duration(days: 7),
       maxNrOfCacheObjects: 100,
     ),
@@ -77,7 +77,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   void dispose() {
     _rocketAnimationController.dispose();
     _tabController.dispose();
-    _marketplaceItemPlayerController?.dispose();
+    _videoController?.dispose();
     super.dispose();
   }
 
@@ -100,10 +100,10 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
           _marketplaceItem = marketplaceItem;
           _isLoading = false;
         });
-        
-        // Generate thumbnail if it's a marketplaceItem
+
+        // Generate thumbnail if it's a video
         if (!marketplaceItem.isMultipleImages && marketplaceItem.itemUrl.isNotEmpty) {
-          _generateMarketplaceItemThumbnail();
+          _generateVideoThumbnail();
         }
       }
     } catch (e) {
@@ -116,31 +116,31 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     }
   }
 
-  Future<void> _generateMarketplaceItemThumbnail() async {
+  Future<void> _generateVideoThumbnail() async {
     if (_marketplaceItem == null || _marketplaceItem!.itemUrl.isEmpty) return;
-    
+
     try {
       // Check if thumbnail is already cached
       final cacheKey = 'post_thumb_${_marketplaceItem!.id}';
       final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
-      
+
       if (fileInfo != null && fileInfo.file.existsSync()) {
         // Use cached thumbnail
         if (mounted) {
           setState(() {
-            _marketplaceItemThumbnail = fileInfo.file.path;
+            _videoThumbnail = fileInfo.file.path;
           });
         }
       } else {
         // Generate new thumbnail
-        final thumbnailPath = await MarketplaceItemThumbnail.thumbnailFile(
-          marketplaceItem: _marketplaceItem!.itemUrl,
+        final thumbnailPath = await VideoThumbnail.thumbnailFile(
+          video: _marketplaceItem!.itemUrl,
           thumbnailPath: (await getTemporaryDirectory()).path,
           imageFormat: ImageFormat.JPEG,
           maxHeight: 400,
           quality: 85,
         );
-        
+
         if (thumbnailPath != null && mounted) {
           // Cache the thumbnail
           final thumbnailFile = File(thumbnailPath);
@@ -150,9 +150,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
               thumbnailFile.readAsBytesSync(),
             );
           }
-          
+
           setState(() {
-            _marketplaceItemThumbnail = thumbnailPath;
+            _videoThumbnail = thumbnailPath;
           });
         }
       }
@@ -161,38 +161,38 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     }
   }
 
-  Future<void> _initializeMarketplaceItemPlayer() async {
+  Future<void> _initializeVideoPlayer() async {
     if (_marketplaceItem == null || _marketplaceItem!.isMultipleImages || _marketplaceItem!.itemUrl.isEmpty) return;
-    
+
     try {
-      _marketplaceItemPlayerController = MarketplaceItemPlayerController.network(_marketplaceItem!.itemUrl);
-      await _marketplaceItemPlayerController!.initialize();
+      _videoController = VideoPlayerController.network(_marketplaceItem!.itemUrl);
+      await _videoController!.initialize();
       if (mounted) {
         setState(() {});
       }
     } catch (e) {
-      print('Error initializing marketplaceItem player: $e');
+      print('Error initializing video player: $e');
     }
   }
 
   void _toggleVideoPlayback() {
-    if (_marketplaceItemPlayerController == null || !_marketplaceItemPlayerController!.value.isInitialized) {
-      _initializeMarketplaceItemPlayer().then((_) {
-        if (_marketplaceItemPlayerController != null && _marketplaceItemPlayerController!.value.isInitialized) {
-          _marketplaceItemPlayerController!.play();
+    if (_videoController == null || !_videoController!.value.isInitialized) {
+      _initializeVideoPlayer().then((_) {
+        if (_videoController != null && _videoController!.value.isInitialized) {
+          _videoController!.play();
           setState(() {
             _isPlaying = true;
           });
         }
       });
     } else {
-      if (_marketplaceItemPlayerController!.value.isPlaying) {
-        _marketplaceItemPlayerController!.pause();
+      if (_videoController!.value.isPlaying) {
+        _videoController!.pause();
         setState(() {
           _isPlaying = false;
         });
       } else {
-        _marketplaceItemPlayerController!.play();
+        _videoController!.play();
         setState(() {
           _isPlaying = true;
         });
@@ -872,14 +872,14 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                     ),
                   ),
                 )
-              else if (!marketplaceItem.isMultipleImages && _marketplaceItemPlayerController != null && _marketplaceItemPlayerController!.value.isInitialized)
+              else if (!marketplaceItem.isMultipleImages && _videoController != null && _videoController!.value.isInitialized)
                 AspectRatio(
-                  aspectRatio: _marketplaceItemPlayerController!.value.aspectRatio,
-                  child: MarketplaceItemPlayer(_marketplaceItemPlayerController!),
+                  aspectRatio: _videoController!.value.aspectRatio,
+                  child: VideoPlayer(_videoController!),
                 )
-              else if (!marketplaceItem.isMultipleImages && _marketplaceItemThumbnail != null)
+              else if (!marketplaceItem.isMultipleImages && _videoThumbnail != null)
                 Image.file(
-                  File(_marketplaceItemThumbnail!),
+                  File(_videoThumbnail!),
                   fit: BoxFit.cover,
                 )
               else if (!marketplaceItem.isMultipleImages && marketplaceItem.thumbnailUrl.isNotEmpty)
@@ -934,7 +934,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                 ),
               ),
               
-              // Play/Pause button for marketplaceItems
+              // Play/Pause button for videos
               if (!marketplaceItem.isMultipleImages)
                 Center(
                   child: GestureDetector(

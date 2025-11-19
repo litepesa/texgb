@@ -16,8 +16,8 @@ class MarketplaceThumbnailService {
   final Map<String, String> _thumbnailCache = {};
 
   // Generate unique cache key for video URL
-  String _generateCacheKey(String marketplaceItemUrl) {
-    return md5.convert(utf8.encode(marketplaceItemUrl)).toString();
+  String _generateCacheKey(String videoUrl) {
+    return md5.convert(utf8.encode(videoUrl)).toString();
   }
 
   // Get cache directory for thumbnails
@@ -34,14 +34,14 @@ class MarketplaceThumbnailService {
 
   // 🆕 NEW: Generate thumbnail from local video file for upload
   Future<File?> generateThumbnailFile({
-    required File marketplaceItemFile,
+    required File videoFile,
     int maxWidth = 400,
     int maxHeight = 600,
     int quality = 85,
     int timeMs = 2000,
   }) async {
     try {
-      debugPrint('🎬 Generating thumbnail from video file: ${marketplaceItemFile.path}');
+      debugPrint('🎬 Generating thumbnail from video file: ${videoFile.path}');
 
       final cacheDir = await _getCacheDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -49,7 +49,7 @@ class MarketplaceThumbnailService {
 
       // Generate high-quality thumbnail from local video file
       final thumbnail = await VideoThumbnail.thumbnailFile(
-        video: marketplaceItemFile.path,
+        video: videoFile.path,
         thumbnailPath: thumbnailPath,
         imageFormat: ImageFormat.JPEG,
         maxWidth: maxWidth,
@@ -73,13 +73,13 @@ class MarketplaceThumbnailService {
 
   // 🆕 NEW: Generate thumbnail with multiple attempts for better quality
   Future<File?> generateBestThumbnailFile({
-    required File marketplaceItemFile,
+    required File videoFile,
     int maxWidth = 400,
     int maxHeight = 600,
     int quality = 85,
   }) async {
     try {
-      debugPrint('🎬 Generating best quality thumbnail from video file: ${marketplaceItemFile.path}');
+      debugPrint('🎬 Generating best quality thumbnail from video file: ${videoFile.path}');
 
       // Try multiple time positions to get the best frame
       final timePositions = [2000, 1000, 3000, 5000, 500]; // Try different seconds
@@ -87,7 +87,7 @@ class MarketplaceThumbnailService {
       for (final timeMs in timePositions) {
         try {
           final thumbnailFile = await generateThumbnailFile(
-            marketplaceItemFile: marketplaceItemFile,
+            videoFile: videoFile,
             maxWidth: maxWidth,
             maxHeight: maxHeight,
             quality: quality,
@@ -121,18 +121,18 @@ class MarketplaceThumbnailService {
 
   // 🆕 NEW: Generate thumbnail data (bytes) from local video file
   Future<Uint8List?> generateThumbnailDataFromFile({
-    required File marketplaceItemFile,
+    required File videoFile,
     int maxWidth = 400,
     int maxHeight = 600,
     int quality = 85,
     int timeMs = 2000,
   }) async {
     try {
-      debugPrint('🎬 Generating thumbnail data from video file: ${marketplaceItemFile.path}');
+      debugPrint('🎬 Generating thumbnail data from video file: ${videoFile.path}');
 
       // Generate high-quality thumbnail as bytes
       final thumbnailData = await VideoThumbnail.thumbnailData(
-        video: marketplaceItemFile.path,
+        video: videoFile.path,
         imageFormat: ImageFormat.JPEG,
         maxWidth: maxWidth,
         maxHeight: maxHeight,
@@ -154,10 +154,10 @@ class MarketplaceThumbnailService {
   }
 
   // Generate high-quality thumbnail from video URL (similar to recommended posts)
-  Future<String?> generateThumbnail(String marketplaceItemUrl) async {
-    if (marketplaceItemUrl.isEmpty) return null;
+  Future<String?> generateThumbnail(String videoUrl) async {
+    if (videoUrl.isEmpty) return null;
 
-    final cacheKey = _generateCacheKey(marketplaceItemUrl);
+    final cacheKey = _generateCacheKey(videoUrl);
 
     // Check if thumbnail is already cached
     if (_thumbnailCache.containsKey(cacheKey)) {
@@ -171,14 +171,14 @@ class MarketplaceThumbnailService {
     }
 
     try {
-      debugPrint('Generating high-quality thumbnail for video: $marketplaceItemUrl');
+      debugPrint('Generating high-quality thumbnail for video: $videoUrl');
 
       final cacheDir = await _getCacheDirectory();
       final thumbnailPath = '${cacheDir.path}/$cacheKey.jpg';
 
       // Generate high-quality thumbnail using enhanced settings like recommended posts
       final thumbnail = await VideoThumbnail.thumbnailFile(
-        video: marketplaceItemUrl,
+        video: videoUrl,
         thumbnailPath: thumbnailPath,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 400, // Increased width for better quality (matching recommended posts)
@@ -192,7 +192,7 @@ class MarketplaceThumbnailService {
         debugPrint('High-quality thumbnail generated successfully: $thumbnail');
         return thumbnail;
       } else {
-        debugPrint('Failed to generate thumbnail for: $marketplaceItemUrl');
+        debugPrint('Failed to generate thumbnail for: $videoUrl');
         return null;
       }
     } catch (e) {
@@ -202,15 +202,15 @@ class MarketplaceThumbnailService {
   }
 
   // Generate high-quality thumbnail as bytes (for immediate use)
-  Future<Uint8List?> generateThumbnailData(String marketplaceItemUrl) async {
-    if (marketplaceItemUrl.isEmpty) return null;
+  Future<Uint8List?> generateThumbnailData(String videoUrl) async {
+    if (videoUrl.isEmpty) return null;
 
     try {
-      debugPrint('Generating high-quality thumbnail data for video: $marketplaceItemUrl');
+      debugPrint('Generating high-quality thumbnail data for video: $videoUrl');
 
       // Generate high-quality thumbnail as bytes with enhanced settings
       final thumbnailData = await VideoThumbnail.thumbnailData(
-        video: marketplaceItemUrl,
+        video: videoUrl,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 400, // Increased width for better quality
         maxHeight: 600, // Increased height for 9:16 aspect ratio videos
@@ -222,7 +222,7 @@ class MarketplaceThumbnailService {
         debugPrint('High-quality thumbnail data generated successfully');
         return thumbnailData;
       } else {
-        debugPrint('Failed to generate thumbnail data for: $marketplaceItemUrl');
+        debugPrint('Failed to generate thumbnail data for: $videoUrl');
         return null;
       }
     } catch (e) {
@@ -232,11 +232,11 @@ class MarketplaceThumbnailService {
   }
 
   // Generate multiple thumbnails at different time positions for better frame selection
-  Future<Uint8List?> generateBestThumbnailData(String marketplaceItemUrl) async {
-    if (marketplaceItemUrl.isEmpty) return null;
+  Future<Uint8List?> generateBestThumbnailData(String videoUrl) async {
+    if (videoUrl.isEmpty) return null;
 
     try {
-      debugPrint('Generating best quality thumbnail for video: $marketplaceItemUrl');
+      debugPrint('Generating best quality thumbnail for video: $videoUrl');
 
       // Try multiple time positions to get the best frame
       final timePositions = [2000, 1000, 3000, 5000]; // Try different seconds
@@ -244,7 +244,7 @@ class MarketplaceThumbnailService {
       for (final timeMs in timePositions) {
         try {
           final thumbnailData = await VideoThumbnail.thumbnailData(
-            video: marketplaceItemUrl,
+            video: videoUrl,
             imageFormat: ImageFormat.JPEG,
             maxWidth: 400,
             maxHeight: 600,
@@ -262,7 +262,7 @@ class MarketplaceThumbnailService {
         }
       }
 
-      debugPrint('Failed to generate thumbnail at any time position for: $marketplaceItemUrl');
+      debugPrint('Failed to generate thumbnail at any time position for: $videoUrl');
       return null;
     } catch (e) {
       debugPrint('Error generating best thumbnail: $e');
@@ -349,7 +349,7 @@ class MarketplaceThumbnailService {
   }
 
   // Check if video URL is valid for thumbnail generation
-  bool isValidMarketplaceItemUrl(String url) {
+  bool isValidVideoUrl(String url) {
     if (url.isEmpty) return false;
 
     // Check for common video file extensions
@@ -362,7 +362,7 @@ class MarketplaceThumbnailService {
   }
 
   // Check if video file is valid for thumbnail generation
-  bool isValidMarketplaceItemFile(File file) {
+  bool isValidVideoFile(File file) {
     if (!file.existsSync()) return false;
 
     final videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v'];
@@ -372,11 +372,11 @@ class MarketplaceThumbnailService {
   }
 
   // Preload thumbnail for better performance
-  Future<void> preloadThumbnail(String marketplaceItemUrl) async {
-    if (!isValidMarketplaceItemUrl(marketplaceItemUrl)) return;
+  Future<void> preloadThumbnail(String videoUrl) async {
+    if (!isValidVideoUrl(videoUrl)) return;
 
     // Generate thumbnail in background without waiting
-    generateThumbnail(marketplaceItemUrl).catchError((e) {
+    generateThumbnail(videoUrl).catchError((e) {
       debugPrint('Error preloading thumbnail: $e');
     });
   }

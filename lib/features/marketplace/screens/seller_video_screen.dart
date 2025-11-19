@@ -56,7 +56,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   bool _isOwner = false;
 
   // Video controllers
-  VideoPlayerController? _currentMarketplaceItemController;
+  VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
 
   // Store original system UI for restoration
@@ -248,8 +248,8 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
 
     debugPrint('SellerVideoScreen: Starting fresh playback');
 
-    if (_currentMarketplaceItemController?.value.isInitialized == true) {
-      _currentMarketplaceItemController!.play();
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.play();
       debugPrint('SellerVideoScreen: Video controller playing');
     } else {
       debugPrint('SellerVideoScreen: Video controller not ready, attempting initialization');
@@ -265,10 +265,10 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   void _stopPlayback() {
     debugPrint('SellerVideoScreen: Stopping playback');
 
-    if (_currentMarketplaceItemController?.value.isInitialized == true) {
-      _currentMarketplaceItemController!.pause();
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.pause();
       if (!_isCommentsSheetOpen) {
-        _currentMarketplaceItemController!.seekTo(Duration.zero);
+        _currentVideoController!.seekTo(Duration.zero);
       }
     }
   }
@@ -375,7 +375,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
   }
 
   Widget _buildVideoPlayerOnly() {
-    if (_currentMarketplaceItemController?.value.isInitialized != true) {
+    if (_currentVideoController?.value.isInitialized != true) {
       return Container(
         color: Colors.black,
         child: const Center(
@@ -388,9 +388,9 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
       child: FittedBox(
         fit: BoxFit.cover,
         child: SizedBox(
-          width: _currentMarketplaceItemController!.value.size.width,
-          height: _currentMarketplaceItemController!.value.size.height,
-          child: VideoPlayer(_currentMarketplaceItemController!),
+          width: _currentVideoController!.value.size.width,
+          height: _currentVideoController!.value.size.height,
+          child: VideoPlayer(_currentVideoController!),
         ),
       ),
     );
@@ -439,7 +439,7 @@ class _SellerVideoScreenState extends ConsumerState<SellerVideoScreen>
     debugPrint('Video controller ready, setting up fresh playback');
 
     setState(() {
-      _currentMarketplaceItemController = controller;
+      _currentVideoController = controller;
     });
 
     controller.seekTo(Duration.zero);
