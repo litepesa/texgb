@@ -20,7 +20,7 @@ enum SearchStatus { idle, loading, success, error, empty }
 class SimpleSearchState {
   final SearchStatus status;
   final String query;
-  final List<MarketplaceItemModel> videos;
+  final List<MarketplaceItemModel> marketplaceItems;
   final int totalResults;
   final bool hasMore;
   final String? errorMessage;
@@ -39,7 +39,7 @@ class SimpleSearchState {
   SimpleSearchState copyWith({
     SearchStatus? status,
     String? query,
-    List<MarketplaceItemModel>? videos,
+    List<MarketplaceItemModel>? marketplaceItems,
     int? totalResults,
     bool? hasMore,
     String? errorMessage,
@@ -60,11 +60,11 @@ class SimpleSearchState {
   bool get isSuccess => status == SearchStatus.success;
   bool get isEmpty => status == SearchStatus.empty;
   bool get isError => status == SearchStatus.error;
-  bool get hasResults => videos.isNotEmpty;
-  
+  bool get hasResults => marketplaceItems.isNotEmpty;
+
   @override
   String toString() {
-    return 'SimpleSearchState(status: $status, query: "$query", marketplaceItems: ${videos.length}, total: $totalResults, usernameOnly: $usernameOnly)';
+    return 'SimpleSearchState(status: $status, query: "$query", marketplaceItems: ${marketplaceItems.length}, total: $totalResults, usernameOnly: $usernameOnly)';
   }
 }
 
@@ -73,7 +73,7 @@ class SimpleSearchState {
 // ===============================
 
 @riverpod
-MarketplaceSearchRepository searchRepository(SearchRepositoryRef ref) {
+MarketplaceSearchRepository marketplaceSearchRepository(MarketplaceSearchRepositoryRef ref) {
   return MarketplaceSearchRepository();
 }
 
@@ -140,8 +140,8 @@ class MarketplaceSearch extends _$MarketplaceSearch {
 
     try {
       debugPrint('📄 Loading more results (offset: ${state.marketplaceItems.length})');
-      
-      final repository = ref.read(searchRepositoryProvider);
+
+      final repository = ref.read(marketplaceSearchRepositoryProvider);
       final response = await repository.searchMarketplaceItems(
         query: state.query,
         usernameOnly: state.usernameOnly,
@@ -201,7 +201,7 @@ class MarketplaceSearch extends _$MarketplaceSearch {
         usernameOnly: usernameOnly,
       );
 
-      final repository = ref.read(searchRepositoryProvider);
+      final repository = ref.read(marketplaceSearchRepositoryProvider);
       final response = await repository.searchMarketplaceItems(
         query: query,
         usernameOnly: usernameOnly,
@@ -247,61 +247,61 @@ class MarketplaceSearch extends _$MarketplaceSearch {
 /// Current search state
 @riverpod
 SimpleSearchState searchState(SearchStateRef ref) {
-  return ref.watch(videoSearchProvider);
+  return ref.watch(marketplaceSearchProvider);
 }
 
-/// Search results (list of videos)
+/// Search results (list of marketplace items)
 @riverpod
 List<MarketplaceItemModel> searchResults(SearchResultsRef ref) {
-  return ref.watch(videoSearchProvider).marketplaceItems;
+  return ref.watch(marketplaceSearchProvider).marketplaceItems;
 }
 
 /// Is currently searching
 @riverpod
 bool isSearching(IsSearchingRef ref) {
-  return ref.watch(videoSearchProvider).isLoading;
+  return ref.watch(marketplaceSearchProvider).isLoading;
 }
 
 /// Search error message
 @riverpod
 String? searchError(SearchErrorRef ref) {
-  return ref.watch(videoSearchProvider).errorMessage;
+  return ref.watch(marketplaceSearchProvider).errorMessage;
 }
 
 /// Has search results
 @riverpod
 bool hasSearchResults(HasSearchResultsRef ref) {
-  return ref.watch(videoSearchProvider).hasResults;
+  return ref.watch(marketplaceSearchProvider).hasResults;
 }
 
 /// Current search query
 @riverpod
 String searchQuery(SearchQueryRef ref) {
-  return ref.watch(videoSearchProvider).query;
+  return ref.watch(marketplaceSearchProvider).query;
 }
 
 /// Username-only filter active
 @riverpod
 bool isUsernameOnlyActive(IsUsernameOnlyActiveRef ref) {
-  return ref.watch(videoSearchProvider).usernameOnly;
+  return ref.watch(marketplaceSearchProvider).usernameOnly;
 }
 
 /// Has more results to load
 @riverpod
 bool hasMoreResults(HasMoreResultsRef ref) {
-  return ref.watch(videoSearchProvider).hasMore;
+  return ref.watch(marketplaceSearchProvider).hasMore;
 }
 
 /// Total results count
 @riverpod
 int totalResultsCount(TotalResultsCountRef ref) {
-  return ref.watch(videoSearchProvider).totalResults;
+  return ref.watch(marketplaceSearchProvider).totalResults;
 }
 
 /// Results count display text
 @riverpod
 String resultsCountText(ResultsCountTextRef ref) {
-  final state = ref.watch(videoSearchProvider);
+  final state = ref.watch(marketplaceSearchProvider);
   if (state.isEmpty) return 'No results';
   if (state.totalResults == 1) return '1 result';
   return '${state.totalResults} results';

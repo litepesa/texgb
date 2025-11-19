@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/videos/providers/video_search_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_search_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class MarketplaceSearchOverlay extends ConsumerStatefulWidget {
@@ -61,7 +61,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
         if (mounted) {
           _focusNode.requestFocus();
           if (widget.initialQuery?.isNotEmpty == true) {
-            ref.read(videoSearchProvider.notifier).searchNow(widget.initialQuery!);
+            ref.read(marketplaceSearchProvider.notifier).searchNow(widget.initialQuery!);
           }
         }
       });
@@ -78,7 +78,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(videoSearchProvider);
+    final searchState = ref.watch(marketplaceSearchProvider);
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -169,7 +169,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                     ? GestureDetector(
                         onTap: () {
                           _controller.clear();
-                          ref.read(videoSearchProvider.notifier).clear();
+                          ref.read(marketplaceSearchProvider.notifier).clear();
                           setState(() {});
                         },
                         child: Icon(Icons.cancel, color: Colors.grey[500], size: 20),
@@ -182,14 +182,14 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
               onChanged: (value) {
                 setState(() {});
                 if (value.trim().isNotEmpty) {
-                  ref.read(videoSearchProvider.notifier).search(value, usernameOnly: _usernameOnly);
+                  ref.read(marketplaceSearchProvider.notifier).search(value, usernameOnly: _usernameOnly);
                 } else {
-                  ref.read(videoSearchProvider.notifier).clear();
+                  ref.read(marketplaceSearchProvider.notifier).clear();
                 }
               },
               onSubmitted: (value) {
                 if (value.trim().isNotEmpty) {
-                  ref.read(videoSearchProvider.notifier).searchNow(value, usernameOnly: _usernameOnly);
+                  ref.read(marketplaceSearchProvider.notifier).searchNow(value, usernameOnly: _usernameOnly);
                 }
               },
               textInputAction: TextInputAction.search,
@@ -220,7 +220,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
           GestureDetector(
             onTap: () {
               setState(() => _usernameOnly = !_usernameOnly);
-              ref.read(videoSearchProvider.notifier).toggleUsernameOnly();
+              ref.read(marketplaceSearchProvider.notifier).toggleUsernameOnly();
               HapticFeedback.lightImpact();
             },
             child: Container(
@@ -296,7 +296,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
           final pixels = notification.metrics.pixels;
           final max = notification.metrics.maxScrollExtent;
           if (pixels >= max * 0.8 && state.hasMore && !state.isLoading) {
-            ref.read(videoSearchProvider.notifier).loadMore();
+            ref.read(marketplaceSearchProvider.notifier).loadMore();
           }
         }
         return false;
@@ -314,15 +314,15 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        itemCount: state.videos.length + (state.isLoading && state.hasResults ? 1 : 0),
+        itemCount: state.marketplaceItems.length + (state.isLoading && state.hasResults ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == state.videos.length) {
+          if (index == state.marketplaceItems.length) {
             return const Center(
               child: CircularProgressIndicator(color: Colors.black87, strokeWidth: 2),
             );
           }
 
-          final marketplaceItem = state.videos[index];
+          final marketplaceItem = state.marketplaceItems[index];
           return _buildVideoCard(marketplaceItem);
         },
       ),
@@ -468,7 +468,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
             TextButton(
               onPressed: () {
                 if (_controller.text.trim().isNotEmpty) {
-                  ref.read(videoSearchProvider.notifier).searchNow(
+                  ref.read(marketplaceSearchProvider.notifier).searchNow(
                     _controller.text,
                     usernameOnly: _usernameOnly,
                   );

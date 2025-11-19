@@ -19,7 +19,7 @@ class MarketplaceSearchRepository {
       : _httpClient = httpClient ?? HttpClientService();
 
   /// Simple marketplace search - matches backend /marketplace/search endpoint
-  Future<SearchResponse> searchVideos({
+  Future<SearchResponse> searchMarketplaceItems({
     required String query,
     bool usernameOnly = false,
     int limit = 20,

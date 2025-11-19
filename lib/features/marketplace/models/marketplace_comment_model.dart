@@ -20,7 +20,7 @@
 
 import 'dart:convert';
 
-class CommentModel {
+class MarketplaceCommentModel {
   // Core identification
   final String id;
   final String threadId;              // Which thread this comment belongs to
@@ -28,29 +28,29 @@ class CommentModel {
   final String userName;
   final String userImage;
   final bool isVerified;
-  
+
   // Content
   final String content;
-  
+
   // Media (optional - comments can have images like Twitter)
   final List<String> imageUrls;      // 0-1 image for comments (single image only)
-  
+
   // Engagement metrics
   final int likes;
   final int replies;                 // Number of replies to this comment
-  
+
   // Reply properties (nested threading)
   final bool isReply;                // Is this a reply to another comment?
   final String? parentCommentId;     // Comment being replied to
   final String? replyToUserId;
   final String? replyToUserName;
-  
+
   // Comment properties
   final bool isPinned;               // Thread author can pin comment
   final bool isEdited;
   final String? editedAt;
   final bool isActive;               // Soft delete support
-  
+
   // Timestamps
   final String createdAt;            // RFC3339 format
   final String updatedAt;
@@ -60,9 +60,9 @@ class CommentModel {
   final bool isAuthor;               // Is current user the comment author?
   final bool isThreadAuthor;         // Is current user the thread author?
   final int depth;                   // Reply depth (0 = top-level, 1 = reply, 2 = reply to reply, etc.)
-  final List<CommentModel> replyList; // Nested replies (for UI tree building)
+  final List<MarketplaceCommentModel> replyList; // Nested replies (for UI tree building)
 
-  const CommentModel({
+  const MarketplaceCommentModel({
     required this.id,
     required this.threadId,
     required this.userId,
@@ -94,9 +94,9 @@ class CommentModel {
   // FACTORY CONSTRUCTORS
   // ===============================
 
-  factory CommentModel.fromJson(Map<String, dynamic> json) {
+  factory MarketplaceCommentModel.fromJson(Map<String, dynamic> json) {
     try {
-      return CommentModel(
+      return MarketplaceCommentModel(
         id: _parseString(json['id']),
         threadId: _parseString(json['threadId'] ?? json['thread_id']),
         userId: _parseString(json['userId'] ?? json['user_id']),
@@ -130,11 +130,11 @@ class CommentModel {
         replyList: _parseCommentList(json['replyList'] ?? json['reply_list']),
       );
     } catch (e) {
-      print('❌ Error parsing CommentModel from JSON: $e');
+      print('❌ Error parsing MarketplaceCommentModel from JSON: $e');
       print('📄 JSON data: $json');
       
       // Return safe default
-      return CommentModel(
+      return MarketplaceCommentModel(
         id: _parseString(json['id'] ?? ''),
         threadId: _parseString(json['threadId'] ?? ''),
         userId: _parseString(json['userId'] ?? ''),
@@ -148,7 +148,7 @@ class CommentModel {
   }
 
   // Factory for creating new comment
-  factory CommentModel.create({
+  factory MarketplaceCommentModel.create({
     required String threadId,
     required String userId,
     required String userName,
@@ -161,8 +161,8 @@ class CommentModel {
     String? replyToUserName,
   }) {
     final now = DateTime.now().toUtc().toIso8601String();
-    
-    return CommentModel(
+
+    return MarketplaceCommentModel(
       id: '', // Will be set by backend
       threadId: threadId,
       userId: userId,
@@ -290,22 +290,22 @@ class CommentModel {
     return [];
   }
 
-  static List<CommentModel> _parseCommentList(dynamic value) {
+  static List<MarketplaceCommentModel> _parseCommentList(dynamic value) {
     if (value == null) return [];
-    
+
     if (value is List) {
       return value
           .map((e) {
             if (e is Map<String, dynamic>) {
-              return CommentModel.fromJson(e);
+              return MarketplaceCommentModel.fromJson(e);
             }
             return null;
           })
           .where((comment) => comment != null)
-          .cast<CommentModel>()
+          .cast<MarketplaceCommentModel>()
           .toList();
     }
-    
+
     if (value is String && value.isNotEmpty) {
       try {
         final decoded = json.decode(value);
@@ -313,19 +313,19 @@ class CommentModel {
           return decoded
               .map((e) {
                 if (e is Map<String, dynamic>) {
-                  return CommentModel.fromJson(e);
+                  return MarketplaceCommentModel.fromJson(e);
                 }
                 return null;
               })
               .where((comment) => comment != null)
-              .cast<CommentModel>()
+              .cast<MarketplaceCommentModel>()
               .toList();
         }
       } catch (e) {
         print('⚠️ Warning: Could not parse comment list: $value');
       }
     }
-    
+
     return [];
   }
 
@@ -385,7 +385,7 @@ class CommentModel {
     };
   }
 
-  CommentModel copyWith({
+  MarketplaceCommentModel copyWith({
     String? id,
     String? threadId,
     String? userId,
@@ -410,9 +410,9 @@ class CommentModel {
     bool? isAuthor,
     bool? isThreadAuthor,
     int? depth,
-    List<CommentModel>? replyList,
+    List<MarketplaceCommentModel>? replyList,
   }) {
-    return CommentModel(
+    return MarketplaceCommentModel(
       id: id ?? this.id,
       threadId: threadId ?? this.threadId,
       userId: userId ?? this.userId,
@@ -528,7 +528,7 @@ class CommentModel {
   // INTERACTION METHODS
   // ===============================
 
-  CommentModel toggleLike() {
+  MarketplaceCommentModel toggleLike() {
     return copyWith(
       isLiked: !isLiked,
       likes: isLiked ? likes - 1 : likes + 1,
@@ -536,28 +536,28 @@ class CommentModel {
     );
   }
 
-  CommentModel incrementReplies() {
+  MarketplaceCommentModel incrementReplies() {
     return copyWith(
       replies: replies + 1,
       updatedAt: DateTime.now().toIso8601String(),
     );
   }
 
-  CommentModel decrementReplies() {
+  MarketplaceCommentModel decrementReplies() {
     return copyWith(
       replies: replies > 0 ? replies - 1 : 0,
       updatedAt: DateTime.now().toIso8601String(),
     );
   }
 
-  CommentModel togglePin() {
+  MarketplaceCommentModel togglePin() {
     return copyWith(
       isPinned: !isPinned,
       updatedAt: DateTime.now().toIso8601String(),
     );
   }
 
-  CommentModel markAsEdited() {
+  MarketplaceCommentModel markAsEdited() {
     return copyWith(
       isEdited: true,
       editedAt: DateTime.now().toIso8601String(),
@@ -565,7 +565,7 @@ class CommentModel {
     );
   }
 
-  CommentModel deactivate() {
+  MarketplaceCommentModel deactivate() {
     return copyWith(
       isActive: false,
       updatedAt: DateTime.now().toIso8601String(),
@@ -573,8 +573,8 @@ class CommentModel {
   }
 
   // Add reply to reply list
-  CommentModel addReply(CommentModel reply) {
-    final updatedReplyList = List<CommentModel>.from(replyList)..add(reply);
+  MarketplaceCommentModel addReply(MarketplaceCommentModel reply) {
+    final updatedReplyList = List<MarketplaceCommentModel>.from(replyList)..add(reply);
     return copyWith(
       replyList: updatedReplyList,
       replies: replies + 1,
@@ -620,13 +620,13 @@ class CommentModel {
   @override
   String toString() {
     final contentPreview = content.length > 30 ? "${content.substring(0, 30)}..." : content;
-    return 'CommentModel(id: $id, user: $userName, content: "$contentPreview", likes: $likes, replies: $replies, depth: $depth)';
+    return 'MarketplaceCommentModel(id: $id, user: $userName, content: "$contentPreview", likes: $likes, replies: $replies, depth: $depth)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CommentModel && other.id == id;
+    return other is MarketplaceCommentModel && other.id == id;
   }
 
   @override
@@ -637,52 +637,52 @@ class CommentModel {
 // EXTENSIONS FOR LISTS
 // ===============================
 
-extension CommentModelList on List<CommentModel> {
+extension MarketplaceCommentModelList on List<MarketplaceCommentModel> {
   // Filter by type
-  List<CommentModel> get activeComments => where((c) => c.isActive).toList();
-  List<CommentModel> get pinnedComments => where((c) => c.isPinned).toList();
-  List<CommentModel> get topLevelComments => where((c) => c.isTopLevel).toList();
-  List<CommentModel> get replies => where((c) => c.isReply).toList();
-  List<CommentModel> get verifiedComments => where((c) => c.isVerified).toList();
-  List<CommentModel> get commentsWithImages => where((c) => c.hasImages).toList();
-  List<CommentModel> get commentsWithReplies => where((c) => c.hasReplies).toList();
-  
+  List<MarketplaceCommentModel> get activeComments => where((c) => c.isActive).toList();
+  List<MarketplaceCommentModel> get pinnedComments => where((c) => c.isPinned).toList();
+  List<MarketplaceCommentModel> get topLevelComments => where((c) => c.isTopLevel).toList();
+  List<MarketplaceCommentModel> get replies => where((c) => c.isReply).toList();
+  List<MarketplaceCommentModel> get verifiedComments => where((c) => c.isVerified).toList();
+  List<MarketplaceCommentModel> get commentsWithImages => where((c) => c.hasImages).toList();
+  List<MarketplaceCommentModel> get commentsWithReplies => where((c) => c.hasReplies).toList();
+
   // Sorting
-  List<CommentModel> sortByLikes({bool descending = true}) {
-    final sorted = List<CommentModel>.from(this);
+  List<MarketplaceCommentModel> sortByLikes({bool descending = true}) {
+    final sorted = List<MarketplaceCommentModel>.from(this);
     sorted.sort((a, b) => descending ? b.likes.compareTo(a.likes) : a.likes.compareTo(b.likes));
     return sorted;
   }
-  
-  List<CommentModel> sortByReplies({bool descending = true}) {
-    final sorted = List<CommentModel>.from(this);
+
+  List<MarketplaceCommentModel> sortByReplies({bool descending = true}) {
+    final sorted = List<MarketplaceCommentModel>.from(this);
     sorted.sort((a, b) => descending ? b.replies.compareTo(a.replies) : a.replies.compareTo(b.replies));
     return sorted;
   }
-  
-  List<CommentModel> sortByDate({bool descending = true}) {
-    final sorted = List<CommentModel>.from(this);
-    sorted.sort((a, b) => descending 
+
+  List<MarketplaceCommentModel> sortByDate({bool descending = true}) {
+    final sorted = List<MarketplaceCommentModel>.from(this);
+    sorted.sort((a, b) => descending
         ? b.createdAtDateTime.compareTo(a.createdAtDateTime)
         : a.createdAtDateTime.compareTo(b.createdAtDateTime));
     return sorted;
   }
-  
+
   // Twitter-style sorting
-  List<CommentModel> get sortedByTop => sortByLikes(descending: true);
-  List<CommentModel> get sortedByLatest => sortByDate(descending: true);
-  List<CommentModel> get sortedByOldest => sortByDate(descending: false);
-  
+  List<MarketplaceCommentModel> get sortedByTop => sortByLikes(descending: true);
+  List<MarketplaceCommentModel> get sortedByLatest => sortByDate(descending: true);
+  List<MarketplaceCommentModel> get sortedByOldest => sortByDate(descending: false);
+
   // Filtering
-  List<CommentModel> filterByUser(String userId) {
+  List<MarketplaceCommentModel> filterByUser(String userId) {
     return where((c) => c.userId == userId).toList();
   }
-  
-  List<CommentModel> filterByThread(String threadId) {
+
+  List<MarketplaceCommentModel> filterByThread(String threadId) {
     return where((c) => c.threadId == threadId).toList();
   }
-  
-  List<CommentModel> filterByParent(String? parentCommentId) {
+
+  List<MarketplaceCommentModel> filterByParent(String? parentCommentId) {
     if (parentCommentId == null) return topLevelComments;
     return where((c) => c.parentCommentId == parentCommentId).toList();
   }
@@ -692,22 +692,22 @@ extension CommentModelList on List<CommentModel> {
   int get totalReplies => fold<int>(0, (sum, c) => sum + c.replies);
   
   // Build threaded comment tree
-  List<CommentModel> buildTree() {
+  List<MarketplaceCommentModel> buildTree() {
     // Get all top-level comments
     final topLevel = topLevelComments;
-    
+
     // Build reply tree for each top-level comment
     return topLevel.map((comment) {
       return _buildReplyTree(comment, this);
     }).toList();
   }
-  
-  static CommentModel _buildReplyTree(CommentModel comment, List<CommentModel> allComments) {
+
+  static MarketplaceCommentModel _buildReplyTree(MarketplaceCommentModel comment, List<MarketplaceCommentModel> allComments) {
     // Find direct replies to this comment
     final directReplies = allComments
         .where((c) => c.parentCommentId == comment.id)
         .toList();
-    
+
     // Recursively build reply tree for each reply
     final replyTree = directReplies.map((reply) {
       return _buildReplyTree(
@@ -715,25 +715,25 @@ extension CommentModelList on List<CommentModel> {
         allComments,
       );
     }).toList();
-    
+
     return comment.copyWith(replyList: replyTree);
   }
-  
+
   // Flatten tree back to list
-  List<CommentModel> flattenTree() {
-    final flattened = <CommentModel>[];
-    
-    void flatten(CommentModel comment) {
+  List<MarketplaceCommentModel> flattenTree() {
+    final flattened = <MarketplaceCommentModel>[];
+
+    void flatten(MarketplaceCommentModel comment) {
       flattened.add(comment);
       for (final reply in comment.replyList) {
         flatten(reply);
       }
     }
-    
+
     for (final comment in this) {
       flatten(comment);
     }
-    
+
     return flattened;
   }
 }
