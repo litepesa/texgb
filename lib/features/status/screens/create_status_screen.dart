@@ -1,6 +1,6 @@
 // ===============================
 // Create Status Screen
-// Create text, image, or video status
+// WhatsApp-style status creation
 // ===============================
 
 import 'dart:io';
@@ -11,6 +11,7 @@ import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/status/theme/status_theme.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class CreateStatusScreen extends ConsumerStatefulWidget {
   const CreateStatusScreen({super.key});
@@ -20,11 +21,23 @@ class CreateStatusScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
-  StatusMediaType _selectedType = StatusMediaType.text;
-  File? _selectedMedia;
+  // Creation modes
+  CreateMode _mode = CreateMode.select;
+
+  // Text status state
   final TextEditingController _textController = TextEditingController();
   TextStatusBackground _selectedBackground = TextStatusBackground.gradient1;
+  int _backgroundIndex = 0;
+
+  // Media status state
+  File? _selectedMedia;
+  StatusMediaType? _mediaType;
+
+  // Privacy settings
   StatusVisibility _visibility = StatusVisibility.all;
+  bool _showPrivacySheet = false;
+
+  // Creation state
   bool _isCreating = false;
 
   @override
@@ -35,422 +48,666 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+
+    // Different screens based on mode
+    switch (_mode) {
+      case CreateMode.select:
+        return _buildSelectionScreen(context, modernTheme);
+      case CreateMode.text:
+        return _buildTextStatusScreen(context, modernTheme);
+      case CreateMode.media:
+        return _buildMediaPreviewScreen(context, modernTheme);
+    }
+  }
+
+  // ===============================
+  // SELECTION SCREEN (WhatsApp style)
+  // ===============================
+
+  Widget _buildSelectionScreen(BuildContext context, dynamic modernTheme) {
     return Scaffold(
+      backgroundColor: modernTheme.surfaceColor ?? Colors.white,
       appBar: AppBar(
         title: const Text('Create Status'),
-        actions: [
-          if (!_isCreating)
-            TextButton(
-              onPressed: _canCreate ? _handleCreate : null,
-              child: Text(
-                'Create',
-                style: TextStyle(
-                  color: _canCreate ? StatusTheme.primaryBlue : Colors.grey,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+        backgroundColor: modernTheme.surfaceColor ?? Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: Column(
+        children: [
+          // Instructions
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 64,
+                  color: StatusTheme.primaryBlue.withOpacity(0.5),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  'Share your moments',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: modernTheme.textColor ?? Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose how you want to create your status',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          if (_isCreating)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Options (WhatsApp style)
+          Expanded(
+            child: Column(
+              children: [
+                // Text Status
+                _buildOptionTile(
+                  context,
+                  icon: Icons.text_fields_rounded,
+                  title: 'Text',
+                  subtitle: 'Share text with colorful backgrounds',
+                  color: StatusTheme.primaryBlue,
+                  onTap: () {
+                    setState(() => _mode = CreateMode.text);
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                // Photo Status
+                _buildOptionTile(
+                  context,
+                  icon: Icons.photo_camera,
+                  title: 'Photo',
+                  subtitle: 'Take a photo or choose from gallery',
+                  color: const Color(0xFF10B981),
+                  onTap: _showPhotoOptions,
+                ),
+
+                const SizedBox(height: 12),
+
+                // Video Status
+                _buildOptionTile(
+                  context,
+                  icon: Icons.videocam,
+                  title: 'Video',
+                  subtitle: 'Record a video or choose from gallery',
+                  color: const Color(0xFFF59E0B),
+                  onTap: _showVideoOptions,
+                ),
+              ],
             ),
+          ),
+
+          // Privacy info at bottom
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: StatusTheme.primaryBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: StatusTheme.primaryBlue, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your status will disappear after 24 hours',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: modernTheme.textColor ?? Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Type selector
-            _buildTypeSelector(),
+    );
+  }
 
-            const SizedBox(height: 24),
-
-            // Content input based on type
-            if (_selectedType == StatusMediaType.text) _buildTextInput(),
-            if (_selectedType == StatusMediaType.image) _buildImageInput(),
-            if (_selectedType == StatusMediaType.video) _buildVideoInput(),
-
-            const SizedBox(height: 24),
-
-            // Privacy selector
-            _buildPrivacySelector(),
-
-            const SizedBox(height: 24),
-
-            // Info card
-            _buildInfoCard(),
-          ],
+  Widget _buildOptionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final modernTheme = context.modernTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        color: modernTheme.surfaceColor ?? Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: modernTheme.dividerColor ?? Colors.grey[300]!,
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: modernTheme.textColor ?? Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: modernTheme.textSecondaryColor ?? Colors.grey[400],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
   // ===============================
-  // TYPE SELECTOR
+  // TEXT STATUS SCREEN (WhatsApp style)
   // ===============================
 
-  Widget _buildTypeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Status Type',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _TypeOption(
-                icon: Icons.text_fields,
-                label: 'Text',
-                isSelected: _selectedType == StatusMediaType.text,
-                onTap: () => setState(() {
-                  _selectedType = StatusMediaType.text;
-                  _selectedMedia = null;
-                }),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TypeOption(
-                icon: Icons.image,
-                label: 'Image',
-                isSelected: _selectedType == StatusMediaType.image,
-                onTap: () => setState(() {
-                  _selectedType = StatusMediaType.image;
-                  _textController.clear();
-                }),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TypeOption(
-                icon: Icons.videocam,
-                label: 'Video',
-                isSelected: _selectedType == StatusMediaType.video,
-                onTap: () => setState(() {
-                  _selectedType = StatusMediaType.video;
-                  _textController.clear();
-                }),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ===============================
-  // TEXT INPUT
-  // ===============================
-
-  Widget _buildTextInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Your Message',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Text preview with background
-        Container(
-          height: 200,
+  Widget _buildTextStatusScreen(BuildContext context, dynamic modernTheme) {
+    return Scaffold(
+      body: GestureDetector(
+        onTap: () {
+          // Cycle through backgrounds on tap (WhatsApp behavior)
+          setState(() {
+            _backgroundIndex = (_backgroundIndex + 1) % TextStatusBackground.values.length;
+            _selectedBackground = TextStatusBackground.values[_backgroundIndex];
+          });
+        },
+        child: Container(
           decoration: BoxDecoration(
             gradient: StatusTheme.getTextBackgroundGradient(
               _selectedBackground.colors,
             ),
-            borderRadius: BorderRadius.circular(12),
           ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: TextField(
-                controller: _textController,
-                maxLength: StatusConstants.textStatusMaxLength,
-                maxLines: null,
-                textAlign: TextAlign.center,
-                style: StatusTheme.textStatusStyle,
-                decoration: const InputDecoration(
-                  hintText: 'Type your status...',
-                  hintStyle: TextStyle(color: Colors.white70),
-                  border: InputBorder.none,
-                  counterText: '',
+          child: Stack(
+            children: [
+              // Main text input area
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: TextField(
+                    controller: _textController,
+                    maxLength: StatusConstants.textStatusMaxLength,
+                    maxLines: null,
+                    textAlign: TextAlign.center,
+                    autofocus: true,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Type a status',
+                      hintStyle: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                  ),
+                ),
+              ),
+
+              // Top bar with back and privacy buttons
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        // Back button
+                        IconButton(
+                          onPressed: () {
+                            setState(() => _mode = CreateMode.select);
+                          },
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black26,
+                          ),
+                        ),
+                        const Spacer(),
+                        // Privacy button
+                        IconButton(
+                          onPressed: _showPrivacyOptions,
+                          icon: const Icon(Icons.lock_outline, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black26,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Bottom bar with background selector and send button
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Background color selector
+                      Container(
+                        height: 60,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: TextStatusBackground.values.length,
+                          itemBuilder: (context, index) {
+                            final bg = TextStatusBackground.values[index];
+                            final isSelected = _selectedBackground == bg;
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedBackground = bg;
+                                  _backgroundIndex = index;
+                                });
+                              },
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                margin: const EdgeInsets.only(right: 12),
+                                decoration: BoxDecoration(
+                                  gradient: StatusTheme.getTextBackgroundGradient(bg.colors),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected ? Colors.white : Colors.transparent,
+                                    width: 3,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.white.withOpacity(0.3),
+                                            blurRadius: 8,
+                                            spreadRadius: 2,
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      // Send button
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            // Privacy info
+                            Expanded(
+                              child: Text(
+                                'Visible to ${_visibility.displayName.toLowerCase()}',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            // Send button
+                            FloatingActionButton(
+                              onPressed: _canCreateText ? _handleCreateText : null,
+                              backgroundColor: _canCreateText
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.3),
+                              elevation: 0,
+                              child: _isCreating
+                                  ? SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: StatusTheme.primaryBlue,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.send,
+                                      color: _canCreateText
+                                          ? StatusTheme.primaryBlue
+                                          : Colors.white,
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Tap hint in the center (shows briefly)
+              if (_textController.text.isEmpty)
+                Positioned(
+                  bottom: 140,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Tap to change background',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===============================
+  // MEDIA PREVIEW SCREEN
+  // ===============================
+
+  Widget _buildMediaPreviewScreen(BuildContext context, dynamic modernTheme) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Media preview
+          Center(
+            child: _selectedMedia != null
+                ? (_mediaType == StatusMediaType.image
+                    ? Image.file(_selectedMedia!, fit: BoxFit.contain)
+                    : Container(
+                        color: Colors.grey[900],
+                        child: const Center(
+                          child: Icon(
+                            Icons.play_circle_outline,
+                            size: 80,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ))
+                : const SizedBox.shrink(),
+          ),
+
+          // Top bar
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _mode = CreateMode.select;
+                          _selectedMedia = null;
+                          _mediaType = null;
+                        });
+                      },
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black26,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: _showPrivacyOptions,
+                      icon: const Icon(Icons.lock_outline, color: Colors.white),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black26,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ),
 
-        const SizedBox(height: 16),
-
-        // Background selector
-        const Text(
-          'Background',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        SizedBox(
-          height: 60,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: TextStatusBackground.values.length,
-            itemBuilder: (context, index) {
-              final bg = TextStatusBackground.values[index];
-              return GestureDetector(
-                onTap: () => setState(() => _selectedBackground = bg),
-                child: Container(
-                  width: 60,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    gradient: StatusTheme.getTextBackgroundGradient(bg.colors),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _selectedBackground == bg
-                          ? StatusTheme.primaryBlue
-                          : Colors.transparent,
-                      width: 3,
+          // Bottom bar with send button
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Visible to ${_visibility.displayName.toLowerCase()}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                  ),
+                    FloatingActionButton(
+                      onPressed: _handleCreateMedia,
+                      backgroundColor: StatusTheme.primaryBlue,
+                      child: _isCreating
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send, color: Colors.white),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ===============================
-  // IMAGE INPUT
-  // ===============================
-
-  Widget _buildImageInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Select Image',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        if (_selectedMedia != null)
-          // Image preview
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  _selectedMedia!,
-                  height: 300,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => setState(() => _selectedMedia = null),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
-                  ),
-                ),
-              ),
-            ],
-          )
-        else
-          // Image picker buttons
-          Row(
-            children: [
-              Expanded(
-                child: _MediaPickerButton(
-                  icon: Icons.camera_alt,
-                  label: 'Camera',
-                  onTap: _pickImageFromCamera,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MediaPickerButton(
-                  icon: Icons.photo_library,
-                  label: 'Gallery',
-                  onTap: _pickImageFromGallery,
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  // ===============================
-  // VIDEO INPUT
-  // ===============================
-
-  Widget _buildVideoInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Select Video',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        if (_selectedMedia != null)
-          // Video preview placeholder
-          Stack(
-            children: [
-              Container(
-                height: 300,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    size: 64,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => setState(() => _selectedMedia = null),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
-                  ),
-                ),
-              ),
-            ],
-          )
-        else
-          // Video picker buttons
-          Row(
-            children: [
-              Expanded(
-                child: _MediaPickerButton(
-                  icon: Icons.videocam,
-                  label: 'Record',
-                  onTap: _pickVideoFromCamera,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MediaPickerButton(
-                  icon: Icons.video_library,
-                  label: 'Gallery',
-                  onTap: _pickVideoFromGallery,
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  // ===============================
-  // PRIVACY SELECTOR
-  // ===============================
-
-  Widget _buildPrivacySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Privacy',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: StatusVisibility.values.map((visibility) {
-              return RadioListTile<StatusVisibility>(
-                title: Text(visibility.displayName),
-                subtitle: Text(
-                  visibility.description,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                value: visibility,
-                groupValue: _visibility,
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _visibility = value);
-                  }
-                },
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ===============================
-  // INFO CARD
-  // ===============================
-
-  Widget _buildInfoCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.blue[700]),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Your status will disappear after 24 hours. Only view count will be visible, not viewer names.',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.blue[900],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ===============================
+  // MEDIA SELECTION
+  // ===============================
+
+  void _showPhotoOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return Container(
+          color: modernTheme.surfaceColor ?? Colors.white,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('Take Photo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImageFromCamera();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Choose from Gallery'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImageFromGallery();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showVideoOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return Container(
+          color: modernTheme.surfaceColor ?? Colors.white,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.videocam),
+                  title: const Text('Record Video'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickVideoFromCamera();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.video_library),
+                  title: const Text('Choose from Gallery'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickVideoFromGallery();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPrivacyOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return Container(
+          color: modernTheme.surfaceColor ?? Colors.white,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Status Privacy',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: modernTheme.textColor ?? Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...StatusVisibility.values.map((visibility) {
+                  return RadioListTile<StatusVisibility>(
+                    title: Text(visibility.displayName),
+                    subtitle: Text(
+                      visibility.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                      ),
+                    ),
+                    value: visibility,
+                    groupValue: _visibility,
+                    activeColor: StatusTheme.primaryBlue,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _visibility = value);
+                        Navigator.pop(context);
+                      }
+                    },
+                  );
+                }),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -461,32 +718,48 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
   Future<void> _pickImageFromCamera() async {
     final uploadService = ref.read(statusUploadServiceProvider);
     final file = await uploadService.pickImageFromCamera();
-    if (file != null) {
-      setState(() => _selectedMedia = file);
+    if (file != null && mounted) {
+      setState(() {
+        _selectedMedia = file;
+        _mediaType = StatusMediaType.image;
+        _mode = CreateMode.media;
+      });
     }
   }
 
   Future<void> _pickImageFromGallery() async {
     final uploadService = ref.read(statusUploadServiceProvider);
     final file = await uploadService.pickImageFromGallery();
-    if (file != null) {
-      setState(() => _selectedMedia = file);
+    if (file != null && mounted) {
+      setState(() {
+        _selectedMedia = file;
+        _mediaType = StatusMediaType.image;
+        _mode = CreateMode.media;
+      });
     }
   }
 
   Future<void> _pickVideoFromCamera() async {
     final uploadService = ref.read(statusUploadServiceProvider);
     final file = await uploadService.pickVideoFromCamera();
-    if (file != null) {
-      setState(() => _selectedMedia = file);
+    if (file != null && mounted) {
+      setState(() {
+        _selectedMedia = file;
+        _mediaType = StatusMediaType.video;
+        _mode = CreateMode.media;
+      });
     }
   }
 
   Future<void> _pickVideoFromGallery() async {
     final uploadService = ref.read(statusUploadServiceProvider);
     final file = await uploadService.pickVideoFromGallery();
-    if (file != null) {
-      setState(() => _selectedMedia = file);
+    if (file != null && mounted) {
+      setState(() {
+        _selectedMedia = file;
+        _mediaType = StatusMediaType.video;
+        _mode = CreateMode.media;
+      });
     }
   }
 
@@ -494,34 +767,48 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
   // CREATE STATUS
   // ===============================
 
-  bool get _canCreate {
-    if (_selectedType == StatusMediaType.text) {
-      return _textController.text.trim().isNotEmpty;
-    } else {
-      return _selectedMedia != null;
+  bool get _canCreateText => _textController.text.trim().isNotEmpty;
+
+  Future<void> _handleCreateText() async {
+    if (!_canCreateText || _isCreating) return;
+
+    setState(() => _isCreating = true);
+
+    try {
+      final creationProvider = ref.read(statusCreationProvider.notifier);
+      await creationProvider.createStatus(
+        CreateStatusRequest(
+          content: _textController.text.trim(),
+          mediaType: StatusMediaType.text,
+          textBackground: _selectedBackground,
+          visibility: _visibility,
+        ),
+      );
+
+      if (mounted) {
+        _showSnackBar(StatusConstants.successUploaded);
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Failed to create status: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCreating = false);
+      }
     }
   }
 
-  Future<void> _handleCreate() async {
-    if (!_canCreate || _isCreating) return;
+  Future<void> _handleCreateMedia() async {
+    if (_selectedMedia == null || _isCreating) return;
 
     setState(() => _isCreating = true);
 
     try {
       final creationProvider = ref.read(statusCreationProvider.notifier);
 
-      if (_selectedType == StatusMediaType.text) {
-        // Create text status
-        await creationProvider.createStatus(
-          CreateStatusRequest(
-            content: _textController.text.trim(),
-            mediaType: StatusMediaType.text,
-            textBackground: _selectedBackground,
-            visibility: _visibility,
-          ),
-        );
-      } else if (_selectedType == StatusMediaType.image) {
-        // Create image status
+      if (_mediaType == StatusMediaType.image) {
         await creationProvider.createImageStatus(
           imagePath: _selectedMedia!.path,
           request: CreateStatusRequest(
@@ -529,8 +816,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
             visibility: _visibility,
           ),
         );
-      } else if (_selectedType == StatusMediaType.video) {
-        // Create video status
+      } else if (_mediaType == StatusMediaType.video) {
         await creationProvider.createVideoStatus(
           videoPath: _selectedMedia!.path,
           request: CreateStatusRequest(
@@ -563,89 +849,11 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
 }
 
 // ===============================
-// HELPER WIDGETS
+// ENUMS
 // ===============================
 
-class _TypeOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _TypeOption({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? StatusTheme.primaryBlue : Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.grey[700],
-              size: 32,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey[700],
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MediaPickerButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _MediaPickerButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 48, color: StatusTheme.primaryBlue),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+enum CreateMode {
+  select,
+  text,
+  media,
 }
