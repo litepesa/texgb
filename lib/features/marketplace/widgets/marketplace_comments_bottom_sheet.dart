@@ -10,7 +10,6 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/models/marketplace_comment_model.dart'; // ✅ Using thread comment model
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';

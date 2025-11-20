@@ -336,10 +336,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.singleMarketplaceVideoPattern,
         name: RouteNames.singleMarketplaceVideo,
         pageBuilder: (context, state) {
-          final itemId = state.pathParameters['itemId']!;
+          final videoId = state.pathParameters['videoId']!;
           return NoTransitionPage(
             child: SingleMarketplaceVideoScreen(
-              videoId: itemId,
+              videoId: videoId,
             ),
           );
         },
@@ -350,9 +350,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.myListingPattern,
         name: RouteNames.myListing,
         pageBuilder: (context, state) {
-          final itemId = state.pathParameters['itemId']!;
+          final videoId = state.pathParameters['videoId']!;
           return NoTransitionPage(
-            child: MyListingScreen(videoId: itemId),
+            child: MyListingScreen(videoId: videoId),
           );
         },
       ),
@@ -361,9 +361,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.listingDetailPattern,
         pageBuilder: (context, state) {
-          final itemId = state.pathParameters['itemId']!;
+          final videoId = state.pathParameters['videoId']!;
           return NoTransitionPage(
-            child: MyListingScreen(videoId: itemId),
+            child: MyListingScreen(videoId: videoId),
           );
         },
       ),

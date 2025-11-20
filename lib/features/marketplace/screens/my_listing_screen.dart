@@ -11,8 +11,6 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_boost_tab_widget.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_edit_tab_widget.dart';

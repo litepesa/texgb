@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';

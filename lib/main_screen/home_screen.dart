@@ -9,6 +9,7 @@ import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/channels/screens/channels_home_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/groups/screens/groups_list_screen.dart';
 import 'package:textgb/features/status/screens/status_list_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
@@ -37,16 +38,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Inbox',             // Index 0 - Chats Screen
-    'Channels',         // Index 1 - Groups / Channels
-    'Moments',         // Index 2 - Status / Moments
+    'Chats',          // Index 0 - Chats Screen
+    'Groups',         // Index 1 - Groups / Channels
+    'Status',         // Index 2 - Status List Screen
     'Marketplace',    // Index 3 - User List Screen
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_2_fill,             // Chats
-    Icons.group_outlined,                          // Groups
-    Icons.donut_large_rounded,                     // Status
+    CupertinoIcons.chat_bubble_2,                  // Chats
+    CupertinoIcons.person_2,                       // Groups
+    CupertinoIcons.smallcircle_circle,                           // Status
     CupertinoIcons.dot_radiowaves_left_right,      // Channels
   ];
 
@@ -254,13 +255,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const ChatsTab(),
           ),
-          // Channels tab (index 1) - Channels Home Screenn
+          // Groups tab (index 1) - Groups List Screen
           _KeepAliveWrapper(
-            child: const ChannelsHomeScreen(),
+            child: const GroupsListScreen(),
           ),
-          // Moments tab (index 2) - Recommended Posts Screen
+          // Status tab (index 2) - Status List Screen
           _KeepAliveWrapper(
-            child: const RecommendedPostsScreen(),
+            child: const StatusListScreen(),
           ),
           // Stores tab (index 3) - Shops Home Screen
           _KeepAliveWrapper(

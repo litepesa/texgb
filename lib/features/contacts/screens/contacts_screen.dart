@@ -1,5 +1,5 @@
 // lib/features/contacts/screens/contacts_screen.dart
-// Updated with user profile images in the list
+// Updated with AppBar and back navigation
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -9,7 +9,7 @@ import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/widgets/contact_item_widget.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Add this import for network images
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({super.key});
@@ -38,7 +38,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   List<Contact> _filteredUnregisteredContacts = [];
   
   @override
-  bool get wantKeepAlive => true; // Keep state alive when switching tabs
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -46,7 +46,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     _setupAnimations();
     _setupListeners();
     
-    // Initialize contacts data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeContacts();
     });
@@ -115,7 +114,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     _updateFilteredContacts();
   }
 
-  // Smart initialization with background sync
   Future<void> _initializeContacts() async {
     setState(() {
       _isInitializing = true;
@@ -124,7 +122,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
       
-      // Load cached data first for instant UI
       await ref.read(contactsNotifierProvider.future);
       
       if (mounted) {
@@ -134,14 +131,11 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         });
       }
       
-      // Check if background sync is needed
       final syncInfo = contactsNotifier.getSyncInfo();
       if (syncInfo['backgroundSyncAvailable'] == true) {
-        // Perform background sync without blocking UI
         _performBackgroundSync();
       }
       
-      // Always load blocked contacts
       await contactsNotifier.loadBlockedContacts();
     } catch (e) {
       debugPrint('Error initializing contacts: $e');
@@ -154,7 +148,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
   }
 
-  // Background sync with user feedback
   Future<void> _performBackgroundSync() async {
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
@@ -165,11 +158,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       }
     } catch (e) {
       debugPrint('Background sync failed: $e');
-      // Don't show error for background sync failures
     }
   }
 
-  // Force sync with user feedback
   Future<void> _forceSyncContacts() async {
     _refreshAnimationController.repeat();
     
@@ -191,7 +182,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
   }
 
-  // Navigate to contact profile
   void _navigateToContactProfile(UserModel contact) {
     HapticFeedback.lightImpact();
     Navigator.push(
@@ -213,13 +203,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    super.build(context);
     
     final theme = context.modernTheme;
     
     return GestureDetector(
       onTap: () {
-        // Dismiss search when tapping outside
         if (_isSearching) {
           _dismissSearch();
         }
@@ -227,13 +216,34 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: theme.surfaceColor,
+        appBar: AppBar(
+          backgroundColor: theme.surfaceColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_rounded,
+              color: theme.textColor,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+          ),
+          title: Text(
+            'Contacts',
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          centerTitle: false,
+        ),
         body: SafeArea(
+          top: false,
           child: Column(
             children: [
-              // WeChat-style Search Header
               _buildWeChatHeader(theme),
               
-              // Main Contacts List
               Expanded(
                 child: Container(
                   color: theme.surfaceColor,
@@ -243,7 +253,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                       
                       return contactsState.when(
                         data: (state) {
-                          // Handle permission denied
                           if (state.syncStatus == SyncStatus.permissionDenied) {
                             return ContactsEmptyStatesWidget.buildPermissionScreen(
                               context,
@@ -254,7 +263,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                             );
                           }
                           
-                          // Update filtered contacts when state changes
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             _updateFilteredContacts();
                           });
@@ -278,21 +286,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             ],
           ),
         ),
-        /*floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const AddContactScreen(),
-              ),
-            ).then((_) => _updateFilteredContacts());
-          },
-          backgroundColor: theme.primaryColor,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          child: const Icon(Icons.person_add_rounded, size: 24),
-        ),*/
       ),
     );
   }
@@ -303,7 +296,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       color: theme.surfaceColor,
       child: Column(
         children: [
-          // Search Field with clear button
           Stack(
             children: [
               Container(
@@ -345,7 +337,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                 ),
               ),
               
-              // Clear search button (visible when searching)
               if (_isSearching && _searchController.text.isNotEmpty)
                 Positioned(
                   right: 8,
@@ -370,7 +361,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             ],
           ),
           
-          // Search dismissal hint (only shown when searching)
           if (_isSearching) ...[
             const SizedBox(height: 8),
             Text(
@@ -397,13 +387,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       );
     }
 
-    // Combine registered and unregistered contacts for WeChat-style unified list
     final allContacts = [
-      // Special sections like WeChat (only show when not searching)
-      //if (!_isSearching) ..._buildSpecialSection(theme),
-      // Registered contacts (friends)
       ..._buildRegisteredContactsSection(theme),
-      // Unregistered contacts (invite suggestions)
       ..._buildUnregisteredContactsSection(theme),
     ];
 
@@ -423,7 +408,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         color: theme.primaryColor,
         child: Column(
           children: [
-            // Sync status indicator (minimal, only show when not searching)
             if (!_isSearching)
               ContactsEmptyStatesWidget.buildSyncStatusIndicator(
                 context,
@@ -446,74 +430,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     );
   }
 
-  /*List<Widget> _buildSpecialSection(theme) {
-    return [
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // New Friends
-          _buildWeChatContactItem(
-            icon: Icons.person_add_rounded,
-            title: 'New Friends',
-            subtitle: 'Add friends and accept requests',
-            onTap: () {
-              // Navigate to new friends screen
-              _showComingSoonSnackBar('New Friends');
-            },
-            theme: theme,
-            showDivider: true,
-            isSpecialSection: true,
-          ),
-          // Group Chats
-          _buildWeChatContactItem(
-            icon: Icons.group_rounded,
-            title: 'Group Chats',
-            subtitle: 'Your group conversations',
-            onTap: () {
-              _showComingSoonSnackBar('Group Chats');
-            },
-            theme: theme,
-            showDivider: true,
-            isSpecialSection: true,
-          ),
-          // Tags
-          _buildWeChatContactItem(
-            icon: Icons.label_rounded,
-            title: 'Tags',
-            subtitle: 'Organize your contacts',
-            onTap: () {
-              _showComingSoonSnackBar('Tags');
-            },
-            theme: theme,
-            showDivider: true,
-            isSpecialSection: true,
-          ),
-          // Official Accounts
-          _buildWeChatContactItem(
-            icon: Icons.verified_rounded,
-            title: 'Official Accounts',
-            subtitle: 'Follow brands and services',
-            onTap: () {
-              _showComingSoonSnackBar('Official Accounts');
-            },
-            theme: theme,
-            showDivider: false,
-            isSpecialSection: true,
-          ),
-          // Section divider
-          Container(
-            height: 8,
-            color: theme.dividerColor!.withOpacity(0.1),
-          ),
-        ],
-      ),
-    ];
-  }*/
-
   List<Widget> _buildRegisteredContactsSection(theme) {
     if (_filteredRegisteredContacts.isEmpty) return [];
 
-    // Group contacts by first letter for WeChat-style alphabetical index
     final Map<String, List<UserModel>> groupedContacts = {};
     
     for (final contact in _filteredRegisteredContacts) {
@@ -526,7 +445,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       groupedContacts[firstLetter]!.add(contact);
     }
 
-    // Sort the groups alphabetically
     final sortedLetters = groupedContacts.keys.toList()..sort();
 
     final List<Widget> sections = [];
@@ -534,7 +452,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     for (final letter in sortedLetters) {
       final contactsInGroup = groupedContacts[letter]!..sort((a, b) => a.name.compareTo(b.name));
       
-      // Add section header
       sections.add(
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -550,7 +467,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         ),
       );
 
-      // Add contacts in this group
       for (int i = 0; i < contactsInGroup.length; i++) {
         final contact = contactsInGroup[i];
         final showDivider = i < contactsInGroup.length - 1;
@@ -566,7 +482,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             showDivider: showDivider,
             isContact: true,
             contact: contact,
-            profileImageUrl: contact.profileImage, // Pass profile image URL
+            profileImageUrl: contact.profileImage,
           ),
         );
       }
@@ -579,7 +495,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     if (_filteredUnregisteredContacts.isEmpty) return [];
 
     return [
-      // Section header for invite suggestions
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: theme.surfaceColor!.withOpacity(0.6),
@@ -592,7 +507,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
           ),
         ),
       ),
-      // Invite suggestions
       ..._filteredUnregisteredContacts.asMap().entries.map((entry) {
         final index = entry.key;
         final contact = entry.value;
@@ -627,7 +541,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     bool isInvite = false,
     bool isSpecialSection = false,
     dynamic contact,
-    String? profileImageUrl, // Add profile image URL parameter
+    String? profileImageUrl,
   }) {
     return Material(
       color: theme.surfaceColor,
@@ -647,7 +561,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
           ),
           child: Row(
             children: [
-              // Avatar/Profile Image or Icon
               if (isContact && profileImageUrl != null && profileImageUrl.isNotEmpty)
                 _buildProfileAvatar(profileImageUrl, theme)
               else
@@ -674,7 +587,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                 ),
               const SizedBox(width: 12),
               
-              // Contact Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,7 +617,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                 ),
               ),
               
-              // Action indicator
               if (isInvite)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -813,15 +724,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   }
 
   void _sendInvite(Contact contact) {
-    // Implement invite sending logic
     _showSuccessSnackBar('Invite sent to ${contact.displayName}');
   }
 
-  void _showComingSoonSnackBar(String feature) {
-    _showInfoSnackBar('$feature - Coming Soon!');
-  }
-
-  // Helper methods for notifications
   void _showSuccessSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -843,19 +748,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         content: Text(message),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
-
-  void _showInfoSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         margin: const EdgeInsets.all(16),

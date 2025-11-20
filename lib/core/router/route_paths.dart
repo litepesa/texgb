@@ -55,14 +55,14 @@ class RoutePaths {
   static const String manageMarketplaceListings = '/manage-marketplace-listings';
 
   // Dynamic marketplace routes
-  static String singleMarketplaceVideo(String itemId) => '/marketplace-video/$itemId';
-  static const String singleMarketplaceVideoPattern = '/marketplace-video/:itemId';
+  static String singleMarketplaceVideo(String videoId) => '/marketplace-video/$videoId';
+  static const String singleMarketplaceVideoPattern = '/marketplace-video/:videoId';
 
-  static String myListing(String itemId) => '/my-marketplace-listing/$itemId';
-  static const String myListingPattern = '/my-marketplace-listing/:itemId';
+  static String myListing(String videoId) => '/my-marketplace-listing/$videoId';
+  static const String myListingPattern = '/my-marketplace-listing/:videoId';
 
-  static String listingDetail(String itemId) => '/marketplace-listing-detail/$itemId';
-  static const String listingDetailPattern = '/marketplace-listing-detail/:itemId';
+  static String listingDetail(String videoId) => '/marketplace-listing-detail/$videoId';
+  static const String listingDetailPattern = '/marketplace-listing-detail/:videoId';
 
   // ==================== CONTACTS ROUTES ====================
   static const String contacts = '/contacts';
