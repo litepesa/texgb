@@ -10,10 +10,10 @@ ThemeData modernDarkTheme() {
   // Define font styles with Google Fonts
   final textTheme = _createTextTheme();
   
-  // Updated colors based on user preferences
-  const newPrimaryGreen = Color(0xFF25D366);  // Green color
-  const newBackground = Color(0xFF30302E);    // Updated background color
-  const newSurface = Color(0xFF262624);       // Updated app bar and surfaces color
+  // WhatsApp Messenger dark theme colors
+  const newPrimaryGreen = Color(0xFF00A884);  // WhatsApp green dark
+  const newBackground = Color(0xFF111B21);    // WhatsApp dark background
+  const newSurface = Color(0xFF202C33);       // WhatsApp grey background
   const pureWhite = Colors.white;             // Pure white for text
   
   return base.copyWith(
@@ -34,6 +34,7 @@ ThemeData modernDarkTheme() {
       ChatThemeExtension.darkMode,
       const ResponsiveThemeExtension(),
       const AnimationThemeExtension(),
+      WhatsAppThemeExtension.darkMode,
     ],
     
     // AppBar Theme
@@ -69,7 +70,7 @@ ThemeData modernDarkTheme() {
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: newSurface,
       selectedItemColor: newPrimaryGreen,
-      unselectedItemColor: Color(0xFFBBBBBB),
+      unselectedItemColor: Color(0xFF8696A0), // WhatsApp grey dark
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
       showSelectedLabels: true,
@@ -86,7 +87,7 @@ ThemeData modernDarkTheme() {
           width: 2,
         ),
       ),
-      unselectedLabelColor: Color(0xFFBBBBBB),
+      unselectedLabelColor: Color(0xFF8696A0), // WhatsApp grey dark
       labelColor: newPrimaryGreen,
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
@@ -205,7 +206,7 @@ ThemeData modernDarkTheme() {
     
     // List Tile Theme
     listTileTheme: ListTileThemeData(
-      iconColor: const Color(0xFFBBBBBB),
+      iconColor: const Color(0xFF8696A0), // WhatsApp grey dark
       textColor: pureWhite,
       tileColor: newSurface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
@@ -229,7 +230,7 @@ ThemeData modernDarkTheme() {
         if (states.contains(WidgetState.selected)) {
           return newPrimaryGreen.withOpacity(0.3);
         }
-        return const Color(0xFFBBBBBB).withOpacity(0.3);
+        return const Color(0xFF8696A0).withOpacity(0.3); // WhatsApp grey dark
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -254,29 +255,29 @@ ThemeData modernDarkTheme() {
         borderRadius: BorderRadius.circular(4),
       ),
       side: const BorderSide(
-        color: Color(0xFFBBBBBB),
+        color: Color(0xFF8696A0), // WhatsApp grey dark
         width: 1.5,
       ),
     ),
     
     // Divider Theme
     dividerTheme: const DividerThemeData(
-      color: Color(0xFF444442),
+      color: Color(0xFF2A3942), // WhatsApp dark divider
       thickness: 1,
       indent: 16,
       endIndent: 16,
     ),
-    
+
     // Icon Theme
     iconTheme: const IconThemeData(
-      color: Color(0xFFBBBBBB),
+      color: Color(0xFF8696A0), // WhatsApp grey dark
       size: 24,
     ),
     
     // Input Decoration Theme
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFF3A3A38), // Updated input background
+      fillColor: newSurface, // WhatsApp grey background
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -294,18 +295,18 @@ ThemeData modernDarkTheme() {
         borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: ModernColors.error, width: 1.5),
       ),
-      hintStyle: const TextStyle(color: Color(0xFF999999)),
-      labelStyle: const TextStyle(color: Color(0xFFBBBBBB)),
-      helperStyle: const TextStyle(color: Color(0xFF999999), fontSize: 12),
+      hintStyle: const TextStyle(color: Color(0xFF667781)), // WhatsApp grey light
+      labelStyle: const TextStyle(color: Color(0xFF8696A0)), // WhatsApp grey dark
+      helperStyle: const TextStyle(color: Color(0xFF667781), fontSize: 12),
       errorStyle: const TextStyle(color: ModernColors.error, fontSize: 12),
-      prefixIconColor: const Color(0xFFBBBBBB),
-      suffixIconColor: const Color(0xFFBBBBBB),
+      prefixIconColor: const Color(0xFF8696A0), // WhatsApp grey dark
+      suffixIconColor: const Color(0xFF8696A0), // WhatsApp grey dark
     ),
     
     // Chip Theme
     chipTheme: ChipThemeData(
-      backgroundColor: const Color(0xFF3A3A38), // Updated chip background
-      disabledColor: const Color(0xFF3A3A38).withOpacity(0.5),
+      backgroundColor: newSurface, // WhatsApp grey background
+      disabledColor: newSurface.withOpacity(0.5),
       selectedColor: newPrimaryGreen.withOpacity(0.3),
       secondarySelectedColor: newPrimaryGreen,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -328,17 +329,17 @@ ThemeData modernDarkTheme() {
     // Slider Theme
     sliderTheme: const SliderThemeData(
       activeTrackColor: newPrimaryGreen,
-      inactiveTrackColor: Color(0xFF666666),
+      inactiveTrackColor: Color(0xFF2A3942), // WhatsApp dark divider
       thumbColor: newPrimaryGreen,
-      overlayColor: Color(0x2925D366),
+      overlayColor: Color(0x2900A884), // WhatsApp green with opacity
       trackHeight: 4.0,
     ),
-    
+
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: newPrimaryGreen,
-      circularTrackColor: Color(0xFF3A3A38), // Updated progress track color
-      linearTrackColor: Color(0xFF3A3A38),
+      circularTrackColor: newSurface, // WhatsApp grey background
+      linearTrackColor: newSurface,
     ),
     
     // Page Transitions Theme
@@ -351,7 +352,7 @@ ThemeData modernDarkTheme() {
     
     // Snack Bar Theme
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: const Color(0xFF3A3A38), // Updated snackbar background
+      backgroundColor: newSurface, // WhatsApp grey background
       contentTextStyle: const TextStyle(color: pureWhite),
       actionTextColor: newPrimaryGreen,
       shape: RoundedRectangleBorder(
@@ -359,12 +360,12 @@ ThemeData modernDarkTheme() {
       ),
       behavior: SnackBarBehavior.floating,
     ),
-    
+
     // Banner Theme
-    bannerTheme: const MaterialBannerThemeData(
-      backgroundColor: Color(0xFF3A3A38), // Updated banner background
-      contentTextStyle: TextStyle(color: pureWhite),
-      padding: EdgeInsets.all(16),
+    bannerTheme: MaterialBannerThemeData(
+      backgroundColor: newSurface, // WhatsApp grey background
+      contentTextStyle: const TextStyle(color: pureWhite),
+      padding: const EdgeInsets.all(16),
     ),
     
     // Bottom App Bar Theme
@@ -380,7 +381,7 @@ ThemeData modernDarkTheme() {
 
 TextTheme _createTextTheme() {
   const pureWhite = Colors.white;
-  const secondaryText = Color(0xFFBBBBBB);
+  const secondaryText = Color(0xFF8696A0); // WhatsApp grey dark
   
   return TextTheme(
     displayLarge: GoogleFonts.inter(

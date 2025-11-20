@@ -10,21 +10,21 @@ ThemeData modernLightTheme() {
   // Define font styles with Google Fonts
   final textTheme = _createTextTheme();
   
-  // Light theme colors - modern and fresh
-  const primaryGreen = Color(0xFF00A884);  // Slightly adjusted green
-  const lightBackground = Color(0xFFF6F6F6); // Light gray background
-  const lightSurface = Color(0xFFFFFFFF);   // Pure white surface
-  const lightSurfaceVariant = Color(0xFFF0F0F0); // Light gray for surface variants
-  const darkText = Color(0xFF121212);      // Nearly black text
-  const secondaryText = Color(0xFF6A6A6A); // Dark gray secondary text
-  const tertiaryText = Color(0xFF8E8E8E);  // Medium gray tertiary text
+  // WhatsApp Messenger light theme colors
+  const primaryGreen = Color(0xFF008069);  // WhatsApp green light
+  const lightBackground = Color(0xFFFFFFFF); // White background
+  const lightSurface = Color(0xFFFFFFFF);   // White surface
+  const lightSurfaceVariant = Color(0xFFF7F8FA); // Light gray for surface variants
+  const darkText = Color(0xFF000000);      // Black text
+  const secondaryText = Color(0xFF667781); // WhatsApp grey light
+  const tertiaryText = Color(0xFF8696A0);  // WhatsApp grey dark
   
   return base.copyWith(
     colorScheme: ColorScheme.fromSeed(
       seedColor: primaryGreen,
       brightness: Brightness.light,
       primary: primaryGreen,
-      secondary: const Color(0xFF128C7E), // Darker green for secondary
+      secondary: const Color(0xFF00A884), // WhatsApp green dark for secondary
       background: lightBackground,
       surface: lightSurface,
       onBackground: darkText,
@@ -45,17 +45,17 @@ ThemeData modernLightTheme() {
         textTertiaryColor: tertiaryText,
         dividerColor: Color(0xFFE0E0E0),
         primaryColor: primaryGreen,
-        secondaryColor: Color(0xFF128C7E),
+        secondaryColor: Color(0xFF00A884), // WhatsApp green dark
         accentColor: primaryGreen,
         borderColor: Color(0xFFE0E0E0),
       ),
       ChatThemeExtension(
-        chatBackgroundColor: const Color(0xFFE5DDD5), // Classic light chat background with subtle pattern
-        senderBubbleColor: const Color(0xFFDCF8C6), // Light green sender bubble
+        chatBackgroundColor: const Color(0xFFEFE7DE), // WhatsApp doodle background
+        senderBubbleColor: const Color(0xFFE7FFDB), // WhatsApp light green sender bubble
         receiverBubbleColor: lightSurface,
         senderTextColor: darkText,
         receiverTextColor: darkText,
-        systemMessageColor: lightSurfaceVariant,
+        systemMessageColor: const Color(0xFFFFEECC), // WhatsApp yellow card
         systemMessageTextColor: secondaryText,
         timestampColor: tertiaryText,
         inputBackgroundColor: lightSurface,
@@ -74,6 +74,7 @@ ThemeData modernLightTheme() {
       ),
       const ResponsiveThemeExtension(),
       const AnimationThemeExtension(),
+      WhatsAppThemeExtension.lightMode,
     ],
     
     // AppBar Theme
