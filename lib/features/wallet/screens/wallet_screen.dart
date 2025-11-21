@@ -298,7 +298,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       child: Row(
         children: [
           // Back Button
-          Container(
+          /*Container(
             decoration: BoxDecoration(
               color: _primaryPurple.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
@@ -312,7 +312,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 16),*/
 
           // Title Section
           Expanded(
@@ -324,7 +324,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   children: [
                     const Flexible(
                       child: Text(
-                        'Gifts Wallet',
+                        'Wallet',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -953,6 +953,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
         const SizedBox(height: 16),
 
+        // Wallet Stats
+        _buildStatsSection(wallet, theme),
+
+        const SizedBox(height: 16),
+
         // Recent Transactions
         _buildTransactionsSection(transactions, theme),
       ],
@@ -1434,6 +1439,143 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsSection(WalletModel? wallet, ModernThemeExtension theme) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 20),
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+      decoration: BoxDecoration(
+        color: _cardWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Wallet Overview',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 16 : 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1F2937),
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 12 : 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.monetization_on_rounded,
+                  title: 'Coin Balance',
+                  value: '${wallet?.coinsBalance ?? 0}',
+                  color: _primaryPurple,
+                  isSmallScreen: isSmallScreen,
+                ),
+              ),
+              SizedBox(width: isSmallScreen ? 8 : 12),
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.card_giftcard_rounded,
+                  title: 'Gifts Sent',
+                  value: '0',
+                  color: const Color(0xFF8B5CF6),
+                  isSmallScreen: isSmallScreen,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.favorite_rounded,
+                  title: 'Gifts Received',
+                  value: '0',
+                  color: _accentGold,
+                  isSmallScreen: isSmallScreen,
+                ),
+              ),
+              SizedBox(width: isSmallScreen ? 8 : 12),
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.account_balance_wallet_rounded,
+                  title: 'Total Earned',
+                  value: '0 KES',
+                  color: const Color(0xFF10B981),
+                  isSmallScreen: isSmallScreen,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+    required bool isSmallScreen,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: isSmallScreen ? 16 : 18,
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 10 : 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 2 : 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 14 : 16,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ],
       ),

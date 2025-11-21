@@ -30,14 +30,6 @@ import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 
-import 'package:textgb/features/marketplace/screens/marketplace_feed_screen.dart';
-import 'package:textgb/features/marketplace/screens/single_marketplace_video_screen.dart';
-import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
-import 'package:textgb/features/marketplace/screens/my_listing_screen.dart';
-import 'package:textgb/features/marketplace/screens/recommended_listings_screen.dart';
-import 'package:textgb/features/marketplace/screens/manage_listings_screen.dart';
-import 'package:textgb/features/marketplace/screens/featured_marketplace_screen.dart';
-
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -49,14 +41,6 @@ import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/features/payment/screens/wallet_topup_screen.dart';
 import 'package:textgb/features/payment/screens/payment_status_screen.dart';
 
-// Channels screens
-import 'package:textgb/features/channels/screens/channels_home_screen.dart';
-import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
-import 'package:textgb/features/channels/screens/post_detail_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
-import 'package:textgb/features/channels/screens/channel_settings_screen.dart';
-import 'package:textgb/features/channels/screens/members_management_screen.dart';
 
 // Chat screens
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
@@ -74,14 +58,6 @@ import 'package:textgb/features/calls/screens/incoming_call_screen.dart';
 import 'package:textgb/features/calls/screens/outgoing_call_screen.dart';
 import 'package:textgb/features/calls/screens/active_call_screen.dart';
 
-
-// Moments screens
-import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/user_moments_screen.dart';
-import 'package:textgb/features/moments/widgets/media_viewer_screen.dart';
-import 'package:textgb/features/moments/widgets/video_viewer_screen.dart';
-import 'package:textgb/features/moments/models/moment_model.dart';
 
 // Status screens
 import 'package:textgb/features/status/screens/status_list_screen.dart';
@@ -284,90 +260,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const FeaturedVideosScreen(),
       ),
 
-      // ==================== MARKETPLACE ROUTES ====================
-
-      // Marketplace feed
-      GoRoute(
-        path: RoutePaths.marketplaceFeed,
-        name: RouteNames.marketplaceFeed,
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: MarketplaceFeedScreen(),
-        ),
-      ),
-
-      // Create marketplace listing
-      GoRoute(
-        path: RoutePaths.createMarketplaceListing,
-        name: RouteNames.createMarketplaceListing,
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: CreateListingScreen(),
-        ),
-      ),
-
-      // Recommended marketplace listings
-      GoRoute(
-        path: RoutePaths.recommendedMarketplaceListings,
-        name: RouteNames.recommendedMarketplaceListings,
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: RecommendedListingsScreen(),
-        ),
-      ),
-
-      // Featured marketplace
-      GoRoute(
-        path: RoutePaths.featuredMarketplace,
-        name: RouteNames.featuredMarketplace,
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: FeaturedMarketplaceScreen(),
-        ),
-      ),
-
-      // Manage marketplace listings
-      GoRoute(
-        path: RoutePaths.manageMarketplaceListings,
-        name: RouteNames.manageMarketplaceListings,
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: ManageListingsScreen(),
-        ),
-      ),
-
-      // Single marketplace video screen
-      GoRoute(
-        path: RoutePaths.singleMarketplaceVideoPattern,
-        name: RouteNames.singleMarketplaceVideo,
-        pageBuilder: (context, state) {
-          final videoId = state.pathParameters['videoId']!;
-          return NoTransitionPage(
-            child: SingleMarketplaceVideoScreen(
-              videoId: videoId,
-            ),
-          );
-        },
-      ),
-
-      // My marketplace listing
-      GoRoute(
-        path: RoutePaths.myListingPattern,
-        name: RouteNames.myListing,
-        pageBuilder: (context, state) {
-          final videoId = state.pathParameters['videoId']!;
-          return NoTransitionPage(
-            child: MyListingScreen(videoId: videoId),
-          );
-        },
-      ),
-
-      // Marketplace listing detail
-      GoRoute(
-        path: RoutePaths.listingDetailPattern,
-        pageBuilder: (context, state) {
-          final videoId = state.pathParameters['videoId']!;
-          return NoTransitionPage(
-            child: MyListingScreen(videoId: videoId),
-          );
-        },
-      ),
-
       // ==================== CONTACTS ROUTES ====================
       
       GoRoute(
@@ -398,63 +290,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             return const ContactsScreen();
           }
           return ContactProfileScreen(contact: user);
-        },
-      ),
-
-      // ==================== MOMENTS ROUTES ====================
-
-      GoRoute(
-        path: RoutePaths.momentsFeed,
-        name: RouteNames.momentsFeed,
-        builder: (context, state) => const MomentsFeedScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.createMoment,
-        name: RouteNames.createMoment,
-        builder: (context, state) => const CreateMomentScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.userMomentsPattern,
-        name: RouteNames.userMoments,
-        builder: (context, state) {
-          final userId = state.pathParameters['userId']!;
-          final extra = state.extra as Map<String, dynamic>?;
-          return UserMomentsScreen(
-            userId: userId,
-            userName: extra?['userName'] ?? '',
-            userAvatar: extra?['userAvatar'] ?? '',
-          );
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.momentMediaViewerPattern,
-        name: RouteNames.momentMediaViewer,
-        builder: (context, state) {
-          final indexStr = state.pathParameters['index']!;
-          final index = int.tryParse(indexStr) ?? 0;
-          final extra = state.extra as Map<String, dynamic>?;
-          final imageUrls = extra?['imageUrls'] as List<String>? ?? [];
-          return MediaViewerScreen(
-            imageUrls: imageUrls,
-            initialIndex: index,
-          );
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.momentVideoViewerPattern,
-        name: RouteNames.momentVideoViewer,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final videoUrl = extra?['videoUrl'] as String? ?? '';
-          final moment = extra?['moment'] as MomentModel?;
-          return VideoViewerScreen(
-            videoUrl: videoUrl,
-            moment: moment!,
-          );
         },
       ),
 
@@ -649,70 +484,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             checkoutRequestId: checkoutRequestId,
             isActivation: isActivation,
           );
-        },
-      ),
-
-      // ==================== CHANNELS ROUTES ====================
-
-      GoRoute(
-        path: RoutePaths.channelsHome,
-        name: RouteNames.channelsHome,
-        builder: (context, state) => const ChannelsHomeScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.channelDetailPattern,
-        name: RouteNames.channelDetail,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return ChannelDetailScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.channelPostPattern,
-        name: RouteNames.channelPost,
-        builder: (context, state) {
-          final postId = state.pathParameters['postId']!;
-          final extra = state.extra as Map<String, dynamic>?;
-          final channelId = extra?['channelId'] as String? ?? '';
-          return PostDetailScreen(
-            postId: postId,
-            channelId: channelId,
-          );
-        },
-      ),
-
-      GoRoute(
-        path: RoutePaths.createChannel,
-        name: RouteNames.createChannel,
-        builder: (context, state) => const CreateChannelScreen(),
-      ),
-
-      GoRoute(
-        path: RoutePaths.createChannelPostPattern,
-        name: RouteNames.createChannelPost,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return CreateChannelPostScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: '/channel/:channelId/settings',
-        name: 'channelSettings',
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return ChannelSettingsScreen(channelId: channelId);
-        },
-      ),
-
-      GoRoute(
-        path: '/channel/:channelId/members',
-        name: 'channelMembers',
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return MembersManagementScreen(channelId: channelId);
         },
       ),
 

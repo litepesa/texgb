@@ -22,7 +22,7 @@ class StatusListScreen extends ConsumerWidget {
       backgroundColor: modernTheme.surfaceColor ?? const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('Status'),
-        backgroundColor: Colors.white,
+        backgroundColor: modernTheme.surfaceColor ?? Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
@@ -65,7 +65,7 @@ class StatusListScreen extends ConsumerWidget {
           // Recent Updates Header (if there are unviewed statuses)
           if (unviewedGroups.isNotEmpty)
             SliverToBoxAdapter(
-              child: _buildSectionHeader('Recent updates'),
+              child: _buildSectionHeader('Recent updates', context),
             ),
 
           // Recent Updates List
@@ -84,7 +84,7 @@ class StatusListScreen extends ConsumerWidget {
           // Viewed Updates Header (if there are viewed statuses)
           if (viewedGroups.isNotEmpty)
             SliverToBoxAdapter(
-              child: _buildSectionHeader('Viewed updates'),
+              child: _buildSectionHeader('Viewed updates', context),
             ),
 
           // Viewed Updates List
@@ -112,80 +112,91 @@ class StatusListScreen extends ConsumerWidget {
 
   Widget _buildMyStatusSection(BuildContext context, StatusGroup? myStatusGroup) {
     final hasStatus = myStatusGroup != null && myStatusGroup.activeStatuses.isNotEmpty;
+    final modernTheme = context.modernTheme;
 
     return Container(
-      color: Colors.white,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _onMyStatusTap(context, myStatusGroup),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                // Avatar with ring
-                _buildMyStatusAvatar(myStatusGroup, hasStatus),
-                const SizedBox(width: 12),
+      color: modernTheme.surfaceColor ?? Colors.white,
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _onMyStatusTap(context, myStatusGroup),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    // Avatar with ring
+                    _buildMyStatusAvatar(myStatusGroup, hasStatus),
+                    const SizedBox(width: 12),
 
-                // Text content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'My Status',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1F2937),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        hasStatus
-                            ? 'Tap to view your status'
-                            : 'Tap to add status update',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // View count (if has status)
-                if (hasStatus)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: StatusTheme.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.visibility,
-                          size: 14,
-                          color: StatusTheme.primaryBlue,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${myStatusGroup.activeStatuses.fold<int>(0, (sum, s) => sum + s.viewsCount)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: StatusTheme.primaryBlue,
+                    // Text content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'My Status',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: modernTheme.textColor ?? const Color(0xFF1F2937),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            hasStatus
+                                ? 'Tap to view your status'
+                                : 'Tap to add status update',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+
+                    // View count (if has status)
+                    if (hasStatus)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: StatusTheme.primaryBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.visibility,
+                              size: 14,
+                              color: StatusTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${myStatusGroup.activeStatuses.fold<int>(0, (sum, s) => sum + s.viewsCount)}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: StatusTheme.primaryBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+          // Divider after My Status section
+          Divider(
+            height: 8,
+            thickness: 8,
+            color: modernTheme.backgroundColor ?? const Color(0xFFF5F5F5),
+          ),
+        ],
       ),
     );
   }
@@ -275,53 +286,69 @@ class StatusListScreen extends ConsumerWidget {
   ) {
     final statusCount = group.activeStatuses.length;
     final latestStatus = group.latestStatus;
+    final modernTheme = context.modernTheme;
 
     if (latestStatus == null) return const SizedBox.shrink();
 
     return Container(
-      color: Colors.white,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _onStatusTap(context, group),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                // Avatar with ring
-                _buildStatusAvatar(group, isViewed),
-                const SizedBox(width: 12),
+      color: modernTheme.surfaceColor ?? Colors.white,
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _onStatusTap(context, group),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    // Avatar with ring
+                    _buildStatusAvatar(group, isViewed),
+                    const SizedBox(width: 12),
 
-                // User info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        group.userName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isViewed ? Colors.grey[600] : const Color(0xFF1F2937),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    // User info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            group.userName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isViewed
+                                ? modernTheme.textSecondaryColor ?? Colors.grey[600]
+                                : modernTheme.textColor ?? const Color(0xFF1F2937),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            StatusTimeService.formatListTime(latestStatus.createdAt),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        StatusTimeService.formatListTime(latestStatus.createdAt),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          // Divider between items (WhatsApp-style)
+          Padding(
+            padding: const EdgeInsets.only(left: 88),
+            child: Divider(
+              height: 1,
+              thickness: 0.5,
+              color: modernTheme.dividerColor ?? Colors.grey[300],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -370,16 +397,17 @@ class StatusListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(String title, BuildContext context) {
+    final modernTheme = context.modernTheme;
     return Container(
-      color: const Color(0xFFF5F5F5),
+      color: modernTheme.backgroundColor ?? const Color(0xFFF5F5F5),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Text(
         title,
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Colors.grey[700],
+          color: modernTheme.textSecondaryColor ?? Colors.grey[700],
         ),
       ),
     );

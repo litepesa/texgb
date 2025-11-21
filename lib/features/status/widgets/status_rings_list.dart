@@ -11,6 +11,7 @@ import 'package:textgb/features/status/widgets/status_ring.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/core/router/route_paths.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class StatusRingsList extends ConsumerWidget {
   final bool showMyStatus;
@@ -26,14 +27,15 @@ class StatusRingsList extends ConsumerWidget {
 
     return statusFeedAsync.when(
       data: (state) => _buildRingsList(context, state),
-      loading: () => _buildLoadingState(),
-      error: (error, stack) => _buildErrorState(error.toString()),
+      loading: () => _buildLoadingState(context),
+      error: (error, stack) => _buildErrorState(context, error.toString()),
     );
   }
 
   Widget _buildRingsList(BuildContext context, StatusFeedState state) {
     final myStatusGroup = state.myStatusGroup;
     final activeGroups = state.activeGroups;
+    final modernTheme = context.modernTheme;
 
     // If no statuses at all, show empty state
     if (myStatusGroup == null && activeGroups.isEmpty) {
@@ -42,7 +44,7 @@ class StatusRingsList extends ConsumerWidget {
 
     return Container(
       height: 120,
-      color: Colors.white,
+      color: modernTheme.surfaceColor ?? Colors.white,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
@@ -73,20 +75,22 @@ class StatusRingsList extends ConsumerWidget {
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildLoadingState(BuildContext context) {
+    final modernTheme = context.modernTheme;
     return Container(
       height: 120,
-      color: Colors.white,
+      color: modernTheme.surfaceColor ?? Colors.white,
       child: const Center(
         child: CircularProgressIndicator(),
       ),
     );
   }
 
-  Widget _buildErrorState(String error) {
+  Widget _buildErrorState(BuildContext context, String error) {
+    final modernTheme = context.modernTheme;
     return Container(
       height: 120,
-      color: Colors.white,
+      color: modernTheme.surfaceColor ?? Colors.white,
       child: Center(
         child: Text(
           'Failed to load statuses',
@@ -99,9 +103,10 @@ class StatusRingsList extends ConsumerWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final modernTheme = context.modernTheme;
     return Container(
       height: 120,
-      color: Colors.white,
+      color: modernTheme.surfaceColor ?? Colors.white,
       padding: const EdgeInsets.all(16),
       child: Center(
         child: Column(

@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/channels/screens/channels_home_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/screens/groups_list_screen.dart';
 import 'package:textgb/features/status/screens/status_list_screen.dart';
@@ -15,7 +14,6 @@ import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
-import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -41,13 +39,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',          // Index 0 - Chats Screen
     'Groups',         // Index 1 - Groups / Channels
     'Status',         // Index 2 - Status List Screen
-    'Marketplace',    // Index 3 - User List Screen
+    'Channels',       // Index 3 - User List Screen
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2,                  // Chats
     CupertinoIcons.person_2,                       // Groups
-    CupertinoIcons.smallcircle_circle,                           // Status
+    Icons.donut_large_outlined,                    // Status
     CupertinoIcons.dot_radiowaves_left_right,      // Channels
   ];
 
@@ -263,7 +261,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const StatusListScreen(),
           ),
-          // Stores tab (index 3) - Shops Home Screen
+          // Channels tab (index 3) - Users List Screen
           _KeepAliveWrapper(
             child: const UsersListScreen(),
           ),
