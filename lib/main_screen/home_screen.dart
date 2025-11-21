@@ -14,6 +14,7 @@ import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -288,7 +289,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const WalletScreenV2(),
+                builder: (context) => const WalletScreen(),
               ),
             );
           },

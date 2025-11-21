@@ -298,7 +298,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       child: Row(
         children: [
           // Back Button
-          /*Container(
+          Container(
             decoration: BoxDecoration(
               color: _primaryPurple.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
@@ -312,7 +312,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
 
-          const SizedBox(width: 16),*/
+          const SizedBox(width: 16),
 
           // Title Section
           Expanded(

@@ -899,7 +899,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               const SizedBox(height: 16),
               
               // Price field (Required temporarily)
-              TextFormField(
+              /*TextFormField(
                 controller: _priceController,
                 decoration: InputDecoration(
                   labelText: 'Price (KES) *',
@@ -948,7 +948,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 enabled: !isLoading && !_isProcessing && !isUploading,
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 16),*/
               
               // Tags (Optional)
               TextFormField(

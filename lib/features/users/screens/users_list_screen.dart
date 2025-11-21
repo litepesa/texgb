@@ -1,5 +1,6 @@
 // lib/features/users/screens/users_list_screen.dart
 // REFACTORED: Using GoRouter for navigation
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -272,7 +273,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                   ),
                   child: Row(
                     children: [
-                      // Manage Button - Navigate to My Profile
+                      // Manage Button - Navigate to Manage Post Screen
                       Material(
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
@@ -289,7 +290,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              Icons.person,
+                              CupertinoIcons.gear,
                               color: theme.primaryColor ?? const Color(0xFFFE2C55),
                               size: 20,
                             ),
@@ -337,14 +338,14 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Icon(
-                                        Icons.store_mall_directory_rounded,
+                                        Icons.explore_rounded,
                                         color: Colors.white,
                                         size: 16,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     const Text(
-                                      'Marketplace',
+                                      'Discover',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 15,
@@ -526,7 +527,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                 ],
                               ),
                               child: const Icon(
-                                Icons.store_mall_directory_rounded,
+                                CupertinoIcons.compass,
                                 color: Colors.white,
                                 size: 32,
                               ),
@@ -574,7 +575,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Discover amazing products and deals in our marketplace',
+                              'Discover amazing stories and live streams on WemaChat!',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -600,7 +601,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Browse Now',
+                                    'Watch Now',
                                     style: TextStyle(
                                       color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       fontSize: 12,
