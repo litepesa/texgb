@@ -694,6 +694,67 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       );
     }
 
+    // Show empty state if no videos are available
+    if (videos.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.video_library_outlined,
+                size: 64,
+                color: Colors.white.withOpacity(0.5),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No Videos Available',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Check back later for new content',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  // Reload videos
+                  await ref.read(authenticationProvider.notifier).loadVideos();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFE2C55),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh', style: TextStyle(fontSize: 16)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       extendBody: true,
