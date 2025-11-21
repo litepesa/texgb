@@ -984,13 +984,23 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
 
   @override
   Future<String> storeFileToStorage({
-    required File file, 
+    required File file,
     required String reference,
     Function(double)? onProgress,
   }) async {
     try {
-      debugPrint('☁️ Uploading file to R2: $reference');
-      
+      // Validate file before uploading
+      if (!await file.exists()) {
+        throw AuthRepositoryException('File does not exist: ${file.path}');
+      }
+
+      final fileSize = await file.length();
+      if (fileSize == 0) {
+        throw AuthRepositoryException('File is empty (0 bytes): ${file.path}');
+      }
+
+      debugPrint('☁️ Uploading file to R2: $reference (${fileSize / (1024 * 1024)}MB)');
+
       final response = await _httpClient.uploadFile(
         '/upload',
         file,

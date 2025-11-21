@@ -9,7 +9,10 @@ import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/screens/groups_list_screen.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/status/screens/status_list_screen.dart';
+import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
@@ -318,36 +321,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 1) {
-      // Groups tab - Coming soon
+      // Groups tab - Create new group
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreateGroupScreen(),
             ),
           );
+
+          // Refresh groups list if group was created
+          if (result == true && mounted) {
+            ref.invalidate(groupsListProvider);
+          }
         },
-        child: const Icon(Icons.group_add),
+        child: const Icon(CupertinoIcons.plus),
       );
     } else if (_currentIndex == 2) {
-      // Status tab - Coming soon
+      // Status tab - Create new status
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Coming Soon'),
-              backgroundColor: modernTheme.primaryColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          context.push(RoutePaths.createStatus);
         },
         child: const Icon(Icons.camera_alt),
       );
@@ -368,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(Icons.add),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 

@@ -31,11 +31,6 @@ class StatusListScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => _buildErrorState(context, error.toString()),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(RoutePaths.createStatus),
-        backgroundColor: StatusTheme.primaryBlue,
-        child: const Icon(Icons.camera_alt, color: Colors.white),
-      ),
     );
   }
 

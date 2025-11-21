@@ -77,7 +77,7 @@ class UserModel {
   // ===============================
   final String uid;
   final String phoneNumber;
-  final String? whatsappNumber;
+  final String? mpesaNumber;
   final String name;
   final String bio;
   final String profileImage;
@@ -132,7 +132,7 @@ class UserModel {
   UserModel({
     required this.uid,
     required this.phoneNumber,
-    this.whatsappNumber,
+    this.mpesaNumber,
     required this.name,
     required this.bio,
     required this.profileImage,
@@ -170,7 +170,7 @@ class UserModel {
     return UserModel(
       uid: _extractString(map['uid'] ?? map['id']) ?? '',
       phoneNumber: _extractString(map['phoneNumber'] ?? map['phone_number']) ?? '',
-      whatsappNumber: _extractWhatsAppNumber(map['whatsappNumber'] ?? map['whatsapp_number']),
+      mpesaNumber: _extractMpesaNumber(map['mpesaNumber'] ?? map['mpesa_number']),
       name: _extractString(map['name']) ?? '',
       bio: _extractString(map['bio']) ?? '',
       profileImage: _extractString(map['profileImage'] ?? map['profile_image']) ?? '',
@@ -238,26 +238,26 @@ class UserModel {
     return null;
   }
 
-  static String? _extractWhatsAppNumber(dynamic value) {
+  static String? _extractMpesaNumber(dynamic value) {
     if (value == null) return null;
-    
+
     String? numberStr = _extractString(value);
     if (numberStr == null || numberStr.isEmpty) return null;
-    
+
     String cleanedNumber = numberStr.replaceAll(RegExp(r'\D'), '');
-    
+
     if (cleanedNumber.length == 12 && cleanedNumber.startsWith('254')) {
       return cleanedNumber;
     }
-    
+
     if (cleanedNumber.length == 10 && cleanedNumber.startsWith('0')) {
       return '254${cleanedNumber.substring(1)}';
     }
-    
+
     if (cleanedNumber.length == 9) {
       return '254$cleanedNumber';
     }
-    
+
     return null;
   }
 
@@ -286,7 +286,7 @@ class UserModel {
     required String uid,
     required String name,
     required String phoneNumber,
-    String? whatsappNumber,
+    String? mpesaNumber,
     required String profileImage,
     required String bio,
     bool isAdmin = false,      // NEW: Default false
@@ -301,7 +301,7 @@ class UserModel {
     return UserModel(
       uid: uid,
       phoneNumber: phoneNumber,
-      whatsappNumber: whatsappNumber,
+      mpesaNumber: mpesaNumber,
       name: name,
       bio: bio,
       profileImage: profileImage,
@@ -339,7 +339,7 @@ class UserModel {
       'uid': uid,
       'name': name,
       'phoneNumber': phoneNumber,
-      'whatsappNumber': whatsappNumber,
+      'mpesaNumber': mpesaNumber,
       'profileImage': profileImage,
       'coverImage': coverImage,
       'bio': bio,
@@ -379,7 +379,7 @@ class UserModel {
   UserModel copyWith({
     String? uid,
     String? phoneNumber,
-    String? whatsappNumber,
+    String? mpesaNumber,
     String? name,
     String? bio,
     String? profileImage,
@@ -412,7 +412,7 @@ class UserModel {
     return UserModel(
       uid: uid ?? this.uid,
       phoneNumber: phoneNumber ?? this.phoneNumber,
-      whatsappNumber: whatsappNumber ?? this.whatsappNumber,
+      mpesaNumber: mpesaNumber ?? this.mpesaNumber,
       name: name ?? this.name,
       bio: bio ?? this.bio,
       profileImage: profileImage ?? this.profileImage,
@@ -478,18 +478,23 @@ class UserModel {
     return 'No restrictions';
   }
 
-  // WhatsApp helper methods
-  bool get hasWhatsApp => whatsappNumber != null && whatsappNumber!.isNotEmpty;
-  
-  String? get whatsappLink {
-    if (!hasWhatsApp) return null;
-    return 'https://wa.me/$whatsappNumber';
+  // M-Pesa helper methods
+  bool get hasMpesa => mpesaNumber != null && mpesaNumber!.isNotEmpty;
+
+  String? get mpesaFormatted {
+    if (!hasMpesa) return null;
+    // Return formatted M-Pesa number for display
+    return mpesaNumber;
   }
-  
-  String? get whatsappLinkWithMessage {
-    if (!hasWhatsApp) return null;
-    String message = Uri.encodeComponent('Hi $name! I found your profile on the app.');
-    return 'https://wa.me/$whatsappNumber?text=$message';
+
+  String? get mpesaDisplayNumber {
+    if (!hasMpesa) return null;
+    // Convert 254XXXXXXXXX to 07XX XXX XXX format for better display
+    if (mpesaNumber!.startsWith('254') && mpesaNumber!.length == 12) {
+      final local = '0${mpesaNumber!.substring(3)}';
+      return '${local.substring(0, 4)} ${local.substring(4, 7)} ${local.substring(7)}';
+    }
+    return mpesaNumber;
   }
 
   // NEW: Gender helper methods
@@ -592,9 +597,10 @@ class UserModel {
           'can_manage_content': canManageContent,
           'user_type_display': userTypeDisplay,
         },
-        'whatsapp_info': {
-          'has_whatsapp': hasWhatsApp,
-          'whatsapp_link': whatsappLink,
+        'mpesa_info': {
+          'has_mpesa': hasMpesa,
+          'mpesa_formatted': mpesaFormatted,
+          'mpesa_display_number': mpesaDisplayNumber,
         },
         'profile_info': {
           'has_gender': hasGender,
@@ -629,10 +635,10 @@ class UserModel {
     if (name.length > 50) errors.add('Name cannot exceed 50 characters');
     if (bio.length > 160) errors.add('Bio cannot exceed 160 characters');
     
-    // Validate WhatsApp number format if provided
-    if (whatsappNumber != null && whatsappNumber!.isNotEmpty) {
-      if (!RegExp(r'^254\d{9}$').hasMatch(whatsappNumber!)) {
-        errors.add('WhatsApp number must be in format 254XXXXXXXXX');
+    // Validate M-Pesa number format if provided
+    if (mpesaNumber != null && mpesaNumber!.isNotEmpty) {
+      if (!RegExp(r'^254\d{9}$').hasMatch(mpesaNumber!)) {
+        errors.add('M-Pesa number must be in format 254XXXXXXXXX');
       }
     }
     

@@ -34,7 +34,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   
   late TextEditingController _nameController;
   late TextEditingController _aboutController;
-  late TextEditingController _whatsappController;
+  late TextEditingController _mpesaController;
   
   UserModel? get currentUser => widget.user ?? ref.read(currentUserProvider);
   
@@ -45,29 +45,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     // Initialize controllers with existing data
     _nameController = TextEditingController(text: currentUser?.name ?? '');
     _aboutController = TextEditingController(text: currentUser?.bio ?? '');
-    // Format WhatsApp number for display (remove 254 prefix if present)
-    String whatsappDisplay = '';
-    if (currentUser?.whatsappNumber != null && currentUser!.whatsappNumber!.isNotEmpty) {
-      final whatsapp = currentUser!.whatsappNumber!;
-      if (whatsapp.startsWith('254') && whatsapp.length == 12) {
-        whatsappDisplay = '0${whatsapp.substring(3)}';
+    // Format M-Pesa number for display (remove 254 prefix if present)
+    String mpesaDisplay = '';
+    if (currentUser?.mpesaNumber != null && currentUser!.mpesaNumber!.isNotEmpty) {
+      final mpesa = currentUser!.mpesaNumber!;
+      if (mpesa.startsWith('254') && mpesa.length == 12) {
+        mpesaDisplay = '0${mpesa.substring(3)}';
       } else {
-        whatsappDisplay = whatsapp;
+        mpesaDisplay = mpesa;
       }
     }
-    _whatsappController = TextEditingController(text: whatsappDisplay);
+    _mpesaController = TextEditingController(text: mpesaDisplay);
   }
   
   @override
   void dispose() {
     _nameController.dispose();
     _aboutController.dispose();
-    _whatsappController.dispose();
+    _mpesaController.dispose();
     super.dispose();
   }
 
-  // Validate and format WhatsApp number to 254XXXXXXXXX format
-  String? _validateAndFormatWhatsApp(String? value) {
+  // Validate and format M-Pesa number to 254XXXXXXXXX format
+  String? _validateAndFormatMpesa(String? value) {
     if (value == null || value.trim().isEmpty) {
       return null; // Optional field
     }
@@ -320,21 +320,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         return;
       }
       
-      // Validate and format WhatsApp number to ensure 254XXXXXXXXX format
-      String? formattedWhatsApp;
-      if (_whatsappController.text.trim().isNotEmpty) {
-        formattedWhatsApp = _validateAndFormatWhatsApp(_whatsappController.text.trim());
-        if (formattedWhatsApp == null) {
+      // Validate and format M-Pesa number to ensure 254XXXXXXXXX format
+      String? formattedMpesa;
+      if (_mpesaController.text.trim().isNotEmpty) {
+        formattedMpesa = _validateAndFormatMpesa(_mpesaController.text.trim());
+        if (formattedMpesa == null) {
           showSnackBar(context, 'Please enter a valid Kenyan mobile number (e.g., 0712345678 or 0112345678)');
           return;
         }
       }
-      
+
       // Create updated user model
       final updatedUser = currentUser!.copyWith(
         name: _nameController.text.trim(),
         bio: _aboutController.text.trim(),
-        whatsappNumber: formattedWhatsApp,
+        mpesaNumber: formattedMpesa,
       );
       
       try {
@@ -619,11 +619,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               
               const SizedBox(height: 16),
               
-              // WhatsApp number field
+              // M-Pesa number field
               TextFormField(
-                controller: _whatsappController,
+                controller: _mpesaController,
                 decoration: InputDecoration(
-                  labelText: 'WhatsApp Number (Optional)',
+                  labelText: 'M-Pesa Number (Optional)',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
@@ -649,18 +649,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   hintStyle: TextStyle(
                     color: modernTheme.textSecondaryColor?.withOpacity(0.5),
                   ),
-                  helperText: 'Your WhatsApp number for direct contact (254XXXXXXXXX format)',
+                  helperText: 'Your M-Pesa number for receiving payments (254XXXXXXXXX format)',
                   helperStyle: TextStyle(
                     color: modernTheme.textSecondaryColor?.withOpacity(0.7),
                     fontSize: 12,
                   ),
                   prefixIcon: Icon(
-                    Icons.phone,
+                    Icons.account_balance_wallet,
                     color: modernTheme.primaryColor,
                   ),
-                  suffixIcon: _whatsappController.text.isNotEmpty
+                  suffixIcon: _mpesaController.text.isNotEmpty
                       ? Icon(
-                          CupertinoIcons.bubble_left,
+                          Icons.check_circle,
                           color: Colors.green,
                         )
                       : null,
@@ -674,7 +674,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 enabled: !isLoading,
                 validator: (value) {
                   if (value != null && value.trim().isNotEmpty) {
-                    final formatted = _validateAndFormatWhatsApp(value.trim());
+                    final formatted = _validateAndFormatMpesa(value.trim());
                     if (formatted == null) {
                       return 'Enter a valid Kenyan mobile number (0712345678 or 0112345678)';
                     }

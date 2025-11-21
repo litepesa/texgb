@@ -225,24 +225,6 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen>
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CreateGroupScreen(),
-              ),
-            );
-
-            // Refresh if group was created
-            if (result == true) {
-              ref.invalidate(groupsListProvider);
-            }
-          },
-          backgroundColor: modernTheme.primaryColor ?? const Color(0xFF07C160),
-          foregroundColor: Colors.white,
-          child: const Icon(CupertinoIcons.plus),
-        ),
       ),
     );
   }

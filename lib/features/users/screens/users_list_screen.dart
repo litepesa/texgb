@@ -1,5 +1,5 @@
 // lib/features/users/screens/users_list_screen.dart
-// REFACTORED: Using GoRouter for navigation
+// UPDATED: Live status tracking with Chinese Red styling and last post time display
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +11,9 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+
+// Chinese Red color for live indicators
+const Color kChineseRed = Color(0xFFDE2910);
 
 class UsersListScreen extends ConsumerStatefulWidget {
   const UsersListScreen({super.key});
@@ -29,7 +32,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   late AnimationController _bannerAnimationController;
   late Animation<double> _bannerAnimation;
   
-  final List<String> categories = ['All', 'Following', 'Verified'];
+  final List<String> categories = ['All', 'Following', 'Live'];
 
   @override
   void initState() {
@@ -164,9 +167,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
             .where((user) => followedUsers.contains(user.id))
             .toList();
         break;
-      case 'Verified':
+      case 'Live':
         filteredList = users
-            .where((user) => user.isVerified)
+            .where((user) => user.isLive)
             .toList();
         break;
       default:
@@ -181,8 +184,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     filteredList.removeWhere((user) => user.videosCount == 0);
     
     filteredList.sort((a, b) {
-      if (a.isVerified && !b.isVerified) return -1;
-      if (!a.isVerified && b.isVerified) return 1;
+      // Live users always come first
+      if (a.isLive && !b.isLive) return -1;
+      if (!a.isLive && b.isLive) return 1;
       
       final aLastPost = a.lastPostAtDateTime;
       final bLastPost = b.lastPostAtDateTime;
@@ -721,8 +725,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     switch (category) {
       case 'Following':
         return Icons.favorite;
-      case 'Verified':
-        return Icons.verified;
+      case 'Live':
+        return Icons.sensors;
       default:
         return Icons.people;
     }
@@ -938,8 +942,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     switch (_selectedCategory) {
       case 'Following':
         return Icons.favorite_outline;
-      case 'Verified':
-        return Icons.verified_outlined;
+      case 'Live':
+        return Icons.sensors_off;
       default:
         return Icons.people_outline;
     }
@@ -949,8 +953,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     switch (_selectedCategory) {
       case 'Following':
         return 'No Followed Users';
-      case 'Verified':
-        return 'No Verified Users';
+      case 'Live':
+        return 'No Live Streams';
       default:
         return 'No Users Available';
     }
@@ -960,8 +964,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     switch (_selectedCategory) {
       case 'Following':
         return 'Start following users to see them here';
-      case 'Featured':
-        return 'Featured creators will appear here when available';
+      case 'Live':
+        return 'No one is currently live streaming';
       default:
         return 'Users will appear here when they join WeiBao';
     }
@@ -979,15 +983,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
         color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: user.isVerified 
-            ? Colors.blue.withOpacity(0.3)
+          color: user.isLive 
+            ? kChineseRed.withOpacity(0.4)
             : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-          width: user.isVerified ? 1.5 : 1,
+          width: user.isLive ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: user.isVerified 
-              ? Colors.blue.withOpacity(0.12)
+            color: user.isLive 
+              ? kChineseRed.withOpacity(0.2)
               : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
@@ -1008,13 +1012,13 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(12),
-            decoration: user.isVerified ? BoxDecoration(
+            decoration: user.isLive ? BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.blue.withOpacity(0.05),
+                  kChineseRed.withOpacity(0.05),
                   Colors.transparent,
                 ],
               ),
@@ -1030,16 +1034,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: user.isVerified ? LinearGradient(
-                          colors: [Colors.blue.shade300, Colors.indigo.shade400],
+                        gradient: user.isLive ? LinearGradient(
+                          colors: [kChineseRed, kChineseRed.withOpacity(0.7)],
                         ) : null,
-                        border: !user.isVerified ? Border.all(
+                        border: !user.isLive ? Border.all(
                           color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
                           width: 1,
                         ) : null,
                         boxShadow: [
                           BoxShadow(
-                            color: (user.isVerified ? Colors.blue : (theme.primaryColor ?? const Color(0xFFFE2C55)))
+                            color: (user.isLive ? kChineseRed : (theme.primaryColor ?? const Color(0xFFFE2C55)))
                                 .withOpacity(0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -1101,26 +1105,26 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         ),
                       ),
                     ),
-                    if (user.isVerified)
+                    if (user.isLive)
                       Positioned(
                         top: -2,
                         right: -2,
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.blue,
+                            color: kChineseRed,
                             shape: BoxShape.circle,
                             border: Border.all(color: theme.surfaceColor ?? Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withOpacity(0.3),
-                                blurRadius: 4,
+                                color: kChineseRed.withOpacity(0.5),
+                                blurRadius: 6,
                                 offset: const Offset(0, 1),
                               ),
                             ],
                           ),
                           child: const Icon(
-                            Icons.verified_rounded,
+                            Icons.sensors,
                             color: Colors.white,
                             size: 10,
                           ),
@@ -1134,16 +1138,67 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        user.name,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: theme.textColor ?? Colors.black,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user.name,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: theme.textColor ?? Colors.black,
+                                letterSpacing: -0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (user.isVerified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.verified,
+                              color: Colors.blue,
+                              size: 16,
+                            ),
+                          ],
+                          if (user.isLive) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: kChineseRed,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: kChineseRed.withOpacity(0.4),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.circle,
+                                    color: Colors.white,
+                                    size: 8,
+                                  ),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'LIVE',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       SingleChildScrollView(
@@ -1172,68 +1227,38 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: user.isVerified ? Colors.blue : (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(6),
-                              boxShadow: user.isVerified ? [
-                                BoxShadow(
-                                  color: Colors.blue.withOpacity(0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ] : null,
-                              border: !user.isVerified ? Border.all(
-                                color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
-                                width: 1,
-                              ) : null,
+                      // Last activity - exact styling from sample screen
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.schedule_rounded,
+                              size: 10,
+                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
                             ),
-                            child: user.isVerified 
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.verified_rounded,
-                                      color: Colors.white,
-                                      size: 10,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    const Text(
-                                      'Verified',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.help_outline,
-                                      color: Colors.white,
-                                      size: 10,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'Not Verified',
-                                      style: TextStyle(
-                                        color: theme.textSecondaryColor ?? Colors.grey[600],
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                          ),
-                        ],
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                user.lastPostAt != null 
+                                  ? 'last Post ${user.lastPostTimeAgo}'
+                                  : 'No posts',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -1650,12 +1675,33 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (user.isVerified) ...[
+                                if (user.isLive) ...[
                                   const SizedBox(width: 6),
-                                  const Icon(
-                                    Icons.verified,
-                                    color: Colors.blue,
-                                    size: 16,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: kChineseRed,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.circle,
+                                          color: Colors.white,
+                                          size: 8,
+                                        ),
+                                        SizedBox(width: 3),
+                                        Text(
+                                          'LIVE',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ],

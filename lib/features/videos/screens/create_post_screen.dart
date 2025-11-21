@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path/path.dart' as path;
 
 // Data classes for video processing
 class VideoInfo {
@@ -377,14 +378,54 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       );
       
       await processingCompleter.future;
-      
+
+      // 1. Small delay for OS to flush file buffers to disk
+      await Future.delayed(const Duration(milliseconds: 300));
+
       final outputFile = File(outputPath);
-      if (await outputFile.exists()) {
-        return outputFile;
+
+      // 2. Check if file exists
+      if (!await outputFile.exists()) {
+        debugPrint('❌ Processed file does not exist');
+        await _disableWakelock();
+        return null;
       }
-      
-      await _disableWakelock();
-      return null;
+
+      // 3. Check file size - ensure it's not empty
+      final fileSize = await outputFile.length();
+      if (fileSize == 0) {
+        debugPrint('⚠️ File is empty (0 bytes), retrying after delay...');
+        await Future.delayed(const Duration(milliseconds: 1000));
+        final retrySize = await outputFile.length();
+        if (retrySize == 0) {
+          debugPrint('❌ File is genuinely empty after retry');
+          await _disableWakelock();
+          return null;
+        }
+      }
+
+      // 4. Verify file is readable
+      try {
+        final bytes = await outputFile.openRead(0, 1024).first;
+        if (bytes.isEmpty) {
+          debugPrint('❌ File exists but cannot be read');
+          await _disableWakelock();
+          return null;
+        }
+      } catch (e) {
+        debugPrint('❌ File read error: $e');
+        await _disableWakelock();
+        return null;
+      }
+
+      // 5. Compare to expected size (warning if too small)
+      final expectedMinSize = info.fileSizeMB * 0.3 * 1024 * 1024; // At least 30% of original
+      if (fileSize < expectedMinSize) {
+        debugPrint('⚠️ Warning: Processed file (${fileSize / (1024 * 1024)}MB) is much smaller than expected');
+      }
+
+      debugPrint('✅ Verified processed file: ${fileSize / (1024 * 1024)}MB');
+      return outputFile;
       
     } catch (e) {
       if (mounted) {
@@ -614,28 +655,19 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.fixed,
-      ),
+      SnackBar(content: Text(message)),
     );
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.fixed,
-      ),
+      SnackBar(content: Text(message)),
     );
   }
 
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.fixed,
-      ),
+      SnackBar(content: Text(message)),
     );
   }
 
