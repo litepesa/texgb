@@ -12,6 +12,7 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:textgb/constants.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -232,9 +233,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
       case 'follow users':
       case 'follow':
         return Icons.person_add;
-      case 'buy this product':
-      case 'buy':
-        return Icons.shopping_cart;
       default:
         return Icons.video_call;
     }
@@ -412,141 +410,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Buy product functionality (dummy for now - will add cart/payment later)
-  Future<void> _buyProduct() async {
-    final canInteract = await _requireAuthentication('buy this product');
-    if (!canInteract) return;
-
-    final currentUser = ref.read(currentUserProvider);
-
-    // Check if user is trying to buy their own product
-    if (widget.video.userId == currentUser!.uid) {
-      _showCannotBuyOwnProductMessage();
-      return;
-    }
-
-    // Show coming soon message (placeholder until cart/payment is implemented)
-    _showComingSoonMessage();
-  }
-
-  void _showCannotBuyOwnProductMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                color: Colors.orange,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Cannot Buy Own Product',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You cannot purchase your own product.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showComingSoonMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart,
-                color: Colors.blue,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Checkout Coming Soon',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'We\'re working on adding cart and payment features. Stay tuned!',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Got it'),
@@ -1371,7 +1234,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
               // Back Arrow
               GestureDetector(
                 onTap: _handleBackNavigation,
-                child: SizedBox(
+                child: Container(
                   width: 36,
                   height: 36,
                   child: const Icon(
@@ -1577,7 +1440,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Bottom overlay with captions, hashtags, and action buttons
+  // Bottom overlay with only captions & hashtags
   Widget _buildBottomContentOverlay() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
@@ -1726,25 +1589,22 @@ class _VideoItemState extends ConsumerState<VideoItem>
     context.push(RoutePaths.userProfile(widget.video.userId));
   }
 
-  // Action row - conditionally shows Gift/Save OR Price/Buy based on video price
+  // Single horizontal row with Gift, Save, Like, Comment, and DM buttons
   Widget _buildActionRow() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final availableWidth = screenWidth - 32; // 16px padding on each side
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final rowContent = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Show Gift/Save for free content (price = 0)
-            // Show Price/Buy for paid content (price > 0)
-            if (widget.video.price == 0) ...[
-              _buildGiftButton(),
-              const SizedBox(width: 8),
-              _buildSaveButton(),
-            ] else ...[
-              _buildPriceButton(),
-              const SizedBox(width: 8),
-              _buildBuyButton(),
-            ],
-            
+            // Gift button (replaces Price button)
+            _buildGiftButton(),
+            const SizedBox(width: 8),
+
+            // Save button (replaces Buy button)
+            _buildSaveButton(),
             const SizedBox(width: 12),
 
             // Like button
@@ -1795,7 +1655,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Gift button (for free content)
   Widget _buildGiftButton() {
     return GestureDetector(
       onTap: _showVirtualGifts,
@@ -1845,7 +1704,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Save button (for free content)
   Widget _buildSaveButton() {
     return GestureDetector(
       onTap: _downloadCurrentVideo,
@@ -1917,102 +1775,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   ),
                 ],
               ),
-      ),
-    );
-  }
-
-  // Price button (for paid content)
-  Widget _buildPriceButton() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF4CAF50), // Green start
-            Color(0xFF2E7D32), // Darker green end
-          ],
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.local_offer,
-            color: Colors.white,
-            size: 14,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            widget.video.formattedPrice,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Buy button (for paid content - dummy for now)
-  Widget _buildBuyButton() {
-    return GestureDetector(
-      onTap: _buyProduct,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFF6B6B), // Coral red start
-              Color(0xFFE55353), // Darker red end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.shopping_cart,
-              color: Colors.white,
-              size: 14,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'BUY',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

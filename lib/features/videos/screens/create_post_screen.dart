@@ -300,15 +300,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       });
 
       String command;
-      
-      // Check if video is under 20MB - only process audio
-      if (info.fileSizeMB < 50.0) {
-        // Audio-only processing for videos under 50MB with enhanced audio chain
+
+      // Check if video is under 100MB - only process audio
+      if (info.fileSizeMB < 100.0) {
+        // Audio-only processing for videos under 100MB with enhanced audio chain
         command = '-y -i "${inputFile.path}" ';
         command += '-c:v copy '; // Copy video stream without re-encoding
         command += '-af "${_buildEnhancedAudioFilters()}" ';
         command += '-movflags +faststart ';
-        command += '-f mp4 "$outputPath"';
+        command += "-f mp4 \"$outputPath\"";
       } else {
         // Full video and audio processing for larger files
         final crf = _getFixedCRF();
@@ -317,7 +317,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         final videoFilters = _buildVideoFilters(info);
 
         command = '-y -i "${inputFile.path}" ';
-        
+
         // Video encoding with enhancement
         command += '-c:v libx264 ';
         command += '-crf $crf ';
@@ -325,18 +325,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         command += '-profile:v $profile ';
         command += '-level 4.1 ';
         command += '-pix_fmt yuv420p ';
-        
+
         // Add video filters if available
         if (videoFilters.isNotEmpty) {
           command += '-vf "$videoFilters" ';
         }
-        
+
         // Enhanced audio processing with fuller sound
         command += '-af "${_buildEnhancedAudioFilters()}" ';
-        
+
         // Output optimization
         command += '-movflags +faststart ';
-        command += '-f mp4 "$outputPath"';
+        command += "-f mp4 \"$outputPath\"";
       }
 
       final videoDurationMs = info.duration.inMilliseconds;

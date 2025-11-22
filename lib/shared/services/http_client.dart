@@ -180,12 +180,15 @@ class HttpClientService {
 
     try {
       debugPrint('UPLOAD: $url');
-      final request = http.MultipartRequest('POST', url);
-      
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-        debugPrint('Authorization header added to upload request');
+
+      // Require authentication for uploads
+      if (token == null) {
+        throw HttpException('Upload failed: User not authenticated. Please sign in again.');
       }
+
+      final request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      debugPrint('Authorization header added to upload request');
 
       // Add file
       final multipartFile = await http.MultipartFile.fromPath(fieldName, file.path);
