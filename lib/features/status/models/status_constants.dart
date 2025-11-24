@@ -146,5 +146,5 @@ class StatusConstants {
   static const String apiLikeStatus = '/statuses/{id}/like';
   static const String apiUnlikeStatus = '/statuses/{id}/unlike';
   static const String apiSendGift = '/gifts/send';
-  static const String apiUploadMedia = '/upload/status';
+  static const String apiUploadMedia = '/upload';
 }

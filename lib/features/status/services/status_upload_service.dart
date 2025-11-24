@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/status/models/status_enums.dart';
 import 'package:textgb/features/status/services/status_api_service.dart';
+import 'package:textgb/features/videos/services/video_thumbnail_service.dart';
 
 class StatusUploadService {
   final StatusApiService _apiService;
@@ -164,14 +165,39 @@ class StatusUploadService {
       // Validate file
       await validateVideoFile(videoFile);
 
+      // Generate thumbnail from video
+      final thumbnailService = VideoThumbnailService();
+      final thumbnailFile = await thumbnailService.generateBestThumbnailFile(
+        videoFile: videoFile,
+        maxWidth: 400,
+        maxHeight: 600,
+        quality: 85,
+      );
+
       // Upload original video to server
       final mediaUrl = await _apiService.uploadMedia(
         videoFile.path,
         isVideo: true,
       );
 
+      // Upload thumbnail if generated
+      String? thumbnailUrl;
+      if (thumbnailFile != null) {
+        try {
+          thumbnailUrl = await _apiService.uploadMedia(
+            thumbnailFile.path,
+            isVideo: false,
+          );
+          print('Thumbnail uploaded: $thumbnailUrl');
+        } catch (e) {
+          print('Warning: Failed to upload thumbnail: $e');
+          // Continue without thumbnail
+        }
+      }
+
       return {
         'mediaUrl': mediaUrl,
+        if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
       };
     } catch (e) {
       print('Error uploading video status: $e');

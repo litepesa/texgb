@@ -4,6 +4,7 @@
 // ===============================
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:textgb/shared/services/http_client.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
@@ -203,25 +204,31 @@ class StatusApiService {
   /// Upload media file for status (returns media URL)
   Future<String> uploadMedia(String filePath, {required bool isVideo}) async {
     try {
-      // Note: Actual multipart upload implementation depends on backend
-      // This is a simplified version
-      final response = await _httpClient.post(
+      final file = File(filePath);
+
+      // Use proper multipart upload - backend expects "file" field and "type" parameter
+      final response = await _httpClient.uploadFile(
         StatusConstants.apiUploadMedia,
-        body: {
-          'filePath': filePath,
-          'type': isVideo ? 'video' : 'image',
+        file,
+        'file', // Field name must be "file"
+        additionalFields: {
+          'type': isVideo ? 'video' : 'post', // "post" for images, "video" for videos
         },
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final mediaUrl = data['mediaUrl'] as String? ??
-                        data['media_url'] as String? ??
-                        data['url'] as String;
+        // Backend returns "url" field
+        final mediaUrl = data['url'] as String?;
+
+        if (mediaUrl == null) {
+          throw Exception('Upload response missing URL');
+        }
+
         return mediaUrl;
       }
 
-      throw Exception('Failed to upload media');
+      throw Exception('Failed to upload media: ${response.statusCode} - ${response.body}');
     } catch (e) {
       print('Error uploading media: $e');
       rethrow;

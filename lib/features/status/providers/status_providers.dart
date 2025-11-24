@@ -10,19 +10,30 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
-import 'package:textgb/features/status/services/status_api_service.dart';
-import 'package:textgb/features/status/services/status_upload_service.dart';
+import 'package:textgb/features/status/repositories/status_repository.dart';
+import 'package:textgb/features/status/repositories/http_status_repository.dart';
 import 'package:textgb/features/status/services/status_time_service.dart';
+import 'package:textgb/features/status/services/status_upload_service.dart';
+import 'package:image_picker/image_picker.dart';
 
 part 'status_providers.g.dart';
 
 // ===============================
-// SERVICE PROVIDERS
+// REPOSITORY PROVIDERS
 // ===============================
 
 @riverpod
-StatusApiService statusApiService(Ref ref) {
-  return StatusApiService();
+StatusRepository statusRepository(Ref ref) {
+  return HttpStatusRepository();
+}
+
+// ===============================
+// SERVICE PROVIDERS (for media picking)
+// ===============================
+
+@riverpod
+ImagePicker imagePicker(Ref ref) {
+  return ImagePicker();
 }
 
 @riverpod
@@ -104,7 +115,7 @@ class StatusFeedState {
 
 @riverpod
 class StatusFeed extends _$StatusFeed {
-  StatusApiService get _apiService => ref.read(statusApiServiceProvider);
+  StatusRepository get _repository => ref.read(statusRepositoryProvider);
   SharedPreferences? _prefs;
 
   static const String _cacheKey = 'status_feed_cache';
@@ -134,8 +145,8 @@ class StatusFeed extends _$StatusFeed {
     try {
       // Fetch both all statuses and my statuses
       final results = await Future.wait([
-        _apiService.getAllStatuses(),
-        _apiService.getMyStatuses(),
+        _repository.getAllStatuses(),
+        _repository.getMyStatuses(),
       ]);
 
       final statusGroups = results[0] as List<StatusGroup>;
@@ -194,7 +205,7 @@ class StatusFeed extends _$StatusFeed {
   /// View a status (increment view count)
   Future<void> viewStatus(String statusId) async {
     try {
-      await _apiService.viewStatus(statusId);
+      await _repository.viewStatus(statusId);
 
       // Update local state
       state.whenData((currentState) {
@@ -229,9 +240,9 @@ class StatusFeed extends _$StatusFeed {
   Future<void> toggleLike(String statusId, bool currentlyLiked) async {
     try {
       if (currentlyLiked) {
-        await _apiService.unlikeStatus(statusId);
+        await _repository.unlikeStatus(statusId);
       } else {
-        await _apiService.likeStatus(statusId);
+        await _repository.likeStatus(statusId);
       }
 
       // Update local state
@@ -285,7 +296,7 @@ class StatusFeed extends _$StatusFeed {
     required String giftId,
   }) async {
     try {
-      final success = await _apiService.sendGift(
+      final success = await _repository.sendGift(
         statusId: statusId,
         recipientId: recipientId,
         giftId: giftId,
@@ -325,7 +336,7 @@ class StatusFeed extends _$StatusFeed {
   /// Delete a status (my status only)
   Future<void> deleteStatus(String statusId) async {
     try {
-      final success = await _apiService.deleteStatus(statusId);
+      final success = await _repository.deleteStatus(statusId);
 
       if (success) {
         // Remove from local state
@@ -416,8 +427,7 @@ class StatusFeed extends _$StatusFeed {
 
 @riverpod
 class StatusCreation extends _$StatusCreation {
-  StatusApiService get _apiService => ref.read(statusApiServiceProvider);
-  StatusUploadService get _uploadService => ref.read(statusUploadServiceProvider);
+  StatusRepository get _repository => ref.read(statusRepositoryProvider);
 
   @override
   FutureOr<void> build() {
@@ -426,18 +436,14 @@ class StatusCreation extends _$StatusCreation {
 
   /// Create a new status
   Future<StatusModel> createStatus(CreateStatusRequest request) async {
-    state = const AsyncValue.loading();
-
     try {
-      final status = await _apiService.createStatus(request);
+      final status = await _repository.createStatus(request);
 
       // Refresh feed
       ref.invalidate(statusFeedProvider);
 
-      state = const AsyncValue.data(null);
       return status;
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
       rethrow;
     }
   }
@@ -447,33 +453,38 @@ class StatusCreation extends _$StatusCreation {
     required String imagePath,
     required CreateStatusRequest request,
   }) async {
-    state = const AsyncValue.loading();
-
     try {
-      // Upload image
-      final uploadResult = await _uploadService.uploadImageStatus(
+      // Upload image using repository
+      final uploadResult = await _repository.uploadImageStatus(
         File(imagePath),
       );
+
+      print('📦 Upload result: $uploadResult');
+
+      // Extract URL with null safety
+      final mediaUrl = uploadResult['mediaUrl'];
+
+      if (mediaUrl == null) {
+        throw Exception('Upload failed: Media URL is null');
+      }
 
       // Create status with media URL
       final statusRequest = CreateStatusRequest(
         content: request.content,
-        mediaUrl: uploadResult['mediaUrl'],
+        mediaUrl: mediaUrl,
         mediaType: StatusMediaType.image,
         visibility: request.visibility,
         visibleTo: request.visibleTo,
         hiddenFrom: request.hiddenFrom,
       );
 
-      final status = await _apiService.createStatus(statusRequest);
+      final status = await _repository.createStatus(statusRequest);
 
       // Refresh feed
       ref.invalidate(statusFeedProvider);
 
-      state = const AsyncValue.data(null);
       return status;
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
       rethrow;
     }
   }
@@ -484,18 +495,27 @@ class StatusCreation extends _$StatusCreation {
     int? durationSeconds,
     required CreateStatusRequest request,
   }) async {
-    state = const AsyncValue.loading();
-
     try {
-      // Upload video and thumbnail
-      final uploadResult = await _uploadService.uploadVideoStatus(
+      // Upload video and thumbnail using repository
+      final uploadResult = await _repository.uploadVideoStatus(
         File(videoPath),
       );
 
+      print('📦 Upload result: $uploadResult');
+
+      // Extract URLs with null safety
+      final mediaUrl = uploadResult['mediaUrl'];
+      final thumbnailUrl = uploadResult['thumbnailUrl']; // Can be null
+
+      if (mediaUrl == null) {
+        throw Exception('Upload failed: Media URL is null');
+      }
+
       // Create status with media URL and thumbnail
       final statusRequest = CreateStatusRequest(
-        mediaUrl: uploadResult['mediaUrl'],
-        thumbnailUrl: uploadResult['thumbnailUrl'],
+        content: request.content,
+        mediaUrl: mediaUrl,
+        thumbnailUrl: thumbnailUrl, // Nullable, that's ok
         mediaType: StatusMediaType.video,
         durationSeconds: durationSeconds,
         visibility: request.visibility,
@@ -503,15 +523,13 @@ class StatusCreation extends _$StatusCreation {
         hiddenFrom: request.hiddenFrom,
       );
 
-      final status = await _apiService.createStatus(statusRequest);
+      final status = await _repository.createStatus(statusRequest);
 
       // Refresh feed
       ref.invalidate(statusFeedProvider);
 
-      state = const AsyncValue.data(null);
       return status;
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
       rethrow;
     }
   }

@@ -6,23 +6,39 @@ part of 'status_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$statusApiServiceHash() => r'91a299030faefaa1b61d227d1b8386f156117f95';
+String _$statusRepositoryHash() => r'f315678fb4d196bf6cd942c3710a378e06d0b0e8';
 
-/// See also [statusApiService].
-@ProviderFor(statusApiService)
-final statusApiServiceProvider = AutoDisposeProvider<StatusApiService>.internal(
-  statusApiService,
-  name: r'statusApiServiceProvider',
+/// See also [statusRepository].
+@ProviderFor(statusRepository)
+final statusRepositoryProvider = AutoDisposeProvider<StatusRepository>.internal(
+  statusRepository,
+  name: r'statusRepositoryProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$statusApiServiceHash,
+      : _$statusRepositoryHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef StatusApiServiceRef = AutoDisposeProviderRef<StatusApiService>;
+typedef StatusRepositoryRef = AutoDisposeProviderRef<StatusRepository>;
+String _$imagePickerHash() => r'7877699a862be48e962306635347623c45e91971';
+
+/// See also [imagePicker].
+@ProviderFor(imagePicker)
+final imagePickerProvider = AutoDisposeProvider<ImagePicker>.internal(
+  imagePicker,
+  name: r'imagePickerProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$imagePickerHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef ImagePickerRef = AutoDisposeProviderRef<ImagePicker>;
 String _$statusUploadServiceHash() =>
     r'c405af4b1a33a3a361ae402e330f7f0d76509bd0';
 
@@ -42,7 +58,7 @@ final statusUploadServiceProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef StatusUploadServiceRef = AutoDisposeProviderRef<StatusUploadService>;
-String _$statusFeedHash() => r'ce458d6006d1827e8e44e25a8ad89c36ac723460';
+String _$statusFeedHash() => r'8c8e42ed98d146f87ce71fcda2fd1fd863245984';
 
 /// See also [StatusFeed].
 @ProviderFor(StatusFeed)
@@ -57,7 +73,7 @@ final statusFeedProvider =
 );
 
 typedef _$StatusFeed = AutoDisposeAsyncNotifier<StatusFeedState>;
-String _$statusCreationHash() => r'fe4c86059575c784b724e835e1e98f0491e4764e';
+String _$statusCreationHash() => r'c2f3b31b4d055ddf148687a09b21745db14074c5';
 
 /// See also [StatusCreation].
 @ProviderFor(StatusCreation)

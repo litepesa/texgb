@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
@@ -32,17 +33,24 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
   // Media status state
   File? _selectedMedia;
   StatusMediaType? _mediaType;
+  final TextEditingController _captionController = TextEditingController();
+
+  // Video player state
+  VideoPlayerController? _videoPlayerController;
+  bool _isVideoPlaying = false;
 
   // Privacy settings
   StatusVisibility _visibility = StatusVisibility.all;
-  final bool _showPrivacySheet = false;
 
   // Creation state
   bool _isCreating = false;
+  double _uploadProgress = 0.0;
 
   @override
   void dispose() {
     _textController.dispose();
+    _captionController.dispose();
+    _videoPlayerController?.dispose();
     super.dispose();
   }
 
@@ -475,6 +483,39 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
   }
 
   // ===============================
+  // VIDEO PLAYER MANAGEMENT
+  // ===============================
+
+  Future<void> _initializeVideoPlayer() async {
+    if (_selectedMedia == null || _mediaType != StatusMediaType.video) return;
+
+    try {
+      _videoPlayerController?.dispose();
+      _videoPlayerController = VideoPlayerController.file(_selectedMedia!);
+
+      await _videoPlayerController!.initialize();
+      _videoPlayerController!.setLooping(true);
+
+      setState(() {});
+    } catch (e) {
+      _showSnackBar('Failed to initialize video player');
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_videoPlayerController == null) return;
+
+    setState(() {
+      if (_isVideoPlaying) {
+        _videoPlayerController!.pause();
+      } else {
+        _videoPlayerController!.play();
+      }
+      _isVideoPlaying = !_isVideoPlaying;
+    });
+  }
+
+  // ===============================
   // MEDIA PREVIEW SCREEN
   // ===============================
 
@@ -488,16 +529,42 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
             child: _selectedMedia != null
                 ? (_mediaType == StatusMediaType.image
                     ? Image.file(_selectedMedia!, fit: BoxFit.contain)
-                    : Container(
-                        color: Colors.grey[900],
-                        child: const Center(
-                          child: Icon(
-                            Icons.play_circle_outline,
-                            size: 80,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ))
+                    : (_videoPlayerController != null &&
+                            _videoPlayerController!.value.isInitialized
+                        ? GestureDetector(
+                            onTap: _togglePlayPause,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                AspectRatio(
+                                  aspectRatio:
+                                      _videoPlayerController!.value.aspectRatio,
+                                  child: VideoPlayer(_videoPlayerController!),
+                                ),
+                                if (!_isVideoPlaying)
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.play_arrow,
+                                      color: Colors.white,
+                                      size: 48,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey[900],
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          )))
                 : const SizedBox.shrink(),
           ),
 
@@ -517,6 +584,9 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                           _mode = CreateMode.select;
                           _selectedMedia = null;
                           _mediaType = null;
+                          _captionController.clear();
+                          _videoPlayerController?.dispose();
+                          _videoPlayerController = null;
                         });
                       },
                       icon: const Icon(Icons.close, color: Colors.white),
@@ -538,39 +608,91 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
             ),
           ),
 
-          // Bottom bar with send button
+          // Bottom bar with caption and send button
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-              child: Padding(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
+                  ),
+                ),
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Visible to ${_visibility.displayName.toLowerCase()}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
+                    // Caption input
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _captionController,
+                        style: const TextStyle(color: Colors.white),
+                        maxLength: 200,
+                        maxLines: 3,
+                        minLines: 1,
+                        decoration: const InputDecoration(
+                          hintText: 'Add a caption...',
+                          hintStyle: TextStyle(color: Colors.white70),
+                          border: InputBorder.none,
+                          counterText: '',
                         ),
                       ),
                     ),
-                    FloatingActionButton(
-                      onPressed: _handleCreateMedia,
-                      backgroundColor: StatusTheme.primaryBlue,
-                      child: _isCreating
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                    const SizedBox(height: 12),
+                    // Upload progress or send button
+                    if (_isCreating)
+                      Column(
+                        children: [
+                          LinearProgressIndicator(
+                            value: _uploadProgress > 0 ? _uploadProgress : null,
+                            backgroundColor: Colors.white24,
+                            valueColor:
+                                const AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _uploadProgress > 0
+                                ? 'Uploading... ${(_uploadProgress * 100).toStringAsFixed(0)}%'
+                                : 'Processing...',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Visible to ${_visibility.displayName.toLowerCase()}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
                               ),
-                            )
-                          : const Icon(Icons.send, color: Colors.white),
-                    ),
+                            ),
+                          ),
+                          FloatingActionButton(
+                            onPressed: _handleCreateMedia,
+                            backgroundColor: StatusTheme.primaryBlue,
+                            child: const Icon(Icons.send, color: Colors.white),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -748,6 +870,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
         _mediaType = StatusMediaType.video;
         _mode = CreateMode.media;
       });
+      await _initializeVideoPlayer();
     }
   }
 
@@ -760,6 +883,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
         _mediaType = StatusMediaType.video;
         _mode = CreateMode.media;
       });
+      await _initializeVideoPlayer();
     }
   }
 
@@ -803,28 +927,42 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
   Future<void> _handleCreateMedia() async {
     if (_selectedMedia == null || _isCreating) return;
 
-    setState(() => _isCreating = true);
+    setState(() {
+      _isCreating = true;
+      _uploadProgress = 0.0;
+    });
 
     try {
       final creationProvider = ref.read(statusCreationProvider.notifier);
+      final caption = _captionController.text.trim();
 
       if (_mediaType == StatusMediaType.image) {
+        // Simulate progress for image upload
+        setState(() => _uploadProgress = 0.5);
+
         await creationProvider.createImageStatus(
           imagePath: _selectedMedia!.path,
           request: CreateStatusRequest(
+            content: caption.isNotEmpty ? caption : null,
             mediaType: StatusMediaType.image,
             visibility: _visibility,
           ),
         );
       } else if (_mediaType == StatusMediaType.video) {
+        // Simulate progress for video upload
+        setState(() => _uploadProgress = 0.3);
+
         await creationProvider.createVideoStatus(
           videoPath: _selectedMedia!.path,
           request: CreateStatusRequest(
+            content: caption.isNotEmpty ? caption : null,
             mediaType: StatusMediaType.video,
             visibility: _visibility,
           ),
         );
       }
+
+      setState(() => _uploadProgress = 1.0);
 
       if (mounted) {
         _showSnackBar(StatusConstants.successUploaded);
@@ -832,11 +970,15 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Failed to create status: $e');
+        final errorMessage = e.toString().replaceAll('Exception: ', '');
+        _showSnackBar('Failed to create status: $errorMessage');
       }
     } finally {
       if (mounted) {
-        setState(() => _isCreating = false);
+        setState(() {
+          _isCreating = false;
+          _uploadProgress = 0.0;
+        });
       }
     }
   }

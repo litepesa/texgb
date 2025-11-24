@@ -30,6 +30,7 @@ import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 
+
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -41,6 +42,14 @@ import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 import 'package:textgb/features/payment/screens/wallet_topup_screen.dart';
 import 'package:textgb/features/payment/screens/payment_status_screen.dart';
 
+// Channels screens
+import 'package:textgb/features/channels/screens/channels_home_screen.dart';
+import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
+import 'package:textgb/features/channels/screens/post_detail_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/screens/channel_settings_screen.dart';
+import 'package:textgb/features/channels/screens/members_management_screen.dart';
 
 // Chat screens
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
@@ -484,6 +493,70 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             checkoutRequestId: checkoutRequestId,
             isActivation: isActivation,
           );
+        },
+      ),
+
+      // ==================== CHANNELS ROUTES ====================
+
+      GoRoute(
+        path: RoutePaths.channelsHome,
+        name: RouteNames.channelsHome,
+        builder: (context, state) => const ChannelsHomeScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.channelDetailPattern,
+        name: RouteNames.channelDetail,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return ChannelDetailScreen(channelId: channelId);
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.channelPostPattern,
+        name: RouteNames.channelPost,
+        builder: (context, state) {
+          final postId = state.pathParameters['postId']!;
+          final extra = state.extra as Map<String, dynamic>?;
+          final channelId = extra?['channelId'] as String? ?? '';
+          return PostDetailScreen(
+            postId: postId,
+            channelId: channelId,
+          );
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.createChannel,
+        name: RouteNames.createChannel,
+        builder: (context, state) => const CreateChannelScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.createChannelPostPattern,
+        name: RouteNames.createChannelPost,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return CreateChannelPostScreen(channelId: channelId);
+        },
+      ),
+
+      GoRoute(
+        path: '/channel/:channelId/settings',
+        name: 'channelSettings',
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return ChannelSettingsScreen(channelId: channelId);
+        },
+      ),
+
+      GoRoute(
+        path: '/channel/:channelId/members',
+        name: 'channelMembers',
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return MembersManagementScreen(channelId: channelId);
         },
       ),
 
