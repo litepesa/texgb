@@ -139,7 +139,7 @@ class _TemplateCard extends StatelessWidget {
         height: 120,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: template.background.colors,
+            colors: template.background.colors.map((hex) => _hexToColor(hex)).toList(),
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -199,4 +199,10 @@ Future<StatusTemplate?> showStatusTemplatePicker(BuildContext context) async {
       onTemplateSelected: (template) {},
     ),
   );
+}
+
+// Helper function to convert hex color string to Color
+Color _hexToColor(String hex) {
+  final hexCode = hex.replaceAll('#', '');
+  return Color(int.parse('FF$hexCode', radix: 16));
 }

@@ -281,7 +281,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: _selectedBackground.colors,
+              colors: _selectedBackground.colors.map((hex) => _hexToColor(hex)).toList(),
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -386,7 +386,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                                 margin: const EdgeInsets.only(right: 12),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: bg.colors,
+                                    colors: bg.colors.map((hex) => _hexToColor(hex)).toList(),
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
@@ -1003,4 +1003,10 @@ enum CreateMode {
   select,
   text,
   media,
+}
+
+// Helper function to convert hex color string to Color
+Color _hexToColor(String hex) {
+  final hexCode = hex.replaceAll('#', '');
+  return Color(int.parse('FF$hexCode', radix: 16));
 }

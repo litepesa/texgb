@@ -504,7 +504,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
         decoration: BoxDecoration(
           gradient: status.textBackground != null
               ? LinearGradient(
-                  colors: status.textBackground!.colors,
+                  colors: status.textBackground!.colors.map((hex) => _hexToColor(hex)).toList(),
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
@@ -817,4 +817,10 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
       },
     );
   }
+}
+
+// Helper function to convert hex color string to Color
+Color _hexToColor(String hex) {
+  final hexCode = hex.replaceAll('#', '');
+  return Color(int.parse('FF$hexCode', radix: 16));
 }
