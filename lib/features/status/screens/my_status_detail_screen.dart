@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/features/status/services/status_time_service.dart';
 import 'package:textgb/core/router/route_paths.dart';
 
@@ -89,7 +88,7 @@ class MyStatusDetailScreen extends ConsumerWidget {
             icon: const Icon(Icons.add),
             label: const Text('Add Status'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: StatusTheme.primaryBlue,
+              backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(
                 horizontal: 24,
@@ -277,8 +276,10 @@ class _StatusCard extends ConsumerWidget {
         height: 120,
         decoration: BoxDecoration(
           gradient: status.textBackground != null
-              ? StatusTheme.getTextBackgroundGradient(
-                  status.textBackground!.colors,
+              ? LinearGradient(
+                  colors: status.textBackground!.colors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 )
               : const LinearGradient(
                   colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],

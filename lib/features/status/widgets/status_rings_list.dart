@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/widgets/status_ring.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -48,7 +47,7 @@ class StatusRingsList extends ConsumerWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
-          horizontal: StatusTheme.ringPadding,
+          horizontal: 8,
           vertical: 8,
         ),
         itemCount: (showMyStatus && myStatusGroup != null ? 1 : 0) + activeGroups.length,
@@ -94,7 +93,9 @@ class StatusRingsList extends ConsumerWidget {
       child: Center(
         child: Text(
           'Failed to load statuses',
-          style: StatusTheme.ringLabelStyle.copyWith(
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
             color: Colors.red,
           ),
         ),
@@ -115,12 +116,14 @@ class StatusRingsList extends ConsumerWidget {
             Icon(
               Icons.add_circle_outline,
               size: 32,
-              color: StatusTheme.primaryBlue,
+              color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             ),
             const SizedBox(height: 8),
             Text(
               'No statuses yet',
-              style: StatusTheme.ringLabelStyle.copyWith(
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
                 color: Colors.grey[600],
               ),
             ),
@@ -129,9 +132,10 @@ class StatusRingsList extends ConsumerWidget {
               onTap: () => _navigateToCreateStatus(context),
               child: Text(
                 'Create your first status',
-                style: StatusTheme.ringLabelStyle.copyWith(
-                  color: StatusTheme.primaryBlue,
+                style: TextStyle(
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
+                  color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                 ),
               ),
             ),

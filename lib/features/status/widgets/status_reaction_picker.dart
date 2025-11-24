@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:textgb/features/status/models/status_reaction_model.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class StatusReactionPicker extends StatefulWidget {
   final Function(String emoji) onReactionSelected;
@@ -39,6 +39,7 @@ class _StatusReactionPickerState extends State<StatusReactionPicker>
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
     return Container(
       height: MediaQuery.of(context).size.height * 0.6,
       decoration: const BoxDecoration(
@@ -83,9 +84,9 @@ class _StatusReactionPickerState extends State<StatusReactionPicker>
           // Tabs
           TabBar(
             controller: _tabController,
-            labelColor: StatusTheme.primaryBlue,
+            labelColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
-            indicatorColor: StatusTheme.primaryBlue,
+            indicatorColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             tabs: const [
               Tab(text: 'Quick'),
               Tab(text: 'All'),
@@ -135,6 +136,7 @@ class _StatusReactionPickerState extends State<StatusReactionPicker>
   }
 
   Widget _buildAllReactions() {
+    final modernTheme = context.modernTheme;
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -155,10 +157,12 @@ class _StatusReactionPickerState extends State<StatusReactionPicker>
           },
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected ? StatusTheme.primaryBlue.withValues(alpha: 0.1) : null,
+              color: isSelected
+                  ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1)
+                  : null,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: StatusTheme.primaryBlue, width: 2)
+                  ? Border.all(color: modernTheme.primaryColor ?? Theme.of(context).primaryColor, width: 2)
                   : null,
             ),
             child: Center(
@@ -189,16 +193,17 @@ class _ReactionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: isSelected
-              ? StatusTheme.primaryBlue.withValues(alpha: 0.1)
+              ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1)
               : Colors.grey[100],
           borderRadius: BorderRadius.circular(16),
           border: isSelected
-              ? Border.all(color: StatusTheme.primaryBlue, width: 2)
+              ? Border.all(color: modernTheme.primaryColor ?? Theme.of(context).primaryColor, width: 2)
               : null,
         ),
         child: Column(
@@ -214,7 +219,7 @@ class _ReactionButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? StatusTheme.primaryBlue : Colors.grey[700],
+                color: isSelected ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor) : Colors.grey[700],
               ),
             ),
           ],

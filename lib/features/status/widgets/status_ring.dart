@@ -7,8 +7,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/status/models/status_model.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/features/status/services/status_time_service.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class StatusRing extends StatelessWidget {
   final StatusGroup statusGroup;
@@ -27,14 +27,13 @@ class StatusRing extends StatelessWidget {
     final hasUnviewed = statusGroup.hasUnviewedStatus;
     final latestStatus = statusGroup.latestStatus;
     final statusCount = statusGroup.activeStatuses.length;
+    final modernTheme = context.modernTheme;
 
     if (latestStatus == null) {
       return const SizedBox.shrink();
     }
 
-    final ringSize = isMyStatus
-        ? StatusTheme.myStatusAvatarSize
-        : StatusTheme.ringAvatarSize;
+    final ringSize = isMyStatus ? 72.0 : 64.0;
 
     return GestureDetector(
       onTap: onTap,
@@ -46,14 +45,15 @@ class StatusRing extends StatelessWidget {
           children: [
             // Avatar with gradient ring
             SizedBox(
-              width: ringSize + (StatusTheme.ringBorderWidth * 2) + 4,
-              height: ringSize + (StatusTheme.ringBorderWidth * 2) + 4,
+              width: ringSize + (3.0 * 2) + 4,
+              height: ringSize + (3.0 * 2) + 4,
               child: CustomPaint(
                 painter: _SegmentedRingPainter(
                   statusCount: statusCount,
                   hasUnviewed: hasUnviewed,
                   isMyStatus: isMyStatus,
-                  ringWidth: StatusTheme.ringBorderWidth,
+                  ringWidth: 3.0,
+                  primaryColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                 ),
                 child: Center(
                   child: Stack(
@@ -97,7 +97,7 @@ class StatusRing extends StatelessWidget {
                             height: 24,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: StatusTheme.primaryBlue,
+                              color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                               border: Border.all(
                                 color: Colors.white,
                                 width: 2,
@@ -123,7 +123,10 @@ class StatusRing extends StatelessWidget {
               width: ringSize + 8,
               child: Text(
                 isMyStatus ? 'My Status' : statusGroup.userName,
-                style: StatusTheme.ringLabelStyle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -133,7 +136,10 @@ class StatusRing extends StatelessWidget {
             // Time stamp
             Text(
               StatusTimeService.formatRingTime(latestStatus.createdAt),
-              style: StatusTheme.ringTimeStyle,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -150,12 +156,14 @@ class _SegmentedRingPainter extends CustomPainter {
   final bool hasUnviewed;
   final bool isMyStatus;
   final double ringWidth;
+  final Color primaryColor;
 
   _SegmentedRingPainter({
     required this.statusCount,
     required this.hasUnviewed,
     required this.isMyStatus,
     required this.ringWidth,
+    required this.primaryColor,
   });
 
   @override
@@ -211,10 +219,22 @@ class _SegmentedRingPainter extends CustomPainter {
   }
 
   LinearGradient _getRingGradient() {
-    return StatusTheme.getRingGradient(
-      isViewed: !hasUnviewed,
-      isMyStatus: isMyStatus,
-    );
+    if (!hasUnviewed) {
+      // Viewed - gray
+      return const LinearGradient(
+        colors: [Colors.grey, Colors.grey],
+      );
+    } else if (isMyStatus) {
+      // My status - primary color
+      return LinearGradient(
+        colors: [primaryColor, primaryColor],
+      );
+    } else {
+      // Unviewed - primary color
+      return LinearGradient(
+        colors: [primaryColor, primaryColor],
+      );
+    }
   }
 
   @override
@@ -222,6 +242,7 @@ class _SegmentedRingPainter extends CustomPainter {
     return oldDelegate.statusCount != statusCount ||
         oldDelegate.hasUnviewed != hasUnviewed ||
         oldDelegate.isMyStatus != isMyStatus ||
-        oldDelegate.ringWidth != ringWidth;
+        oldDelegate.ringWidth != ringWidth ||
+        oldDelegate.primaryColor != primaryColor;
   }
 }
