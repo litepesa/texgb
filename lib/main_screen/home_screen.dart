@@ -52,8 +52,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2,                  // Chats
     Icons.groups_2_outlined,                       // Groups
-    Icons.radio_button_checked_rounded,                    // Status
-    Icons.gps_fixed_rounded,      // Channels
+    Icons.radio_button_checked_rounded,            // Status
+    Icons.gps_fixed_rounded,                       // Channels
   ];
 
   @override

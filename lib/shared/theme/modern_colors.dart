@@ -14,6 +14,13 @@ class ModernColors {
   static const error = Color(0xFFE55252);        // Error actions/states (unchanged)
   static const info = Color(0xFF53BDEB);         // Information actions/states (unchanged)
 
+  // Group-specific semantic colors (replacing hardcoded colors)
+  static const groupAdmin = Color(0xFF53BDEB);    // Admin role badge/actions (blue)
+  static const groupModerator = Color(0xFFFFA000); // Moderator role (orange)
+  static const groupDanger = Color(0xFFE55252);   // Delete/remove actions (red)
+  static const groupSuccess = Color(0xFF25D366);  // Add/success actions (green)
+  static const groupMedia = Color(0xFF9C27B0);    // Media actions (purple)
+
   // Light theme colors - Updated with your specified colors
   static const lightBackground = Color(0xFF131C21);    // Main background
   static const lightSurface = Color(0xFF1F2C34);       // Surface color

@@ -1,6 +1,7 @@
 // lib/features/groups/widgets/group_message_bubble.dart
 import 'package:flutter/material.dart';
 import 'package:textgb/features/groups/models/group_message_model.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupMessageBubble extends StatelessWidget {
   final GroupMessageModel message;
@@ -18,6 +19,9 @@ class GroupMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    final chatTheme = context.chatTheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: Column(
@@ -32,7 +36,7 @@ class GroupMessageBubble extends StatelessWidget {
                 message.displaySenderName,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600],
+                  color: modernTheme.textSecondaryColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -50,14 +54,17 @@ class GroupMessageBubble extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 8),
                   child: CircleAvatar(
                     radius: 16,
-                    backgroundColor: Colors.grey[300],
+                    backgroundColor: modernTheme.surfaceVariantColor,
                     backgroundImage: message.senderImage != null
                         ? NetworkImage(message.senderImage!)
                         : null,
                     child: message.senderImage == null
                         ? Text(
                             _getInitials(message.displaySenderName),
-                            style: const TextStyle(fontSize: 12),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: modernTheme.textColor,
+                            ),
                           )
                         : null,
                   ),
@@ -74,15 +81,15 @@ class GroupMessageBubble extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: isMe
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey[300],
+                          ? chatTheme.senderBubbleColor
+                          : chatTheme.receiverBubbleColor,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Media if present
-                        if (message.hasMedia) _buildMediaContent(),
+                        if (message.hasMedia) _buildMediaContent(context),
 
                         // Text message
                         if (message.messageText.isNotEmpty)
@@ -90,7 +97,9 @@ class GroupMessageBubble extends StatelessWidget {
                             message.messageText,
                             style: TextStyle(
                               fontSize: 15,
-                              color: isMe ? Colors.white : Colors.black87,
+                              color: isMe
+                                  ? chatTheme.senderTextColor
+                                  : chatTheme.receiverTextColor,
                             ),
                           ),
 
@@ -103,9 +112,7 @@ class GroupMessageBubble extends StatelessWidget {
                               message.formattedTime,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isMe
-                                    ? Colors.white70
-                                    : Colors.grey[600],
+                                color: chatTheme.timestampColor,
                               ),
                             ),
                             if (isMe) ...[
@@ -116,15 +123,15 @@ class GroupMessageBubble extends StatelessWidget {
                                     : Icons.done,
                                 size: 14,
                                 color: message.readCount > 0
-                                    ? Colors.blue
-                                    : Colors.white70,
+                                    ? modernTheme.infoColor
+                                    : chatTheme.timestampColor,
                               ),
                               if (message.readCount > 1)
                                 Text(
                                   ' ${message.readCount}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.white70,
+                                    color: chatTheme.timestampColor,
                                   ),
                                 ),
                             ],
@@ -142,7 +149,9 @@ class GroupMessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildMediaContent() {
+  Widget _buildMediaContent(BuildContext context) {
+    final modernTheme = context.modernTheme;
+
     if (message.isImage) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 8),
@@ -155,8 +164,12 @@ class GroupMessageBubble extends StatelessWidget {
             errorBuilder: (context, error, stack) => Container(
               width: 200,
               height: 150,
-              color: Colors.grey[400],
-              child: const Icon(Icons.broken_image, size: 40),
+              color: modernTheme.surfaceVariantColor,
+              child: Icon(
+                Icons.broken_image,
+                size: 40,
+                color: modernTheme.textSecondaryColor,
+              ),
             ),
           ),
         ),
@@ -166,13 +179,13 @@ class GroupMessageBubble extends StatelessWidget {
         width: 200,
         height: 150,
         decoration: BoxDecoration(
-          color: Colors.black,
+          color: modernTheme.surfaceVariantColor,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.play_circle_outline,
           size: 50,
-          color: Colors.white,
+          color: modernTheme.textColor,
         ),
       );
     }

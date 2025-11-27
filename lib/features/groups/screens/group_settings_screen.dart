@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/groups/screens/group_members_screen.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupSettingsScreen extends ConsumerWidget {
   final String groupId;
@@ -15,6 +16,7 @@ class GroupSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final modernTheme = context.modernTheme;
     final groupAsync = ref.watch(groupDetailProvider(groupId));
     final membershipAsync = ref.watch(currentUserMembershipProvider(groupId));
     final currentUser = ref.watch(currentUserProvider);
@@ -38,20 +40,25 @@ class GroupSettingsScreen extends ConsumerWidget {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: modernTheme.surfaceVariantColor,
                         backgroundImage: group.hasImage
                             ? NetworkImage(group.groupImageUrl!)
                             : null,
                         child: group.hasImage
                             ? null
-                            : const Icon(Icons.group, size: 50),
+                            : Icon(
+                                Icons.group,
+                                size: 50,
+                                color: modernTheme.textColor,
+                              ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         group.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
+                          color: modernTheme.textColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -59,7 +66,7 @@ class GroupSettingsScreen extends ConsumerWidget {
                         group.description,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: modernTheme.textSecondaryColor,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -68,7 +75,7 @@ class GroupSettingsScreen extends ConsumerWidget {
                         '${group.memberCount} ${group.memberCount == 1 ? 'member' : 'members'}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[500],
+                          color: modernTheme.textTertiaryColor,
                         ),
                       ),
                     ],
@@ -96,14 +103,14 @@ class GroupSettingsScreen extends ConsumerWidget {
 
                 // Admin-only settings
                 if (isAdmin) ...[
-                  const Padding(
-                    padding: EdgeInsets.all(16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Text(
                       'ADMIN SETTINGS',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey,
+                        color: modernTheme.textSecondaryColor,
                       ),
                     ),
                   ),
@@ -116,10 +123,10 @@ class GroupSettingsScreen extends ConsumerWidget {
                   ),
                   if (isCreator)
                     ListTile(
-                      leading: const Icon(Icons.delete, color: Colors.red),
-                      title: const Text(
+                      leading: Icon(Icons.delete, color: modernTheme.errorColor),
+                      title: Text(
                         'Delete Group',
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(color: modernTheme.errorColor),
                       ),
                       onTap: () {
                         _showDeleteGroupDialog(context, ref, groupId);
@@ -130,10 +137,10 @@ class GroupSettingsScreen extends ConsumerWidget {
 
                 // Leave group
                 ListTile(
-                  leading: const Icon(Icons.exit_to_app, color: Colors.orange),
-                  title: const Text(
+                  leading: Icon(Icons.exit_to_app, color: modernTheme.warningColor),
+                  title: Text(
                     'Leave Group',
-                    style: TextStyle(color: Colors.orange),
+                    style: TextStyle(color: modernTheme.warningColor),
                   ),
                   onTap: () {
                     _showLeaveGroupDialog(
@@ -209,6 +216,7 @@ class GroupSettingsScreen extends ConsumerWidget {
   }
 
   void _showDeleteGroupDialog(BuildContext context, WidgetRef ref, String groupId) {
+    final modernTheme = context.modernTheme;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -242,7 +250,7 @@ class GroupSettingsScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: modernTheme.errorColor),
             child: const Text('Delete'),
           ),
         ],
@@ -253,6 +261,7 @@ class GroupSettingsScreen extends ConsumerWidget {
   void _showLeaveGroupDialog(
       BuildContext context, WidgetRef ref, String groupId, String? userId) {
     if (userId == null) return;
+    final modernTheme = context.modernTheme;
 
     showDialog(
       context: context,
@@ -287,7 +296,7 @@ class GroupSettingsScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            style: TextButton.styleFrom(foregroundColor: modernTheme.warningColor),
             child: const Text('Leave'),
           ),
         ],

@@ -1,6 +1,7 @@
 // lib/features/groups/widgets/group_tile.dart
 import 'package:flutter/material.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupTile extends StatelessWidget {
   final GroupModel group;
@@ -14,27 +15,31 @@ class GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+
     return ListTile(
       leading: CircleAvatar(
         radius: 28,
-        backgroundColor: Colors.grey[300],
+        backgroundColor: modernTheme.surfaceVariantColor,
         backgroundImage:
             group.hasImage ? NetworkImage(group.groupImageUrl!) : null,
         child: group.hasImage
             ? null
             : Text(
                 _getInitials(group.name),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
                 ),
               ),
       ),
       title: Text(
         group.displayName,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 16,
+          color: modernTheme.textColor,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -47,7 +52,7 @@ class GroupTile extends StatelessWidget {
               group.lastMessageText!,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: modernTheme.textSecondaryColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -57,7 +62,7 @@ class GroupTile extends StatelessWidget {
               group.displayDescription,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: modernTheme.textSecondaryColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -65,13 +70,17 @@ class GroupTile extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.people, size: 12, color: Colors.grey[500]),
+              Icon(
+                Icons.people,
+                size: 12,
+                color: modernTheme.textTertiaryColor,
+              ),
               const SizedBox(width: 4),
               Text(
                 '${group.memberCount} ${group.memberCount == 1 ? 'member' : 'members'}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[500],
+                  color: modernTheme.textTertiaryColor,
                 ),
               ),
             ],
@@ -83,7 +92,7 @@ class GroupTile extends StatelessWidget {
               group.lastMessageTimeAgo,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[500],
+                color: modernTheme.textTertiaryColor,
               ),
             )
           : null,

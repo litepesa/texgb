@@ -5,6 +5,7 @@ import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/groups/widgets/member_tile.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupMembersScreen extends ConsumerWidget {
   final String groupId;
@@ -16,6 +17,7 @@ class GroupMembersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final modernTheme = context.modernTheme;
     final membersAsync = ref.watch(groupMembersProvider(groupId));
     final membershipAsync = ref.watch(currentUserMembershipProvider(groupId));
     final currentUser = ref.watch(currentUserProvider);
@@ -43,15 +45,22 @@ class GroupMembersScreen extends ConsumerWidget {
       body: membersAsync.when(
         data: (members) {
           if (members.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
+                  Icon(
+                    Icons.people_outline,
+                    size: 64,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'No members',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: modernTheme.textSecondaryColor,
+                    ),
                   ),
                 ],
               ),
@@ -121,7 +130,11 @@ class GroupMembersScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: modernTheme.errorColor,
+              ),
               const SizedBox(height: 16),
               Text('Error: $error'),
               ElevatedButton(
@@ -138,6 +151,7 @@ class GroupMembersScreen extends ConsumerWidget {
   }
 
   void _showAddMembersDialog(BuildContext context, WidgetRef ref) {
+    final modernTheme = context.modernTheme;
     final TextEditingController searchController = TextEditingController();
 
     showDialog(
@@ -201,7 +215,10 @@ class GroupMembersScreen extends ConsumerWidget {
                                 ),
                                 title: Text(user.name),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.add_circle, color: Colors.green),
+                                  icon: Icon(
+                                    Icons.add_circle,
+                                    color: modernTheme.successColor,
+                                  ),
                                   onPressed: () async {
                                     try {
                                       await ref
@@ -246,6 +263,7 @@ class GroupMembersScreen extends ConsumerWidget {
 
   void _showRemoveMemberDialog(
       BuildContext context, WidgetRef ref, member) {
+    final modernTheme = context.modernTheme;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -279,7 +297,7 @@ class GroupMembersScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: modernTheme.errorColor),
             child: const Text('Remove'),
           ),
         ],

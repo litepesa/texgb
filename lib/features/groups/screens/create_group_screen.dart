@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -116,6 +117,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Group'),
@@ -135,9 +138,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: modernTheme.surfaceVariantColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey[400]!, width: 2),
+                        border: Border.all(
+                          color: modernTheme.dividerColor ?? Colors.transparent,
+                          width: 2,
+                        ),
                       ),
                       child: _isUploadingImage
                           ? const Center(
@@ -160,7 +166,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                   : Icon(
                                       Icons.add_a_photo,
                                       size: 40,
-                                      color: Colors.grey[600],
+                                      color: modernTheme.textSecondaryColor,
                                     ),
                     ),
                   ),
@@ -171,12 +177,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: modernTheme.primaryColor,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.camera_alt,
-                          color: Colors.white,
+                          color: modernTheme.surfaceColor,
                           size: 20,
                         ),
                       ),
@@ -187,7 +193,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             const SizedBox(height: 8),
             Text(
               'Tap to select group image',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(
+                fontSize: 12,
+                color: modernTheme.textSecondaryColor,
+              ),
             ),
             const SizedBox(height: 24),
 
@@ -240,20 +249,26 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: modernTheme.infoColor?.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
+                border: Border.all(
+                  color: modernTheme.infoColor?.withOpacity(0.3) ?? Colors.transparent,
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: modernTheme.infoColor,
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'You can add members after creating the group',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.blue[900],
+                        color: modernTheme.textColor,
                       ),
                     ),
                   ),

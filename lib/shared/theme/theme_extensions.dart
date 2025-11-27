@@ -35,6 +35,12 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
   final Color? accentColor;
   final Color? borderColor;
 
+  // Semantic colors for groups
+  final Color? successColor;
+  final Color? warningColor;
+  final Color? errorColor;
+  final Color? infoColor;
+
   const ModernThemeExtension({
     this.backgroundColor,
     this.surfaceColor,
@@ -48,6 +54,10 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     this.secondaryColor,
     this.accentColor,
     this.borderColor,
+    this.successColor,
+    this.warningColor,
+    this.errorColor,
+    this.infoColor,
   });
 
   static const lightMode = ModernThemeExtension(
@@ -63,6 +73,10 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     secondaryColor: ModernColors.accentTealBlue,
     accentColor: ModernColors.success,
     borderColor: ModernColors.lightBorder,
+    successColor: ModernColors.groupSuccess,
+    warningColor: ModernColors.groupModerator,
+    errorColor: ModernColors.groupDanger,
+    infoColor: ModernColors.groupAdmin,
   );
 
   static const darkMode = ModernThemeExtension(
@@ -78,6 +92,10 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     secondaryColor: ModernColors.accentBlue,
     accentColor: ModernColors.success,
     borderColor: ModernColors.darkBorder,
+    successColor: ModernColors.groupSuccess,
+    warningColor: ModernColors.groupModerator,
+    errorColor: ModernColors.groupDanger,
+    infoColor: ModernColors.groupAdmin,
   );
 
   get inputBackgroundColor => null;
@@ -98,6 +116,10 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     Color? secondaryColor,
     Color? accentColor,
     Color? borderColor,
+    Color? successColor,
+    Color? warningColor,
+    Color? errorColor,
+    Color? infoColor,
   }) {
     return ModernThemeExtension(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -112,6 +134,10 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
       secondaryColor: secondaryColor ?? this.secondaryColor,
       accentColor: accentColor ?? this.accentColor,
       borderColor: borderColor ?? this.borderColor,
+      successColor: successColor ?? this.successColor,
+      warningColor: warningColor ?? this.warningColor,
+      errorColor: errorColor ?? this.errorColor,
+      infoColor: infoColor ?? this.infoColor,
     );
   }
 
@@ -132,6 +158,10 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
       secondaryColor: Color.lerp(secondaryColor, other.secondaryColor, t),
       accentColor: Color.lerp(accentColor, other.accentColor, t),
       borderColor: Color.lerp(borderColor, other.borderColor, t),
+      successColor: Color.lerp(successColor, other.successColor, t),
+      warningColor: Color.lerp(warningColor, other.warningColor, t),
+      errorColor: Color.lerp(errorColor, other.errorColor, t),
+      infoColor: Color.lerp(infoColor, other.infoColor, t),
     );
   }
 }

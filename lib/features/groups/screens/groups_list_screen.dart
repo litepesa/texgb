@@ -171,13 +171,13 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen>
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: modernTheme.errorColor?.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   CupertinoIcons.exclamationmark_triangle,
                   size: 64,
-                  color: Colors.red,
+                  color: modernTheme.errorColor,
                 ),
               ),
               const SizedBox(height: 24),
@@ -210,7 +210,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen>
                 label: const Text('Try Again'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: modernTheme.primaryColor ?? const Color(0xFF07C160),
-                  foregroundColor: Colors.white,
+                  foregroundColor: modernTheme.surfaceColor,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

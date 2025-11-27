@@ -11,6 +11,8 @@ import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/features/groups/models/group_message_model.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -30,6 +32,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isTyping = false;
   bool _isUploadingMedia = false;
+  bool _isComposing = false;
 
   @override
   void initState() {
@@ -62,6 +65,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
 
     _messageController.clear();
     _setTyping(false);
+    setState(() {
+      _isComposing = false;
+    });
 
     // Scroll to bottom
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -91,9 +97,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   }
 
   void _showAttachmentOptions() {
+    final modernTheme = context.modernTheme;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: modernTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -107,7 +115,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: modernTheme.dividerColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -118,7 +126,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   _AttachmentOption(
                     icon: Icons.photo_library,
                     label: 'Gallery',
-                    color: Colors.purple,
+                    color: ModernColors.groupMedia,
                     onTap: () {
                       Navigator.pop(context);
                       _handleImagePicker();
@@ -127,7 +135,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   _AttachmentOption(
                     icon: Icons.camera_alt,
                     label: 'Camera',
-                    color: Colors.green,
+                    color: modernTheme.successColor ?? ModernColors.groupSuccess,
                     onTap: () {
                       Navigator.pop(context);
                       _handleCameraPicker();
@@ -136,7 +144,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   _AttachmentOption(
                     icon: Icons.insert_drive_file,
                     label: 'Document',
-                    color: Colors.blue,
+                    color: modernTheme.infoColor ?? ModernColors.groupAdmin,
                     onTap: () {
                       Navigator.pop(context);
                       _handleFilePicker();
@@ -288,6 +296,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
     final groupAsync = ref.watch(groupDetailProvider(widget.groupId));
     final messagesAsync = ref.watch(groupMessagesProvider(widget.groupId));
     final membersAsync = ref.watch(groupMembersProvider(widget.groupId));
@@ -341,20 +350,30 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
             child: messagesAsync.when(
               data: (messages) {
                 if (messages.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: modernTheme.textSecondaryColor,
+                        ),
+                        const SizedBox(height: 16),
                         Text(
                           'No messages yet',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: modernTheme.textSecondaryColor,
+                          ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Start the conversation',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: modernTheme.textSecondaryColor,
+                          ),
                         ),
                       ],
                     ),
@@ -392,7 +411,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: modernTheme.errorColor,
+                    ),
                     const SizedBox(height: 16),
                     Text('Error: $error'),
                     ElevatedButton(
@@ -415,47 +438,142 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   .getTypingText(),
             ),
 
-          // Message input
+          // Message input - floating design (matching 1-on-1 chat exactly)
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Media picker button
-                IconButton(
-                  icon: const Icon(Icons.attach_file),
-                  onPressed: _isUploadingMedia ? null : _showAttachmentOptions,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type a message...',
-                      border: InputBorder.none,
-                    ),
-                    maxLines: null,
-                    textCapitalization: TextCapitalization.sentences,
-                    onChanged: (text) {
-                      _setTyping(text.isNotEmpty);
-                    },
-                    onSubmitted: (_) => _sendMessage(),
+            color: Colors.transparent,
+            child: Container(
+              margin: EdgeInsets.only(
+                left: 12,
+                right: 12,
+                bottom: 8 + MediaQuery.of(context).padding.bottom,
+              ),
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: modernTheme.dividerColor!.withOpacity(0.1),
+                  width: 0.5,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                  color: Theme.of(context).primaryColor,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Attachment button
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor?.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        onPressed: _isUploadingMedia ? null : _showAttachmentOptions,
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          Icons.attach_file,
+                          color: modernTheme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Text input
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minHeight: 36,
+                          maxHeight: 120,
+                        ),
+                        decoration: BoxDecoration(
+                          color: context.chatTheme.inputBackgroundColor,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: modernTheme.dividerColor!.withOpacity(0.1),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.newline,
+                          style: TextStyle(
+                            color: modernTheme.textColor,
+                            fontSize: 15,
+                            height: 1.3,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            hintStyle: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 15,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            isDense: true,
+                          ),
+                          onChanged: (text) {
+                            _setTyping(text.isNotEmpty);
+                            setState(() {
+                              _isComposing = text.trim().isNotEmpty;
+                            });
+                          },
+                          onSubmitted: (text) {
+                            if (_isComposing) {
+                              _sendMessage();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Send button (animated based on _isComposing)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _isComposing
+                            ? modernTheme.primaryColor
+                            : modernTheme.primaryColor?.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        onPressed: _isComposing ? _sendMessage : null,
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          Icons.send,
+                          color: _isComposing
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.7),
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],

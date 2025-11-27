@@ -1,6 +1,7 @@
 // lib/features/groups/widgets/member_tile.dart
 import 'package:flutter/material.dart';
 import 'package:textgb/features/groups/models/group_member_model.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MemberTile extends StatelessWidget {
   final GroupMemberModel member;
@@ -22,16 +23,21 @@ class MemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+
     return ListTile(
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: Colors.grey[300],
+        backgroundColor: modernTheme.surfaceVariantColor,
         backgroundImage:
             member.userImage != null ? NetworkImage(member.userImage!) : null,
         child: member.userImage == null
             ? Text(
                 _getInitials(member.displayName),
-                style: const TextStyle(fontSize: 16),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: modernTheme.textColor,
+                ),
               )
             : null,
       ),
@@ -40,9 +46,10 @@ class MemberTile extends StatelessWidget {
           Expanded(
             child: Text(
               member.displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w500,
                 fontSize: 15,
+                color: modernTheme.textColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -52,14 +59,14 @@ class MemberTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.blue[100],
+                color: modernTheme.infoColor?.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 'You',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.blue,
+                  color: modernTheme.infoColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -75,7 +82,7 @@ class MemberTile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.orange[100],
+                    color: modernTheme.warningColor?.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -84,14 +91,14 @@ class MemberTile extends StatelessWidget {
                       Icon(
                         Icons.admin_panel_settings,
                         size: 12,
-                        color: Colors.orange[800],
+                        color: modernTheme.warningColor,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Admin',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.orange[800],
+                          color: modernTheme.warningColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -103,7 +110,7 @@ class MemberTile extends StatelessWidget {
                 'Joined ${member.joinedTimeAgo}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600],
+                  color: modernTheme.textSecondaryColor,
                 ),
               ),
             ],
@@ -113,14 +120,14 @@ class MemberTile extends StatelessWidget {
               member.userPhone!,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[500],
+                color: modernTheme.textTertiaryColor,
               ),
             ),
         ],
       ),
       trailing: isCurrentUserAdmin && !isSelf
           ? PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
+              icon: Icon(Icons.more_vert, color: modernTheme.textColor),
               onSelected: (value) {
                 switch (value) {
                   case 'promote':
@@ -136,35 +143,35 @@ class MemberTile extends StatelessWidget {
               },
               itemBuilder: (context) => [
                 if (!member.isAdmin && onPromote != null)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'promote',
                     child: Row(
                       children: [
-                        Icon(Icons.arrow_upward, size: 18),
-                        SizedBox(width: 8),
-                        Text('Promote to Admin'),
+                        Icon(Icons.arrow_upward, size: 18, color: modernTheme.textColor),
+                        const SizedBox(width: 8),
+                        Text('Promote to Admin', style: TextStyle(color: modernTheme.textColor)),
                       ],
                     ),
                   ),
                 if (member.isAdmin && onDemote != null)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'demote',
                     child: Row(
                       children: [
-                        Icon(Icons.arrow_downward, size: 18),
-                        SizedBox(width: 8),
-                        Text('Demote to Member'),
+                        Icon(Icons.arrow_downward, size: 18, color: modernTheme.textColor),
+                        const SizedBox(width: 8),
+                        Text('Demote to Member', style: TextStyle(color: modernTheme.textColor)),
                       ],
                     ),
                   ),
                 if (onRemove != null)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'remove',
                     child: Row(
                       children: [
-                        Icon(Icons.person_remove, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Remove', style: TextStyle(color: Colors.red)),
+                        Icon(Icons.person_remove, size: 18, color: modernTheme.errorColor),
+                        const SizedBox(width: 8),
+                        Text('Remove', style: TextStyle(color: modernTheme.errorColor)),
                       ],
                     ),
                   ),
