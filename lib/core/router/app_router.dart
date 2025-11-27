@@ -30,6 +30,14 @@ import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/featured_videos_screen.dart';
 
+import 'package:textgb/features/marketplace/screens/marketplace_feed_screen.dart';
+import 'package:textgb/features/marketplace/screens/single_marketplace_video_screen.dart';
+import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
+import 'package:textgb/features/marketplace/screens/my_listing_screen.dart';
+import 'package:textgb/features/marketplace/screens/recommended_listings_screen.dart';
+import 'package:textgb/features/marketplace/screens/manage_listings_screen.dart';
+import 'package:textgb/features/marketplace/screens/featured_marketplace_screen.dart';
+
 
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -72,6 +80,7 @@ import 'package:textgb/features/calls/screens/active_call_screen.dart';
 import 'package:textgb/features/status/screens/status_list_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+import 'package:textgb/features/status/screens/my_status_detail_screen.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 
 /// Provider for the GoRouter instance
@@ -302,6 +311,90 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      // ==================== MARKETPLACE ROUTES ====================
+
+      // Marketplace feed
+      GoRoute(
+        path: RoutePaths.marketplaceFeed,
+        name: RouteNames.marketplaceFeed,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: MarketplaceFeedScreen(),
+        ),
+      ),
+
+      // Create marketplace listing
+      GoRoute(
+        path: RoutePaths.createMarketplaceListing,
+        name: RouteNames.createMarketplaceListing,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: CreateListingScreen(),
+        ),
+      ),
+
+      // Recommended marketplace listings
+      GoRoute(
+        path: RoutePaths.recommendedMarketplaceListings,
+        name: RouteNames.recommendedMarketplaceListings,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: RecommendedListingsScreen(),
+        ),
+      ),
+
+      // Featured marketplace
+      GoRoute(
+        path: RoutePaths.featuredMarketplace,
+        name: RouteNames.featuredMarketplace,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: FeaturedMarketplaceScreen(),
+        ),
+      ),
+
+      // Manage marketplace listings
+      GoRoute(
+        path: RoutePaths.manageMarketplaceListings,
+        name: RouteNames.manageMarketplaceListings,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: ManageListingsScreen(),
+        ),
+      ),
+
+      // Single marketplace video screen
+      GoRoute(
+        path: RoutePaths.singleMarketplaceVideoPattern,
+        name: RouteNames.singleMarketplaceVideo,
+        pageBuilder: (context, state) {
+          final videoId = state.pathParameters['videoId']!;
+          return NoTransitionPage(
+            child: SingleMarketplaceVideoScreen(
+              videoId: videoId,
+            ),
+          );
+        },
+      ),
+
+      // My marketplace listing
+      GoRoute(
+        path: RoutePaths.myListingPattern,
+        name: RouteNames.myListing,
+        pageBuilder: (context, state) {
+          final videoId = state.pathParameters['videoId']!;
+          return NoTransitionPage(
+            child: MyListingScreen(videoId: videoId),
+          );
+        },
+      ),
+
+      // Marketplace listing detail
+      GoRoute(
+        path: RoutePaths.listingDetailPattern,
+        pageBuilder: (context, state) {
+          final videoId = state.pathParameters['videoId']!;
+          return NoTransitionPage(
+            child: MyListingScreen(videoId: videoId),
+          );
+        },
+      ),
+
       // ==================== STATUS ROUTES ====================
 
       GoRoute(
@@ -338,6 +431,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             initialIndex: initialIndex,
           );
         },
+      ),
+
+      GoRoute(
+        path: RoutePaths.myStatusDetail,
+        name: RouteNames.myStatusDetail,
+        builder: (context, state) => const MyStatusDetailScreen(),
       ),
 
       GoRoute(

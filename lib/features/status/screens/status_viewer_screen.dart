@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/features/status/models/status_model.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/features/status/services/status_time_service.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/status/widgets/status_interactions.dart';
@@ -217,7 +216,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     final status = _statuses[_currentIndex];
 
     return Scaffold(
-      backgroundColor: StatusTheme.darkBackground,
+      backgroundColor: Colors.black,
       body: GestureDetector(
         onTapDown: (details) => _handleTap(details, context),
         onLongPress: _togglePause,
@@ -338,7 +337,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     return Container(
       decoration: BoxDecoration(
         gradient: status.textBackground != null
-            ? StatusTheme.getTextBackgroundGradient(status.textBackground!.colors)
+            ? LinearGradient(
+                colors: status.textBackground!.colors.map((hex) => _hexToColor(hex)).toList(),
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
             : const LinearGradient(
                 colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
                 begin: Alignment.topLeft,
@@ -347,10 +350,15 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       ),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(StatusTheme.textStatusPadding),
+          padding: const EdgeInsets.all(32.0),
           child: Text(
             status.content ?? '',
-            style: StatusTheme.textStatusStyle,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -377,9 +385,9 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
           return Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 2),
-              height: StatusTheme.viewerProgressHeight,
+              height: 3,
               decoration: BoxDecoration(
-                color: StatusTheme.progressInactive,
+                color: Colors.white.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: FractionallySizedBox(
@@ -387,7 +395,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                 widthFactor: progress,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: StatusTheme.progressActive,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -421,13 +429,20 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
               children: [
                 Text(
                   status.userName,
-                  style: StatusTheme.userNameStyle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   StatusTimeService.formatStatusTime(status.createdAt),
-                  style: StatusTheme.timeStyle,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -446,12 +461,15 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
           const Icon(
             Icons.visibility_outlined,
             size: 16,
-            color: StatusTheme.secondaryText,
+            color: Colors.white70,
           ),
           const SizedBox(width: 6),
           Text(
             '${status.viewsCount} ${status.viewsCount == 1 ? 'view' : 'views'}',
-            style: StatusTheme.viewCountStyle,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -471,4 +489,10 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     }
     // Middle third - do nothing (reserved for interactions)
   }
+}
+
+// Helper function to convert hex color string to Color
+Color _hexToColor(String hex) {
+  final hexCode = hex.replaceAll('#', '');
+  return Color(int.parse('FF$hexCode', radix: 16));
 }

@@ -1,40 +1,35 @@
-// lib/features/videos/screens/single_video_screen.dart
+// lib/features/marketplace/screens/single_marketplace_video_screen.dart
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/marketplace/widgets/marketplace_comments_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/videos/widgets/video_item.dart';
-import 'package:textgb/constants.dart';
+import 'package:textgb/features/marketplace/widgets/marketplace_video_item.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
-import 'package:textgb/features/chat/repositories/chat_repository.dart';
-import 'package:textgb/features/chat/models/video_reaction_model.dart';
-import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
-import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-class SingleVideoScreen extends ConsumerStatefulWidget {
+class SingleMarketplaceVideoScreen extends ConsumerStatefulWidget {
   final String videoId;
 
-  const SingleVideoScreen({
+  const SingleMarketplaceVideoScreen({
     super.key,
     required this.videoId,
     String? userId,
   });
 
   @override
-  ConsumerState<SingleVideoScreen> createState() => _SingleVideoScreenState();
+  ConsumerState<SingleMarketplaceVideoScreen> createState() => _SingleMarketplaceVideoScreenState();
 }
 
-class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
+class _SingleMarketplaceVideoScreenState extends ConsumerState<SingleMarketplaceVideoScreen>
     with
         WidgetsBindingObserver,
         TickerProviderStateMixin,
@@ -43,7 +38,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   final PageController _pageController = PageController();
 
   // State management
-  int _currentVideoIndex = 0;
+  int _currentMarketplaceItemIndex = 0;
   bool _isAppInForeground = true;
   final bool _isScreenActive = true;
   bool _isNavigatingAway = false;
@@ -51,8 +46,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   bool _isCommentsSheetOpen = false; // Track comments sheet state
 
   // Video data
-  UserModel? _videoAuthor;
-  List<VideoModel> _videos = [];
+  UserModel? _marketplaceItemAuthor;
+  List<MarketplaceVideoModel> _marketplaceItems = [];
   bool _isLoading = true;
   String? _error;
   bool _isFollowing = false;
@@ -150,10 +145,10 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     });
 
     try {
-      // Get the specific video first to find the user
-      final allVideos = ref.read(videosProvider);
+      // Get the specific marketplaceVideo first to find the user
+      final allVideos = ref.read(marketplaceVideosProvider);
       final targetVideo = allVideos.firstWhere(
-        (video) => video.id == widget.videoId,
+        (marketplaceVideo) => marketplaceVideo.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
 
@@ -164,9 +159,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         orElse: () => throw Exception('User not found'),
       );
 
-      // Load all user videos
+      // Load all user marketplaceVideos
       final userVideos = allVideos
-          .where((video) => video.userId == targetVideo.userId)
+          .where((marketplaceVideo) => marketplaceVideo.userId == targetVideo.userId)
           .toList();
 
       // Sort by newest first
@@ -180,9 +175,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         }
       });
 
-      // Find the index of the target video
+      // Find the index of the target marketplaceVideo
       final targetIndex =
-          userVideos.indexWhere((video) => video.id == widget.videoId);
+          userVideos.indexWhere((marketplaceVideo) => marketplaceVideo.id == widget.videoId);
 
       final followedUsers = ref.read(followedUsersProvider);
       final isFollowing = followedUsers.contains(targetVideo.userId);
@@ -191,15 +186,15 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
       if (mounted) {
         setState(() {
-          _videoAuthor = author;
-          _videos = userVideos;
+          _marketplaceItemAuthor = author;
+          _marketplaceItems = userVideos;
           _isFollowing = isFollowing;
           _isOwner = isOwner;
           _isLoading = false;
-          _currentVideoIndex = targetIndex >= 0 ? targetIndex : 0;
+          _currentMarketplaceItemIndex = targetIndex >= 0 ? targetIndex : 0;
         });
 
-        // Set the page controller to the target video after the widget is built
+        // Set the page controller to the target marketplaceVideo after the widget is built
         if (targetIndex >= 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _pageController.hasClients) {
@@ -233,9 +228,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       return;
     }
 
-    if (_videos.isEmpty) return;
+    if (_marketplaceItems.isEmpty) return;
 
-    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
+    debugPrint('Starting intelligent preloading for index: $_currentMarketplaceItemIndex');
     // Preloading logic can be added here if needed
   }
 
@@ -249,14 +244,14 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       return;
     }
 
-    debugPrint('SingleVideoScreen: Starting fresh playback');
+    debugPrint('SingleMarketplaceVideoScreen: Starting fresh playback');
 
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
-      debugPrint('SingleVideoScreen: Video controller playing');
+      debugPrint('SingleMarketplaceVideoScreen: Video controller playing');
     } else {
-      debugPrint('SingleVideoScreen: Video controller not ready, attempting initialization');
-      if (_videos.isNotEmpty && _currentVideoIndex < _videos.length) {
+      debugPrint('SingleMarketplaceVideoScreen: Video controller not ready, attempting initialization');
+      if (_marketplaceItems.isNotEmpty && _currentMarketplaceItemIndex < _marketplaceItems.length) {
         setState(() {});
       }
     }
@@ -266,7 +261,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _stopPlayback() {
-    debugPrint('SingleVideoScreen: Stopping playback');
+    debugPrint('SingleMarketplaceVideoScreen: Stopping playback');
 
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
@@ -277,13 +272,13 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _pauseForNavigation() {
-    debugPrint('SingleVideoScreen: Pausing for navigation');
+    debugPrint('SingleMarketplaceVideoScreen: Pausing for navigation');
     _isNavigatingAway = true;
     _stopPlayback();
   }
 
   void _resumeFromNavigation() {
-    debugPrint('SingleVideoScreen: Resuming from navigation');
+    debugPrint('SingleMarketplaceVideoScreen: Resuming from navigation');
     _isNavigatingAway = false;
     if (_isScreenActive &&
         _isAppInForeground &&
@@ -364,11 +359,11 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   Widget _buildVideoContentOnly() {
-    if (_videos.isEmpty || _currentVideoIndex >= _videos.length) {
+    if (_marketplaceItems.isEmpty || _currentMarketplaceItemIndex >= _marketplaceItems.length) {
       return Container(color: Colors.black);
     }
 
-    final currentVideo = _videos[_currentVideoIndex];
+    final currentVideo = _marketplaceItems[_currentMarketplaceItemIndex];
 
     if (currentVideo.isMultipleImages) {
       return _buildImageCarouselOnly(currentVideo.imageUrls);
@@ -458,19 +453,19 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void onManualPlayPause(bool isPlaying) {
-    debugPrint('SingleVideoScreen: Manual play/pause - isPlaying: $isPlaying');
+    debugPrint('SingleMarketplaceVideoScreen: Manual play/pause - isPlaying: $isPlaying');
     setState(() {
       _isManuallyPaused = !isPlaying;
     });
   }
 
   void _onPageChanged(int index) {
-    if (index >= _videos.length || !_isScreenActive) return;
+    if (index >= _marketplaceItems.length || !_isScreenActive) return;
 
     debugPrint('Page changed to: $index');
 
     setState(() {
-      _currentVideoIndex = index;
+      _currentMarketplaceItemIndex = index;
       _isManuallyPaused = false;
     });
 
@@ -483,7 +478,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       WakelockPlus.enable();
     }
 
-    ref.read(authenticationProvider.notifier).incrementViewCount(_videos[index].id);
+    ref.read(marketplaceProvider.notifier).incrementMarketplaceVideoViewCount(_marketplaceItems[index].id);
   }
 
   void _handleBackNavigation() {
@@ -517,8 +512,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     });
   }
 
-  // Show comments with small video window
-  void _showCommentsForCurrentVideo(VideoModel video) {
+  // Show comments with small marketplaceVideo window
+  void _showCommentsForCurrentVideo(MarketplaceVideoModel marketplaceVideo) {
     _setVideoWindowMode(true);
 
     showModalBottomSheet(
@@ -526,8 +521,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
-      builder: (context) => CommentsBottomSheet(
-        video: video,
+      builder: (context) => MarketplaceCommentsBottomSheet(
+        marketplaceVideo: marketplaceVideo,
         onClose: () {
           _setVideoWindowMode(false);
         },
@@ -538,106 +533,40 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   // Direct message functionality
-  Future<void> _openDirectMessage(VideoModel video) async {
+  Future<void> _openDirectMessage(MarketplaceVideoModel marketplaceVideo) async {
     _pauseForNavigation();
 
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) {
-      _showSnackBar('Please log in to send messages');
-      _resumeFromNavigation();
-      return;
-    }
-
-    // Check if trying to message own video
-    if (video.userId == currentUser.uid) {
-      _showSnackBar('You cannot message yourself');
-      _resumeFromNavigation();
-      return;
-    }
-
     try {
-      // Step 1: Show video reaction input modal (prototype pattern)
-      final reaction = await showModalBottomSheet<String>(
+      showDialog(
         context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => VideoReactionInput(
-          video: video,
-          onSendReaction: (reaction) => Navigator.pop(context, reaction),
-          onCancel: () => Navigator.pop(context),
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
 
-      // Step 2: If reaction was provided, create chat and send message
-      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
-        debugPrint('🔵 Creating chat with user: ${video.userId}');
-        final chatNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatNotifier.createOrGetChat(video.userId);
-        debugPrint('🔵 Chat ID received: $chatId');
+      final chatNotifier = ref.read(chatListProvider.notifier);
+      final chatId = await chatNotifier.createOrGetChat(marketplaceVideo.userId);
 
-        if (chatId != null) {
-          debugPrint('🔵 Sending video reaction message to chat: $chatId');
-          // Step 3: Send video reaction message via repository
-          final chatRepository = ref.read(chatRepositoryProvider);
-          final videoReaction = VideoReactionModel.fromVideoAndUser(
-            videoId: video.id,
-            videoUrl: video.videoUrl,
-            thumbnailUrl: video.thumbnailUrl,
-            userName: video.userName,
-            userImage: video.userImage,
-            reaction: reaction,
-          );
-
-          await chatRepository.sendVideoReactionMessage(
-            chatId: chatId,
-            senderId: currentUser.uid,
-            videoReaction: videoReaction,
-          );
-          debugPrint('✅ Video reaction message sent successfully');
-
-          // Step 4: Create contact and navigate to chat
-          final contact = UserModel(
-            uid: video.userId,
-            name: video.userName,
-            profileImage: video.userImage,
-            phoneNumber: '',
-            bio: '',
-            coverImage: '',
-            followers: 0,
-            following: 0,
-            videosCount: 0,
-            likesCount: 0,
-            isVerified: video.isVerified,
-            tags: const [],
-            followerUIDs: const [],
-            followingUIDs: const [],
-            likedVideos: const [],
-            createdAt: '',
-            updatedAt: '',
-            lastSeen: '',
-            isActive: true,
-            isFeatured: false,
-          );
-
-          debugPrint('🔵 Navigating to chat screen');
-          // Navigate using MaterialPageRoute like prototype
-          await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                chatId: chatId,
-                contact: contact,
-              ),
-            ),
-          );
-        } else {
-          debugPrint('❌ Chat ID is null');
-          _showSnackBar('Failed to open chat. Please try again.');
-        }
+      if (mounted) {
+        Navigator.of(context).pop();
       }
-    } catch (e, stackTrace) {
-      debugPrint('❌ Error opening direct message: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
-      _showSnackBar('Error: $e');
+
+      if (chatId != null) {
+        if (mounted) {
+          context.push(RoutePaths.chat(chatId));
+        }
+      } else {
+        _showSnackBar('Failed to open chat. Please try again.');
+      }
+    } catch (e) {
+      debugPrint('Error opening direct message: $e');
+
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      _showSnackBar('Failed to open chat. Please try again.');
     } finally {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
@@ -717,12 +646,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         extendBody: true,
         body: Stack(
           children: [
-            // Main video content - full screen
+            // Main marketplaceVideo content - full screen
             Positioned.fill(
               child: _buildVideoFeed(),
             ),
 
-            // Small video window when comments are open
+            // Small marketplaceVideo window when comments are open
             if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
           ],
         ),
@@ -731,24 +660,24 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   Widget _buildVideoFeed() {
-    if (_videos.isEmpty) {
+    if (_marketplaceItems.isEmpty) {
       return _buildEmptyState();
     }
 
     return PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
-      itemCount: _videos.length,
+      itemCount: _marketplaceItems.length,
       onPageChanged: _onPageChanged,
       physics: _isScreenActive && !_isCommentsSheetOpen
           ? null
           : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
-        final video = _videos[index];
+        final marketplaceVideo = _marketplaceItems[index];
 
-        return VideoItem(
-          video: video,
-          isActive: index == _currentVideoIndex &&
+        return MarketplaceItem(
+          marketplaceVideo: marketplaceVideo,
+          isActive: index == _currentMarketplaceItemIndex &&
               _isScreenActive &&
               _isAppInForeground &&
               !_isNavigatingAway,
@@ -756,8 +685,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
           showVerificationBadge: true,
-          onCommentsPressed: () => _showCommentsForCurrentVideo(video),
-          onDirectMessagePressed: () => _openDirectMessage(video),
+          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceVideo),
+          onDirectMessagePressed: () => _openDirectMessage(marketplaceVideo),
         );
       },
     );
@@ -777,15 +706,15 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           const SizedBox(height: 8),
           Text(
             _isOwner
-                ? 'Create your first video to share with your followers'
-                : 'This user hasn\'t posted any videos yet',
+                ? 'Create your first marketplaceVideo to share with your followers'
+                : 'This user hasn\'t posted any marketplaceVideos yet',
             style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 16),
             textAlign: TextAlign.center,
           ),
           if (_isOwner) ...[
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, Constants.createPostScreen),
+              onPressed: () => context.push(RoutePaths.createMarketplaceListing),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF0050),
                 foregroundColor: Colors.white,

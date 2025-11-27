@@ -830,74 +830,101 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   String _getAvatarInitials(String name) {
-    if (name.isEmpty) return '?';
-    final words = name.trim().split(' ');
-    if (words.length >= 2) {
+    if (name.isEmpty) return 'U'; // U for Unknown User, better than '?'
+
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) return 'U';
+
+    final words = trimmedName.split(' ');
+    if (words.length >= 2 && words[0].isNotEmpty && words[1].isNotEmpty) {
       return '${words[0][0]}${words[1][0]}'.toUpperCase();
     }
-    return name[0].toUpperCase();
+
+    // Single word or name - use first character
+    return trimmedName[0].toUpperCase();
   }
 
   void _openChat(ChatListItemModel chatItem) async {
-    // Mark chat as read when opening
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    final chatListNotifier = ref.read(chatListProvider.notifier);
-    await chatListNotifier.markChatAsRead(chatItem.chat.chatId);
-
-    // Get the other participant's user ID
-    final otherUserId = chatItem.chat.getOtherParticipant(currentUser.uid);
-
-    // Get full user data from authentication provider
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    UserModel? contactUser;
-    
     try {
-      contactUser = await authNotifier.getUserById(otherUserId);
-    } catch (e) {
-      debugPrint('Error fetching contact user data: $e');
-    }
+      debugPrint('🔵 Opening chat: ${chatItem.chat.chatId}');
 
-    // Create UserModel with available data
-    final contact = contactUser ?? UserModel(
-      uid: otherUserId,
-      phoneNumber: chatItem.contactPhone,
-      name: chatItem.contactName,
-      bio: '',
-      profileImage: chatItem.contactImage,
-      coverImage: '',
-      followers: 0,
-      following: 0,
-      videosCount: 0,
-      likesCount: 0,
-      isVerified: false,
-      tags: [],
-      followerUIDs: [],
-      followingUIDs: [],
-      likedVideos: [],
-      createdAt: DateTime.now().toIso8601String(),
-      updatedAt: DateTime.now().toIso8601String(),
-      lastSeen: DateTime.now().toIso8601String(),
-      isActive: true,
-      isFeatured: false,
-    );
+      // Mark chat as read when opening
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        debugPrint('❌ No current user, cannot open chat');
+        return;
+      }
 
-    // Navigate to chat screen
-    if (mounted) {
-      final result = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ChatScreen(
-            chatId: chatItem.chat.chatId,
-            contact: contact,
-          ),
-        ),
+      debugPrint('🔵 Current user: ${currentUser.uid}');
+
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      await chatListNotifier.markChatAsRead(chatItem.chat.chatId);
+
+      // Get the other participant's user ID
+      final otherUserId = chatItem.chat.getOtherParticipant(currentUser.uid);
+      debugPrint('🔵 Other user ID: $otherUserId');
+
+      // Get full user data from authentication provider
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      UserModel? contactUser;
+
+      try {
+        contactUser = await authNotifier.getUserById(otherUserId);
+        debugPrint('✅ Got contact user: ${contactUser?.name}');
+      } catch (e) {
+        debugPrint('⚠️ Error fetching contact user data: $e');
+      }
+
+      // Create UserModel with available data
+      final contact = contactUser ?? UserModel(
+        uid: otherUserId,
+        phoneNumber: chatItem.contactPhone,
+        name: chatItem.contactName.isNotEmpty ? chatItem.contactName : 'Unknown User',
+        bio: '',
+        profileImage: chatItem.contactImage,
+        coverImage: '',
+        followers: 0,
+        following: 0,
+        videosCount: 0,
+        likesCount: 0,
+        isVerified: false,
+        tags: [],
+        followerUIDs: [],
+        followingUIDs: [],
+        likedVideos: [],
+        createdAt: DateTime.now().toIso8601String(),
+        updatedAt: DateTime.now().toIso8601String(),
+        lastSeen: DateTime.now().toIso8601String(),
+        isActive: true,
+        isFeatured: false,
       );
 
-      // Refresh chat list if message was sent
-      if (result == true) {
-        ref.refresh(chatListProvider);
+      debugPrint('🔵 Final contact name: ${contact.name}');
+      debugPrint('🔵 Navigating to ChatScreen...');
+
+      // Navigate to chat screen
+      if (mounted) {
+        final result = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatItem.chat.chatId,
+              contact: contact,
+            ),
+          ),
+        );
+
+        debugPrint('✅ Returned from ChatScreen with result: $result');
+
+        // Refresh chat list if message was sent
+        if (result == true) {
+          ref.refresh(chatListProvider);
+        }
+      } else {
+        debugPrint('❌ Widget not mounted, cannot navigate');
       }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in _openChat: $e');
+      debugPrint('Stack trace: $stackTrace');
     }
   }
 

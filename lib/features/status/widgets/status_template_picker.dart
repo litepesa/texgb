@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:textgb/features/status/models/status_templates.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class StatusTemplatePicker extends StatefulWidget {
   final Function(StatusTemplate template) onTemplateSelected;
@@ -40,6 +40,7 @@ class _StatusTemplatePickerState extends State<StatusTemplatePicker>
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
@@ -79,9 +80,9 @@ class _StatusTemplatePickerState extends State<StatusTemplatePicker>
           TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: StatusTheme.primaryBlue,
+            labelColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
-            indicatorColor: StatusTheme.primaryBlue,
+            indicatorColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             tabs: StatusTemplates.categories
                 .map((category) => Tab(text: category))
                 .toList(),
@@ -137,8 +138,10 @@ class _TemplateCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         height: 120,
         decoration: BoxDecoration(
-          gradient: StatusTheme.getTextBackgroundGradient(
-            template.background.colors,
+          gradient: LinearGradient(
+            colors: template.background.colors.map((hex) => _hexToColor(hex)).toList(),
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
@@ -196,4 +199,10 @@ Future<StatusTemplate?> showStatusTemplatePicker(BuildContext context) async {
       onTemplateSelected: (template) {},
     ),
   );
+}
+
+// Helper function to convert hex color string to Color
+Color _hexToColor(String hex) {
+  final hexCode = hex.replaceAll('#', '');
+  return Color(int.parse('FF$hexCode', radix: 16));
 }

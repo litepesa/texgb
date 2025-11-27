@@ -1,20 +1,20 @@
-// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION
+// lib/features/marketplace/widgets/marketplace_video_item.dart - COMPLETE UPDATED VERSION
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/core/router/route_paths.dart';
-import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
-import 'package:textgb/features/videos/services/video_cache_service.dart';
+import 'package:textgb/features/marketplace/services/marketplace_cache_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_provider.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:textgb/constants.dart';
 import 'package:go_router/go_router.dart';
-import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/marketplace/widgets/marketplace_comments_bottom_sheet.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:dio/dio.dart';
@@ -23,8 +23,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
 
-class VideoItem extends ConsumerStatefulWidget {
-  final VideoModel video;
+class MarketplaceItem extends ConsumerStatefulWidget {
+  final MarketplaceVideoModel marketplaceVideo;
   final bool isActive;
   final Function(VideoPlayerController)? onVideoControllerReady;
   final Function(bool isPlaying)? onManualPlayPause;
@@ -37,9 +37,9 @@ class VideoItem extends ConsumerStatefulWidget {
   final Function()? onCommentsPressed;
   final Function()? onDirectMessagePressed;
 
-  const VideoItem({
+  const MarketplaceItem({
     super.key,
-    required this.video,
+    required this.marketplaceVideo,
     required this.isActive,
     this.onVideoControllerReady,
     this.onManualPlayPause,
@@ -54,10 +54,10 @@ class VideoItem extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<VideoItem> createState() => _VideoItemState();
+  ConsumerState<MarketplaceItem> createState() => _MarketplaceItemState();
 }
 
-class _VideoItemState extends ConsumerState<VideoItem>
+class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   VideoPlayerController? _videoPlayerController;
   bool _isInitialized = false;
@@ -108,14 +108,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   @override
-  void didUpdateWidget(VideoItem oldWidget) {
+  void didUpdateWidget(MarketplaceItem oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     if (widget.isCommentsOpen != oldWidget.isCommentsOpen) {
       _handleCommentsStateChange();
     }
 
-    if (widget.video.id != oldWidget.video.id) {
+    if (widget.marketplaceVideo.id != oldWidget.marketplaceVideo.id) {
       _cleanupCurrentController();
       _showFullCaption = false;
       if (widget.isActive) {
@@ -153,7 +153,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _handleActiveStateChange() {
-    if (widget.video.isMultipleImages) return;
+    if (widget.marketplaceVideo.isMultipleImages) return;
 
     if (widget.isActive) {
       _cleanupCurrentController();
@@ -188,7 +188,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
     try {
       return users.firstWhere(
-        (user) => user.uid == widget.video.userId,
+        (user) => user.uid == widget.marketplaceVideo.userId,
       );
     } catch (e) {
       return null;
@@ -249,16 +249,16 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if trying to follow self
-    if (widget.video.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotFollowSelfMessage();
       return;
     }
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      await authNotifier.followUser(widget.video.userId);
+      await authNotifier.followUser(widget.marketplaceVideo.userId);
 
-      _showSnackBar('You are now following ${widget.video.userName}');
+      _showSnackBar('You are now following ${widget.marketplaceVideo.userName}');
 
       // Trigger UI update
       if (mounted) {
@@ -337,7 +337,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if user is trying to gift their own video
-    if (widget.video.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotGiftOwnVideoMessage();
       return;
     }
@@ -347,8 +347,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => VirtualGiftsBottomSheet(
-        recipientName: widget.video.userName,
-        recipientImage: widget.video.userImage,
+        recipientName: widget.marketplaceVideo.userName,
+        recipientImage: widget.marketplaceVideo.userImage,
         onGiftSelected: (gift) {
           _handleGiftSent(gift);
         },
@@ -359,9 +359,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   void _handleGiftSent(VirtualGift gift) {
     debugPrint(
-        'Gift sent: ${gift.name} (KES ${gift.price}) to ${widget.video.userName}');
+        'Gift sent: ${gift.name} (KES ${gift.price}) to ${widget.marketplaceVideo.userName}');
     _showSnackBar(
-        '${gift.emoji} ${gift.name} sent to ${widget.video.userName}!');
+        '${gift.emoji} ${gift.name} sent to ${widget.marketplaceVideo.userName}!');
   }
 
   void _showCannotGiftOwnVideoMessage() {
@@ -431,7 +431,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if user is trying to buy their own product
-    if (widget.video.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotBuyOwnProductMessage();
       return;
     }
@@ -568,12 +568,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
       return;
     }
 
-    if (widget.video.isMultipleImages) {
+    if (widget.marketplaceVideo.isMultipleImages) {
       _showSnackBar('Cannot download image posts');
       return;
     }
 
-    if (widget.video.videoUrl.isEmpty) {
+    if (widget.marketplaceVideo.videoUrl.isEmpty) {
       _showSnackBar('Invalid video URL');
       return;
     }
@@ -629,7 +629,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
       Directory? directory;
       String fileName =
-          'textgb_${widget.video.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+          'textgb_${widget.marketplaceVideo.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
       if (Platform.isAndroid) {
         directory = Directory('/storage/emulated/0/Download');
@@ -646,7 +646,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       final savePath = '${directory.path}/$fileName';
 
       await dio.download(
-        widget.video.videoUrl,
+        widget.marketplaceVideo.videoUrl,
         savePath,
         onReceiveProgress: (received, total) {
           if (total != -1) {
@@ -721,14 +721,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Future<void> _initializeMedia() async {
-    if (widget.video.isMultipleImages) {
+    if (widget.marketplaceVideo.isMultipleImages) {
       setState(() {
         _isInitialized = true;
       });
       return;
     }
 
-    if (widget.video.videoUrl.isEmpty) {
+    if (widget.marketplaceVideo.videoUrl.isEmpty) {
       return;
     }
 
@@ -787,7 +787,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Future<void> _createControllerFromNetwork() async {
-    final cachedUri = VideoCacheService().getLocalUri(widget.video.videoUrl);
+    final cachedUri = MarketplaceCacheService().getLocalUri(widget.marketplaceVideo.videoUrl);
 
     _videoPlayerController = VideoPlayerController.networkUrl(
       cachedUri,
@@ -843,7 +843,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _togglePlayPause() {
-    if (widget.video.isMultipleImages || _isCommentsSheetOpen) return;
+    if (widget.marketplaceVideo.isMultipleImages || _isCommentsSheetOpen) return;
 
     if (!_isInitialized) {
       if (!_isInitializing) {
@@ -886,8 +886,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
       }
     });
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.likeVideo(widget.video.id);
+    final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+    marketplaceNotifier.likeMarketplaceVideo(widget.marketplaceVideo.id);
 
     if (mounted) {
       setState(() {});
@@ -905,8 +905,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final canInteract = await _requireAuthentication('like videos');
     if (!canInteract) return;
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.likeVideo(widget.video.id);
+    final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
+    marketplaceNotifier.likeMarketplaceVideo(widget.marketplaceVideo.id);
   }
 
   // Show comments functionality
@@ -925,8 +925,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.transparent,
-        builder: (context) => CommentsBottomSheet(
-          video: widget.video,
+        builder: (context) => MarketplaceCommentsBottomSheet(
+          marketplaceVideo: widget.marketplaceVideo,
           onClose: () {},
         ),
       );
@@ -941,7 +941,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final currentUser = ref.read(currentUserProvider);
 
     // Check if trying to message own video
-    if (widget.video.userId == currentUser!.uid) {
+    if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotDMOwnVideoMessage();
       return;
     }
@@ -953,7 +953,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       try {
         // Create or get existing chat using chat provider
         final chatNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatNotifier.createOrGetChat(widget.video.userId);
+        final chatId = await chatNotifier.createOrGetChat(widget.marketplaceVideo.userId);
 
         if (chatId != null) {
           context.push(RoutePaths.chat(chatId));
@@ -1036,7 +1036,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   // Timestamp parsing and formatting methods
   DateTime _parseVideoTimestamp() {
     try {
-      return DateTime.parse(widget.video.createdAt);
+      return DateTime.parse(widget.marketplaceVideo.createdAt);
     } catch (e) {
       return DateTime.now();
     }
@@ -1116,15 +1116,15 @@ class _VideoItemState extends ConsumerState<VideoItem>
                 _buildMediaContent(),
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
-                if (!widget.video.isMultipleImages &&
+                if (!widget.marketplaceVideo.isMultipleImages &&
                     _isInitialized &&
                     !_isPlaying &&
                     !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
-                if (widget.video.isMultipleImages &&
-                    widget.video.imageUrls.length > 1 &&
+                if (widget.marketplaceVideo.isMultipleImages &&
+                    widget.marketplaceVideo.imageUrls.length > 1 &&
                     !_isCommentsSheetOpen)
                   _buildCarouselIndicators(),
               ],
@@ -1217,7 +1217,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Widget _buildMediaContent() {
-    if (widget.video.isMultipleImages) {
+    if (widget.marketplaceVideo.isMultipleImages) {
       return _buildImageCarousel();
     } else {
       return _buildVideoPlayer();
@@ -1225,7 +1225,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Widget _buildImageCarousel() {
-    if (widget.video.imageUrls.isEmpty) {
+    if (widget.marketplaceVideo.imageUrls.isEmpty) {
       return _buildPlaceholder(Icons.broken_image);
     }
 
@@ -1233,9 +1233,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
       options: CarouselOptions(
         height: double.infinity,
         viewportFraction: 1.0,
-        enableInfiniteScroll: widget.video.imageUrls.length > 1,
+        enableInfiniteScroll: widget.marketplaceVideo.imageUrls.length > 1,
         autoPlay: widget.isActive &&
-            widget.video.imageUrls.length > 1 &&
+            widget.marketplaceVideo.imageUrls.length > 1 &&
             !_isCommentsSheetOpen,
         autoPlayInterval: const Duration(seconds: 4),
         autoPlayAnimationDuration: const Duration(milliseconds: 800),
@@ -1246,7 +1246,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           });
         },
       ),
-      items: widget.video.imageUrls.map((imageUrl) {
+      items: widget.marketplaceVideo.imageUrls.map((imageUrl) {
         return _buildFullScreenImage(imageUrl);
       }).toList(),
     );
@@ -1359,10 +1359,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
       builder: (context, ref, child) {
         final videoUser = _getUserDataIfAvailable();
         final currentUser = ref.read(currentUserProvider);
-        final isCurrentUserVideo = currentUser?.uid == widget.video.userId;
+        final isCurrentUserVideo = currentUser?.uid == widget.marketplaceVideo.userId;
         final isFollowing = ref
             .read(authenticationProvider.notifier)
-            .isUserFollowed(widget.video.userId);
+            .isUserFollowed(widget.marketplaceVideo.userId);
 
         return GestureDetector(
           onTap: _navigateToUserProfile,
@@ -1372,7 +1372,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
               // Back Arrow
               GestureDetector(
                 onTap: _handleBackNavigation,
-                child: Container(
+                child: SizedBox(
                   width: 36,
                   height: 36,
                   child: const Icon(
@@ -1393,9 +1393,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: widget.video.userImage.isNotEmpty == true
+                  child: widget.marketplaceVideo.userImage.isNotEmpty == true
                       ? Image.network(
-                          widget.video.userImage,
+                          widget.marketplaceVideo.userImage,
                           width: 40,
                           height: 40,
                           fit: BoxFit.cover,
@@ -1430,8 +1430,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
                               ),
                               child: Center(
                                 child: Text(
-                                  widget.video.userName.isNotEmpty == true
-                                      ? widget.video.userName[0].toUpperCase()
+                                  widget.marketplaceVideo.userName.isNotEmpty == true
+                                      ? widget.marketplaceVideo.userName[0].toUpperCase()
                                       : 'U',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -1452,8 +1452,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
                           ),
                           child: Center(
                             child: Text(
-                              widget.video.userName.isNotEmpty == true
-                                  ? widget.video.userName[0].toUpperCase()
+                              widget.marketplaceVideo.userName.isNotEmpty == true
+                                  ? widget.marketplaceVideo.userName[0].toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -1477,7 +1477,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       children: [
                         Flexible(
                           child: Text(
-                            widget.video.userName,
+                            widget.marketplaceVideo.userName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
@@ -1592,22 +1592,22 @@ class _VideoItemState extends ConsumerState<VideoItem>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.video.caption.isNotEmpty ||
-              widget.video.tags.isNotEmpty) ...[
+          if (widget.marketplaceVideo.caption.isNotEmpty ||
+              widget.marketplaceVideo.tags.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16), // Add padding only to caption
               child: _buildCaptionWithHashtags(),
             ),
             const SizedBox(height: 8),
           ],
-          _buildActionRow(), // No padding here - handled inside
+          _buildActionRow(),
         ],
       ),
     );
   }
 
   Widget _buildCaptionWithHashtags() {
-    if (widget.video.caption.isEmpty && widget.video.tags.isEmpty) {
+    if (widget.marketplaceVideo.caption.isEmpty && widget.marketplaceVideo.tags.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -1630,11 +1630,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
 
     // Build text with caption and hashtags
-    String fullText = widget.video.caption;
+    String fullText = widget.marketplaceVideo.caption;
 
     // Add hashtags if they exist
-    if (widget.video.tags.isNotEmpty) {
-      final hashtags = widget.video.tags.map((tag) => '#$tag').join(' ');
+    if (widget.marketplaceVideo.tags.isNotEmpty) {
+      final hashtags = widget.marketplaceVideo.tags.map((tag) => '#$tag').join(' ');
       if (fullText.isNotEmpty) {
         fullText += '\n$hashtags';
       } else {
@@ -1727,7 +1727,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _navigateToUserProfile() {
-    context.push(RoutePaths.userProfile(widget.video.userId));
+    context.push(RoutePaths.userProfile(widget.marketplaceVideo.userId));
   }
 
   // Action row - conditionally shows Gift/Save OR Price/Buy based on video price
@@ -1741,7 +1741,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         children: [
           // Show Gift/Save for free content (price = 0)
           // Show Price/Buy for paid content (price > 0)
-          if (widget.video.price == 0) ...[
+          if (widget.marketplaceVideo.price == 0) ...[
             _buildGiftButton(),
             const SizedBox(width: 8),
             _buildSaveButton(),
@@ -1755,10 +1755,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
           // Like button
           _buildActionButton(
-            icon: widget.video.isLiked == true
+            icon: widget.marketplaceVideo.isLiked == true
                 ? CupertinoIcons.heart_fill
                 : CupertinoIcons.heart,
-            count: widget.video.likes,
+            count: widget.marketplaceVideo.likes,
             gradient: const LinearGradient(
               colors: [
                 Color(0xFFFF5252), // Red
@@ -1773,7 +1773,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           // Comment button
           _buildActionButton(
             icon: CupertinoIcons.text_bubble,
-            count: widget.video.comments,
+            count: widget.marketplaceVideo.comments,
             gradient: const LinearGradient(
               colors: [
                 Color(0xFF4FC3F7), // Light blue
@@ -1954,7 +1954,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
           ),
           const SizedBox(width: 4),
           Text(
-            widget.video.formattedPrice,
+            widget.marketplaceVideo.formattedPrice,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -2125,7 +2125,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       right: 0,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(widget.video.imageUrls.length, (index) {
+        children: List.generate(widget.marketplaceVideo.imageUrls.length, (index) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: _currentImageIndex == index ? 8 : 6,

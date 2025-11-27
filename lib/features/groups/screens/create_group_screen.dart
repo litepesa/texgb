@@ -1,7 +1,10 @@
 // lib/features/groups/screens/create_group_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -14,9 +17,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
   bool _isCreating = false;
+  bool _isUploadingImage = false;
 
-  // TODO: Add image picker for group image
+  File? _selectedImageFile;
   String? _groupImageUrl;
 
   @override
@@ -24,6 +29,50 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickGroupImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImageFile = File(image.path);
+          _isUploadingImage = true;
+        });
+
+        // Upload image to Cloudflare R2
+        final authNotifier = ref.read(authenticationProvider.notifier);
+        final uploadedUrl = await authNotifier.storeFileToStorage(
+          file: _selectedImageFile!,
+          reference: 'groups/group_images/${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+
+        if (mounted) {
+          setState(() {
+            _groupImageUrl = uploadedUrl;
+            _isUploadingImage = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Group image uploaded successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUploadingImage = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload image: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _createGroup() async {
@@ -78,36 +127,67 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           children: [
             // Group image
             Center(
-              child: GestureDetector(
-                onTap: () {
-                  // TODO: Implement image picker
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Image picker coming soon'),
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: _isUploadingImage ? null : _pickGroupImage,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey[400]!, width: 2),
+                      ),
+                      child: _isUploadingImage
+                          ? const Center(
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            )
+                          : _selectedImageFile != null
+                              ? ClipOval(
+                                  child: Image.file(
+                                    _selectedImageFile!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : _groupImageUrl != null
+                                  ? ClipOval(
+                                      child: Image.network(
+                                        _groupImageUrl!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.add_a_photo,
+                                      size: 40,
+                                      color: Colors.grey[600],
+                                    ),
                     ),
-                  );
-                },
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    shape: BoxShape.circle,
                   ),
-                  child: _groupImageUrl != null
-                      ? ClipOval(
-                          child: Image.network(
-                            _groupImageUrl!,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : Icon(
-                          Icons.add_a_photo,
-                          size: 40,
-                          color: Colors.grey[600],
+                  if (!_isUploadingImage && _selectedImageFile == null)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
                         ),
-                ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap to select group image',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
 
@@ -156,17 +236,29 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             ),
             const SizedBox(height: 24),
 
-            // TODO: Add member selection
-            OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Member selection coming soon. You can add members after creating the group.'),
+            // Info: Members can be added after group creation
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'You can add members after creating the group',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue[900],
+                      ),
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.person_add),
-              label: const Text('Add Members (Optional)'),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 

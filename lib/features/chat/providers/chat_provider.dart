@@ -130,23 +130,44 @@ class ChatList extends _$ChatList {
     for (final chat in chats) {
       try {
         final otherUserId = chat.getOtherParticipant(currentUserId);
+
         // Get user details from our user-based system
         final contact = await authNotifier.getUserById(otherUserId);
-        
+
         if (contact != null) {
+          // User found - use full details
           chatItems.add(ChatListItemModel(
             chat: chat,
-            contactName: contact.name,
+            contactName: contact.name.isNotEmpty ? contact.name : contact.phoneNumber,
             contactImage: contact.profileImage, // Use profileImage from UserModel
             contactPhone: contact.phoneNumber,
             isOnline: _isUserOnline(contact.lastSeen),
             lastSeen: _parseLastSeen(contact.lastSeen),
           ));
         } else {
-          debugPrint('Could not find user details for ID: $otherUserId');
+          // User not found - create fallback chat item
+          debugPrint('Could not find user details for ID: $otherUserId - using fallback');
+          chatItems.add(ChatListItemModel(
+            chat: chat,
+            contactName: otherUserId.length > 10 ? otherUserId.substring(0, 10) : otherUserId, // Truncate long IDs
+            contactImage: '', // No image available
+            contactPhone: otherUserId, // Use user ID as phone fallback
+            isOnline: false,
+            lastSeen: null,
+          ));
         }
       } catch (e) {
+        // Even on error, create a fallback chat item so user can see the chat
         debugPrint('Error building chat item: $e');
+        final otherUserId = chat.getOtherParticipant(currentUserId);
+        chatItems.add(ChatListItemModel(
+          chat: chat,
+          contactName: 'User ${otherUserId.substring(0, 8)}...', // Show partial ID
+          contactImage: '',
+          contactPhone: otherUserId,
+          isOnline: false,
+          lastSeen: null,
+        ));
       }
     }
 

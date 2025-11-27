@@ -1,12 +1,16 @@
 // lib/features/groups/screens/group_chat_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/groups/widgets/group_message_bubble.dart';
 import 'package:textgb/features/groups/widgets/group_typing_indicator.dart';
 import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/features/groups/models/group_message_model.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -23,7 +27,9 @@ class GroupChatScreen extends ConsumerStatefulWidget {
 class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final ImagePicker _picker = ImagePicker();
   bool _isTyping = false;
+  bool _isUploadingMedia = false;
 
   @override
   void initState() {
@@ -81,6 +87,202 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       typingProvider.sendTyping();
     } else {
       typingProvider.sendStopTyping();
+    }
+  }
+
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _AttachmentOption(
+                    icon: Icons.photo_library,
+                    label: 'Gallery',
+                    color: Colors.purple,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleImagePicker();
+                    },
+                  ),
+                  _AttachmentOption(
+                    icon: Icons.camera_alt,
+                    label: 'Camera',
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleCameraPicker();
+                    },
+                  ),
+                  _AttachmentOption(
+                    icon: Icons.insert_drive_file,
+                    label: 'Document',
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleFilePicker();
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleImagePicker() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        await _uploadAndSendMedia(File(image.path), MessageMediaType.image);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCameraPicker() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        await _uploadAndSendMedia(File(image.path), MessageMediaType.image);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error taking photo: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleFilePicker() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = File(result.files.first.path!);
+        final fileSize = await file.length();
+
+        if (fileSize > 50 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('File size exceeds 50MB limit')),
+            );
+          }
+          return;
+        }
+
+        await _uploadAndSendMedia(file, MessageMediaType.file);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadAndSendMedia(File file, MessageMediaType mediaType) async {
+    setState(() {
+      _isUploadingMedia = true;
+    });
+
+    try {
+      // Upload to Cloudflare R2
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = file.path.split('.').last;
+      final reference = 'groups/${widget.groupId}/messages/$timestamp.$extension';
+
+      final uploadedUrl = await authNotifier.storeFileToStorage(
+        file: file,
+        reference: reference,
+      );
+
+      // Send message with media URL
+      await ref.read(groupMessagesProvider(widget.groupId).notifier).sendMessage(
+            messageText: mediaType == MessageMediaType.image ? 'Image' : 'File',
+            mediaUrl: uploadedUrl,
+            mediaType: mediaType,
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mediaType == MessageMediaType.image
+                  ? 'Image sent successfully'
+                  : 'File sent successfully',
+            ),
+          ),
+        );
+      }
+
+      // Scroll to bottom after sending
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send media: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingMedia = false;
+        });
+      }
     }
   }
 
@@ -228,17 +430,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
             ),
             child: Row(
               children: [
-                // TODO: Add media picker
+                // Media picker button
                 IconButton(
                   icon: const Icon(Icons.attach_file),
-                  onPressed: () {
-                    // TODO: Implement media picker
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Media attachments coming soon'),
-                      ),
-                    );
-                  },
+                  onPressed: _isUploadingMedia ? null : _showAttachmentOptions,
                 ),
                 Expanded(
                   child: TextField(
@@ -261,6 +456,53 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   color: Theme.of(context).primaryColor,
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Supporting widget for attachment options
+class _AttachmentOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AttachmentOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

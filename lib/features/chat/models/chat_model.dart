@@ -99,7 +99,7 @@ class ChatModel {
         orElse: () => MessageEnum.text,
       ),
       lastMessageSender: map['lastMessageSender'] ?? '',
-      lastMessageTime: DateTime.parse(map['lastMessageTime'] ?? DateTime.now().toIso8601String()),
+      lastMessageTime: DateTime.parse(map['lastMessageTime'] ?? DateTime(2000, 1, 1).toIso8601String()),
       unreadCounts: parseIntMap(map['unreadCounts']),
       isArchived: parseBoolMap(map['isArchived']),
       isPinned: parseBoolMap(map['isPinned']),

@@ -143,6 +143,8 @@ class StatusFeed extends _$StatusFeed {
 
   Future<StatusFeedState> _fetchStatuses({bool isRefresh = false}) async {
     try {
+      print('🔄 Fetching statuses (isRefresh: $isRefresh)...');
+
       // Fetch both all statuses and my statuses
       final results = await Future.wait([
         _repository.getAllStatuses(),
@@ -152,9 +154,13 @@ class StatusFeed extends _$StatusFeed {
       final statusGroups = results[0] as List<StatusGroup>;
       final myStatuses = results[1] as List<StatusModel>;
 
+      print('📥 Fetched ${myStatuses.length} my statuses, ${statusGroups.length} status groups');
+
       // Filter expired statuses
       final activeGroups = StatusTimeService.filterActiveGroups(statusGroups);
       final activeMyStatuses = StatusTimeService.filterActive(myStatuses);
+
+      print('✅ Active: ${activeMyStatuses.length} my statuses, ${activeGroups.length} groups');
 
       // Sort groups by latest status
       final sortedGroups = StatusTimeService.sortGroupsByLatest(activeGroups);
@@ -171,7 +177,7 @@ class StatusFeed extends _$StatusFeed {
 
       return newState;
     } catch (e) {
-      print('Error fetching statuses: $e');
+      print('❌ Error fetching statuses: $e');
       return StatusFeedState(
         error: e.toString(),
         isLoading: false,
@@ -439,8 +445,8 @@ class StatusCreation extends _$StatusCreation {
     try {
       final status = await _repository.createStatus(request);
 
-      // Refresh feed
-      ref.invalidate(statusFeedProvider);
+      // Force immediate refresh (bypass cache)
+      ref.read(statusFeedProvider.notifier).refresh();
 
       return status;
     } catch (e) {
@@ -480,8 +486,8 @@ class StatusCreation extends _$StatusCreation {
 
       final status = await _repository.createStatus(statusRequest);
 
-      // Refresh feed
-      ref.invalidate(statusFeedProvider);
+      // Force immediate refresh (bypass cache)
+      ref.read(statusFeedProvider.notifier).refresh();
 
       return status;
     } catch (e) {
@@ -525,8 +531,8 @@ class StatusCreation extends _$StatusCreation {
 
       final status = await _repository.createStatus(statusRequest);
 
-      // Refresh feed
-      ref.invalidate(statusFeedProvider);
+      // Force immediate refresh (bypass cache)
+      ref.read(statusFeedProvider.notifier).refresh();
 
       return status;
     } catch (e) {

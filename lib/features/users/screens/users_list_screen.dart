@@ -9,6 +9,7 @@ import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -78,7 +79,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
 
   void _navigateToMarketplace() {
     HapticFeedback.mediumImpact();
-    context.push(RoutePaths.videosFeed);
+    context.push(RoutePaths.marketplaceFeed);
   }
 
   ModernThemeExtension _getSafeTheme(BuildContext context) {
@@ -158,9 +159,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     final users = ref.watch(usersProvider);
     final followedUsers = ref.watch(followedUsersProvider);
     final currentUser = ref.watch(currentUserProvider);
-    
+    final marketplaceVideos = ref.watch(marketplaceVideosProvider);
+
     List<UserModel> filteredList;
-    
+
     switch (_selectedCategory) {
       case 'Following':
         filteredList = users
@@ -177,49 +179,57 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
         break;
     }
 
+    // Filter out current user
     if (currentUser != null) {
       filteredList.removeWhere((user) => user.id == currentUser.id);
     }
-    
-    filteredList.removeWhere((user) => user.videosCount == 0);
-    
+
+    // Only filter by marketplace videos if marketplace data is loaded (not empty)
+    if (marketplaceVideos.isNotEmpty) {
+      // Filter out users who have no marketplace videos
+      filteredList.removeWhere((user) {
+        final userMarketplaceVideos = marketplaceVideos.where((video) => video.userId == user.id);
+        return userMarketplaceVideos.isEmpty;
+      });
+    }
+
     filteredList.sort((a, b) {
       // Live users always come first
       if (a.isLive && !b.isLive) return -1;
       if (!a.isLive && b.isLive) return 1;
-      
+
       final aLastPost = a.lastPostAtDateTime;
       final bLastPost = b.lastPostAtDateTime;
-      
+
       if (aLastPost != null && bLastPost != null) {
         return bLastPost.compareTo(aLastPost);
       }
-      
+
       if (aLastPost != null && bLastPost == null) return -1;
       if (aLastPost == null && bLastPost != null) return 1;
-      
+
       return b.createdAt.compareTo(a.createdAt);
     });
-    
+
     return filteredList;
   }
 
   Future<void> _navigateToUserProfile(UserModel user) async {
     try {
       HapticFeedback.lightImpact();
-      
-      final userVideos = ref.read(videosProvider).where((video) => video.userId == user.id).toList();
-      
+
+      final userVideos = ref.read(marketplaceVideosProvider).where((video) => video.userId == user.id).toList();
+
       if (userVideos.isNotEmpty) {
-        // Navigate to single video with user context
+        // Navigate to single marketplace video with user context
         context.push(
-          RoutePaths.singleVideo(userVideos.first.id),
+          RoutePaths.singleMarketplaceVideo(userVideos.first.id),
           extra: {
             'userId': user.id,
           },
         );
       } else {
-        _showSnackBar('${user.name} hasn\'t posted any videos yet');
+        _showSnackBar('${user.name} hasn\'t posted any marketplace items yet');
         context.push(RoutePaths.userProfile(user.id));
       }
     } catch (e) {
@@ -349,7 +359,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                     ),
                                     const SizedBox(width: 8),
                                     const Text(
-                                      'Discover',
+                                      'Marketplace',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 15,
@@ -579,7 +589,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Discover amazing stories and live streams on WemaChat!',
+                              'Discover amazing products, and deals in our marketplace',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,

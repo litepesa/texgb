@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/status/models/status_model.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/features/status/services/status_time_service.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
@@ -73,7 +72,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
         await ref.read(statusFeedProvider.notifier).refresh();
         ref.invalidate(subscribedChannelsProvider);
       },
-      color: StatusTheme.primaryBlue,
+      color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
       child: CustomScrollView(
         slivers: [
           // ==========================================
@@ -118,7 +117,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                           // TODO: Navigate to full status list
                         },
                         style: TextButton.styleFrom(
-                          foregroundColor: StatusTheme.primaryBlue,
+                          foregroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                         ),
                         child: const Text('View all'),
                       ),
@@ -166,7 +165,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                             context.push(RoutePaths.channelsHome);
                           },
                           style: TextButton.styleFrom(
-                            foregroundColor: StatusTheme.primaryBlue,
+                            foregroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -176,7 +175,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                               Icon(
                                 Icons.arrow_forward_ios,
                                 size: 14,
-                                color: StatusTheme.primaryBlue,
+                                color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                               ),
                             ],
                           ),
@@ -196,10 +195,10 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                     child: TabBar(
                       controller: _channelsTabController,
                       indicator: BoxDecoration(
-                        color: StatusTheme.primaryBlue.withOpacity(0.1),
+                        color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      labelColor: StatusTheme.primaryBlue,
+                      labelColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                       unselectedLabelColor: modernTheme.textSecondaryColor ?? Colors.grey,
                       labelStyle: const TextStyle(
                         fontSize: 14,
@@ -268,7 +267,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                       child: Icon(
                         Icons.add_circle_outline,
                         size: 32,
-                        color: StatusTheme.primaryBlue,
+                        color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                       ),
                     ),
             ),
@@ -298,7 +297,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: StatusTheme.primaryBlue.withOpacity(0.1),
+                              color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -307,7 +306,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                                 Icon(
                                   Icons.visibility,
                                   size: 12,
-                                  color: StatusTheme.primaryBlue,
+                                  color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -315,10 +314,19 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: StatusTheme.primaryBlue,
+                                    color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => context.push(RoutePaths.myStatusDetail),
+                            child: Icon(
+                              Icons.settings_outlined,
+                              size: 20,
+                              color: modernTheme.textSecondaryColor ?? Colors.grey[600],
                             ),
                           ),
                         ],
@@ -366,7 +374,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: hasUnviewed
-                ? StatusTheme.primaryBlue
+                ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
                 : (modernTheme.dividerColor ?? Colors.grey[300]!),
             width: hasUnviewed ? 2 : 0.5,
           ),
@@ -428,7 +436,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: StatusTheme.primaryBlue.withOpacity(0.1),
+                    color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -436,7 +444,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: StatusTheme.primaryBlue,
+                      color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                     ),
                   ),
                 ),
@@ -504,7 +512,11 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
         height: 80,
         decoration: BoxDecoration(
           gradient: status.textBackground != null
-              ? StatusTheme.getTextBackgroundGradient(status.textBackground!.colors)
+              ? LinearGradient(
+                  colors: status.textBackground!.colors.map((hex) => _hexToColor(hex)).toList(),
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
               : const LinearGradient(
                   colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
                 ),
@@ -703,7 +715,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: StatusTheme.primaryBlue,
+                    color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
@@ -814,4 +826,10 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
       },
     );
   }
+}
+
+// Helper function to convert hex color string to Color
+Color _hexToColor(String hex) {
+  final hexCode = hex.replaceAll('#', '');
+  return Color(int.parse('FF$hexCode', radix: 16));
 }

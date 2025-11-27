@@ -11,7 +11,6 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:textgb/features/status/models/status_model.dart';
-import 'package:textgb/features/status/theme/status_theme.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/status/models/status_constants.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
@@ -73,17 +72,17 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
         // Gift button
         if (!widget.isMyStatus) _buildGiftButton(),
 
-        const SizedBox(height: StatusTheme.interactionSpacing),
+        const SizedBox(height: 16),
 
         // Save button (download)
         _buildSaveButton(),
 
-        const SizedBox(height: StatusTheme.interactionSpacing),
+        const SizedBox(height: 16),
 
         // Like button
         if (!widget.isMyStatus) _buildLikeButton(),
 
-        const SizedBox(height: StatusTheme.interactionSpacing),
+        const SizedBox(height: 16),
 
         // DM button
         if (!widget.isMyStatus) _buildDMButton(),
@@ -99,7 +98,7 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
     return _InteractionButton(
       icon: Icons.card_giftcard_rounded,
       label: widget.status.giftsCount > 0 ? '${widget.status.giftsCount}' : null,
-      gradient: StatusTheme.giftGradientShader,
+      color: const Color(0xFFE55252),
       onTap: _handleGiftTap,
     );
   }
@@ -151,8 +150,8 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
   Widget _buildSaveButton() {
     if (_isDownloading) {
       return Container(
-        width: StatusTheme.interactionButtonSize,
-        height: StatusTheme.interactionButtonSize,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.5),
           shape: BoxShape.circle,
@@ -180,7 +179,7 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
 
     return _InteractionButton(
       icon: Icons.download_rounded,
-      gradient: StatusTheme.saveGradientShader,
+      color: const Color(0xFF25D366),
       onTap: _handleSaveTap,
     );
   }
@@ -281,7 +280,7 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
       child: _InteractionButton(
         icon: isLiked ? Icons.favorite : Icons.favorite_border,
         label: widget.status.likesCount > 0 ? '${widget.status.likesCount}' : null,
-        gradient: StatusTheme.likeGradientShader,
+        color: const Color(0xFFE55252),
         onTap: _handleLikeTap,
       ),
     );
@@ -316,7 +315,7 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
   Widget _buildDMButton() {
     return _InteractionButton(
       icon: Icons.send_rounded,
-      gradient: StatusTheme.dmGradientShader,
+      color: const Color(0xFF53BDEB),
       onTap: _handleDMTap,
     );
   }
@@ -371,13 +370,13 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
 class _InteractionButton extends StatelessWidget {
   final IconData icon;
   final String? label;
-  final LinearGradient gradient;
+  final Color color;
   final VoidCallback onTap;
 
   const _InteractionButton({
     required this.icon,
     this.label,
-    required this.gradient,
+    required this.color,
     required this.onTap,
   });
 
@@ -389,16 +388,22 @@ class _InteractionButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: StatusTheme.interactionButtonSize,
-            height: StatusTheme.interactionButtonSize,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              gradient: gradient,
+              color: color,
               shape: BoxShape.circle,
-              boxShadow: StatusTheme.buttonShadow,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Icon(
               icon,
-              size: StatusTheme.interactionIconSize,
+              size: 24,
               color: Colors.white,
             ),
           ),
@@ -406,7 +411,11 @@ class _InteractionButton extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label!,
-              style: StatusTheme.interactionLabelStyle,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ],

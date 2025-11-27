@@ -158,6 +158,7 @@ class RoutePaths {
   static const String statusFeed = '/status-feed';
   static const String createStatus = '/create-status';
   static const String statusViewer = '/status-viewer';
+  static const String myStatusDetail = '/my-status-detail';
 
   // Dynamic status routes
   static String userStatus(String userId) => '/status/user/$userId';
@@ -318,6 +319,7 @@ class RouteNames {
   static const String statusFeed = 'statusFeed';
   static const String createStatus = 'createStatus';
   static const String statusViewer = 'statusViewer';
+  static const String myStatusDetail = 'myStatusDetail';
   static const String userStatus = 'userStatus';
   static const String chats = 'chats';
   static const String chatList = 'chatList';

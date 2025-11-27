@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/groups/widgets/member_tile.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 class GroupMembersScreen extends ConsumerWidget {
   final String groupId;
@@ -29,14 +30,7 @@ class GroupMembersScreen extends ConsumerWidget {
               if (membership?.isAdmin ?? false) {
                 return IconButton(
                   icon: const Icon(Icons.person_add),
-                  onPressed: () {
-                    // TODO: Implement add members screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Add members feature coming soon'),
-                      ),
-                    );
-                  },
+                  onPressed: () => _showAddMembersDialog(context, ref),
                 );
               }
               return const SizedBox.shrink();
@@ -139,6 +133,113 @@ class GroupMembersScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showAddMembersDialog(BuildContext context, WidgetRef ref) {
+    final TextEditingController searchController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final allUsers = ref.watch(usersProvider);
+          final currentMembers = ref.watch(groupMembersProvider(groupId)).valueOrNull ?? [];
+          final currentMemberIds = currentMembers.map((m) => m.userId).toSet();
+
+          // Filter out users who are already members
+          final availableUsers = allUsers.where((user) => !currentMemberIds.contains(user.id)).toList();
+
+          return AlertDialog(
+            title: const Text('Add Members'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: Column(
+                children: [
+                  // Search field
+                  TextField(
+                    controller: searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search users...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      // Trigger rebuild to filter results
+                      (context as Element).markNeedsBuild();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // User list
+                  Expanded(
+                    child: availableUsers.isEmpty
+                        ? const Center(
+                            child: Text('All users are already members'),
+                          )
+                        : ListView.builder(
+                            itemCount: availableUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = availableUsers[index];
+                              final searchQuery = searchController.text.toLowerCase();
+
+                              // Filter by search query
+                              if (searchQuery.isNotEmpty &&
+                                  !user.name.toLowerCase().contains(searchQuery)) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: user.profileImage.isNotEmpty
+                                      ? NetworkImage(user.profileImage)
+                                      : null,
+                                  child: user.profileImage.isEmpty
+                                      ? Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U')
+                                      : null,
+                                ),
+                                title: Text(user.name),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.add_circle, color: Colors.green),
+                                  onPressed: () async {
+                                    try {
+                                      await ref
+                                          .read(groupMembersProvider(groupId).notifier)
+                                          .addMembers([user.id]);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                              content: Text('${user.name} added to group')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  searchController.dispose();
+                  Navigator.pop(context);
+                },
+                child: const Text('Done'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

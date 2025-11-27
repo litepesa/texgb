@@ -39,7 +39,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   String? _backgroundImage;
   double _fontSize = 16.0;
   bool _hasMessageBeenSent = false;
-  
+
   // Video player state
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
@@ -59,7 +59,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
-    
+
     // Mark messages as read when entering chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markMessagesAsRead();
@@ -442,9 +442,73 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     );
   }
 
+  // Build online/offline status indicator
+  Widget _buildOnlineStatus(ModernThemeExtension modernTheme) {
+    // Check if user is online (last seen within 5 minutes)
+    final lastSeen = DateTime.tryParse(widget.contact.lastSeen);
+    final isOnline = lastSeen != null &&
+        DateTime.now().difference(lastSeen).inMinutes <= 5;
+
+    if (isOnline) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'online',
+            style: TextStyle(
+              color: Colors.green,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Show last seen time
+      final lastSeenText = _getLastSeenText(lastSeen);
+      return Text(
+        lastSeenText,
+        style: TextStyle(
+          color: modernTheme.textSecondaryColor,
+          fontSize: 11,
+        ),
+      );
+    }
+  }
+
+  // Get last seen text (e.g., "last seen 2h ago", "last seen yesterday")
+  String _getLastSeenText(DateTime? lastSeen) {
+    if (lastSeen == null) return 'offline';
+
+    final difference = DateTime.now().difference(lastSeen);
+
+    if (difference.inMinutes < 1) {
+      return 'last seen just now';
+    } else if (difference.inMinutes < 60) {
+      return 'last seen ${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return 'last seen ${difference.inHours}h ago';
+    } else if (difference.inDays == 1) {
+      return 'last seen yesterday';
+    } else if (difference.inDays < 7) {
+      return 'last seen ${difference.inDays}d ago';
+    } else {
+      return 'last seen ${DateFormat('MMM dd').format(lastSeen)}';
+    }
+  }
+
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme) {
     final isVerified = _isContactVerified();
-    
+
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: Container(
@@ -501,25 +565,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isVerified ? Icons.verified : Icons.help_outline,
-                            size: 12,
-                            color: isVerified ? Colors.blue : Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isVerified ? 'Verified' : 'Not Verified',
-                            style: TextStyle(
-                              color: isVerified ? Colors.blue : Colors.grey[600],
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildOnlineStatus(modernTheme),
                     ],
                   ),
                 ),

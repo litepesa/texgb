@@ -11,14 +11,17 @@ import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/screens/groups_list_screen.dart';
 import 'package:textgb/features/groups/screens/create_group_screen.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
+import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
 import 'package:textgb/features/status/screens/status_list_screen.dart';
 import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 
@@ -48,9 +51,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2,                  // Chats
-    CupertinoIcons.person_2,                       // Groups
-    Icons.donut_large_outlined,                    // Status
-    CupertinoIcons.dot_radiowaves_left_right,      // Channels
+    Icons.groups_2_outlined,                       // Groups
+    Icons.radio_button_checked_rounded,                    // Status
+    Icons.gps_fixed_rounded,      // Channels
   ];
 
   @override
@@ -263,7 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Status/Channels tab (index 2) - Status List Screen/Channels List Screen
           _KeepAliveWrapper(
-            child: const StatusListScreen(),
+            child: const RecommendedPostsScreen(),
           ),
           // Marketplace tab (index 3) - Users List Screen
           _KeepAliveWrapper(
@@ -348,7 +351,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
-          context.push(RoutePaths.createStatus);
+          context.push(RoutePaths.createPost);
         },
         child: const Icon(Icons.camera_alt),
       );
@@ -362,7 +365,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const CreatePostScreen(),
+              builder: (context) => const CreateListingScreen(),
             ),
           );
         },
@@ -606,8 +609,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ? (modernTheme.textColor ?? Colors.black)
         : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
-    // Dummy unread count for Chats (index 0) and Groups (index 1)
-    final int unreadCount = index == 0 ? 5 : (index == 1 ? 3 : 0);
+    // Real unread count for Chats (index 0) and Groups (index 1)
+    int unreadCount = 0;
+    if (index == 0) {
+      // Chats tab - get real unread count from chat provider
+      final chatListState = ref.watch(chatListProvider);
+      unreadCount = chatListState.when(
+        data: (state) {
+          final chatNotifier = ref.read(chatListProvider.notifier);
+          return chatNotifier.getTotalUnreadMessagesCount();
+        },
+        loading: () => 0,
+        error: (_, __) => 0,
+      );
+    } else if (index == 1) {
+      // Groups tab - no unread tracking yet, set to 0
+      unreadCount = 0;
+    }
 
     return Expanded(
       child: GestureDetector(

@@ -79,12 +79,14 @@ class WebSocketService {
   factory WebSocketService() => _instance;
   WebSocketService._internal();
 
-  // WebSocket configuration
+  // WebSocket configuration - Phoenix backend
   static String get _wsUrl {
     if (kDebugMode) {
-      return 'ws://144.126.252.66:8080/ws';
+      // Development: Connect to Phoenix backend
+      return 'ws://144.126.252.66:4000/socket/websocket';
     } else {
-      return 'ws://144.126.252.66:8080/ws';
+      // Production: Connect to Phoenix backend
+      return 'ws://144.126.252.66:4000/socket/websocket';
     }
   }
 
