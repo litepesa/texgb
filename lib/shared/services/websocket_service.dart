@@ -83,10 +83,10 @@ class WebSocketService {
   static String get _wsUrl {
     if (kDebugMode) {
       // Development: Connect to Phoenix backend
-      return 'ws://144.126.252.66:4000/socket/websocket';
+      return 'ws://wemachatex.gigalixirapp.com/socket/websocket';
     } else {
       // Production: Connect to Phoenix backend
-      return 'ws://144.126.252.66:4000/socket/websocket';
+      return 'ws://wemachatex.gigalixirapp.com/socket/websocket';
     }
   }
 
