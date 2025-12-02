@@ -722,8 +722,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
               Icons.account_balance_wallet,
               color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(width: 8),
-            const Expanded(
+            SizedBox(width: 8),
+            Expanded(
               child: Text('Marketplace Activation'),
             ),
           ],
@@ -733,18 +733,18 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'One-Time Activation Fee:',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
@@ -755,16 +755,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.3),
+                      color: Color(0xFF6366F1).withOpacity(0.3),
                       blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // FIXED: Changed Row to Column to prevent overflow
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -775,22 +774,18 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                               color: Colors.white,
                               size: 24,
                             ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              // FIXED: Used Flexible instead of Expanded to prevent overflow
-                              child: Text(
-                                'KES 2,999',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                            SizedBox(width: 8),
+                            Text(
+                              'KES 2,999',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Text(
                           'One-time payment to unlock marketplace posting',
                           style: TextStyle(
@@ -800,8 +795,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
+                    SizedBox(height: 16),
+                    Text(
                       'Mpesa Payment Details:',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
@@ -809,46 +804,40 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    // FIXED: Improved layout to prevent overflow
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
+                    SizedBox(height: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
+                            Text(
                               'Paybill: ',
                               style: TextStyle(color: Colors.white),
                             ),
                             GestureDetector(
                               onTap: () {
-                                Clipboard.setData(const ClipboardData(text: '4146499'));
+                                Clipboard.setData(ClipboardData(text: '4146499'));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text('Paybill number copied to clipboard!'),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Flexible(
-                                      child: Text(
-                                        '4146499',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                  children: [
+                                    Text(
+                                      '4146499',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
                                       ),
                                     ),
                                     SizedBox(width: 4),
@@ -863,34 +852,32 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                             ),
                           ],
                         ),
-                        // FIXED: Wrap text in Flexible to prevent overflow
-                        const Flexible(
-                          child: Text(
-                            'Account Number: Your registered phone number',
-                            style: TextStyle(color: Colors.white, fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Account Number: Your registered phone number',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.info_outline,
                       color: Colors.blue[700],
                       size: 20,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'After payment, our admin will verify and activate your account within 24 hours',
@@ -1272,11 +1259,9 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
               ),
             ),
           ),
-          
-          // FIXED: Banner positioned to match users list screen (top of screen)
           if (!canPost)
             Positioned(
-              top: MediaQuery.of(context).size.height * 0.25, // Position below app bar
+              top: MediaQuery.of(context).size.height * 0.25,
               left: 16,
               right: 16,
               child: _buildMarketplaceBanner(modernTheme),
@@ -1568,7 +1553,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Sell Live'),
+                  const Text('Go Live'),
                 ],
               ),
             ),
