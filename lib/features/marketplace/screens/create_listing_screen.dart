@@ -703,6 +703,225 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     return authState.uploadProgress;
   }
 
+  void _handleRefresh() {
+    HapticFeedback.lightImpact();
+    ref.invalidate(authenticationProvider);
+    _showMessage('Refreshing payment status...');
+  }
+
+  void _showPaymentInstructions() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.account_balance_wallet,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Marketplace Activation'),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'One-Time Activation Fee:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF6366F1),
+                      Color(0xFF8B5CF6),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // FIXED: Changed Row to Column to prevent overflow
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.payment,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              // FIXED: Used Flexible instead of Expanded to prevent overflow
+                              child: Text(
+                                'KES 2,999',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'One-time payment to unlock marketplace posting',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Mpesa Payment Details:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // FIXED: Improved layout to prevent overflow
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Paybill: ',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Clipboard.setData(const ClipboardData(text: '4146499'));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Paybill number copied to clipboard!'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Flexible(
+                                      child: Text(
+                                        '4146499',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Icon(
+                                      Icons.copy,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // FIXED: Wrap text in Flexible to prevent overflow
+                        const Flexible(
+                          child: Text(
+                            'Account Number: Your registered phone number',
+                            style: TextStyle(color: Colors.white, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue[700],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'After payment, our admin will verify and activate your account within 24 hours',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Got it',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = ref.watch(authenticationProvider);
@@ -711,6 +930,9 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     final isUploading = _isUploading;
     final uploadProgress = _uploadProgress;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    // Use canPost field instead of hasPaid - more appropriate for posting permissions
+    final canPost = currentUser?.canPost ?? false;
     final modernTheme = context.modernTheme;
     
     if (!isAuthenticated) {
@@ -767,7 +989,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           },
         ),
         actions: [
-          if (_videoFile != null)
+          if (_videoFile != null && canPost)
             TextButton(
               onPressed: (isLoading || _isProcessing || isUploading) ? null : _submitForm,
               child: Text(
@@ -783,270 +1005,492 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Video preview or picker
-              _videoFile == null
-                  ? _buildVideoPickerPlaceholder(modernTheme)
-                  : _buildVideoPreview(modernTheme),
-                
-              const SizedBox(height: 24),
-              
-              // Processing progress
-              if (_isProcessing)
-                Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: modernTheme.primaryColor!.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.video_settings,
-                                color: modernTheme.primaryColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
-                                      ? 'Processing...'
-                                      : 'Processing...',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          LinearProgressIndicator(
-                            value: _processingProgress,
-                            backgroundColor: modernTheme.borderColor,
-                            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${(_processingProgress * 100).toStringAsFixed(0)}% complete',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Payment Required Banner (if cannot post)
+                  // FIXED: Positioned banner removed from here to match users list screen
+                  
+                  // Video preview or picker
+                  _videoFile == null
+                      ? _buildVideoPickerPlaceholder(modernTheme, canPost)
+                      : _buildVideoPreview(modernTheme, canPost),
+                    
+                  const SizedBox(height: 24),
+                  
+                  // Processing progress
+                  if (_isProcessing)
+                    Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: modernTheme.primaryColor!.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: modernTheme.primaryColor!.withOpacity(0.3),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              
-              // Upload progress indicator with simulated percentage
-              if (isUploading)
-                Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: modernTheme.primaryColor!.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
+                          child: Column(
                             children: [
-                              Icon(
-                                Icons.cloud_upload,
-                                color: modernTheme.primaryColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Uploading...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.video_settings,
+                                    color: modernTheme.primaryColor,
+                                    size: 20,
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                                          ? 'Processing...'
+                                          : 'Processing...',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 12),
+                              LinearProgressIndicator(
+                                value: _processingProgress,
+                                backgroundColor: modernTheme.borderColor,
+                                valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                              ),
+                              const SizedBox(height: 8),
                               Text(
-                                '${(uploadProgress * 100).toStringAsFixed(1)}%',
+                                '${(_processingProgress * 100).toStringAsFixed(0)}% complete',
                                 style: TextStyle(
-                                  color: modernTheme.primaryColor,
+                                  color: modernTheme.textSecondaryColor,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          LinearProgressIndicator(
-                            value: uploadProgress,
-                            backgroundColor: modernTheme.borderColor,
-                            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  
+                  // Upload progress indicator with simulated percentage
+                  if (isUploading)
+                    Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: modernTheme.primaryColor!.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: modernTheme.primaryColor!.withOpacity(0.3),
+                            ),
                           ),
-                        ],
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.cloud_upload,
+                                    color: modernTheme.primaryColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Text(
+                                      'Uploading...',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${(uploadProgress * 100).toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      color: modernTheme.primaryColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              LinearProgressIndicator(
+                                value: uploadProgress,
+                                backgroundColor: modernTheme.borderColor,
+                                valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                              ),
+                            ],
+                      ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  
+                  // Caption
+                  TextFormField(
+                    controller: _captionController,
+                    decoration: InputDecoration(
+                      labelText: 'Caption *',
+                      labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: modernTheme.primaryColor!),
+                      ),
+                      errorBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red),
+                      ),
+                      filled: true,
+                      fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
+                    ),
+                    style: TextStyle(color: modernTheme.textColor),
+                    maxLines: 3,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a caption';
+                      }
+                      return null;
+                    },
+                    enabled: !isLoading && !_isProcessing && !isUploading && canPost,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Price field (Required temporarily)
+                  TextFormField(
+                    controller: _priceController,
+                    decoration: InputDecoration(
+                      labelText: 'Price (KES) *',
+                      labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: modernTheme.primaryColor!),
+                      ),
+                      errorBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red),
+                      ),
+                      filled: true,
+                      fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
+                      hintText: 'e.g. 100, 500, 1000',
+                      hintStyle: TextStyle(color: modernTheme.textSecondaryColor?.withOpacity(0.5)),
+                      prefixIcon: Icon(
+                        Icons.attach_money,
+                        color: modernTheme.textSecondaryColor,
+                      ),
+                      helperText: 'Enter whole numbers only (minimum 1 KES)',
+                      helperStyle: TextStyle(
+                        color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+                        fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              
-              // Caption
-              TextFormField(
-                controller: _captionController,
-                decoration: InputDecoration(
-                  labelText: 'Caption *',
-                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                    style: TextStyle(color: modernTheme.textColor),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a price';
+                      }
+                      final price = int.tryParse(value);
+                      if (price == null) {
+                        return 'Please enter a valid price';
+                      }
+                      if (price <= 0) {
+                        return 'Price must be greater than 0';
+                      }
+                      return null;
+                    },
+                    enabled: !isLoading && !_isProcessing && !isUploading && canPost,
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.primaryColor!),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Tags (Optional)
+                  TextFormField(
+                    controller: _tagsController,
+                    decoration: InputDecoration(
+                      labelText: 'Tags (Comma separated, Optional)',
+                      labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: modernTheme.primaryColor!),
+                      ),
+                      filled: true,
+                      fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
+                      hintText: 'e.g. sports, travel, music',
+                    ),
+                    style: TextStyle(color: modernTheme.textColor),
+                    enabled: !isLoading && !_isProcessing && !isUploading && canPost,
                   ),
-                  errorBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.red),
-                  ),
-                  filled: true,
-                  fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                ),
-                style: TextStyle(color: modernTheme.textColor),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a caption';
-                  }
-                  return null;
-                },
-                enabled: !isLoading && !_isProcessing && !isUploading,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Price field (Required temporarily)
-              TextFormField(
-                controller: _priceController,
-                decoration: InputDecoration(
-                  labelText: 'Price (KES) *',
-                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.primaryColor!),
-                  ),
-                  errorBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.red),
-                  ),
-                  filled: true,
-                  fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                  hintText: 'e.g. 100, 500, 1000',
-                  hintStyle: TextStyle(color: modernTheme.textSecondaryColor?.withOpacity(0.5)),
-                  prefixIcon: Icon(
-                    Icons.attach_money,
-                    color: modernTheme.textSecondaryColor,
-                  ),
-                  helperText: 'Enter whole numbers only (minimum 1 KES)',
-                  helperStyle: TextStyle(
-                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                ),
-                style: TextStyle(color: modernTheme.textColor),
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a price';
-                  }
-                  final price = int.tryParse(value);
-                  if (price == null) {
-                    return 'Please enter a valid price';
-                  }
-                  if (price <= 0) {
-                    return 'Price must be greater than 0';
-                  }
-                  return null;
-                },
-                enabled: !isLoading && !_isProcessing && !isUploading,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Tags (Optional)
-              TextFormField(
-                controller: _tagsController,
-                decoration: InputDecoration(
-                  labelText: 'Tags (Comma separated, Optional)',
-                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.primaryColor!),
-                  ),
-                  filled: true,
-                  fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                  hintText: 'e.g. sports, travel, music',
-                ),
-                style: TextStyle(color: modernTheme.textColor),
-                enabled: !isLoading && !_isProcessing && !isUploading,
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: (!isLoading && !_isProcessing && !isUploading) ? _submitForm : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: (!isLoading && !_isProcessing && !isUploading && canPost) ? _submitForm : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canPost ? modernTheme.primaryColor : Colors.grey,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: !canPost 
+                          ? const Text('Payment Required to Post')
+                          : (_isProcessing
+                              ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                                  ? 'Processing...' 
+                                  : 'Processing...')
+                              : (isUploading
+                                  ? const Text('Uploading...')
+                                  : const Text('Post Video'))),
                     ),
                   ),
-                  child: _isProcessing
-                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
-                          ? 'Processing...' 
-                          : 'Processing...')
-                      : (isUploading
-                          ? const Text('Uploading...')
-                          : const Text('Post Video')),
-                ),
+                  
+                  const SizedBox(height: 40),
+                ],
               ),
-              
-              const SizedBox(height: 40),
-            ],
+            ),
+          ),
+          
+          // FIXED: Banner positioned to match users list screen (top of screen)
+          if (!canPost)
+            Positioned(
+              top: MediaQuery.of(context).size.height * 0.25, // Position below app bar
+              left: 16,
+              right: 16,
+              child: _buildMarketplaceBanner(modernTheme),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarketplaceBanner(ModernThemeExtension theme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF6366F1),
+            Color(0xFF8B5CF6),
+            Color(0xFF6366F1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showPaymentInstructions,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Stack(
+              children: [
+                // Refresh button
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _handleRefresh,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Banner content
+                Padding(
+                  padding: const EdgeInsets.only(right: 24),
+                  child: Row(
+                    children: [
+                      // Animated icon
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(seconds: 2),
+                        builder: (context, value, child) {
+                          return Transform.rotate(
+                            angle: value * 0.1,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.3),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      // Text content
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // FIXED: Used Wrap instead of Row for better responsiveness
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                const Text(
+                                  '🔒 Payment Required',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'KES 2,999',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Pay one-time activation fee to post on marketplace',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                height: 1.3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'View Payment Details',
+                                    style: TextStyle(
+                                      color: theme.primaryColor ?? const Color(0xFF6366F1),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.arrow_forward,
+                                    color: theme.primaryColor ?? const Color(0xFF6366F1),
+                                    size: 14,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme) {
+  Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme, bool canPost) {
     return AspectRatio(
       aspectRatio: 9 / 16,
       child: Container(
@@ -1059,7 +1503,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           children: [
             Icon(
               Icons.videocam,
-              color: modernTheme.primaryColor,
+              color: canPost ? modernTheme.primaryColor : Colors.grey,
               size: 64,
             ),
             const SizedBox(height: 16),
@@ -1072,22 +1516,26 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Max 5 minutes • Videos under 30 seconds perform better',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
+            // FIXED: Changed the text widget structure to fix the textAlign issue
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Max 5 minutes • Videos under 30 seconds perform better',
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _pickItemFromGallery : null,
+              onPressed: (!_isProcessing && !_isUploading && canPost) ? _pickItemFromGallery : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
+                backgroundColor: canPost ? modernTheme.primaryColor : Colors.grey,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                disabledBackgroundColor: Colors.grey.withOpacity(0.5),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1098,18 +1546,18 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Select Video'),
+                  Text(canPost ? 'Select Video' : 'Payment Required'),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
+              onPressed: (!_isProcessing && !_isUploading && canPost) ? _showGoLiveMessage : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
+                backgroundColor: canPost ? modernTheme.primaryColor : Colors.grey,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                disabledBackgroundColor: Colors.grey.withOpacity(0.5),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1120,7 +1568,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Go Live'),
+                  const Text('Sell Live'),
                 ],
               ),
             ),
@@ -1130,7 +1578,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     );
   }
 
-  Widget _buildVideoPreview(ModernThemeExtension modernTheme) {
+  Widget _buildVideoPreview(ModernThemeExtension modernTheme, bool canPost) {
     if (_videoController != null &&
         _videoController!.value.isInitialized) {
       return Stack(
@@ -1161,7 +1609,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _pickItemFromGallery : null,
+              onPressed: (!_isProcessing && !_isUploading && canPost) ? _pickItemFromGallery : null,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -1170,7 +1618,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                 ),
                 child: Icon(
                   Icons.edit,
-                  color: (!_isProcessing && !_isUploading) ? Colors.white : Colors.grey,
+                  color: (!_isProcessing && !_isUploading && canPost) ? Colors.white : Colors.grey,
                   size: 20,
                 ),
               ),
@@ -1194,5 +1642,81 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         ),
       );
     }
+  }
+}
+
+// Inline login required widget
+class InlineLoginRequiredWidget extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  
+  const InlineLoginRequiredWidget({
+    super.key,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.video_call,
+                color: modernTheme.primaryColor,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                subtitle,
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                // Navigate to login screen
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Sign In'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
