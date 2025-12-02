@@ -61,7 +61,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       
       // If no data and not forcing refresh, try to load it
       if (currentAuthState == null || currentAuthState.videos.isEmpty) {
-        debugPrint('📹 No videos in state, loading from backend...');
+        debugPrint('🔹 No videos in state, loading from backend...');
         
         // Force refresh data if needed
         await authNotifier.loadVideos();
@@ -397,72 +397,88 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 child: Row(
                   children: [
-                    // Enhanced avatar with styling from users list
+                    // Enhanced avatar with WhatsApp-style green ring
                     Stack(
                       children: [
+                        // Outer green ring (WhatsApp status style)
                         Container(
-                          width: 48,
-                          height: 48,
-                          padding: const EdgeInsets.all(2),
+                          width: 54,
+                          height: 54,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.dividerColor!.withOpacity(0.2),
-                              width: 1,
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF25D366), // WhatsApp green
+                                Color(0xFF128C7E), // Darker WhatsApp green
+                              ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: theme.primaryColor!.withOpacity(0.15),
+                                color: const Color(0xFF25D366).withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: video.userImage.isNotEmpty
-                                ? Image.network(
-                                    video.userImage,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        decoration: BoxDecoration(
-                                          color: theme.primaryColor!.withOpacity(0.15),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            video.userName.isNotEmpty 
-                                                ? video.userName[0].toUpperCase()
-                                                : "U",
-                                            style: TextStyle(
-                                              color: theme.primaryColor,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
+                          child: Padding(
+                            padding: const EdgeInsets.all(2.5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: theme.surfaceColor,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: video.userImage.isNotEmpty
+                                      ? Image.network(
+                                          video.userImage,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                color: theme.primaryColor!.withOpacity(0.15),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  video.userName.isNotEmpty 
+                                                      ? video.userName[0].toUpperCase()
+                                                      : "U",
+                                                  style: TextStyle(
+                                                    color: theme.primaryColor,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : Container(
+                                          decoration: BoxDecoration(
+                                            color: theme.primaryColor!.withOpacity(0.15),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              video.userName.isNotEmpty 
+                                                  ? video.userName[0].toUpperCase()
+                                                  : "U",
+                                              style: TextStyle(
+                                                color: theme.primaryColor,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      );
-                                    },
-                                  )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      color: theme.primaryColor!.withOpacity(0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        video.userName.isNotEmpty 
-                                            ? video.userName[0].toUpperCase()
-                                            : "U",
-                                        style: TextStyle(
-                                          color: theme.primaryColor,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -470,7 +486,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                     
                     const SizedBox(width: 14),
                     
-                    // Enhanced user info with bio
+                    // Enhanced user info with timestamp
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,14 +503,14 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            _getUserBio(video.userId),
+                            _getTimeAgo(video.createdAtDateTime),
                             style: TextStyle(
                               color: theme.textSecondaryColor,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               height: 1.3,
                             ),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -508,21 +524,6 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         ),
       ),
     );
-  }
-
-  String _getUserBio(String userId) {
-    final authState = ref.read(authenticationProvider);
-    final currentAuthState = authState.valueOrNull;
-    if (currentAuthState == null) return 'No bio available';
-    
-    try {
-      final user = currentAuthState.users.firstWhere(
-        (user) => user.uid == userId,
-      );
-      return user.bio.isNotEmpty ? user.bio : 'No bio available';
-    } catch (e) {
-      return 'No bio available';
-    }
   }
 
   Widget _buildThumbnailContent(VideoModel video) {

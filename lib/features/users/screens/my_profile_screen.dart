@@ -459,7 +459,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     tabs: const [
                       Tab(
                         icon: Icon(Icons.grid_view),
-                        text: 'Posts',
+                        text: 'Status Posts',
                       ),
                       Tab(
                         icon: Icon(Icons.analytics),
@@ -631,7 +631,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                 maxWidthDiskCache: 220,
                                 maxHeightDiskCache: 220,
                                 httpHeaders: const {
-                                  'User-Agent': 'WeiBao-App/1.0',
+                                  'User-Agent': 'WemaChat-App/1.0',
                                 },
                                 cacheKey: _user!.profileImage,
                                 imageBuilder: (context, imageProvider) {
@@ -1473,7 +1473,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: modernTheme.primaryColor!.withOpacity(0.2),
+                          color: modernTheme.primaryColor!.withOpacity(0.4),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1489,7 +1489,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         ),
                         SizedBox(width: 12),
                         Text(
-                          'Manage My Posts',
+                          'Manage Your Status Posts',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -1505,7 +1505,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               const SizedBox(width: 12),
               
               // Wallet Button (smaller)
-              Expanded(
+              /*Expanded(
                 flex: 1,
                 child: GestureDetector(
                   onTap: _navigateToWallet,
@@ -1543,7 +1543,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     ),
                   ),
                 ),
-              ),
+              ),*/
             ],
           ),
 

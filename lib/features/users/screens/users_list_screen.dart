@@ -294,7 +294,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         child: InkWell(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            context.push(RoutePaths.managePosts);
+                            context.push(RoutePaths.manageMarketplaceListings);
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
@@ -795,7 +795,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                               context.push(RoutePaths.createProfile);
                             },
                             icon: const Icon(Icons.person_add),
-                            label: const Text('Join WeiBao'),
+                            label: const Text('Join WemaChat'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
                               foregroundColor: Colors.white,
@@ -977,7 +977,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
       case 'Live':
         return 'No one is currently live streaming';
       default:
-        return 'Users will appear here when they join WeiBao';
+        return 'Users will appear here when they join WemaChat';
     }
   }
 
@@ -1492,7 +1492,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Find sellers and businesses on WeiBao',
+              'Find sellers and businesses on WemaChat',
               style: TextStyle(
                 fontSize: 14,
                 color: theme.textSecondaryColor ?? Colors.grey[600],

@@ -16,7 +16,7 @@ class LoginRequiredWidget extends ConsumerWidget {
   const LoginRequiredWidget({
     super.key,
     this.title = 'Sign In Required',
-    this.subtitle = 'Please sign in to access this feature and unlock the full WeiBao experience.',
+    this.subtitle = 'Please sign in to access this feature and unlock the full Wemachat experience.',
     this.actionText = 'Sign In',
     this.icon = Icons.login,
     this.showContinueBrowsing = true,
@@ -129,7 +129,7 @@ class LoginRequiredWidget extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Join WeiBao to:',
+                    'Join WemaChat to:',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -430,7 +430,7 @@ class GuestModeBanner extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Join WeiBao!',
+                  'Join WemaChat!',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,

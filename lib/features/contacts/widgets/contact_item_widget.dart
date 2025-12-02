@@ -249,7 +249,7 @@ class ContactsEmptyStatesWidget {
               const SizedBox(height: 8),
               Text(
                 searchQuery.isEmpty 
-                  ? 'Contacts not using WeiBao will appear here'
+                  ? 'Contacts not using WemaChat will appear here'
                   : 'Try a different search term',
                 style: TextStyle(
                   fontSize: 15,

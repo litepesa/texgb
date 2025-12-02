@@ -377,7 +377,7 @@ class InviteItemWidget extends ConsumerWidget {
                       
                       const SizedBox(height: 4),
                       
-                      // Not on WeiBao indicator
+                      // Not on WemaChat indicator
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -394,7 +394,7 @@ class InviteItemWidget extends ConsumerWidget {
                             ),
                             const SizedBox(width: 3),
                             Text(
-                              'Not on WeiBao',
+                              'Not on WemaChat',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: theme.textSecondaryColor,
@@ -487,7 +487,7 @@ class InviteItemWidget extends ConsumerWidget {
       
       await Share.share(
         message,
-        subject: 'Join me on WeiBao!',
+        subject: 'Join me on WemaChat!',
       );
       
       _showSuccessSnackBar(context, 'Invitation sent to ${contact.displayName}');
@@ -602,7 +602,7 @@ class InviteItemWidget extends ConsumerWidget {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      'Not on WeiBao',
+                                      'Not on WemaChat',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -740,7 +740,7 @@ class InviteItemWidget extends ConsumerWidget {
                                       ),
                                       const SizedBox(width: 8),
                                       const Text(
-                                        'Invite to WeiBao',
+                                        'Invite to WemaChat',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,

@@ -729,7 +729,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
         body: const InlineLoginRequiredWidget(
           title: 'Sign In to Create',
-          subtitle: 'You need to sign in before you can upload videos. Join WeiBao to share your content with the world!',
+          subtitle: 'You need to sign in before you can upload videos. Join WemaChat to share your content with the world!',
         ),
       );
     }

@@ -299,7 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             );
           },
-          child: const Icon(CupertinoIcons.money_dollar_circle),
+          child: const Icon(Icons.monetization_on_outlined),
         ),
         const SizedBox(height: 16),
         // Contacts FAB
