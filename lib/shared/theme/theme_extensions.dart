@@ -4,19 +4,27 @@ import 'modern_colors.dart';
 /// Helper extension to easily access theme extensions from BuildContext
 extension ExtendedTheme on BuildContext {
   ModernThemeExtension get modernTheme {
-    return Theme.of(this).extension<ModernThemeExtension>()!;
+    return Theme.of(this).extension<ModernThemeExtension>() ??
+        (Theme.of(this).brightness == Brightness.dark
+            ? ModernThemeExtension.darkMode
+            : ModernThemeExtension.lightMode);
   }
 
   ResponsiveThemeExtension get responsiveTheme {
-    return Theme.of(this).extension<ResponsiveThemeExtension>()!;
+    return Theme.of(this).extension<ResponsiveThemeExtension>() ??
+        const ResponsiveThemeExtension();
   }
 
   AnimationThemeExtension get animationTheme {
-    return Theme.of(this).extension<AnimationThemeExtension>()!;
+    return Theme.of(this).extension<AnimationThemeExtension>() ??
+        const AnimationThemeExtension();
   }
 
   ChatThemeExtension get chatTheme {
-    return Theme.of(this).extension<ChatThemeExtension>()!;
+    return Theme.of(this).extension<ChatThemeExtension>() ??
+        (Theme.of(this).brightness == Brightness.dark
+            ? ChatThemeExtension.darkMode
+            : ChatThemeExtension.lightMode);
   }
 }
 

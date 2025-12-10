@@ -1105,12 +1105,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.video_camera_back,
+                    Icons.photo_album,
                     color: Colors.white,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Go Live'),
+                  const Text('Add Photos'),
                 ],
               ),
             ),

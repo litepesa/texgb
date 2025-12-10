@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/channels/screens/channels_home_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/screens/groups_list_screen.dart';
 import 'package:textgb/features/groups/screens/create_group_screen.dart';
@@ -45,13 +46,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final List<String> _tabNames = [
     'Chats',          // Index 0 - Chats Screen
     'Groups',         // Index 1 - Groups / Channels
-    'Status',         // Index 2 - Status List Screen
-    'Marketplace',    // Index 3 - User List Screen
+    'Moments',        // Index 2 - Status List Screen
+    'Channels',       // Index 3 - User List Screen
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2,                  // Chats
-    Icons.groups_2_outlined,                       // Groups
+    CupertinoIcons.person_2,                       // Groups
     Icons.radio_button_checked_rounded,            // Status
     Icons.gps_fixed_rounded,                       // Channels
   ];
@@ -264,13 +265,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const GroupsListScreen(),
           ),
-          // Status/Channels tab (index 2) - Status List Screen/Channels List Screen
+          // Moments Tab (index 2) - Recommended Posts Screen
           _KeepAliveWrapper(
             child: const RecommendedPostsScreen(),
           ),
-          // Marketplace tab (index 3) - Users List Screen
+          // Channels tab (index 3) - Channels Home Screen
           _KeepAliveWrapper(
-            child: const UsersListScreen(),
+            child: const ChannelsHomeScreen(),
           ),
         ],
       ),

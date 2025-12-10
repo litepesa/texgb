@@ -167,7 +167,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   void _showGoLiveMessage() {
-    _showMessage('Unavailable');
+    _showMessage('Not available for you yet!');
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
@@ -1210,7 +1210,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                   TextFormField(
                     controller: _tagsController,
                     decoration: InputDecoration(
-                      labelText: 'Tags (Comma separated, Optional)',
+                      labelText: 'Keyword (Optional)',
                       labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
