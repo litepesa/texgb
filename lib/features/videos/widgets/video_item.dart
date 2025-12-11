@@ -16,6 +16,8 @@ import 'package:textgb/constants.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:dio/dio.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -933,7 +935,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // Direct message functionality
+  // Direct message functionality - Shows video reaction input
   Future<void> _openDirectMessage() async {
     final canInteract = await _requireAuthentication('send direct messages');
     if (!canInteract) return;
@@ -949,20 +951,69 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (widget.onDirectMessagePressed != null) {
       widget.onDirectMessagePressed!();
     } else {
-      // Fallback to local implementation
-      try {
-        // Create or get existing chat using chat provider
-        final chatNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatNotifier.createOrGetChat(widget.video.userId);
+      // Show video reaction input bottom sheet
+      final reaction = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => VideoReactionInput(
+          video: widget.video,
+          onSendReaction: (reaction) => Navigator.pop(context, reaction),
+          onCancel: () => Navigator.pop(context),
+        ),
+      );
 
-        if (chatId != null) {
-          context.push(RoutePaths.chat(chatId));
-        } else {
-          _showSnackBar('Failed to open chat. Please try again.');
+      // If reaction was provided, create chat and send reaction
+      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
+        try {
+          final chatNotifier = ref.read(chatListProvider.notifier);
+
+          // Create chat with video reaction
+          final chatId = await chatNotifier.createChatWithVideoReaction(
+            otherUserId: widget.video.userId,
+            videoId: widget.video.id,
+            videoUrl: widget.video.videoUrl,
+            thumbnailUrl: widget.video.thumbnailUrl.isNotEmpty
+                ? widget.video.thumbnailUrl
+                : (widget.video.isMultipleImages && widget.video.imageUrls.isNotEmpty
+                    ? widget.video.imageUrls.first
+                    : ''),
+            userName: widget.video.userName,
+            userImage: widget.video.userImage,
+            reaction: reaction,
+          );
+
+          if (chatId != null && mounted) {
+            // Get video owner user data for chat screen
+            final authNotifier = ref.read(authenticationProvider.notifier);
+            final videoOwner = await authNotifier.getUserById(widget.video.userId);
+
+            // Create UserModel for navigation
+            final contact = videoOwner ?? UserModel.fromMap({
+              'uid': widget.video.userId,
+              'name': widget.video.userName,
+              'profileImage': widget.video.userImage,
+              'isVerified': widget.video.isVerified,
+            });
+
+            // Navigate to chat screen
+            if (mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ChatScreen(
+                    chatId: chatId,
+                    contact: contact,
+                  ),
+                ),
+              );
+            }
+          } else {
+            _showSnackBar('Failed to send reaction. Please try again.');
+          }
+        } catch (e) {
+          debugPrint('Error sending video reaction: $e');
+          _showSnackBar('Failed to send reaction. Please try again.');
         }
-      } catch (e) {
-        debugPrint('Error opening direct message: $e');
-        _showSnackBar('Failed to open chat. Please try again.');
       }
     }
   }

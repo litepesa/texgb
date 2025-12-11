@@ -11,6 +11,9 @@ import 'package:textgb/features/marketplace/models/marketplace_video_model.dart'
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_video_item.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/marketplace/widgets/marketplace_reaction_input.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
@@ -532,48 +535,97 @@ class _SingleMarketplaceVideoScreenState extends ConsumerState<SingleMarketplace
     });
   }
 
-  // Direct message functionality
+  // Direct message functionality - Shows marketplace reaction input
   Future<void> _openDirectMessage(MarketplaceVideoModel marketplaceVideo) async {
     _pauseForNavigation();
 
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
-      );
+    // Show marketplace reaction input bottom sheet
+    final reaction = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => MarketplaceReactionInput(
+        listing: marketplaceVideo,
+        onSendReaction: (reaction) => Navigator.pop(context, reaction),
+        onCancel: () => Navigator.pop(context),
+      ),
+    );
 
-      final chatNotifier = ref.read(chatListProvider.notifier);
-      final chatId = await chatNotifier.createOrGetChat(marketplaceVideo.userId);
+    // If reaction was provided, create chat and send message
+    if (reaction != null && reaction.trim().isNotEmpty && mounted) {
+      try {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        );
 
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+        final chatNotifier = ref.read(chatListProvider.notifier);
 
-      if (chatId != null) {
+        // Create chat with video reaction
+        final chatId = await chatNotifier.createChatWithVideoReaction(
+          otherUserId: marketplaceVideo.userId,
+          videoId: marketplaceVideo.id,
+          videoUrl: marketplaceVideo.videoUrl,
+          thumbnailUrl: marketplaceVideo.thumbnailUrl.isNotEmpty
+              ? marketplaceVideo.thumbnailUrl
+              : (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty
+                  ? marketplaceVideo.imageUrls.first
+                  : ''),
+          userName: marketplaceVideo.userName,
+          userImage: marketplaceVideo.userImage,
+          reaction: reaction,
+        );
+
         if (mounted) {
-          context.push(RoutePaths.chat(chatId));
+          Navigator.of(context).pop(); // Close loading dialog
         }
-      } else {
-        _showSnackBar('Failed to open chat. Please try again.');
-      }
-    } catch (e) {
-      debugPrint('Error opening direct message: $e');
 
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+        if (chatId != null && mounted) {
+          // Get listing owner user data for chat screen
+          final authNotifier = ref.read(authenticationProvider.notifier);
+          final listingOwner = await authNotifier.getUserById(marketplaceVideo.userId);
 
-      _showSnackBar('Failed to open chat. Please try again.');
-    } finally {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _resumeFromNavigation();
+          // Create UserModel for navigation
+          final contact = listingOwner ?? UserModel.fromMap({
+            'uid': marketplaceVideo.userId,
+            'name': marketplaceVideo.userName,
+            'profileImage': marketplaceVideo.userImage,
+          });
+
+          // Navigate to chat screen
+          if (mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(
+                  chatId: chatId,
+                  contact: contact,
+                ),
+              ),
+            );
+          }
+        } else {
+          _showSnackBar('Failed to send message. Please try again.');
         }
-      });
+      } catch (e) {
+        debugPrint('Error sending marketplace message: $e');
+
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+
+        _showSnackBar('Failed to send message. Please try again.');
+      }
     }
+
+    // Resume video playback
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _resumeFromNavigation();
+      }
+    });
   }
 
   void _showSnackBar(String message) {

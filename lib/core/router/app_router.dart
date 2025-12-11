@@ -62,6 +62,7 @@ import 'package:textgb/features/channels/screens/members_management_screen.dart'
 // Chat screens
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/chat/screens/chat_screen_wrapper.dart';
 
 // Groups screens
 import 'package:textgb/features/groups/screens/groups_list_screen.dart';
@@ -477,16 +478,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final chatId = state.pathParameters['chatId']!;
           final extra = state.extra as Map<String, dynamic>?;
-          final contact = extra?['contact'] as UserModel?;
 
-          // Require contact to be passed via extra
+          // Try to get contact from extra (can be UserModel or basic info)
+          UserModel? contact = extra?['contact'] as UserModel?;
+
+          // If no UserModel, try to create one from basic info
+          if (contact == null && extra != null) {
+            final otherUserId = extra['otherUserId'] as String?;
+            final otherUserName = extra['otherUserName'] as String?;
+            final otherUserImage = extra['otherUserImage'] as String?;
+            final otherUserVerified = extra['otherUserVerified'] as bool? ?? false;
+
+            if (otherUserId != null) {
+              contact = UserModel.fromMap({
+                'uid': otherUserId,
+                'name': otherUserName ?? 'User',
+                'profileImage': otherUserImage ?? '',
+                'isVerified': otherUserVerified,
+              });
+            }
+          }
+
+          // If still no contact, show loading screen that fetches user
           if (contact == null) {
-            return Scaffold(
-              appBar: AppBar(title: const Text('Error')),
-              body: const Center(
-                child: Text('Contact information is required'),
-              ),
-            );
+            return ChatScreenWrapper(chatId: chatId);
           }
 
           return ChatScreen(

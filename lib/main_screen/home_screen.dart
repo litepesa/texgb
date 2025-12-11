@@ -47,7 +47,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',          // Index 0 - Chats Screen
     'Groups',         // Index 1 - Groups / Channels
     'Moments',        // Index 2 - Status List Screen
-    'Channels',       // Index 3 - User List Screen
+    'Marketplace',       // Index 3 - User List Screen
   ];
   
   final List<IconData> _tabIcons = [
@@ -271,7 +271,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Channels tab (index 3) - Channels Home Screen
           _KeepAliveWrapper(
-            child: const ChannelsHomeScreen(),
+            child: const UsersListScreen(),
           ),
         ],
       ),

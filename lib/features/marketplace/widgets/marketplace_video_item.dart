@@ -16,6 +16,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_comments_bottom_sheet.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/marketplace/widgets/marketplace_reaction_input.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:dio/dio.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -933,14 +935,14 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     }
   }
 
-  // Direct message functionality
+  // Direct message functionality - Shows marketplace reaction input
   Future<void> _openDirectMessage() async {
     final canInteract = await _requireAuthentication('send direct messages');
     if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
 
-    // Check if trying to message own video
+    // Check if trying to message own listing
     if (widget.marketplaceVideo.userId == currentUser!.uid) {
       _showCannotDMOwnVideoMessage();
       return;
@@ -949,20 +951,68 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     if (widget.onDirectMessagePressed != null) {
       widget.onDirectMessagePressed!();
     } else {
-      // Fallback to local implementation
-      try {
-        // Create or get existing chat using chat provider
-        final chatNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatNotifier.createOrGetChat(widget.marketplaceVideo.userId);
+      // Show marketplace reaction input bottom sheet
+      final reaction = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => MarketplaceReactionInput(
+          listing: widget.marketplaceVideo,
+          onSendReaction: (reaction) => Navigator.pop(context, reaction),
+          onCancel: () => Navigator.pop(context),
+        ),
+      );
 
-        if (chatId != null) {
-          context.push(RoutePaths.chat(chatId));
-        } else {
-          _showSnackBar('Failed to open chat. Please try again.');
+      // If reaction was provided, create chat and send message
+      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
+        try {
+          final chatNotifier = ref.read(chatListProvider.notifier);
+
+          // Create chat with video reaction (reusing for marketplace)
+          final chatId = await chatNotifier.createChatWithVideoReaction(
+            otherUserId: widget.marketplaceVideo.userId,
+            videoId: widget.marketplaceVideo.id,
+            videoUrl: widget.marketplaceVideo.videoUrl,
+            thumbnailUrl: widget.marketplaceVideo.thumbnailUrl.isNotEmpty
+                ? widget.marketplaceVideo.thumbnailUrl
+                : (widget.marketplaceVideo.isMultipleImages && widget.marketplaceVideo.imageUrls.isNotEmpty
+                    ? widget.marketplaceVideo.imageUrls.first
+                    : ''),
+            userName: widget.marketplaceVideo.userName,
+            userImage: widget.marketplaceVideo.userImage,
+            reaction: reaction,
+          );
+
+          if (chatId != null && mounted) {
+            // Get listing owner user data for chat screen
+            final authNotifier = ref.read(authenticationProvider.notifier);
+            final listingOwner = await authNotifier.getUserById(widget.marketplaceVideo.userId);
+
+            // Create UserModel for navigation
+            final contact = listingOwner ?? UserModel.fromMap({
+              'uid': widget.marketplaceVideo.userId,
+              'name': widget.marketplaceVideo.userName,
+              'profileImage': widget.marketplaceVideo.userImage,
+            });
+
+            // Navigate to chat screen
+            if (mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ChatScreen(
+                    chatId: chatId,
+                    contact: contact,
+                  ),
+                ),
+              );
+            }
+          } else {
+            _showSnackBar('Failed to send message. Please try again.');
+          }
+        } catch (e) {
+          debugPrint('Error sending marketplace message: $e');
+          _showSnackBar('Failed to send message. Please try again.');
         }
-      } catch (e) {
-        debugPrint('Error opening direct message: $e');
-        _showSnackBar('Failed to open chat. Please try again.');
       }
     }
   }
