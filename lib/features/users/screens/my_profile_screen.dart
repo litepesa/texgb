@@ -1489,7 +1489,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         ),
                         SizedBox(width: 12),
                         Text(
-                          'Manage Your Status Posts',
+                          'Manage Your Posts',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -1505,7 +1505,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               const SizedBox(width: 12),
               
               // Wallet Button (smaller)
-              /*Expanded(
+              Expanded(
                 flex: 1,
                 child: GestureDetector(
                   onTap: _navigateToWallet,
@@ -1543,7 +1543,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                     ),
                   ),
                 ),
-              ),*/
+              ),
             ],
           ),
 
