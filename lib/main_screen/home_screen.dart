@@ -46,15 +46,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final List<String> _tabNames = [
     'Chats',          // Index 0 - Chats Screen
     'Groups',         // Index 1 - Private/Public Groups
-    'Moments',        // Index 2 - Recommended Posts Screen
-    'Channels',       // Index 3 - Channels Feed Screen
+    'Marketplace',        // Index 2 - Recommended Posts Screen
+    'Status',       // Index 3 - Channels Feed Screen
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2,                  // Chats
-    CupertinoIcons.person_2,                       // Groups
-    Icons.radio_button_checked_rounded,            // Moments
-    Icons.gps_fixed_rounded,                       // Channels
+    CupertinoIcons.bubble_left_bubble_right,                       // Groups
+    Icons.store_outlined,            // Moments
+    Icons.donut_large_rounded,                       // Channels
   ];
 
   @override
@@ -166,29 +166,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!mounted) return;
     
     try {
-      final isMomentsTab = _currentIndex == 3;
-      
-      if (isMomentsTab) {
-        // White theme for Moments tab
-        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.dark,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      } else {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-      }
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
     } catch (e) {
       debugPrint('System UI update error: $e');
     }
@@ -216,7 +202,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isMomentsTab = _currentIndex == 3;
     
     // Check if app is still initializing
     final isAppInitializing = ref.watch(isAppInitializingProvider);
@@ -263,21 +248,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
 
-    // Determine background color based on current tab
-    Color scaffoldBackground;
-    if (isMomentsTab) {
-      scaffoldBackground = Colors.white;
-    } else {
-      scaffoldBackground = modernTheme.backgroundColor ?? Colors.white;
-    }
-
     return Scaffold(
-      extendBody: true,
-      extendBodyBehindAppBar: isMomentsTab,
-      backgroundColor: scaffoldBackground,
-      
-      // Hide app bar for Moments tab (index 3)
-      appBar: isMomentsTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      backgroundColor: modernTheme.backgroundColor,
+      appBar: _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -294,14 +267,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Moments Tab (index 2) - Recommended Posts Screen
           _KeepAliveWrapper(
-            child: const RecommendedPostsScreen(),
+            child: const UsersListScreen(),
           ),
-          // Channels tab (index 3) - Channels Feed Screen (White theme)
+          // Channels tab (index 3) - Channels Home Screen
           _KeepAliveWrapper(
-            child: Container(
-              color: Colors.white,
-              child: const WalletScreen(),
-            ),
+            child: const RecommendedPostsScreen(),
           ),
         ],
       ),
@@ -355,7 +325,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 1) {
-      // Groups/Channels tab - Create new group
+      // Groups tab - Create new group
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
@@ -373,10 +343,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ref.invalidate(groupsListProvider);
           }
         },
-        child: const Icon(Icons.group_add_rounded),
+        child: const Icon(CupertinoIcons.plus),
       );
     } else if (_currentIndex == 2) {
-      // Marketplace tab - Navigate to create listing screen
+      // Status tab - Create new status
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
@@ -392,9 +362,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(Icons.add),
       );
     } else if (_currentIndex == 3) {
-      // Moments tab - Create post screen
+      // Channels tab - Navigate to create post screen
       return FloatingActionButton(
-        backgroundColor: Colors.white,
+        backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
@@ -602,27 +572,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildBottomNav(ModernThemeExtension modernTheme) {
-    final isMomentsTab = _currentIndex == 3;
-    
-    Color backgroundColor;
-    Color? borderColor;
-    
-    if (isMomentsTab) {
-      // White theme for Moments tab
-      backgroundColor = Colors.white;
-      borderColor = Colors.grey[300];
-    } else {
-      // Default theme for other tabs
-      backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
-      borderColor = modernTheme.dividerColor ?? Colors.grey[300];
-    }
+    Color backgroundColor = modernTheme.surfaceColor ?? Colors.grey[100]!;
+    Color borderColor = modernTheme.dividerColor ?? Colors.grey[300]!;
 
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor,
         border: Border(
           top: BorderSide(
-            color: borderColor!,
+            color: borderColor,
             width: 0.5,
           ),
         ),
@@ -644,28 +602,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildNavItem(int index, ModernThemeExtension modernTheme) {
     final isSelected = _currentIndex == index;
-    final isMomentsTab = _currentIndex == 3;
 
-    Color iconColor;
-    Color textColor;
-    
-    if (isMomentsTab) {
-      // White background - dark icons for Moments tab
-      iconColor = isSelected 
-          ? (modernTheme.primaryColor ?? const Color(0xFF07C160)) 
-          : Colors.grey[600]!;
-      textColor = isSelected 
-          ? Colors.black
-          : Colors.grey[600]!;
-    } else {
-      // Default theme
-      iconColor = isSelected
-          ? (modernTheme.primaryColor ?? const Color(0xFF07C160))
-          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-      textColor = isSelected
-          ? (modernTheme.textColor ?? Colors.black)
-          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-    }
+    Color iconColor = isSelected
+        ? (modernTheme.primaryColor ?? const Color(0xFF07C160))
+        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+    Color textColor = isSelected
+        ? (modernTheme.textColor ?? Colors.black)
+        : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
 
     // Real unread count for Chats (index 0) and Groups (index 1)
     int unreadCount = 0;

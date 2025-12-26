@@ -589,7 +589,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Discover amazing products, and deals in our marketplace',
+                              'Discover amazing products, and deals in the marketplace',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -615,7 +615,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Watch Now',
+                                    'Check Out',
                                     style: TextStyle(
                                       color: theme.primaryColor ?? const Color(0xFFFE2C55),
                                       fontSize: 12,
