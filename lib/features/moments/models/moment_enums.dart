@@ -1,0 +1,120 @@
+// ===============================
+// Moment Feature Enums
+// ===============================
+
+/// Visibility level for a moment post
+enum MomentVisibility {
+  all,      // Visible to all mutual contacts
+  private,  // Only visible to post owner
+  custom,   // Custom whitelist/blacklist
+}
+
+/// Media type for moment content
+enum MomentMediaType {
+  text,     // Text only
+  images,   // One or more images (max 9)
+  video,    // Single video
+}
+
+/// Timeline visibility settings (for user profile)
+enum TimelineVisibility {
+  all,            // Show all moments
+  lastThreeDays,  // Only show last 3 days
+  lastSixMonths,  // Only show last 6 months
+}
+
+/// Moment interaction type
+enum MomentInteractionType {
+  like,
+  comment,
+}
+
+/// Extensions for enum serialization
+extension MomentVisibilityExtension on MomentVisibility {
+  String toJson() {
+    switch (this) {
+      case MomentVisibility.all:
+        return 'all';
+      case MomentVisibility.private:
+        return 'private';
+      case MomentVisibility.custom:
+        return 'custom';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case MomentVisibility.all:
+        return 'Public';
+      case MomentVisibility.private:
+        return 'Private';
+      case MomentVisibility.custom:
+        return 'Custom';
+    }
+  }
+
+  static MomentVisibility fromJson(String value) {
+    switch (value.toLowerCase()) {
+      case 'all':
+        return MomentVisibility.all;
+      case 'private':
+        return MomentVisibility.private;
+      case 'custom':
+        return MomentVisibility.custom;
+      default:
+        return MomentVisibility.all;
+    }
+  }
+}
+
+extension MomentMediaTypeExtension on MomentMediaType {
+  String toJson() {
+    switch (this) {
+      case MomentMediaType.text:
+        return 'text';
+      case MomentMediaType.images:
+        return 'images';
+      case MomentMediaType.video:
+        return 'video';
+    }
+  }
+
+  static MomentMediaType fromJson(String value) {
+    switch (value.toLowerCase()) {
+      case 'text':
+        return MomentMediaType.text;
+      case 'images':
+        return MomentMediaType.images;
+      case 'video':
+        return MomentMediaType.video;
+      default:
+        return MomentMediaType.text;
+    }
+  }
+}
+
+extension TimelineVisibilityExtension on TimelineVisibility {
+  String toJson() {
+    switch (this) {
+      case TimelineVisibility.all:
+        return 'all';
+      case TimelineVisibility.lastThreeDays:
+        return 'last_3_days';
+      case TimelineVisibility.lastSixMonths:
+        return 'last_6_months';
+    }
+  }
+
+  static TimelineVisibility fromJson(String value) {
+    switch (value.toLowerCase()) {
+      case 'all':
+        return TimelineVisibility.all;
+      case 'last_3_days':
+        return TimelineVisibility.lastThreeDays;
+      case 'last_6_months':
+        return TimelineVisibility.lastSixMonths;
+      default:
+        return TimelineVisibility.all;
+    }
+  }
+}

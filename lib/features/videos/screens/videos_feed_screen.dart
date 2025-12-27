@@ -45,7 +45,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
-  bool _isScreenActive = true;
+  bool _isScreenActive = false; // Start as false since wallet tab is initial screen
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
   bool _isNavigatingAway = false;

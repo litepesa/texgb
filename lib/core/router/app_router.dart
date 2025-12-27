@@ -76,6 +76,13 @@ import 'package:textgb/features/calls/screens/incoming_call_screen.dart';
 import 'package:textgb/features/calls/screens/outgoing_call_screen.dart';
 import 'package:textgb/features/calls/screens/active_call_screen.dart';
 
+// Moments screens
+import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/user_moments_screen.dart';
+import 'package:textgb/features/moments/widgets/media_viewer_screen.dart';
+import 'package:textgb/features/moments/widgets/video_viewer_screen.dart';
+import 'package:textgb/features/moments/models/moment_model.dart';
 
 // Status screens
 import 'package:textgb/features/status/screens/status_list_screen.dart';
@@ -392,6 +399,63 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final videoId = state.pathParameters['videoId']!;
           return NoTransitionPage(
             child: MyListingScreen(videoId: videoId),
+          );
+        },
+      ),
+
+      // ==================== MOMENTS ROUTES ====================
+
+      GoRoute(
+        path: RoutePaths.momentsFeed,
+        name: RouteNames.momentsFeed,
+        builder: (context, state) => const MomentsFeedScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.createMoment,
+        name: RouteNames.createMoment,
+        builder: (context, state) => const CreateMomentScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.userMomentsPattern,
+        name: RouteNames.userMoments,
+        builder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          final extra = state.extra as Map<String, dynamic>?;
+          return UserMomentsScreen(
+            userId: userId,
+            userName: extra?['userName'] ?? '',
+            userAvatar: extra?['userAvatar'] ?? '',
+          );
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.momentMediaViewerPattern,
+        name: RouteNames.momentMediaViewer,
+        builder: (context, state) {
+          final indexStr = state.pathParameters['index']!;
+          final index = int.tryParse(indexStr) ?? 0;
+          final extra = state.extra as Map<String, dynamic>?;
+          final imageUrls = extra?['imageUrls'] as List<String>? ?? [];
+          return MediaViewerScreen(
+            imageUrls: imageUrls,
+            initialIndex: index,
+          );
+        },
+      ),
+
+      GoRoute(
+        path: RoutePaths.momentVideoViewerPattern,
+        name: RouteNames.momentVideoViewer,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final videoUrl = extra?['videoUrl'] as String? ?? '';
+          final moment = extra?['moment'] as MomentModel?;
+          return VideoViewerScreen(
+            videoUrl: videoUrl,
+            moment: moment!,
           );
         },
       ),
