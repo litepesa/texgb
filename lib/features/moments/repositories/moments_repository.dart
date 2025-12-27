@@ -51,7 +51,7 @@ class HttpMomentsRepository implements MomentsRepository {
   Future<List<MomentModel>> getFeed({int page = 1, int limit = 20}) async {
     try {
       final response = await _httpClient.get(
-        '/api/v1/posts/feed?page=$page&per_page=$limit',
+        '/posts/feed?page=$page&per_page=$limit',
       );
 
       if (response.statusCode == 200) {
@@ -76,7 +76,7 @@ class HttpMomentsRepository implements MomentsRepository {
   }) async {
     try {
       final response = await _httpClient.get(
-        '/api/v1/users/$userId/posts?page=$page&per_page=$limit',
+        '/users/$userId/posts?page=$page&per_page=$limit',
       );
 
       if (response.statusCode == 200) {
@@ -96,7 +96,7 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<MomentModel?> getMoment(String momentId) async {
     try {
-      final response = await _httpClient.get('/api/v1/posts/$momentId');
+      final response = await _httpClient.get('/posts/$momentId');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -120,7 +120,7 @@ class HttpMomentsRepository implements MomentsRepository {
   Future<MomentModel> createMoment(CreateMomentRequest request) async {
     try {
       final response = await _httpClient.post(
-        '/api/v1/posts',
+        '/posts',
         body: request.toJson(),
       );
 
@@ -138,7 +138,7 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<bool> deleteMoment(String momentId) async {
     try {
-      final response = await _httpClient.delete('/api/v1/posts/$momentId');
+      final response = await _httpClient.delete('/posts/$momentId');
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
@@ -158,7 +158,7 @@ class HttpMomentsRepository implements MomentsRepository {
   Future<bool> likeMoment(String momentId) async {
     try {
       final response = await _httpClient.post(
-        '/api/v1/posts/$momentId/like',
+        '/posts/$momentId/like',
         body: {},
       );
 
@@ -175,7 +175,7 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<bool> unlikeMoment(String momentId) async {
     try {
-      final response = await _httpClient.delete('/api/v1/posts/$momentId/like');
+      final response = await _httpClient.delete('/posts/$momentId/like');
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
@@ -195,7 +195,7 @@ class HttpMomentsRepository implements MomentsRepository {
   }) async {
     try {
       final response = await _httpClient.post(
-        '/api/v1/posts/$momentId/comments',
+        '/posts/$momentId/comments',
         body: {
           'comment_text': content,
           if (replyToUserId != null) 'replyToUserId': replyToUserId,
@@ -216,7 +216,7 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<bool> deleteComment(String commentId) async {
     try {
-      final response = await _httpClient.delete('/api/v1/posts/comments/$commentId');
+      final response = await _httpClient.delete('/posts/comments/$commentId');
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
@@ -236,7 +236,7 @@ class HttpMomentsRepository implements MomentsRepository {
   }) async {
     try {
       final response = await _httpClient.get(
-        '/api/v1/posts/$momentId/comments?page=$page&per_page=$limit',
+        '/posts/$momentId/comments?page=$page&per_page=$limit',
       );
 
       if (response.statusCode == 200) {
@@ -261,7 +261,7 @@ class HttpMomentsRepository implements MomentsRepository {
   }) async {
     try {
       final response = await _httpClient.get(
-        '/api/v1/posts/$momentId/likes?page=$page&per_page=$limit',
+        '/posts/$momentId/likes?page=$page&per_page=$limit',
       );
 
       if (response.statusCode == 200) {
@@ -285,7 +285,7 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<MomentPrivacySettings?> getPrivacySettings(String userId) async {
     try {
-      final response = await _httpClient.get('/api/v1/moments/privacy/$userId');
+      final response = await _httpClient.get('/moments/privacy/$userId');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -308,7 +308,7 @@ class HttpMomentsRepository implements MomentsRepository {
   ) async {
     try {
       final response = await _httpClient.put(
-        '/api/v1/moments/privacy/$userId',
+        '/moments/privacy/$userId',
         body: request.toJson(),
       );
 
@@ -331,7 +331,7 @@ class HttpMomentsRepository implements MomentsRepository {
   Future<bool> isMutualContact(String userId, String contactId) async {
     try {
       final response = await _httpClient.get(
-        '/api/v1/contacts/mutual/$userId/$contactId',
+        '/contacts/mutual/$userId/$contactId',
       );
 
       if (response.statusCode == 200) {
@@ -348,7 +348,7 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<List<String>> getMutualContacts(String userId) async {
     try {
-      final response = await _httpClient.get('/api/v1/contacts/mutual/$userId');
+      final response = await _httpClient.get('/contacts/mutual/$userId');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
