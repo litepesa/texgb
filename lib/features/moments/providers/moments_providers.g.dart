@@ -631,7 +631,7 @@ final momentPrivacyProvider = AutoDisposeAsyncNotifierProvider<MomentPrivacy,
 );
 
 typedef _$MomentPrivacy = AutoDisposeAsyncNotifier<MomentPrivacySettings?>;
-String _$createMomentHash() => r'7a585f1d32fe3afbcfdc2cc6571f7cc48fc259ff';
+String _$createMomentHash() => r'f52180d3d06400fef7874a3cdcacd6d8b88e2acb';
 
 /// See also [CreateMoment].
 @ProviderFor(CreateMoment)
@@ -646,7 +646,7 @@ final createMomentProvider =
 );
 
 typedef _$CreateMoment = AutoDisposeAsyncNotifier<MomentModel?>;
-String _$deleteMomentHash() => r'e290f62e3d2bdbc08f79e72930bc2bccd844aefd';
+String _$deleteMomentHash() => r'709cf7e0c12f2604f7d76a5259b5ea6cf58d54ad';
 
 /// See also [DeleteMoment].
 @ProviderFor(DeleteMoment)

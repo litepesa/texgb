@@ -455,20 +455,12 @@ class CreateMoment extends _$CreateMoment {
   }
 
   Future<MomentModel> create(CreateMomentRequest request) async {
-    try {
-      state = const AsyncValue.loading();
+    final moment = await _repository.createMoment(request);
 
-      final moment = await _repository.createMoment(request);
+    // Add to feed
+    ref.read(momentsFeedProvider.notifier).addMoment(moment);
 
-      // Add to feed
-      ref.read(momentsFeedProvider.notifier).addMoment(moment);
-
-      state = AsyncValue.data(moment);
-      return moment;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
+    return moment;
   }
 }
 
@@ -486,21 +478,13 @@ class DeleteMoment extends _$DeleteMoment {
   }
 
   Future<bool> delete(String momentId) async {
-    try {
-      state = const AsyncValue.loading();
+    final success = await _repository.deleteMoment(momentId);
 
-      final success = await _repository.deleteMoment(momentId);
-
-      if (success) {
-        // Remove from feed
-        ref.read(momentsFeedProvider.notifier).removeMoment(momentId);
-      }
-
-      state = AsyncValue.data(success);
-      return success;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
+    if (success) {
+      // Remove from feed
+      ref.read(momentsFeedProvider.notifier).removeMoment(momentId);
     }
+
+    return success;
   }
 }
