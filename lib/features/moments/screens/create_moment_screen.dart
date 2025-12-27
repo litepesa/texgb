@@ -245,7 +245,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         visibleTo: _visibleTo,
         hiddenFrom: _hiddenFrom,
         userName: currentUser?.name,
-        userImage: currentUser?.profilePicture,
+        userImage: currentUser?.profileImage,
       );
 
       // Post moment
