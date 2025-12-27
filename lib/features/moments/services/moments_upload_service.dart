@@ -45,7 +45,7 @@ class MomentsUploadService {
         imageFile,
         'file',
         additionalFields: {
-          'type': 'moment_image',
+          'type': 'post',
         },
       );
 
@@ -73,7 +73,7 @@ class MomentsUploadService {
         videoFile,
         'file',
         additionalFields: {
-          'type': 'moment_video',
+          'type': 'video',
         },
       );
 
@@ -97,7 +97,7 @@ class MomentsUploadService {
         imageFile,
         'file',
         additionalFields: {
-          'type': 'moment_cover',
+          'type': 'profile',
         },
       );
 
@@ -115,7 +115,7 @@ class MomentsUploadService {
   /// Upload multiple files (batch upload) - if backend supports it
   Future<List<String>> uploadMultipleFiles(
     List<File> files, {
-    String type = 'moment_image',
+    String type = 'post',
     Function(double)? onProgress,
   }) async {
     try {
