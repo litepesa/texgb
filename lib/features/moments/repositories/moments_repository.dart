@@ -50,9 +50,9 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<List<MomentModel>> getFeed({int page = 1, int limit = 20}) async {
     try {
-      // Use discover feed (public, doesn't require following) - same as videos pattern
+      // Get personalized feed from followed users (WeChat Moments style with privacy)
       final response = await _httpClient.get(
-        '/posts/discover?page=$page&per_page=$limit',
+        '/posts/feed?page=$page&per_page=$limit',
       );
 
       if (response.statusCode == 200) {
