@@ -34,11 +34,11 @@ extension MomentVisibilityExtension on MomentVisibility {
   String toJson() {
     switch (this) {
       case MomentVisibility.all:
-        return 'all';
+        return 'public';
       case MomentVisibility.private:
         return 'private';
       case MomentVisibility.custom:
-        return 'custom';
+        return 'friends';
     }
   }
 
@@ -56,10 +56,12 @@ extension MomentVisibilityExtension on MomentVisibility {
   static MomentVisibility fromJson(String value) {
     switch (value.toLowerCase()) {
       case 'all':
+      case 'public':
         return MomentVisibility.all;
       case 'private':
         return MomentVisibility.private;
       case 'custom':
+      case 'friends':
         return MomentVisibility.custom;
       default:
         return MomentVisibility.all;

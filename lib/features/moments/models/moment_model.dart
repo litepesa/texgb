@@ -73,8 +73,8 @@ class MomentModel {
       id: json['id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String,
       userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatar: json['userAvatar'] as String? ?? json['user_avatar'] as String,
-      content: json['content'] as String?,
+      userAvatar: json['userImage'] as String? ?? json['user_image'] as String? ?? json['userAvatar'] as String? ?? json['user_avatar'] as String? ?? '',
+      content: json['contentText'] as String? ?? json['content_text'] as String? ?? json['content'] as String?,
       mediaUrls: (json['mediaUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
           (json['media_urls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
           const [],
@@ -83,7 +83,7 @@ class MomentModel {
       ),
       location: json['location'] as String?,
       visibility: MomentVisibilityExtension.fromJson(
-        json['visibility'] as String? ?? 'all',
+        json['visibility'] as String? ?? 'public',
       ),
       visibleTo: (json['visibleTo'] as List<dynamic>?)?.map((e) => e as String).toList() ??
           (json['visible_to'] as List<dynamic>?)?.map((e) => e as String).toList() ??
@@ -97,7 +97,7 @@ class MomentModel {
       isMutualContact: json['isMutualContact'] as bool? ?? json['is_mutual_contact'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String? ?? json['created_at'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String? ?? json['updated_at'] as String),
-      isDeleted: json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? false,
+      isDeleted: json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? json['is_active'] != null ? !(json['is_active'] as bool) : false,
       coverPhotoUrl: json['coverPhotoUrl'] as String? ?? json['cover_photo_url'] as String?,
       commentsPreview: (json['commentsPreview'] as List<dynamic>?)
               ?.map((e) => MomentCommentModel.fromJson(e as Map<String, dynamic>))
@@ -286,11 +286,11 @@ class MomentCommentModel {
   factory MomentCommentModel.fromJson(Map<String, dynamic> json) {
     return MomentCommentModel(
       id: json['id'] as String,
-      momentId: json['momentId'] as String? ?? json['moment_id'] as String,
+      momentId: json['postId'] as String? ?? json['post_id'] as String? ?? json['momentId'] as String? ?? json['moment_id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String,
       userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatar: json['userAvatar'] as String? ?? json['user_avatar'] as String,
-      content: json['content'] as String,
+      userAvatar: json['userAvatar'] as String? ?? json['user_avatar'] as String? ?? '',
+      content: json['commentText'] as String? ?? json['comment_text'] as String? ?? json['content'] as String,
       replyToUserId: json['replyToUserId'] as String? ?? json['reply_to_user_id'] as String?,
       replyToUserName: json['replyToUserName'] as String? ?? json['reply_to_user_name'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String? ?? json['created_at'] as String),
@@ -386,6 +386,8 @@ class CreateMomentRequest {
   final List<String> visibleTo;
   final List<String> hiddenFrom;
   final List<String> remindUsers;
+  final String? userName;
+  final String? userImage;
 
   const CreateMomentRequest({
     this.content,
@@ -396,11 +398,13 @@ class CreateMomentRequest {
     this.visibleTo = const [],
     this.hiddenFrom = const [],
     this.remindUsers = const [],
+    this.userName,
+    this.userImage,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'content': content,
+      'contentText': content,
       'mediaUrls': mediaUrls,
       'mediaType': mediaType.toJson(),
       'location': location,
@@ -408,6 +412,8 @@ class CreateMomentRequest {
       'visibleTo': visibleTo,
       'hiddenFrom': hiddenFrom,
       'remindUsers': remindUsers,
+      'userName': userName,
+      'userImage': userImage,
     };
   }
 
