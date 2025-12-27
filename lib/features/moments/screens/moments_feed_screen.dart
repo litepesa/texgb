@@ -48,7 +48,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
   }
 
   void _navigateToCreateMoment() {
-    context.go(RoutePaths.createMoment);
+    context.push(RoutePaths.createMoment);
   }
 
   @override
