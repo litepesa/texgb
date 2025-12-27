@@ -50,8 +50,9 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<List<MomentModel>> getFeed({int page = 1, int limit = 20}) async {
     try {
+      // Use discover feed (public, doesn't require following) - same as videos pattern
       final response = await _httpClient.get(
-        '/posts/feed?page=$page&per_page=$limit',
+        '/posts/discover?page=$page&per_page=$limit',
       );
 
       if (response.statusCode == 200) {
