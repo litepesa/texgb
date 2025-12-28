@@ -212,11 +212,18 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
   // Validate and post
   Future<void> _postMoment() async {
+    print('[CREATE MOMENT] Starting post moment...');
+
     // Validate content
     if (_contentController.text.trim().isEmpty && _selectedMedia.isEmpty) {
+      print('[CREATE MOMENT] Validation failed: No content or media');
       _showError('Please add some content or media');
       return;
     }
+
+    print('[CREATE MOMENT] Content: ${_contentController.text.trim()}');
+    print('[CREATE MOMENT] Media count: ${_selectedMedia.length}');
+    print('[CREATE MOMENT] Media type: $_mediaType');
 
     setState(() {
       _isUploading = true;
@@ -227,11 +234,25 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       // Upload media files
       List<String> mediaUrls = [];
       if (_selectedMedia.isNotEmpty) {
-        mediaUrls = await _uploadMedia();
+        print('[CREATE MOMENT] Starting media upload...');
+        try {
+          mediaUrls = await _uploadMedia();
+          print('[CREATE MOMENT] Media uploaded successfully. URLs: $mediaUrls');
+        } catch (uploadError) {
+          print('[CREATE MOMENT] ERROR during upload: $uploadError');
+          print('[CREATE MOMENT] Upload error stacktrace: ${StackTrace.current}');
+          rethrow;
+        }
       }
 
       // Get current user info
       final currentUser = ref.read(currentUserProvider);
+      print('[CREATE MOMENT] Current user: ${currentUser?.id} - ${currentUser?.name}');
+
+      if (currentUser == null) {
+        print('[CREATE MOMENT] ERROR: Current user is null!');
+        throw Exception('User not authenticated');
+      }
 
       // Create moment request
       final request = CreateMomentRequest(
@@ -244,14 +265,25 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         visibility: _visibility,
         visibleTo: _visibleTo,
         hiddenFrom: _hiddenFrom,
-        userName: currentUser?.name,
-        userImage: currentUser?.profileImage,
+        userName: currentUser.name,
+        userImage: currentUser.profileImage,
       );
 
+      print('[CREATE MOMENT] Request created: ${request.toJson()}');
+
       // Post moment
-      await ref.read(createMomentProvider.notifier).create(request);
+      print('[CREATE MOMENT] Calling createMomentProvider.create...');
+      try {
+        final result = await ref.read(createMomentProvider.notifier).create(request);
+        print('[CREATE MOMENT] Create returned: $result');
+      } catch (createError) {
+        print('[CREATE MOMENT] ERROR during create: $createError');
+        print('[CREATE MOMENT] Create error stacktrace: ${StackTrace.current}');
+        rethrow;
+      }
 
       // Success
+      print('[CREATE MOMENT] Success! Showing success message...');
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -261,7 +293,9 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[CREATE MOMENT] FAILED! Error: $e');
+      print('[CREATE MOMENT] Stack trace: $stackTrace');
       _showError('Failed to post moment: $e');
     } finally {
       if (mounted) {

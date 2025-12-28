@@ -40,6 +40,9 @@ class MomentsUploadService {
   /// Upload single image using HttpClientService
   Future<String> _uploadSingleImage(File imageFile) async {
     try {
+      print('[MOMENTS UPLOAD] Uploading image: ${imageFile.path}');
+      print('[MOMENTS UPLOAD] File size: ${await imageFile.length()} bytes');
+
       final response = await _httpClient.uploadFile(
         '/upload',
         imageFile,
@@ -49,13 +52,21 @@ class MomentsUploadService {
         },
       );
 
+      print('[MOMENTS UPLOAD] Upload response status: ${response.statusCode}');
+      print('[MOMENTS UPLOAD] Upload response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['url'] as String;
+        final url = data['url'] as String;
+        print('[MOMENTS UPLOAD] Upload successful! URL: $url');
+        return url;
       } else {
-        throw UploadException('Upload failed with status ${response.statusCode}');
+        print('[MOMENTS UPLOAD] Upload failed with status ${response.statusCode}');
+        throw UploadException('Upload failed with status ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[MOMENTS UPLOAD] ERROR uploading image: $e');
+      print('[MOMENTS UPLOAD] Stack trace: $stackTrace');
       throw UploadException('Failed to upload image: $e');
     }
   }

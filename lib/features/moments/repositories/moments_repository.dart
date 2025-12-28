@@ -120,18 +120,29 @@ class HttpMomentsRepository implements MomentsRepository {
   @override
   Future<MomentModel> createMoment(CreateMomentRequest request) async {
     try {
+      print('[MOMENTS REPOSITORY] Creating moment...');
+      print('[MOMENTS REPOSITORY] Request body: ${request.toJson()}');
+
       final response = await _httpClient.post(
         '/posts',
         body: request.toJson(),
       );
 
+      print('[MOMENTS REPOSITORY] Response status: ${response.statusCode}');
+      print('[MOMENTS REPOSITORY] Response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return MomentModel.fromJson(data as Map<String, dynamic>);
+        final moment = MomentModel.fromJson(data as Map<String, dynamic>);
+        print('[MOMENTS REPOSITORY] Moment created successfully: ${moment.id}');
+        return moment;
       } else {
+        print('[MOMENTS REPOSITORY] Failed with status ${response.statusCode}');
         throw MomentsRepositoryException('Failed to create moment: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[MOMENTS REPOSITORY] ERROR: $e');
+      print('[MOMENTS REPOSITORY] Stack trace: $stackTrace');
       throw MomentsRepositoryException('Failed to create moment: $e');
     }
   }

@@ -455,12 +455,25 @@ class CreateMoment extends _$CreateMoment {
   }
 
   Future<MomentModel> create(CreateMomentRequest request) async {
-    final moment = await _repository.createMoment(request);
+    print('[CREATE MOMENT PROVIDER] Starting create...');
+    print('[CREATE MOMENT PROVIDER] Request: ${request.toJson()}');
 
-    // Add to feed
-    ref.read(momentsFeedProvider.notifier).addMoment(moment);
+    try {
+      print('[CREATE MOMENT PROVIDER] Calling repository.createMoment...');
+      final moment = await _repository.createMoment(request);
+      print('[CREATE MOMENT PROVIDER] Moment created successfully: ${moment.id}');
 
-    return moment;
+      // Add to feed
+      print('[CREATE MOMENT PROVIDER] Adding to feed...');
+      ref.read(momentsFeedProvider.notifier).addMoment(moment);
+      print('[CREATE MOMENT PROVIDER] Added to feed successfully');
+
+      return moment;
+    } catch (e, stackTrace) {
+      print('[CREATE MOMENT PROVIDER] ERROR: $e');
+      print('[CREATE MOMENT PROVIDER] Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 }
 
