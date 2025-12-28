@@ -245,16 +245,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         }
       }
 
-      // Get current user info
-      final currentUser = ref.read(currentUserProvider);
-      print('[CREATE MOMENT] Current user: ${currentUser?.id} - ${currentUser?.name}');
-
-      if (currentUser == null) {
-        print('[CREATE MOMENT] ERROR: Current user is null!');
-        throw Exception('User not authenticated');
-      }
-
       // Create moment request
+      // Note: userName and userImage removed - server fetches from authenticated user
       final request = CreateMomentRequest(
         content: _contentController.text.trim().isEmpty
             ? null
@@ -265,8 +257,6 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         visibility: _visibility,
         visibleTo: _visibleTo,
         hiddenFrom: _hiddenFrom,
-        userName: currentUser.name,
-        userImage: currentUser.profileImage,
       );
 
       print('[CREATE MOMENT] Request created: ${request.toJson()}');

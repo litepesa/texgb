@@ -386,8 +386,7 @@ class CreateMomentRequest {
   final List<String> visibleTo;
   final List<String> hiddenFrom;
   final List<String> remindUsers;
-  final String? userName;
-  final String? userImage;
+  // REMOVED: userName, userImage - server fetches these for security
 
   const CreateMomentRequest({
     this.content,
@@ -398,8 +397,6 @@ class CreateMomentRequest {
     this.visibleTo = const [],
     this.hiddenFrom = const [],
     this.remindUsers = const [],
-    this.userName,
-    this.userImage,
   });
 
   Map<String, dynamic> toJson() {
@@ -409,11 +406,10 @@ class CreateMomentRequest {
       'mediaType': mediaType.toJson(),
       'location': location,
       'visibility': visibility.toJson(),
-      'visibleTo': visibleTo,
-      'hiddenFrom': hiddenFrom,
-      'remindUsers': remindUsers,
-      'userName': userName,
-      'userImage': userImage,
+      if (visibleTo.isNotEmpty) 'visibleTo': visibleTo,
+      if (hiddenFrom.isNotEmpty) 'hiddenFrom': hiddenFrom,
+      if (remindUsers.isNotEmpty) 'remindUsers': remindUsers,
+      // userName and userImage removed - server fetches from authenticated user
     };
   }
 
