@@ -69,51 +69,62 @@ class MomentModel {
   });
 
   factory MomentModel.fromJson(Map<String, dynamic> json) {
-    return MomentModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String? ?? json['user_id'] as String,
-      userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatar: json['userImage'] as String? ?? json['user_image'] as String? ?? json['userAvatar'] as String? ?? json['user_avatar'] as String? ?? '',
-      content: json['contentText'] as String? ?? json['content_text'] as String? ?? json['content'] as String?,
-      mediaUrls: (json['mediaUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          (json['media_urls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          const [],
-      mediaType: MomentMediaTypeExtension.fromJson(
-        json['mediaType'] as String? ?? json['media_type'] as String? ?? 'text',
-      ),
-      location: json['location'] as String?,
-      visibility: MomentVisibilityExtension.fromJson(
-        json['visibility'] as String? ?? 'public',
-      ),
-      visibleTo: (json['visibleTo'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          (json['visible_to'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          const [],
-      hiddenFrom: (json['hiddenFrom'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          (json['hidden_from'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          const [],
-      likesCount: json['likesCount'] as int? ?? json['likes_count'] as int? ?? 0,
-      commentsCount: json['commentsCount'] as int? ?? json['comments_count'] as int? ?? 0,
-      isLikedByMe: json['isLikedByMe'] as bool? ?? json['is_liked_by_me'] as bool? ?? false,
-      isMutualContact: json['isMutualContact'] as bool? ?? json['is_mutual_contact'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String? ?? json['updated_at'] as String),
-      isDeleted: json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? json['is_active'] != null ? !(json['is_active'] as bool) : false,
-      coverPhotoUrl: json['coverPhotoUrl'] as String? ?? json['cover_photo_url'] as String?,
-      commentsPreview: (json['commentsPreview'] as List<dynamic>?)
-              ?.map((e) => MomentCommentModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          (json['comments_preview'] as List<dynamic>?)
-              ?.map((e) => MomentCommentModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      likesPreview: (json['likesPreview'] as List<dynamic>?)
-              ?.map((e) => MomentLikerModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          (json['likes_preview'] as List<dynamic>?)
-              ?.map((e) => MomentLikerModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-    );
+    try {
+      print('[MOMENT MODEL] Parsing moment from JSON...');
+      print('[MOMENT MODEL] Raw JSON keys: ${json.keys.toList()}');
+
+      return MomentModel(
+        id: json['id'] as String,
+        userId: json['userId'] as String? ?? json['user_id'] as String,
+        userName: json['userName'] as String? ?? json['user_name'] as String,
+        userAvatar: json['userImage'] as String? ?? json['user_image'] as String? ?? json['userAvatar'] as String? ?? json['user_avatar'] as String? ?? '',
+        content: json['contentText'] as String? ?? json['content_text'] as String? ?? json['content'] as String?,
+        mediaUrls: (json['mediaUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+            (json['media_urls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+            const [],
+        mediaType: MomentMediaTypeExtension.fromJson(
+          json['mediaType'] as String? ?? json['media_type'] as String? ?? 'text',
+        ),
+        location: json['location'] as String?,
+        visibility: MomentVisibilityExtension.fromJson(
+          json['visibility'] as String? ?? 'public',
+        ),
+        visibleTo: (json['visibleTo'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+            (json['visible_to'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+            const [],
+        hiddenFrom: (json['hiddenFrom'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+            (json['hidden_from'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+            const [],
+        likesCount: json['likesCount'] as int? ?? json['likes_count'] as int? ?? 0,
+        commentsCount: json['commentsCount'] as int? ?? json['comments_count'] as int? ?? 0,
+        isLikedByMe: json['isLikedByMe'] as bool? ?? json['is_liked_by_me'] as bool? ?? false,
+        isMutualContact: json['isMutualContact'] as bool? ?? json['is_mutual_contact'] as bool? ?? false,
+        createdAt: DateTime.parse(json['createdAt'] as String? ?? json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updatedAt'] as String? ?? json['updated_at'] as String),
+        isDeleted: json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? json['is_active'] != null ? !(json['is_active'] as bool) : false,
+        coverPhotoUrl: json['coverPhotoUrl'] as String? ?? json['cover_photo_url'] as String?,
+        commentsPreview: (json['commentsPreview'] as List<dynamic>?)
+                ?.map((e) => MomentCommentModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            (json['comments_preview'] as List<dynamic>?)
+                ?.map((e) => MomentCommentModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
+        likesPreview: (json['likesPreview'] as List<dynamic>?)
+                ?.map((e) => MomentLikerModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            (json['likes_preview'] as List<dynamic>?)
+                ?.map((e) => MomentLikerModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
+      );
+    } catch (e, stackTrace) {
+      print('[MOMENT MODEL] ❌ PARSING FAILED!');
+      print('[MOMENT MODEL] Error: $e');
+      print('[MOMENT MODEL] JSON that failed: $json');
+      print('[MOMENT MODEL] Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {

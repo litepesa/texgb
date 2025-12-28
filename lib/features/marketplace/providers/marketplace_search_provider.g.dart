@@ -7,7 +7,7 @@ part of 'marketplace_search_provider.dart';
 // **************************************************************************
 
 String _$marketplaceSearchRepositoryHash() =>
-    r'b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1';
+    r'86705bedd86c553b182b3db70106de4b7d1da68b';
 
 /// See also [marketplaceSearchRepository].
 @ProviderFor(marketplaceSearchRepository)
@@ -26,7 +26,7 @@ final marketplaceSearchRepositoryProvider =
 // ignore: unused_element
 typedef MarketplaceSearchRepositoryRef
     = AutoDisposeProviderRef<MarketplaceSearchRepository>;
-String _$searchStateHash() => r'c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2';
+String _$searchStateHash() => r'f476737fcdbd475ef4861bb583e32dd6e0d5f6ae';
 
 /// Current search state
 ///
@@ -44,9 +44,9 @@ final searchStateProvider = AutoDisposeProvider<SimpleSearchState>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SearchStateRef = AutoDisposeProviderRef<SimpleSearchState>;
-String _$searchResultsHash() => r'd4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3';
+String _$searchResultsHash() => r'5767ba598506f36a6e5da7e93686c61a9d3db04c';
 
-/// Search results (list of marketplace videos)
+/// Search results (list of marketplace items)
 ///
 /// Copied from [searchResults].
 @ProviderFor(searchResults)
@@ -64,7 +64,7 @@ final searchResultsProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SearchResultsRef = AutoDisposeProviderRef<List<MarketplaceVideoModel>>;
-String _$isSearchingHash() => r'e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4';
+String _$isSearchingHash() => r'a2aa6eb6eed58916ab80fb99f6ad9cd79de02713';
 
 /// Is currently searching
 ///
@@ -82,7 +82,7 @@ final isSearchingProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsSearchingRef = AutoDisposeProviderRef<bool>;
-String _$searchErrorHash() => r'f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5';
+String _$searchErrorHash() => r'5ee810f3a0e987703eca35e366972fb02e44b628';
 
 /// Search error message
 ///
@@ -100,7 +100,7 @@ final searchErrorProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SearchErrorRef = AutoDisposeProviderRef<String?>;
-String _$hasSearchResultsHash() => r'g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6';
+String _$hasSearchResultsHash() => r'd1117d935da944c7744cab5d7dfcb5e95e2d56cb';
 
 /// Has search results
 ///
@@ -119,7 +119,7 @@ final hasSearchResultsProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasSearchResultsRef = AutoDisposeProviderRef<bool>;
-String _$searchQueryHash() => r'h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7';
+String _$searchQueryHash() => r'd7c57557251b03e1ef152d72e9cb78b59bee88a0';
 
 /// Current search query
 ///
@@ -138,7 +138,7 @@ final searchQueryProvider = AutoDisposeProvider<String>.internal(
 // ignore: unused_element
 typedef SearchQueryRef = AutoDisposeProviderRef<String>;
 String _$isUsernameOnlyActiveHash() =>
-    r'i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8';
+    r'8e41636a47309d77599ddb7f5fc3cf5ac90a0df0';
 
 /// Username-only filter active
 ///
@@ -157,7 +157,7 @@ final isUsernameOnlyActiveProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsUsernameOnlyActiveRef = AutoDisposeProviderRef<bool>;
-String _$hasMoreResultsHash() => r'j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9';
+String _$hasMoreResultsHash() => r'60be897466ac16a8c724e8933c3b670e159bc6c1';
 
 /// Has more results to load
 ///
@@ -176,7 +176,7 @@ final hasMoreResultsProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasMoreResultsRef = AutoDisposeProviderRef<bool>;
-String _$totalResultsCountHash() => r'k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0';
+String _$totalResultsCountHash() => r'71bf1bee4893bd4d9fa530082ceb700ad311bf7c';
 
 /// Total results count
 ///
@@ -195,7 +195,7 @@ final totalResultsCountProvider = AutoDisposeProvider<int>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef TotalResultsCountRef = AutoDisposeProviderRef<int>;
-String _$resultsCountTextHash() => r'l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1';
+String _$resultsCountTextHash() => r'f5f61bf2028889fb06850ce0cd253c214f360c65';
 
 /// Results count display text
 ///
@@ -214,12 +214,12 @@ final resultsCountTextProvider = AutoDisposeProvider<String>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ResultsCountTextRef = AutoDisposeProviderRef<String>;
-String _$marketplaceSearchHash() => r'm3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2';
+String _$marketplaceSearchHash() => r'bca04ce6cbeef5dbb32b096277656b91d0b1bb58';
 
 /// See also [MarketplaceSearch].
 @ProviderFor(MarketplaceSearch)
-final marketplaceSearchProvider = AutoDisposeNotifierProvider<MarketplaceSearch,
-    SimpleSearchState>.internal(
+final marketplaceSearchProvider =
+    AutoDisposeNotifierProvider<MarketplaceSearch, SimpleSearchState>.internal(
   MarketplaceSearch.new,
   name: r'marketplaceSearchProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')

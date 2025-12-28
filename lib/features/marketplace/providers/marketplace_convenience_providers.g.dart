@@ -6,7 +6,7 @@ part of 'marketplace_convenience_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$marketplaceVideosHash() => r'8a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9';
+String _$marketplaceVideosHash() => r'c9de6a5bf7a1bd16f7dfa476245387f33101c722';
 
 /// See also [marketplaceVideos].
 @ProviderFor(marketplaceVideos)
@@ -26,7 +26,7 @@ final marketplaceVideosProvider =
 typedef MarketplaceVideosRef
     = AutoDisposeProviderRef<List<MarketplaceVideoModel>>;
 String _$likedMarketplaceVideosHash() =>
-    r'9b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0';
+    r'3c65e6a76137d3fad99f4b92630129e66eabb8ea';
 
 /// See also [likedMarketplaceVideos].
 @ProviderFor(likedMarketplaceVideos)
@@ -45,7 +45,7 @@ final likedMarketplaceVideosProvider =
 // ignore: unused_element
 typedef LikedMarketplaceVideosRef = AutoDisposeProviderRef<List<String>>;
 String _$isMarketplaceUploadingHash() =>
-    r'0c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1';
+    r'4a109c00c1939bc3383e436e99a5287881c53c69';
 
 /// See also [isMarketplaceUploading].
 @ProviderFor(isMarketplaceUploading)
@@ -63,7 +63,7 @@ final isMarketplaceUploadingProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef IsMarketplaceUploadingRef = AutoDisposeProviderRef<bool>;
 String _$marketplaceUploadProgressHash() =>
-    r'1d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2';
+    r'6deaf2c3430a078a1dccd8a541220ab03e9f7461';
 
 /// See also [marketplaceUploadProgress].
 @ProviderFor(marketplaceUploadProgress)
@@ -81,7 +81,7 @@ final marketplaceUploadProgressProvider = AutoDisposeProvider<double>.internal(
 // ignore: unused_element
 typedef MarketplaceUploadProgressRef = AutoDisposeProviderRef<double>;
 String _$isMarketplaceVideoLikedHash() =>
-    r'2e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3';
+    r'77285d52dc05385b201ae18f573fef905d9becc3';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -205,8 +205,7 @@ class IsMarketplaceVideoLikedProvider extends AutoDisposeProvider<bool> {
 
   @override
   bool operator ==(Object other) {
-    return other is IsMarketplaceVideoLikedProvider &&
-        other.videoId == videoId;
+    return other is IsMarketplaceVideoLikedProvider && other.videoId == videoId;
   }
 
   @override
@@ -233,7 +232,7 @@ class _IsMarketplaceVideoLikedProviderElement
   String get videoId => (origin as IsMarketplaceVideoLikedProvider).videoId;
 }
 
-String _$marketplaceErrorHash() => r'3f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4';
+String _$marketplaceErrorHash() => r'76453370bea54fb4498872fe43e640e2b11f00f5';
 
 /// See also [marketplaceError].
 @ProviderFor(marketplaceError)

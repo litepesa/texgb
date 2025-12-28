@@ -58,7 +58,7 @@ final statusUploadServiceProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef StatusUploadServiceRef = AutoDisposeProviderRef<StatusUploadService>;
-String _$statusFeedHash() => r'8c8e42ed98d146f87ce71fcda2fd1fd863245984';
+String _$statusFeedHash() => r'a453c4510544a07e4117612518e92625e75ecbfa';
 
 /// See also [StatusFeed].
 @ProviderFor(StatusFeed)
@@ -73,7 +73,7 @@ final statusFeedProvider =
 );
 
 typedef _$StatusFeed = AutoDisposeAsyncNotifier<StatusFeedState>;
-String _$statusCreationHash() => r'c2f3b31b4d055ddf148687a09b21745db14074c5';
+String _$statusCreationHash() => r'0c2ee1dcec533fb5da0690b31626b62f4b71e635';
 
 /// See also [StatusCreation].
 @ProviderFor(StatusCreation)
