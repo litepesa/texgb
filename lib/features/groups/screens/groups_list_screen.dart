@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/groups/widgets/group_tile.dart';
-import 'package:textgb/features/groups/screens/create_group_screen.dart';
 import 'package:textgb/features/groups/screens/group_chat_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 

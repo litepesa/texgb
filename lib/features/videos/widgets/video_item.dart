@@ -12,7 +12,6 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:textgb/constants.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -1421,7 +1420,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Back Arrow
-              /*GestureDetector(
+              GestureDetector(
                 onTap: _handleBackNavigation,
                 child: Container(
                   width: 36,
@@ -1432,7 +1431,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                     size: 28,
                   ),
                 ),
-              ),*/
+              ),
               const SizedBox(width: 1),
               // Profile Avatar
               Container(

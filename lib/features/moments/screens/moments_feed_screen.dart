@@ -58,8 +58,16 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
     return Scaffold(
       backgroundColor: MomentsTheme.lightBackground,
       appBar: AppBar(
-        title: const Text('Moments'),
+        title: const Text(
+          'Moments',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
         backgroundColor: MomentsTheme.lightSurface,
+        foregroundColor: Colors.black,
         elevation: 0.5,
         shadowColor: Colors.black.withValues(alpha: 0.1),
         actions: [

@@ -16,7 +16,6 @@ import 'package:textgb/features/moments/services/moments_media_service.dart';
 import 'package:textgb/features/moments/services/moments_upload_service.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
 import 'package:textgb/features/moments/widgets/privacy_selector.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 
 class CreateMomentScreen extends ConsumerStatefulWidget {
   const CreateMomentScreen({super.key});

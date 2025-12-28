@@ -1,6 +1,5 @@
 // lib/features/videos/screens/single_video_screen.dart
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +15,6 @@ import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
-import 'package:textgb/core/router/route_paths.dart';
-import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 

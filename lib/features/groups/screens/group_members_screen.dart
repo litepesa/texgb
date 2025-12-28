@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/groups/providers/groups_providers.dart';
 import 'package:textgb/features/groups/widgets/member_tile.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupMembersScreen extends ConsumerWidget {

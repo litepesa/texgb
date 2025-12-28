@@ -310,7 +310,7 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen>
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${myStatusGroup!.activeStatuses.fold<int>(0, (sum, s) => sum + s.viewsCount)}',
+                                  '${myStatusGroup.activeStatuses.fold<int>(0, (sum, s) => sum + s.viewsCount)}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,

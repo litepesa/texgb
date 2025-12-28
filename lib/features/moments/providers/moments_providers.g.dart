@@ -631,7 +631,7 @@ final momentPrivacyProvider = AutoDisposeAsyncNotifierProvider<MomentPrivacy,
 );
 
 typedef _$MomentPrivacy = AutoDisposeAsyncNotifier<MomentPrivacySettings?>;
-String _$createMomentHash() => r'f52180d3d06400fef7874a3cdcacd6d8b88e2acb';
+String _$createMomentHash() => r'ee4cd668bc2b593de0b70d154d89bd254e7a4bc9';
 
 /// See also [CreateMoment].
 @ProviderFor(CreateMoment)

@@ -12,6 +12,7 @@ import 'package:textgb/features/moments/models/moment_enums.dart';
 import 'package:textgb/features/moments/models/moment_constants.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 import 'package:textgb/features/moments/services/moments_media_service.dart';
+import 'package:textgb/features/moments/widgets/moment_video_player.dart';
 import 'package:textgb/core/router/route_paths.dart';
 
 class MomentMediaGrid extends StatelessWidget {
@@ -37,89 +38,11 @@ class MomentMediaGrid extends StatelessWidget {
     return _buildImageGrid(context);
   }
 
-  // Build single video thumbnail
+  // Build single video player (Facebook-style autoplay on mute)
   Widget _buildVideoThumbnail(BuildContext context) {
-    return GestureDetector(
+    return MomentVideoPlayer(
+      videoUrl: moment.mediaUrls.first,
       onTap: () => _openVideoViewer(context, 0),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Video thumbnail
-            CachedNetworkImage(
-              imageUrl: moment.mediaUrls.first,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.black12,
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.black26,
-                child: const Icon(
-                  Icons.videocam_outlined,
-                  size: 64,
-                  color: Colors.white70,
-                ),
-              ),
-            ),
-
-            // Play button overlay
-            Center(
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-            ),
-
-            // Duration badge (if available)
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.videocam,
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

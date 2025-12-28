@@ -12,7 +12,6 @@ import 'package:textgb/features/marketplace/services/marketplace_cache_service.d
 import 'package:textgb/features/marketplace/widgets/marketplace_video_item.dart';
 import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/features/marketplace/widgets/marketplace_comments_bottom_sheet.dart';
-import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 // Import search overlay
