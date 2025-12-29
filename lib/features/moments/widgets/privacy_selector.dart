@@ -8,14 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:textgb/features/moments/models/moment_enums.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
-import 'package:textgb/features/moments/widgets/contact_selector_screen.dart';
 
 class PrivacySelector extends StatelessWidget {
-  final MomentVisibility currentVisibility;
+  final PrivacySelection currentSelection;
 
   const PrivacySelector({
     super.key,
-    required this.currentVisibility,
+    required this.currentSelection,
   });
 
   @override
@@ -71,13 +70,10 @@ class PrivacySelector extends StatelessWidget {
               'Only you can see this',
             ),
 
-            _buildPrivacyOption(
-              context,
-              MomentVisibility.custom,
-              Icons.visibility,
-              'Custom',
-              'Custom visibility settings',
-            ),
+            const Divider(height: 1),
+
+            // Hide from specific contacts option - WeChat style
+            _buildHideFromOption(context),
 
             const SizedBox(height: 16),
           ],
@@ -93,7 +89,8 @@ class PrivacySelector extends StatelessWidget {
     String title,
     String description,
   ) {
-    final isSelected = visibility == currentVisibility;
+    final isSelected = visibility == currentSelection.visibility &&
+        !currentSelection.hasCustomPrivacy;
 
     return ListTile(
       leading: Container(
@@ -131,59 +128,83 @@ class PrivacySelector extends StatelessWidget {
               color: MomentsTheme.primaryBlue,
             )
           : null,
-      onTap: () async {
-        if (visibility == MomentVisibility.custom) {
-          // Navigate to contact selector
-          context.pop(); // Close privacy selector
-          await _showCustomPrivacyOptions(context);
-        } else {
-          context.pop(visibility);
-        }
+      onTap: () {
+        context.pop(PrivacySelection(
+          visibility: visibility,
+          visibleTo: [],
+          hiddenFrom: [],
+        ));
       },
     );
   }
 
-  Future<void> _showCustomPrivacyOptions(BuildContext context) async {
-    final mode = await showDialog<ContactSelectorMode>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Custom Privacy'),
-        content: const Text('Choose how to customize visibility:'),
-        actions: [
-          TextButton(
-            onPressed: () => context.pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => context.pop(ContactSelectorMode.visibleTo),
-            child: const Text('Select who can see'),
-          ),
-          TextButton(
-            onPressed: () => context.pop(ContactSelectorMode.hiddenFrom),
-            child: const Text('Hide from specific'),
-          ),
-        ],
-      ),
-    );
+  Widget _buildHideFromOption(BuildContext context) {
+    final hasHiddenContacts = currentSelection.hiddenFrom.isNotEmpty;
 
-    if (mode != null && context.mounted) {
-      // Navigate to contact selector
-      final selectedIds = await Navigator.push<List<String>>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ContactSelectorScreen(
-            mode: mode,
-            initialSelectedIds: const [],
-          ),
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: hasHiddenContacts
+              ? MomentsTheme.primaryBlue.withValues(alpha: 0.1)
+              : Colors.grey[100],
+          shape: BoxShape.circle,
         ),
-      );
-
-      if (selectedIds != null && selectedIds.isNotEmpty && context.mounted) {
-        // Return custom visibility with selected user IDs
-        // For now, just return the visibility type
-        // The parent screen should handle the selected IDs
-        context.pop(MomentVisibility.custom);
-      }
-    }
+        child: Icon(
+          Icons.visibility_off,
+          color: hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.grey[600],
+          size: 20,
+        ),
+      ),
+      title: Text(
+        'Hide from contacts',
+        style: TextStyle(
+          fontWeight: hasHiddenContacts ? FontWeight.w600 : FontWeight.w500,
+          color: hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.black,
+        ),
+      ),
+      subtitle: Text(
+        hasHiddenContacts
+            ? '${currentSelection.hiddenFrom.length} contact${currentSelection.hiddenFrom.length > 1 ? 's' : ''} hidden'
+            : 'Select contacts who cannot see this',
+        style: TextStyle(
+          fontSize: 12,
+          color: hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.grey[600],
+        ),
+      ),
+      trailing: hasHiddenContacts
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Clear button
+                TextButton(
+                  onPressed: () {
+                    context.pop(PrivacySelection(
+                      visibility: MomentVisibility.all,
+                      visibleTo: [],
+                      hiddenFrom: [],
+                    ));
+                  },
+                  child: const Text('Clear'),
+                ),
+                Icon(
+                  Icons.check_circle,
+                  color: MomentsTheme.primaryBlue,
+                ),
+              ],
+            )
+          : const Icon(Icons.chevron_right),
+      onTap: () {
+        // Return action marker to tell parent to open contact selector
+        context.pop(const OpenContactSelectorAction());
+      },
+    );
   }
+}
+
+/// Action to open contact selector
+/// Returns this from bottom sheet to signal parent to open contact selector
+class OpenContactSelectorAction {
+  const OpenContactSelectorAction();
 }

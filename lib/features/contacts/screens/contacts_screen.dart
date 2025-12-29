@@ -216,28 +216,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: theme.surfaceColor,
-        appBar: AppBar(
-          backgroundColor: theme.surfaceColor,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: theme.textColor,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          title: Text(
-            'Contacts',
-            style: TextStyle(
-              color: theme.textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          centerTitle: false,
-        ),
         body: SafeArea(
           top: false,
           child: Column(

@@ -86,12 +86,19 @@ class MomentsFeed extends _$MomentsFeed {
   Future<MomentsFeedState> build() async {
     _prefs = await SharedPreferences.getInstance();
 
+    // Load hidden users
+    await _loadHiddenUsers();
+
     // Load from cache first
     final cachedState = await _loadFromCache();
     if (cachedState != null && !cachedState.shouldRefresh) {
+      // Filter out hidden users
+      final filteredMoments = cachedState.moments
+          .where((m) => !_hiddenUserIds.contains(m.userId))
+          .toList();
       // Return cached data and refresh in background
       _refreshInBackground();
-      return cachedState;
+      return cachedState.copyWith(moments: filteredMoments);
     }
 
     // Fetch fresh data
@@ -310,6 +317,60 @@ class MomentsFeed extends _$MomentsFeed {
         state = AsyncValue.data(currentState.copyWith(moments: revertedMoments));
       }
       rethrow;
+    }
+  }
+
+  // Delete moment
+  Future<void> deleteMoment(String momentId) async {
+    try {
+      await _repository.deleteMoment(momentId);
+      removeMoment(momentId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Hide posts from a user (local only - filters from feed)
+  Set<String> _hiddenUserIds = {};
+
+  Future<void> hideUserPosts(String userId) async {
+    _hiddenUserIds.add(userId);
+
+    // Save to preferences
+    await _prefs?.setStringList(
+      'hidden_moment_users',
+      _hiddenUserIds.toList(),
+    );
+
+    // Remove all posts from this user from the current feed
+    final currentState = state.value;
+    if (currentState != null) {
+      final filteredMoments = currentState.moments
+          .where((m) => m.userId != userId)
+          .toList();
+      state = AsyncValue.data(currentState.copyWith(moments: filteredMoments));
+      await _saveToCache(currentState.copyWith(moments: filteredMoments));
+    }
+  }
+
+  Future<void> unhideUserPosts(String userId) async {
+    _hiddenUserIds.remove(userId);
+
+    // Save to preferences
+    await _prefs?.setStringList(
+      'hidden_moment_users',
+      _hiddenUserIds.toList(),
+    );
+
+    // Refresh feed to include posts from this user again
+    await refresh();
+  }
+
+  // Load hidden users from preferences
+  Future<void> _loadHiddenUsers() async {
+    final hidden = _prefs?.getStringList('hidden_moment_users');
+    if (hidden != null) {
+      _hiddenUserIds = hidden.toSet();
     }
   }
 }

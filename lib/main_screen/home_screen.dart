@@ -8,12 +8,8 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-import 'package:textgb/features/groups/screens/create_group_screen.dart';
-import 'package:textgb/features/groups/providers/groups_providers.dart';
-import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -270,104 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
-      floatingActionButton: _currentIndex == 0 ? _buildMultipleFabs(modernTheme) : _buildFab(modernTheme),
     );
-  }
-
-  Widget _buildMultipleFabs(ModernThemeExtension modernTheme) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Wallet FAB
-        FloatingActionButton(
-          heroTag: 'wallet_fab',
-          backgroundColor: modernTheme.backgroundColor,
-          foregroundColor: modernTheme.primaryColor,
-          elevation: 4,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const WalletScreen(),
-              ),
-            );
-          },
-          child: const Icon(Icons.monetization_on_outlined),
-        ),
-        const SizedBox(height: 16),
-        // Contacts FAB
-        FloatingActionButton(
-          heroTag: 'contacts_fab',
-          backgroundColor: modernTheme.backgroundColor,
-          foregroundColor: modernTheme.primaryColor,
-          elevation: 4,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ContactsScreen(),
-              ),
-            );
-          },
-          child: const Icon(CupertinoIcons.chat_bubble_2_fill),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 1) {
-      // Groups tab - Create new group
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateGroupScreen(),
-            ),
-          );
-
-          // Refresh groups list if group was created
-          if (result == true && mounted) {
-            ref.invalidate(groupsListProvider);
-          }
-        },
-        child: const Icon(CupertinoIcons.plus),
-      );
-    } else if (_currentIndex == 2) {
-      // Status tab - Create new status
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateListingScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-      );
-    } else if (_currentIndex == 3) {
-      // Channels tab - Navigate to create post screen
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          context.push(RoutePaths.createPost);
-        },
-        child: const Icon(Icons.camera_alt),
-      );
-    }
-
-    return const SizedBox.shrink();
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {

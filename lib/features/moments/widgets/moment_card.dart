@@ -17,6 +17,7 @@ import 'package:textgb/features/moments/widgets/moment_media_grid.dart';
 import 'package:textgb/features/moments/widgets/moment_interactions.dart';
 import 'package:textgb/features/moments/widgets/comment_list.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/core/router/route_paths.dart';
 
 class MomentCard extends ConsumerStatefulWidget {
@@ -109,19 +110,22 @@ class _MomentCardState extends ConsumerState<MomentCard> {
 
           // Name and time
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.moment.userName,
-                  style: MomentsTheme.userNameStyle,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  MomentsTimeService.formatMomentTime(widget.moment.createdAt),
-                  style: MomentsTheme.timestampStyle,
-                ),
-              ],
+            child: GestureDetector(
+              onTap: () => _navigateToUserProfile(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.moment.userName,
+                    style: MomentsTheme.userNameStyle,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    MomentsTimeService.formatMomentTime(widget.moment.createdAt),
+                    style: MomentsTheme.timestampStyle,
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -344,12 +348,40 @@ class _MomentCardState extends ConsumerState<MomentCard> {
 
   // Show more options
   void _showMoreOptions() {
+    final currentUser = ref.read(currentUserProvider);
+    final isOwnPost = currentUser?.uid == widget.moment.userId;
+
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Copy text (if there's content)
+            if (widget.moment.content != null && widget.moment.content!.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: const Text('Copy text'),
+                onTap: () {
+                  context.pop();
+                  _copyMomentText();
+                },
+              ),
+
             ListTile(
               leading: const Icon(Icons.share),
               title: const Text('Share'),
@@ -358,6 +390,7 @@ class _MomentCardState extends ConsumerState<MomentCard> {
                 _shareMoment();
               },
             ),
+
             ListTile(
               leading: const Icon(Icons.link),
               title: const Text('Copy link'),
@@ -366,21 +399,41 @@ class _MomentCardState extends ConsumerState<MomentCard> {
                 _copyMomentLink();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.report_outlined),
-              title: const Text('Report'),
-              onTap: () {
-                context.pop();
-                _reportMoment();
-              },
-            ),
-            // Show delete if owner
-            // if (widget.moment.userId == currentUserId)
-            //   ListTile(
-            //     leading: const Icon(Icons.delete_outline, color: Colors.red),
-            //     title: const Text('Delete', style: TextStyle(color: Colors.red)),
-            //     onTap: () => _handleDelete(),
-            //   ),
+
+            // Hide posts from this user (only for other users' posts)
+            if (!isOwnPost)
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('Hide posts from this user'),
+                onTap: () {
+                  context.pop();
+                  _hidePostsFromUser();
+                },
+              ),
+
+            // Report (only for other users' posts)
+            if (!isOwnPost)
+              ListTile(
+                leading: const Icon(Icons.report_outlined),
+                title: const Text('Report'),
+                onTap: () {
+                  context.pop();
+                  _reportMoment();
+                },
+              ),
+
+            // Delete (only for own posts)
+            if (isOwnPost)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  context.pop();
+                  _deleteMoment();
+                },
+              ),
+
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -409,6 +462,109 @@ View on WemaChat: wemachat://moment/${widget.moment.id}
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Link copied to clipboard')),
       );
+    }
+  }
+
+  // Copy moment text
+  void _copyMomentText() {
+    if (widget.moment.content != null && widget.moment.content!.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: widget.moment.content!));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Text copied to clipboard')),
+        );
+      }
+    }
+  }
+
+  // Hide posts from this user
+  Future<void> _hidePostsFromUser() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hide posts'),
+        content: Text(
+          'You won\'t see posts from ${widget.moment.userName} in your Moments feed anymore. You can undo this from Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hide'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(momentsFeedProvider.notifier).hideUserPosts(widget.moment.userId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Posts from ${widget.moment.userName} hidden'),
+              action: SnackBarAction(
+                label: 'Undo',
+                onPressed: () {
+                  ref.read(momentsFeedProvider.notifier).unhideUserPosts(widget.moment.userId);
+                },
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to hide posts: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  // Delete moment
+  Future<void> _deleteMoment() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete moment'),
+        content: const Text(
+          'Are you sure you want to delete this moment? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(momentsFeedProvider.notifier).deleteMoment(widget.moment.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Moment deleted')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete moment: $e')),
+          );
+        }
+      }
     }
   }
 

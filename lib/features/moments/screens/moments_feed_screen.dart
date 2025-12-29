@@ -84,13 +84,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
         loading: () => _buildLoadingState(),
         error: (error, stack) => _buildErrorState(error.toString()),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToCreateMoment,
-        backgroundColor: MomentsTheme.primaryBlue,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        child: const Icon(Icons.add, size: 28),
-      ),
     );
   }
 
@@ -157,9 +150,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
               ),
             ),
 
-          // Bottom padding for FAB
+          // Bottom padding
           const SliverToBoxAdapter(
-            child: SizedBox(height: 80),
+            child: SizedBox(height: 16),
           ),
         ],
       ),

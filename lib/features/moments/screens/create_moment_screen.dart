@@ -16,6 +16,7 @@ import 'package:textgb/features/moments/services/moments_media_service.dart';
 import 'package:textgb/features/moments/services/moments_upload_service.dart';
 import 'package:textgb/features/moments/providers/moments_providers.dart';
 import 'package:textgb/features/moments/widgets/privacy_selector.dart';
+import 'package:textgb/features/moments/widgets/contact_selector_screen.dart';
 
 class CreateMomentScreen extends ConsumerStatefulWidget {
   const CreateMomentScreen({super.key});
@@ -31,10 +32,10 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
   List<File> _selectedMedia = [];
   MomentMediaType _mediaType = MomentMediaType.text;
-  MomentVisibility _visibility = MomentVisibility.all;
+  PrivacySelection _privacySelection = const PrivacySelection(
+    visibility: MomentVisibility.all,
+  );
   String? _location;
-  final List<String> _visibleTo = [];
-  final List<String> _hiddenFrom = [];
   bool _isUploading = false;
   double _uploadProgress = 0.0;
 
@@ -195,16 +196,44 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
   // Select privacy
   Future<void> _selectPrivacy() async {
-    final selected = await showModalBottomSheet<MomentVisibility>(
+    final result = await showModalBottomSheet<dynamic>(
       context: context,
       builder: (context) => PrivacySelector(
-        currentVisibility: _visibility,
+        currentSelection: _privacySelection,
       ),
     );
 
-    if (selected != null) {
+    if (result == null) return;
+
+    if (result is PrivacySelection) {
       setState(() {
-        _visibility = selected;
+        _privacySelection = result;
+      });
+    } else if (result is OpenContactSelectorAction) {
+      // Open contact selector
+      await _openContactSelector();
+    }
+  }
+
+  // Open contact selector for hiding from contacts
+  Future<void> _openContactSelector() async {
+    final selectedIds = await Navigator.push<List<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => ContactSelectorScreen(
+          mode: ContactSelectorMode.hiddenFrom,
+          initialSelectedIds: _privacySelection.hiddenFrom,
+        ),
+      ),
+    );
+
+    if (selectedIds != null && mounted) {
+      setState(() {
+        _privacySelection = PrivacySelection(
+          visibility: MomentVisibility.all,
+          visibleTo: [],
+          hiddenFrom: selectedIds,
+        );
       });
     }
   }
@@ -253,9 +282,9 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         mediaUrls: mediaUrls,
         mediaType: _mediaType,
         location: _location,
-        visibility: _visibility,
-        visibleTo: _visibleTo,
-        hiddenFrom: _hiddenFrom,
+        visibility: _privacySelection.visibility,
+        visibleTo: _privacySelection.visibleTo,
+        hiddenFrom: _privacySelection.hiddenFrom,
       );
 
       print('[CREATE MOMENT] Request created: ${request.toJson()}');
@@ -431,6 +460,12 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
                   const SizedBox(height: 12),
                   _buildLocationTag(),
                 ],
+
+                // Privacy indicator (when contacts are hidden)
+                if (_privacySelection.hiddenFrom.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildPrivacyTag(),
+                ],
               ],
             ),
           ),
@@ -605,6 +640,54 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     );
   }
 
+  Widget _buildPrivacyTag() {
+    final count = _privacySelection.hiddenFrom.length;
+    return InkWell(
+      onTap: _selectPrivacy,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: MomentsTheme.primaryBlue.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: MomentsTheme.primaryBlue.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.visibility_off,
+              size: 16,
+              color: MomentsTheme.primaryBlue,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Hidden from $count contact${count > 1 ? 's' : ''}',
+              style: TextStyle(
+                fontSize: 15,
+                color: MomentsTheme.primaryBlue,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() {
+                _privacySelection = const PrivacySelection(
+                  visibility: MomentVisibility.all,
+                );
+              }),
+              child: Icon(
+                Icons.close,
+                size: 18,
+                color: MomentsTheme.primaryBlue,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Facebook-style bottom action bar
   Widget _buildBottomActionBar() {
     return Container(
@@ -669,8 +752,12 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
                 ),
                 const SizedBox(width: 8),
                 _buildActionButton(
-                  icon: Icons.lock_outline,
-                  color: MomentsTheme.lightTextSecondary,
+                  icon: _privacySelection.hiddenFrom.isNotEmpty
+                      ? Icons.visibility_off
+                      : Icons.lock_outline,
+                  color: _privacySelection.hiddenFrom.isNotEmpty
+                      ? MomentsTheme.primaryBlue
+                      : MomentsTheme.lightTextSecondary,
                   onTap: _selectPrivacy,
                 ),
               ],

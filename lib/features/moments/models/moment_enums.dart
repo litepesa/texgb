@@ -120,3 +120,44 @@ extension TimelineVisibilityExtension on TimelineVisibility {
     }
   }
 }
+
+// ===============================
+// Privacy Selection Result
+// Holds both visibility type and contact IDs
+// ===============================
+
+class PrivacySelection {
+  final MomentVisibility visibility;
+  final List<String> visibleTo;
+  final List<String> hiddenFrom;
+
+  const PrivacySelection({
+    required this.visibility,
+    this.visibleTo = const [],
+    this.hiddenFrom = const [],
+  });
+
+  PrivacySelection copyWith({
+    MomentVisibility? visibility,
+    List<String>? visibleTo,
+    List<String>? hiddenFrom,
+  }) {
+    return PrivacySelection(
+      visibility: visibility ?? this.visibility,
+      visibleTo: visibleTo ?? this.visibleTo,
+      hiddenFrom: hiddenFrom ?? this.hiddenFrom,
+    );
+  }
+
+  bool get hasCustomPrivacy => visibleTo.isNotEmpty || hiddenFrom.isNotEmpty;
+
+  String get displayText {
+    if (hiddenFrom.isNotEmpty) {
+      return 'Hidden from ${hiddenFrom.length} contact${hiddenFrom.length > 1 ? 's' : ''}';
+    }
+    if (visibleTo.isNotEmpty) {
+      return 'Visible to ${visibleTo.length} contact${visibleTo.length > 1 ? 's' : ''}';
+    }
+    return visibility.displayName;
+  }
+}
