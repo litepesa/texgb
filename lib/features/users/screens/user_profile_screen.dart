@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:textgb/constants.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -200,14 +201,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   void _openVideoDetails(VideoModel video) {
-    // Navigate to SingleVideoScreen
-    Navigator.pushNamed(
-      context, 
-      Constants.singleVideoScreen,
-      arguments: {
-        Constants.startVideoId: video.id,
-      },
-    ).then((_) => _loadUserData());
+    // Navigate to SingleVideoScreen using GoRouter with push to maintain back stack
+    context.push(RoutePaths.singleVideo(video.id), extra: {'userId': widget.userId});
   }
 
   String _formatCount(int count) {
@@ -268,7 +263,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     color: theme.textColor,
                     size: 20,
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => context.pop(),
                 ),
                 Text(
                   'Profile',
@@ -313,7 +308,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     ),
                     const SizedBox(height: 24),
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => context.pop(),
                       child: Text(
                         'Go Back',
                         style: TextStyle(
@@ -362,7 +357,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 color: theme.textColor,
                 size: 20,
               ),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => context.pop(),
             ),
             title: Text(
               'Profile',

@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION WITH FULL SCREEN VIDEO
+// lib/features/videos/screens/videos_feed_screen.dart - WeChat Channels Style Layout
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -13,14 +13,12 @@ import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-// Import search overlay
 import 'package:textgb/features/videos/widgets/search_overlay.dart';
-// Import video progress provider
 import 'package:textgb/features/videos/providers/video_progress_provider.dart';
 
 class VideosFeedScreen extends ConsumerStatefulWidget {
-  final String? startVideoId; // For direct video navigation
-  final String? userId; // For user-specific filtering (optional)
+  final String? startVideoId;
+  final String? userId;
 
   const VideosFeedScreen({
     super.key,
@@ -38,24 +36,24 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         AutomaticKeepAliveClientMixin,
         WidgetsBindingObserver,
         RouteAware {
-  // Core controllers
   final PageController _pageController = PageController();
+
+  // Feed filter tab state
+  int _selectedTabIndex = 2; // Default to "Hot" tab
+  final List<String> _feedTabs = ['Following', 'Friends', 'Hot'];
 
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
-  bool _isScreenActive = false; // Start as false since wallet tab is initial screen
+  bool _isScreenActive = false;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
   bool _isNavigatingAway = false;
   bool _isManuallyPaused = false;
   bool _isCommentsSheetOpen = false;
 
-  // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
-  
-  // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
 
   @override
@@ -67,13 +65,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
     _setupCacheCleanup();
-    
-    // Handle initial video position and start precaching
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialVideoPosition();
-      _precacheInitialVideos(); // Start precaching immediately
+      _precacheInitialVideos();
+      // Auto-play videos when screen loads
+      onScreenBecameActive();
     });
-    
+
     _hasInitialized = true;
   }
 
@@ -121,11 +120,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void onScreenBecameActive() {
     if (!_hasInitialized) return;
-
     debugPrint('VideosFeedScreen: Screen became active');
     _isScreenActive = true;
     _isNavigatingAway = false;
-
     _setupSystemUI();
 
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
@@ -136,21 +133,15 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void onScreenBecameInactive() {
     if (!_hasInitialized) return;
-
     debugPrint('VideosFeedScreen: Screen became inactive');
     _isScreenActive = false;
     _stopPlayback();
-
     _restoreOriginalSystemUI();
-
     WakelockPlus.disable();
   }
 
   void _restoreOriginalSystemUI() {
-    debugPrint('VideosFeedScreen: Restoring original system UI');
-    
     if (!mounted) return;
-    
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
@@ -164,25 +155,15 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   void _pauseForNavigation() {
-    debugPrint('VideosFeedScreen: Pausing for navigation');
     _isNavigatingAway = true;
     _stopPlayback();
   }
 
   void _resumeFromNavigation() {
-    debugPrint('VideosFeedScreen: Resuming from navigation');
     _isNavigatingAway = false;
-    if (_isScreenActive &&
-        _isAppInForeground &&
-        !_isManuallyPaused &&
-        !_isCommentsSheetOpen) {
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted &&
-            !_isNavigatingAway &&
-            _isScreenActive &&
-            _isAppInForeground &&
-            !_isManuallyPaused &&
-            !_isCommentsSheetOpen) {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
@@ -190,19 +171,13 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   void _setupCacheCleanup() {
-    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
-      // Cache cleanup logic can be added here if needed
-    });
+    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {});
   }
 
-  // NEW: Precache initial videos as soon as they load
   void _precacheInitialVideos() {
     final videos = ref.read(videosProvider);
     if (videos.isEmpty) return;
 
-    debugPrint('Precaching initial videos for instant playback...');
-    
-    // Get first 3 video URLs (skip image posts)
     final videoUrls = videos
         .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
         .take(3)
@@ -212,41 +187,28 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (videoUrls.isNotEmpty) {
       VideoCacheService().precacheMultiple(
         videoUrls,
-        cacheSegmentsPerVideo: 3, // Cache 6MB per video for instant start
+        cacheSegmentsPerVideo: 3,
         maxConcurrent: 2,
       );
     }
   }
 
-  // UPDATED: Intelligent preloading with filtering for video-only content
   void _startIntelligentPreloading() {
-    if (!_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isCommentsSheetOpen) {
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) {
       return;
     }
 
     final videos = ref.read(videosProvider);
     if (videos.isEmpty) return;
 
-    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
-    
-    // Filter to get only actual videos (no image posts)
     final videoOnlyList = videos
         .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
         .toList();
     
     if (videoOnlyList.isEmpty) return;
     
-    // Find current video in the filtered list
     final currentVideo = videos[_currentVideoIndex];
-    
-    // If current item is an image post, find nearest video
-    if (currentVideo.isMultipleImages) {
-      debugPrint('Current item is image post, skipping preload');
-      return;
-    }
+    if (currentVideo.isMultipleImages) return;
     
     final currentIndexInVideoList = videoOnlyList
         .indexWhere((v) => v.videoUrl == currentVideo.videoUrl);
@@ -258,29 +220,20 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     VideoCacheService().intelligentPreload(
       videoUrls: videoUrls,
       currentIndex: currentIndexInVideoList,
-      preloadNext: 5,           // Preload next 5 videos
-      preloadPrevious: 2,       // Preload previous 2 videos
-      cacheSegmentsPerVideo: 3, // 6MB per video (increased from 2)
+      preloadNext: 5,
+      preloadPrevious: 2,
+      cacheSegmentsPerVideo: 3,
     );
   }
 
   void _startFreshPlayback() {
-    if (!mounted ||
-        !_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isManuallyPaused ||
-        _isCommentsSheetOpen) {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) {
       return;
     }
 
-    debugPrint('VideosFeedScreen: Starting fresh playback');
-
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
-      debugPrint('VideosFeedScreen: Video controller playing');
     } else {
-      debugPrint('VideosFeedScreen: Video controller not ready, attempting initialization');
       final videos = ref.read(videosProvider);
       if (videos.isNotEmpty && _currentVideoIndex < videos.length) {
         setState(() {});
@@ -292,8 +245,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   void _stopPlayback() {
-    debugPrint('VideosFeedScreen: Stopping playback');
-
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
       if (!_isCommentsSheetOpen) {
@@ -308,19 +259,15 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
   }
 
-  void _initializeControllers() {
-    // Controllers initialization if needed in the future
-  }
+  void _initializeControllers() {}
 
   void _setupSystemUI() {
-    debugPrint('VideosFeedScreen: Setting up black system UI');
-    
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.black,
       systemNavigationBarContrastEnforced: false,
     ));
   }
@@ -344,42 +291,27 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     final videoIndex = videos.indexWhere((video) => video.id == videoId);
 
     if (videoIndex != -1) {
-      debugPrint('VideosFeedScreen: Jumping to video at index $videoIndex');
-
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && _pageController.hasClients) {
           _pageController.jumpToPage(videoIndex);
-
           setState(() {
             _currentVideoIndex = videoIndex;
           });
-
           _startIntelligentPreloading();
-
-          debugPrint('VideosFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
         }
       });
-    } else {
-      debugPrint('VideosFeedScreen: Video with ID $videoId not found in list');
     }
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted ||
-        !_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isCommentsSheetOpen) {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) {
       return;
     }
-
-    debugPrint('Video controller ready, setting up fresh playback');
 
     setState(() {
       _currentVideoController = controller;
     });
 
-    // Add listener to track video progress
     controller.addListener(() {
       if (mounted && controller.value.isInitialized) {
         final position = controller.value.position.inMilliseconds;
@@ -393,40 +325,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
 
     controller.seekTo(Duration.zero);
-
     WakelockPlus.enable();
 
-    if (_isScreenActive &&
-        _isAppInForeground &&
-        !_isNavigatingAway &&
-        !_isManuallyPaused &&
-        !_isCommentsSheetOpen) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
     }
   }
 
-  void _startFreshVideo() {
-    if (!mounted ||
-        !_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isManuallyPaused ||
-        _isCommentsSheetOpen) {
-      return;
-    }
-
-    debugPrint('VideosFeedScreen: Starting fresh video from beginning');
-
-    if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.seekTo(Duration.zero);
-      _currentVideoController!.play();
-    }
-
-    _startFreshPlayback();
-  }
-
   void onManualPlayPause(bool isPlaying) {
-    debugPrint('VideosFeedScreen: Manual play/pause - isPlaying: $isPlaying');
     setState(() {
       _isManuallyPaused = !isPlaying;
     });
@@ -436,24 +342,17 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     final videos = ref.read(videosProvider);
     if (index >= videos.length || !_isScreenActive) return;
 
-    debugPrint('Page changed to: $index');
-
     setState(() {
       _currentVideoIndex = index;
       _isManuallyPaused = false;
     });
 
-    if (_isScreenActive &&
-        _isAppInForeground &&
-        !_isNavigatingAway &&
-        !_isManuallyPaused &&
-        !_isCommentsSheetOpen) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
       WakelockPlus.enable();
     }
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.incrementViewCount(videos[index].id);
+    ref.read(authenticationProvider.notifier).incrementViewCount(videos[index].id);
   }
 
   Widget _buildSmallVideoWindow() {
@@ -484,9 +383,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: _buildVideoContentOnly(),
-                ),
+                Positioned.fill(child: _buildVideoContentOnly()),
                 Positioned(
                   top: 8,
                   right: 8,
@@ -496,11 +393,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                    child: const Icon(Icons.close, color: Colors.white, size: 16),
                   ),
                 ),
               ],
@@ -531,9 +424,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (_currentVideoController?.value.isInitialized != true) {
       return Container(
         color: Colors.black,
-        child: const Center(
-          child: CircularProgressIndicator(color: Colors.white, value: 20),
-        ),
+        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -553,9 +444,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (imageUrls.isEmpty) {
       return Container(
         color: Colors.black,
-        child: const Center(
-          child: Icon(Icons.broken_image, color: Colors.white, size: 32),
-        ),
+        child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
       );
     }
 
@@ -570,9 +459,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           errorBuilder: (context, error, stackTrace) {
             return Container(
               color: Colors.black,
-              child: const Center(
-                child: Icon(Icons.broken_image, color: Colors.white, size: 32),
-              ),
+              child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
             );
           },
         );
@@ -580,7 +467,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // Show comments with small video window
   void _showCommentsForCurrentVideo(VideoModel video) {
     _setVideoWindowMode(true);
 
@@ -600,38 +486,69 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
   }
 
-  // Show search overlay method
   void _showSearchOverlay() {
-    // Pause video before showing search
     _pauseForNavigation();
     
     SearchOverlayController.show(
       context,
       onVideoTap: (videoId) {
-        // Jump to the selected video in the feed
         _jumpToVideo(videoId);
-        // Resume playback after search
         _resumeFromNavigation();
       },
     );
   }
 
+  void _onTabSelected(int index) {
+    setState(() {
+      _selectedTabIndex = index;
+    });
+    // TODO: Add filtering logic based on selected tab
+  }
+
+  void _handleBackNavigation() {
+    _stopPlayback();
+    _restoreOriginalSystemUI();
+    
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  // RouteAware callbacks for handling navigation
+  @override
+  void didPush() {
+    // Called when this route has been pushed
+    onScreenBecameActive();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when the top route has been popped off, and this route shows up
+    onScreenBecameActive();
+  }
+
+  @override
+  void didPop() {
+    // Called when this route has been popped off
+    onScreenBecameInactive();
+  }
+
+  @override
+  void didPushNext() {
+    // Called when a new route has been pushed, and this route is no longer visible
+    onScreenBecameInactive();
+  }
+
   @override
   void dispose() {
-    debugPrint('VideosFeedScreen: Disposing');
-
     WidgetsBinding.instance.removeObserver(this);
-
     _stopPlayback();
-    
     _cacheCleanupTimer?.cancel();
-
     _pageController.dispose();
-
     _restoreOriginalSystemUI();
-
     WakelockPlus.disable();
-
     super.dispose();
   }
 
@@ -641,8 +558,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     final videos = ref.watch(videosProvider);
     final isAppInitializing = ref.watch(isAppInitializingProvider);
+    final topPadding = MediaQuery.of(context).padding.top;
 
-    // Show loading only while app is initializing
     if (isAppInitializing || (_isFirstLoad && videos.isEmpty)) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -653,18 +570,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               const SizedBox(
                 width: 48,
                 height: 48,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
-                ),
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
               ),
               const SizedBox(height: 16),
               Text(
                 'Loading videos...',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
               ),
             ],
           ),
@@ -673,28 +584,126 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      extendBody: true,
       backgroundColor: Colors.black,
-      body: Stack(
+      body: Column(
         children: [
-          // Full screen video - NO padding, NO ClipRRect
-          Positioned.fill(
-            child: _buildBody(videos),
+          // Black status bar area
+          Container(
+            height: topPadding,
+            color: Colors.black,
           ),
-
-          // Small video window when comments are open
-          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-
-          // Header with search button (hidden when comments open)
-          if (!_isCommentsSheetOpen)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              left: 0,
-              right: 0,
-              child: _buildSimplifiedHeader(),
+          // Video content area with header overlay inside
+          Expanded(
+            child: Stack(
+              children: [
+                _buildBody(videos),
+                // Header overlay inside video area
+                if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
+                // Small video window when comments are open
+                if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+              ],
             ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderOverlay() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.6),
+              Colors.black.withOpacity(0.3),
+              Colors.transparent,
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            // Back button
+            GestureDetector(
+              onTap: _handleBackNavigation,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  CupertinoIcons.back,
+                  color: Colors.white,
+                  size: 24,
+                  shadows: [
+                    Shadow(color: Colors.black, blurRadius: 4),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Feed filter tabs
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_feedTabs.length, (index) {
+                  final isSelected = _selectedTabIndex == index;
+                  return GestureDetector(
+                    onTap: () => _onTabSelected(index),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _feedTabs[index],
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                              fontSize: 15,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                              shadows: const [
+                                Shadow(color: Colors.black, blurRadius: 4),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            height: 2,
+                            width: isSelected ? 16 : 0,
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Search button
+            GestureDetector(
+              onTap: _showSearchOverlay,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  CupertinoIcons.search,
+                  color: Colors.white,
+                  size: 24,
+                  shadows: [
+                    Shadow(color: Colors.black, blurRadius: 4),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -705,79 +714,26 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       scrollDirection: Axis.vertical,
       itemCount: videos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive && !_isCommentsSheetOpen
-          ? null
-          : const NeverScrollableScrollPhysics(),
+      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = videos[index];
 
         return VideoItem(
           video: video,
-          isActive: index == _currentVideoIndex &&
-              _isScreenActive &&
-              _isAppInForeground &&
-              !_isNavigatingAway,
+          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
           isFeedScreen: true,
-          // Pass callback to show comments with small video window
           onCommentsPressed: () => _showCommentsForCurrentVideo(video),
         );
       },
     );
   }
-
-  Widget _buildSimplifiedHeader() {
-    // Get system top padding for proper alignment
-    final systemTopPadding = MediaQuery.of(context).padding.top + -8;
-    
-    return Positioned(
-      top: systemTopPadding,
-      left: 0,
-      right: 0,
-      child: Row(
-        children: [
-          const SizedBox(width: 56),
-
-          const Expanded(
-            child: SizedBox.shrink(),
-          ),
-
-          // Search button
-          IconButton(
-            onPressed: _showSearchOverlay,
-            icon: const Icon(
-              CupertinoIcons.search,
-              color: Colors.white,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            iconSize: 28,
-            padding: const EdgeInsets.all(12),
-            constraints: const BoxConstraints(
-              minWidth: 44,
-              minHeight: 44,
-            ),
-            splashRadius: 24,
-            tooltip: 'Search',
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// Extension for tab management
 extension VideosFeedScreenExtension on VideosFeedScreenState {
-  static void handleTabChanged(
-      GlobalKey<VideosFeedScreenState> feedScreenKey, bool isActive) {
+  static void handleTabChanged(GlobalKey<VideosFeedScreenState> feedScreenKey, bool isActive) {
     final state = feedScreenKey.currentState;
     if (state != null) {
       if (isActive) {

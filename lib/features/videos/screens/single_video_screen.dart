@@ -1,7 +1,8 @@
-// lib/features/videos/screens/single_video_screen.dart
+// lib/features/videos/screens/single_video_screen.dart - WeChat Channels Style Layout
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -36,18 +37,15 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         WidgetsBindingObserver,
         TickerProviderStateMixin,
         AutomaticKeepAliveClientMixin {
-  // Core controllers
   final PageController _pageController = PageController();
 
-  // State management
   int _currentVideoIndex = 0;
   bool _isAppInForeground = true;
   final bool _isScreenActive = true;
   bool _isNavigatingAway = false;
   bool _isManuallyPaused = false;
-  bool _isCommentsSheetOpen = false; // Track comments sheet state
+  bool _isCommentsSheetOpen = false;
 
-  // Video data
   UserModel? _videoAuthor;
   List<VideoModel> _videos = [];
   bool _isLoading = true;
@@ -55,11 +53,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   bool _isFollowing = false;
   bool _isOwner = false;
 
-  // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
-
-  // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
 
   @override
@@ -77,14 +72,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Store original system UI after dependencies are available
     if (_originalSystemUiStyle == null) {
       _storeOriginalSystemUI();
     }
   }
 
   void _storeOriginalSystemUI() {
-    // Store the current system UI style before making changes
     final brightness = Theme.of(context).brightness;
     _originalSystemUiStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -99,21 +92,18 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _setupSystemUI() {
-    // Set transparent status bar and navigation bar for full immersive experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.black,
       systemNavigationBarContrastEnforced: false,
     ));
   }
 
   void _setupCacheCleanup() {
-    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
-      // Cache cleanup logic can be added here if needed
-    });
+    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {});
   }
 
   @override
@@ -147,26 +137,22 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     });
 
     try {
-      // Get the specific video first to find the user
       final allVideos = ref.read(videosProvider);
       final targetVideo = allVideos.firstWhere(
         (video) => video.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
 
-      // Get the user/author
       final allUsers = ref.read(usersProvider);
       final author = allUsers.firstWhere(
         (user) => user.uid == targetVideo.userId,
         orElse: () => throw Exception('User not found'),
       );
 
-      // Load all user videos
       final userVideos = allVideos
           .where((video) => video.userId == targetVideo.userId)
           .toList();
 
-      // Sort by newest first
       userVideos.sort((a, b) {
         try {
           final aTime = DateTime.parse(a.createdAt);
@@ -177,7 +163,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         }
       });
 
-      // Find the index of the target video
       final targetIndex =
           userVideos.indexWhere((video) => video.id == widget.videoId);
 
@@ -196,7 +181,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           _currentVideoIndex = targetIndex >= 0 ? targetIndex : 0;
         });
 
-        // Set the page controller to the target video after the widget is built
         if (targetIndex >= 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _pageController.hasClients) {
@@ -209,7 +193,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           });
         }
 
-        // Initialize intelligent preloading
         _startIntelligentPreloading();
       }
     } catch (e) {
@@ -223,36 +206,20 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _startIntelligentPreloading() {
-    if (!_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isCommentsSheetOpen) {
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) {
       return;
     }
-
     if (_videos.isEmpty) return;
-
-    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
-    // Preloading logic can be added here if needed
   }
 
   void _startFreshPlayback() {
-    if (!mounted ||
-        !_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isManuallyPaused ||
-        _isCommentsSheetOpen) {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) {
       return;
     }
 
-    debugPrint('SingleVideoScreen: Starting fresh playback');
-
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
-      debugPrint('SingleVideoScreen: Video controller playing');
     } else {
-      debugPrint('SingleVideoScreen: Video controller not ready, attempting initialization');
       if (_videos.isNotEmpty && _currentVideoIndex < _videos.length) {
         setState(() {});
       }
@@ -263,8 +230,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _stopPlayback() {
-    debugPrint('SingleVideoScreen: Stopping playback');
-
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
       if (!_isCommentsSheetOpen) {
@@ -274,25 +239,15 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _pauseForNavigation() {
-    debugPrint('SingleVideoScreen: Pausing for navigation');
     _isNavigatingAway = true;
     _stopPlayback();
   }
 
   void _resumeFromNavigation() {
-    debugPrint('SingleVideoScreen: Resuming from navigation');
     _isNavigatingAway = false;
-    if (_isScreenActive &&
-        _isAppInForeground &&
-        !_isManuallyPaused &&
-        !_isCommentsSheetOpen) {
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted &&
-            !_isNavigatingAway &&
-            _isScreenActive &&
-            _isAppInForeground &&
-            !_isManuallyPaused &&
-            !_isCommentsSheetOpen) {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
@@ -333,9 +288,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: _buildVideoContentOnly(),
-                ),
+                Positioned.fill(child: _buildVideoContentOnly()),
                 Positioned(
                   top: 8,
                   right: 8,
@@ -345,11 +298,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                    child: const Icon(Icons.close, color: Colors.white, size: 16),
                   ),
                 ),
               ],
@@ -378,9 +327,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     if (_currentVideoController?.value.isInitialized != true) {
       return Container(
         color: Colors.black,
-        child: const Center(
-          child: CircularProgressIndicator(color: Colors.white, value: 20),
-        ),
+        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -400,9 +347,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     if (imageUrls.isEmpty) {
       return Container(
         color: Colors.black,
-        child: const Center(
-          child: Icon(Icons.broken_image, color: Colors.white, size: 32),
-        ),
+        child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
       );
     }
 
@@ -417,9 +362,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           errorBuilder: (context, error, stackTrace) {
             return Container(
               color: Colors.black,
-              child: const Center(
-                child: Icon(Icons.broken_image, color: Colors.white, size: 32),
-              ),
+              child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
             );
           },
         );
@@ -428,15 +371,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted ||
-        !_isScreenActive ||
-        !_isAppInForeground ||
-        _isNavigatingAway ||
-        _isCommentsSheetOpen) {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) {
       return;
     }
-
-    debugPrint('Video controller ready, setting up fresh playback');
 
     setState(() {
       _currentVideoController = controller;
@@ -445,17 +382,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     controller.seekTo(Duration.zero);
     WakelockPlus.enable();
 
-    if (_isScreenActive &&
-        _isAppInForeground &&
-        !_isNavigatingAway &&
-        !_isManuallyPaused &&
-        !_isCommentsSheetOpen) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
     }
   }
 
   void onManualPlayPause(bool isPlaying) {
-    debugPrint('SingleVideoScreen: Manual play/pause - isPlaying: $isPlaying');
     setState(() {
       _isManuallyPaused = !isPlaying;
     });
@@ -464,18 +396,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   void _onPageChanged(int index) {
     if (index >= _videos.length || !_isScreenActive) return;
 
-    debugPrint('Page changed to: $index');
-
     setState(() {
       _currentVideoIndex = index;
       _isManuallyPaused = false;
     });
 
-    if (_isScreenActive &&
-        _isAppInForeground &&
-        !_isNavigatingAway &&
-        !_isManuallyPaused &&
-        !_isCommentsSheetOpen) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
       WakelockPlus.enable();
     }
@@ -514,7 +440,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     });
   }
 
-  // Show comments with small video window
   void _showCommentsForCurrentVideo(VideoModel video) {
     _setVideoWindowMode(true);
 
@@ -534,7 +459,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     });
   }
 
-  // Direct message functionality
   Future<void> _openDirectMessage(VideoModel video) async {
     _pauseForNavigation();
 
@@ -545,7 +469,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       return;
     }
 
-    // Check if trying to message own video
     if (video.userId == currentUser.uid) {
       _showSnackBar('You cannot message yourself');
       _resumeFromNavigation();
@@ -553,7 +476,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     }
 
     try {
-      // Step 1: Show video reaction input modal (prototype pattern)
       final reaction = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
@@ -565,16 +487,11 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         ),
       );
 
-      // Step 2: If reaction was provided, create chat and send message
       if (reaction != null && reaction.trim().isNotEmpty && mounted) {
-        debugPrint('🔵 Creating chat with user: ${video.userId}');
         final chatNotifier = ref.read(chatListProvider.notifier);
         final chatId = await chatNotifier.createOrGetChat(video.userId);
-        debugPrint('🔵 Chat ID received: $chatId');
 
         if (chatId != null) {
-          debugPrint('🔵 Sending video reaction message to chat: $chatId');
-          // Step 3: Send video reaction message via repository
           final chatRepository = ref.read(chatRepositoryProvider);
           final videoReaction = VideoReactionModel.fromVideoAndUser(
             videoId: video.id,
@@ -590,9 +507,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             senderId: currentUser.uid,
             videoReaction: videoReaction,
           );
-          debugPrint('✅ Video reaction message sent successfully');
 
-          // Step 4: Create contact and navigate to chat
           final contact = UserModel(
             uid: video.userId,
             name: video.userName,
@@ -616,8 +531,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             isFeatured: false,
           );
 
-          debugPrint('🔵 Navigating to chat screen');
-          // Navigate using MaterialPageRoute like prototype
           await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               builder: (context) => ChatScreen(
@@ -627,13 +540,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             ),
           );
         } else {
-          debugPrint('❌ Chat ID is null');
           _showSnackBar('Failed to open chat. Please try again.');
         }
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Error opening direct message: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
+      debugPrint('Error opening direct message: $e');
+      debugPrint('Stack trace: $stackTrace');
       _showSnackBar('Error: $e');
     } finally {
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -662,18 +574,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
     if (_originalSystemUiStyle != null) {
       SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
-    } else if (mounted) {
-      final brightness = Theme.of(context).brightness;
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness:
-            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness:
-            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: true,
-      ));
     }
 
     _cacheCleanupTimer?.cancel();
@@ -687,12 +587,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
+    final topPadding = MediaQuery.of(context).padding.top;
+
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -710,17 +610,85 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        extendBodyBehindAppBar: true,
-        extendBody: true,
-        body: Stack(
+        body: Column(
           children: [
-            // Main video content - full screen
-            Positioned.fill(
-              child: _buildVideoFeed(),
+            // Black status bar area
+            Container(
+              height: topPadding,
+              color: Colors.black,
             ),
+            // Video content area with header overlay inside
+            Expanded(
+              child: Stack(
+                children: [
+                  _buildVideoFeed(),
+                  // Header overlay inside video area
+                  if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
+                  // Small video window when comments are open
+                  if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // Small video window when comments are open
-            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+  Widget _buildHeaderOverlay() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.6),
+              Colors.black.withOpacity(0.3),
+              Colors.transparent,
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            // Back button
+            GestureDetector(
+              onTap: _handleBackNavigation,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  CupertinoIcons.back,
+                  color: Colors.white,
+                  size: 24,
+                  shadows: [
+                    Shadow(color: Colors.black, blurRadius: 4),
+                  ],
+                ),
+              ),
+            ),
+            // User name in center
+            Expanded(
+              child: Center(
+                child: Text(
+                  _videoAuthor?.name ?? 'Videos',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(color: Colors.black, blurRadius: 4),
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            // Spacer for symmetry
+            const SizedBox(width: 40),
           ],
         ),
       ),
@@ -737,18 +705,13 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       scrollDirection: Axis.vertical,
       itemCount: _videos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive && !_isCommentsSheetOpen
-          ? null
-          : const NeverScrollableScrollPhysics(),
+      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = _videos[index];
 
         return VideoItem(
           video: video,
-          isActive: index == _currentVideoIndex &&
-              _isScreenActive &&
-              _isAppInForeground &&
-              !_isNavigatingAway,
+          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,

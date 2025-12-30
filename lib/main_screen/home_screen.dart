@@ -11,6 +11,7 @@ import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -252,7 +253,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Contacts tab (index 1) - Contacts Screen
           _KeepAliveWrapper(
-            child: const ContactsScreen(),
+            child: const UsersListScreen(),
           ),
           // Discover tab (index 2) - Discover Screen
           _KeepAliveWrapper(

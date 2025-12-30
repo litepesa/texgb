@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -10,6 +11,7 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/core/router/route_paths.dart';
 
 class MyProfileScreen extends ConsumerStatefulWidget {
   const MyProfileScreen({super.key});
@@ -336,24 +338,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _MenuItem(
             icon: CupertinoIcons.money_dollar_circle,
             title: 'Services',
+            iconColor: const Color(0xFF10B981), // Green - Financial
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Services - Coming Soon'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              context.push(RoutePaths.walletV2);
             },
           ),
         ]),
-        
+
         const SizedBox(height: 10),
-        
+
         _buildMenuGroup(modernTheme, [
           _MenuItem(
-            icon: CupertinoIcons.collections,
+            icon: CupertinoIcons.heart_fill,
             title: 'Favorites',
+            iconColor: const Color(0xFFEC4899), // Pink - Love/Favorites
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -365,21 +363,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             },
           ),
           _MenuItem(
-            icon: CupertinoIcons.photo_on_rectangle,
-            title: 'Moments',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Moments - Coming Soon'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+            icon: CupertinoIcons.square_stack_3d_up_fill,
+            title: 'My Posts',
+            iconColor: const Color(0xFF8B5CF6), // Purple - Content
+            onTap: () => _showMyPostsOptions(modernTheme),
           ),
           _MenuItem(
-            icon: CupertinoIcons.creditcard,
+            icon: CupertinoIcons.creditcard_fill,
             title: 'Cards & Offers',
+            iconColor: const Color(0xFFF59E0B), // Orange - Promotional
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -391,8 +383,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             },
           ),
           _MenuItem(
-            icon: CupertinoIcons.smiley,
+            icon: CupertinoIcons.smiley_fill,
             title: 'Stickers',
+            iconColor: const Color(0xFFEAB308), // Yellow - Fun/Playful
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -404,13 +397,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             },
           ),
         ]),
-        
+
         const SizedBox(height: 10),
-        
+
         _buildMenuGroup(modernTheme, [
           _MenuItem(
-            icon: CupertinoIcons.settings,
+            icon: CupertinoIcons.gear_alt_fill,
             title: 'Settings',
+            iconColor: const Color(0xFF6B7280), // Gray - System
             onTap: () => _showSettingsSheet(modernTheme),
           ),
         ]),
@@ -435,10 +429,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 title: item.title,
                 onTap: item.onTap,
                 modernTheme: modernTheme,
+                iconColor: item.iconColor,
               ),
               if (index < items.length - 1)
                 Padding(
-                  padding: const EdgeInsets.only(left: 56),
+                  padding: const EdgeInsets.only(left: 72),
                   child: Divider(
                     height: 1,
                     thickness: 0.5,
@@ -457,6 +452,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     required String title,
     required VoidCallback onTap,
     required ModernThemeExtension modernTheme,
+    Color? iconColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -464,10 +460,17 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: modernTheme.textColor,
-              size: 24,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (iconColor ?? modernTheme.primaryColor)!.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor ?? modernTheme.primaryColor,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -478,6 +481,144 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                 ),
+              ),
+            ),
+            Icon(
+              CupertinoIcons.right_chevron,
+              color: modernTheme.textSecondaryColor,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMyPostsOptions(ModernThemeExtension modernTheme) {
+    if (_user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: modernTheme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'My Posts',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // My Moments option
+              _buildPostsOptionItem(
+                icon: CupertinoIcons.photo_on_rectangle,
+                title: 'My Moments',
+                subtitle: 'Photos and text posts',
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push(
+                    RoutePaths.userMoments(_user!.uid),
+                    extra: {
+                      'userName': _user!.name,
+                      'userAvatar': _user!.profileImage,
+                    },
+                  );
+                },
+                modernTheme: modernTheme,
+              ),
+
+              // My Videos option
+              _buildPostsOptionItem(
+                icon: CupertinoIcons.play_rectangle,
+                title: 'My Videos',
+                subtitle: 'Manage your short videos',
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push(RoutePaths.managePosts);
+                },
+                modernTheme: modernTheme,
+              ),
+
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostsOptionItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required ModernThemeExtension modernTheme,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor?.withValues(alpha: 0.1) ?? Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: modernTheme.primaryColor ?? Colors.blue,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
             Icon(
@@ -881,10 +1022,12 @@ class _MenuItem {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
+  final Color iconColor;
 
   _MenuItem({
     required this.icon,
     required this.title,
     required this.onTap,
+    required this.iconColor,
   });
 }

@@ -108,6 +108,7 @@ class RoutePaths {
 
   // ==================== WALLET ROUTES ====================
   static const String wallet = '/wallet';
+  static const String walletV2 = '/wallet-v2';
   static const String gifts = '/gifts';
   static const String coins = '/coins';
   static const String withdraw = '/withdraw';
@@ -298,6 +299,7 @@ class RouteNames {
   static const String blockedContacts = 'blockedContacts';
   static const String contactProfile = 'contactProfile';
   static const String wallet = 'wallet';
+  static const String walletV2 = 'walletV2';
   static const String search = 'search';
   static const String channelsHome = 'channelsHome';
   static const String channelsFeed = 'channelsFeed';

@@ -44,6 +44,7 @@ import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
 
 // Payment screens
@@ -650,6 +651,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.wallet,
         name: RouteNames.wallet,
+        builder: (context, state) => const WalletScreen(),
+      ),
+
+      GoRoute(
+        path: RoutePaths.walletV2,
+        name: RouteNames.walletV2,
         builder: (context, state) => const WalletScreenV2(),
       ),
 

@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/contacts/repositories/contacts_repository.dart';
 import 'package:textgb/features/moments/theme/moments_theme.dart';
 
 enum ContactSelectorMode {
@@ -34,7 +34,7 @@ class ContactSelectorScreen extends ConsumerStatefulWidget {
 class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _selectedUserIds = {};
-  List<UserModel> _filteredUsers = [];
+  List<SyncedContact> _filteredContacts = [];
 
   @override
   void initState() {
@@ -50,15 +50,15 @@ class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authenticationProvider);
-    final users = authState.value?.users ?? [];
+    // Use registeredContactsProvider for synced contacts (now returns SyncedContact)
+    final contacts = ref.watch(registeredContactsProvider);
 
-    // Filter users based on search
-    _filteredUsers = users.where((user) {
+    // Filter contacts based on search (uses displayName which is the local contact name)
+    _filteredContacts = contacts.where((contact) {
       final query = _searchController.text.toLowerCase();
       if (query.isEmpty) return true;
-      return user.name.toLowerCase().contains(query) ||
-          user.phoneNumber.toLowerCase().contains(query);
+      return contact.displayName.toLowerCase().contains(query) ||
+          contact.user.phoneNumber.toLowerCase().contains(query);
     }).toList();
 
     return Scaffold(
@@ -120,9 +120,9 @@ class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
               ),
             ),
 
-          // User list
+          // Contact list
           Expanded(
-            child: _filteredUsers.isEmpty
+            child: _filteredContacts.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -131,26 +131,33 @@ class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _searchController.text.isEmpty
-                              ? 'No contacts found'
+                              ? 'No contacts found\nSync your contacts first'
                               : 'No results for "${_searchController.text}"',
                           style: TextStyle(color: Colors.grey[600]),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    itemCount: _filteredUsers.length,
+                    itemCount: _filteredContacts.length,
                     itemBuilder: (context, index) {
-                      final user = _filteredUsers[index];
+                      final contact = _filteredContacts[index];
+                      final user = contact.user;
                       final isSelected = _selectedUserIds.contains(user.uid);
 
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundImage: CachedNetworkImageProvider(user.profileImage),
+                          backgroundImage: user.profileImage.isNotEmpty
+                              ? CachedNetworkImageProvider(user.profileImage)
+                              : null,
+                          child: user.profileImage.isEmpty
+                              ? Text(contact.displayName.isNotEmpty ? contact.displayName[0].toUpperCase() : '?')
+                              : null,
                           radius: 24,
                         ),
                         title: Text(
-                          user.name,
+                          contact.displayName, // Use local contact name
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(user.phoneNumber),

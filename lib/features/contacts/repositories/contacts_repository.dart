@@ -109,9 +109,43 @@ class ContactsBlockException extends ContactsRepositoryException {
 // MODELS
 // ========================================
 
+// Synced contact that combines registered user with local contact name
+// This allows showing the name saved in user's phone (like WhatsApp does)
+class SyncedContact {
+  final UserModel user;
+  final String localContactName; // Name from user's phone contacts
+  final String? localContactId;  // Device contact ID for reference
+
+  SyncedContact({
+    required this.user,
+    required this.localContactName,
+    this.localContactId,
+  });
+
+  // Display name - prefer local contact name, fallback to registered name
+  String get displayName => localContactName.isNotEmpty ? localContactName : user.name;
+
+  // Get the registered name (user's profile name on the app)
+  String get registeredName => user.name;
+
+  Map<String, dynamic> toJson() => {
+    'user': user.toMap(),
+    'localContactName': localContactName,
+    'localContactId': localContactId,
+  };
+
+  factory SyncedContact.fromJson(Map<String, dynamic> json) {
+    return SyncedContact(
+      user: UserModel.fromMap(json['user']),
+      localContactName: json['localContactName'] ?? '',
+      localContactId: json['localContactId'],
+    );
+  }
+}
+
 // Result class for contact synchronization with metadata
 class ContactSyncResult {
-  final List<UserModel> registeredContacts;
+  final List<SyncedContact> registeredContacts; // Changed from UserModel to SyncedContact
   final List<Contact> unregisteredContacts;
   final DateTime syncTime;
   final String syncVersion; // For cache invalidation
@@ -126,7 +160,7 @@ class ContactSyncResult {
   });
 
   Map<String, dynamic> toJson() => {
-    'registeredContacts': registeredContacts.map((c) => c.toMap()).toList(),
+    'registeredContacts': registeredContacts.map((c) => c.toJson()).toList(),
     'unregisteredContacts': unregisteredContacts.map((c) => {
       'id': c.id,
       'displayName': c.displayName,
@@ -143,7 +177,7 @@ class ContactSyncResult {
   factory ContactSyncResult.fromJson(Map<String, dynamic> json) {
     return ContactSyncResult(
       registeredContacts: (json['registeredContacts'] as List)
-          .map((c) => UserModel.fromMap(c))
+          .map((c) => SyncedContact.fromJson(c))
           .toList(),
       unregisteredContacts: (json['unregisteredContacts'] as List)
           .map((c) => Contact()
@@ -471,8 +505,8 @@ class ContactsRepository {
       final chunks = _chunkList(phoneNumbers.toSet().toList(), 10);
       
       for (final chunk in chunks) {
-        final response = await _httpClient.post('/contacts/search', body: {
-          'phoneNumbers': chunk,
+        final response = await _httpClient.post('/contacts/sync', body: {
+          'phone_numbers': chunk,
         });
         
         if (response.statusCode == 200) {
@@ -525,49 +559,92 @@ class ContactsRepository {
       }
       
       debugPrint('Performing full contacts sync with backend...');
-      
+
       // Extract and standardize phone numbers
+      // Send multiple variations for better matching
       final phoneToContactMap = <String, Contact>{};
       final contactPhoneNumbers = <String>[];
-      
+
       for (final contact in deviceContacts) {
         for (final phone in contact.phones) {
-          final standardized = standardizePhoneNumber(phone.number);
-          contactPhoneNumbers.add(standardized);
-          phoneToContactMap[standardized] = contact;
-        }
-      }
-      
-      // Find registered users efficiently using HTTP service
-      final registeredUsers = await findRegisteredUsers(contactPhoneNumbers);
-      
-      // Filter out user's own number
-      registeredUsers.removeWhere((user) => user.uid == currentUser.uid);
-      
-      // Create unregistered contacts list
-      final registeredPhoneNumbers = registeredUsers.map((user) => user.phoneNumber).toSet();
-      final processedContactIds = <String>{};
-      final unregisteredContacts = <Contact>[];
-      
-      for (final phoneNumber in contactPhoneNumbers) {
-        if (!registeredPhoneNumbers.contains(phoneNumber)) {
-          final contact = phoneToContactMap[phoneNumber];
-          if (contact != null && !processedContactIds.contains(contact.id)) {
-            unregisteredContacts.add(contact);
-            processedContactIds.add(contact.id);
+          // Get all variations of this phone number for better matching
+          final variations = generatePhoneVariations(phone.number);
+          for (final variation in variations) {
+            contactPhoneNumbers.add(variation);
+            phoneToContactMap[variation] = contact;
           }
         }
       }
-      
+
+      // Remove duplicates while preserving mapping
+      final uniquePhoneNumbers = contactPhoneNumbers.toSet().toList();
+
+      debugPrint('Syncing ${uniquePhoneNumbers.length} unique phone number variations...');
+
+      // Find registered users efficiently using HTTP service
+      final registeredUsers = await findRegisteredUsers(uniquePhoneNumbers);
+
+      // Filter out user's own number
+      registeredUsers.removeWhere((user) => user.uid == currentUser.uid);
+
+      // Create SyncedContact objects with local contact names
+      // This matches each registered user to their device contact name
+      final syncedContacts = <SyncedContact>[];
+      final registeredPhoneVariations = <String>{};
+
+      for (final user in registeredUsers) {
+        final userPhoneVariations = generatePhoneVariations(user.phoneNumber);
+        registeredPhoneVariations.addAll(userPhoneVariations);
+
+        // Find the device contact that matches this user's phone number
+        Contact? matchingContact;
+        for (final variation in userPhoneVariations) {
+          if (phoneToContactMap.containsKey(variation)) {
+            matchingContact = phoneToContactMap[variation];
+            break;
+          }
+        }
+
+        // Create SyncedContact with local name from device contact
+        syncedContacts.add(SyncedContact(
+          user: user,
+          localContactName: matchingContact?.displayName ?? user.name,
+          localContactId: matchingContact?.id,
+        ));
+      }
+
+      debugPrint('Created ${syncedContacts.length} synced contacts with local names');
+
+      // Create unregistered contacts list
+      final processedContactIds = <String>{};
+      final unregisteredContacts = <Contact>[];
+
+      for (final contact in deviceContacts) {
+        // Check if any phone variation matches a registered user
+        bool isRegistered = false;
+        for (final phone in contact.phones) {
+          final variations = generatePhoneVariations(phone.number);
+          if (variations.any((v) => registeredPhoneVariations.contains(v))) {
+            isRegistered = true;
+            break;
+          }
+        }
+
+        if (!isRegistered && !processedContactIds.contains(contact.id)) {
+          unregisteredContacts.add(contact);
+          processedContactIds.add(contact.id);
+        }
+      }
+
       // Generate contact hashes for change detection
       final contactHashes = <String, String>{};
-      for (final contact in [...registeredUsers.map((u) => u.uid), ...unregisteredContacts.map((c) => c.id)]) {
+      for (final contact in [...syncedContacts.map((c) => c.user.uid), ...unregisteredContacts.map((c) => c.id)]) {
         contactHashes[contact] = sha256.convert(utf8.encode(contact)).toString();
       }
-      
+
       // Create result with version for cache invalidation
       final result = ContactSyncResult(
-        registeredContacts: registeredUsers,
+        registeredContacts: syncedContacts,
         unregisteredContacts: _removeDuplicateContacts(unregisteredContacts),
         syncTime: DateTime.now(),
         syncVersion: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -698,25 +775,73 @@ class ContactsRepository {
   // UTILITY METHODS
   // ========================================
 
-  // Standardize phone number with better international support
+  // Standardize phone number for Kenya (+254)
+  // Handles various formats:
+  // - +254712345678 -> +254712345678 (already international)
+  // - 0712345678 -> +254712345678 (local with leading 0)
+  // - 712345678 -> +254712345678 (9 digits without leading 0)
+  // - 254712345678 -> +254712345678 (international without +)
   String standardizePhoneNumber(String phoneNumber) {
     // Remove all non-digit characters except +
     String digits = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
-    
-    // Handle different country codes more intelligently
-    if (!digits.startsWith('+')) {
-      // Add country code based on locale or user preference
-      // For now, defaulting to US +1, but this should be configurable
-      if (digits.startsWith('1') && digits.length == 11) {
-        digits = '+$digits';
-      } else if (digits.length == 10) {
-        digits = '+1$digits';
-      } else {
-        digits = '+1$digits'; // Fallback
-      }
+
+    // Already has + prefix, return as-is
+    if (digits.startsWith('+')) {
+      return digits;
     }
-    
-    return digits;
+
+    // Kenya-specific handling
+    // If starts with 254 and is 12 digits, add +
+    if (digits.startsWith('254') && digits.length == 12) {
+      return '+$digits';
+    }
+
+    // If starts with 0 and is 10 digits (local Kenya format)
+    if (digits.startsWith('0') && digits.length == 10) {
+      return '+254${digits.substring(1)}';
+    }
+
+    // If 9 digits (Kenya mobile without leading 0)
+    if (digits.length == 9 && (digits.startsWith('7') || digits.startsWith('1'))) {
+      return '+254$digits';
+    }
+
+    // Fallback: assume it's a local number, add Kenya code
+    if (digits.length >= 9 && digits.length <= 10) {
+      if (digits.startsWith('0')) {
+        return '+254${digits.substring(1)}';
+      }
+      return '+254$digits';
+    }
+
+    // For other formats (international numbers from other countries)
+    // Just add + if it looks like a full international number
+    if (digits.length >= 11) {
+      return '+$digits';
+    }
+
+    // Last resort fallback
+    return '+254$digits';
+  }
+
+  // Generate multiple phone number variations for better matching
+  // This helps match contacts saved in different formats
+  List<String> generatePhoneVariations(String phoneNumber) {
+    final variations = <String>{};
+
+    // Get the standardized version
+    final standardized = standardizePhoneNumber(phoneNumber);
+    variations.add(standardized);
+
+    // If it's a Kenya number, also add without country code variations
+    if (standardized.startsWith('+254')) {
+      final withoutCode = standardized.substring(4); // Remove +254
+      variations.add('0$withoutCode'); // Local format: 0712345678
+      variations.add(withoutCode); // Just digits: 712345678
+      variations.add('254$withoutCode'); // Without +: 254712345678
+    }
+
+    return variations.toList();
   }
 
   // Helper method to remove duplicate contacts (enhanced)

@@ -6,7 +6,7 @@ part of 'chat_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$chatListHash() => r'52c32985e6c27b3f4a7d08b6f7c616b8c6c48681';
+String _$chatListHash() => r'f11658ee88f0995027e904f4a193e984e50a6f77';
 
 /// See also [ChatList].
 @ProviderFor(ChatList)

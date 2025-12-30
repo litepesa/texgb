@@ -71,11 +71,12 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
         elevation: 0.5,
         shadowColor: Colors.black.withValues(alpha: 0.1),
         actions: [
-          // Camera button - Facebook style
+          // Camera button - Create new moment
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
             onPressed: _navigateToCreateMoment,
             color: MomentsTheme.lightTextPrimary,
+            tooltip: 'Create Moment',
           ),
         ],
       ),

@@ -482,6 +482,32 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             : 'Manage Posts',
       ),
       actions: [
+        // Always show create post button when user is authenticated
+        if (!_isLoading && !_hasNoProfile && _error == null && !_isSelectionMode)
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+              onPressed: () => context.push(RoutePaths.createPost),
+              style: TextButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(
+                'Post',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ),
         if (!_isLoading && !_hasNoProfile && _error == null && _userVideos.isNotEmpty) ...[
           if (_isSelectionMode) ...[
             // Selection mode actions
@@ -510,86 +536,6 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               icon: const Icon(Icons.close),
               onPressed: _toggleSelectionMode,
               tooltip: 'Cancel Selection',
-            ),
-          ] else ...[
-            // Normal mode actions
-            IconButton(
-              icon: const Icon(Icons.checklist),
-              onPressed: _toggleSelectionMode,
-              tooltip: 'Select Posts',
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.sort),
-              onSelected: (value) {
-                setState(() {
-                  if (value == 'toggle_order') {
-                    _sortDescending = !_sortDescending;
-                  } else {
-                    _sortBy = value;
-                  }
-                });
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'date',
-                  child: Row(
-                    children: [
-                      Icon(Icons.access_time, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Sort by Date'),
-                      if (_sortBy == 'date') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'views',
-                  child: Row(
-                    children: [
-                      Icon(Icons.visibility, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Sort by Views'),
-                      if (_sortBy == 'views') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'likes',
-                  child: Row(
-                    children: [
-                      Icon(Icons.favorite, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Sort by Likes'),
-                      if (_sortBy == 'likes') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'engagement',
-                  child: Row(
-                    children: [
-                      Icon(Icons.trending_up, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Sort by Engagement'),
-                      if (_sortBy == 'engagement') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'toggle_order',
-                  child: Row(
-                    children: [
-                      Icon(_sortDescending ? Icons.arrow_downward : Icons.arrow_upward, size: 20),
-                      const SizedBox(width: 8),
-                      Text(_sortDescending ? 'Descending' : 'Ascending'),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ],
         ],

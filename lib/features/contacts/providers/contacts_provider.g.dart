@@ -7,12 +7,12 @@ part of 'contacts_provider.dart';
 // **************************************************************************
 
 String _$registeredContactsHash() =>
-    r'6bb47e86f3241b36cdfa4b025ebdbdc2746593d8';
+    r'6d76f18be6b3cd7e57d1ebeeffcd012526f51c28';
 
 /// See also [registeredContacts].
 @ProviderFor(registeredContacts)
 final registeredContactsProvider =
-    AutoDisposeProvider<List<UserModel>>.internal(
+    AutoDisposeProvider<List<SyncedContact>>.internal(
   registeredContacts,
   name: r'registeredContactsProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -24,7 +24,26 @@ final registeredContactsProvider =
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef RegisteredContactsRef = AutoDisposeProviderRef<List<UserModel>>;
+typedef RegisteredContactsRef = AutoDisposeProviderRef<List<SyncedContact>>;
+String _$registeredContactUsersHash() =>
+    r'b1d99028cf2a049018eae131ecf80bd4533eff76';
+
+/// See also [registeredContactUsers].
+@ProviderFor(registeredContactUsers)
+final registeredContactUsersProvider =
+    AutoDisposeProvider<List<UserModel>>.internal(
+  registeredContactUsers,
+  name: r'registeredContactUsersProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$registeredContactUsersHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef RegisteredContactUsersRef = AutoDisposeProviderRef<List<UserModel>>;
 String _$unregisteredContactsHash() =>
     r'06a1d812519077311ec5e105821c2f5aea5af50c';
 
@@ -353,14 +372,14 @@ class _IsContactRegisteredProviderElement
   String get uid => (origin as IsContactRegisteredProvider).uid;
 }
 
-String _$getContactByUidHash() => r'3068235acd73a7f45d76e0448835482dab6b7c6b';
+String _$getContactByUidHash() => r'e9eb779ac4daba1837ce3d976b0c2ba2bdf08cbd';
 
 /// See also [getContactByUid].
 @ProviderFor(getContactByUid)
 const getContactByUidProvider = GetContactByUidFamily();
 
 /// See also [getContactByUid].
-class GetContactByUidFamily extends Family<UserModel?> {
+class GetContactByUidFamily extends Family<SyncedContact?> {
   /// See also [getContactByUid].
   const GetContactByUidFamily();
 
@@ -398,7 +417,7 @@ class GetContactByUidFamily extends Family<UserModel?> {
 }
 
 /// See also [getContactByUid].
-class GetContactByUidProvider extends AutoDisposeProvider<UserModel?> {
+class GetContactByUidProvider extends AutoDisposeProvider<SyncedContact?> {
   /// See also [getContactByUid].
   GetContactByUidProvider(
     String uid,
@@ -433,7 +452,7 @@ class GetContactByUidProvider extends AutoDisposeProvider<UserModel?> {
 
   @override
   Override overrideWith(
-    UserModel? Function(GetContactByUidRef provider) create,
+    SyncedContact? Function(GetContactByUidRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -450,7 +469,7 @@ class GetContactByUidProvider extends AutoDisposeProvider<UserModel?> {
   }
 
   @override
-  AutoDisposeProviderElement<UserModel?> createElement() {
+  AutoDisposeProviderElement<SyncedContact?> createElement() {
     return _GetContactByUidProviderElement(this);
   }
 
@@ -470,17 +489,148 @@ class GetContactByUidProvider extends AutoDisposeProvider<UserModel?> {
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin GetContactByUidRef on AutoDisposeProviderRef<UserModel?> {
+mixin GetContactByUidRef on AutoDisposeProviderRef<SyncedContact?> {
   /// The parameter `uid` of this provider.
   String get uid;
 }
 
 class _GetContactByUidProviderElement
-    extends AutoDisposeProviderElement<UserModel?> with GetContactByUidRef {
+    extends AutoDisposeProviderElement<SyncedContact?> with GetContactByUidRef {
   _GetContactByUidProviderElement(super.provider);
 
   @override
   String get uid => (origin as GetContactByUidProvider).uid;
+}
+
+String _$getContactUserByUidHash() =>
+    r'145e75c462544f7dca8ac9ca04a8a1c77642e0bd';
+
+/// See also [getContactUserByUid].
+@ProviderFor(getContactUserByUid)
+const getContactUserByUidProvider = GetContactUserByUidFamily();
+
+/// See also [getContactUserByUid].
+class GetContactUserByUidFamily extends Family<UserModel?> {
+  /// See also [getContactUserByUid].
+  const GetContactUserByUidFamily();
+
+  /// See also [getContactUserByUid].
+  GetContactUserByUidProvider call(
+    String uid,
+  ) {
+    return GetContactUserByUidProvider(
+      uid,
+    );
+  }
+
+  @override
+  GetContactUserByUidProvider getProviderOverride(
+    covariant GetContactUserByUidProvider provider,
+  ) {
+    return call(
+      provider.uid,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'getContactUserByUidProvider';
+}
+
+/// See also [getContactUserByUid].
+class GetContactUserByUidProvider extends AutoDisposeProvider<UserModel?> {
+  /// See also [getContactUserByUid].
+  GetContactUserByUidProvider(
+    String uid,
+  ) : this._internal(
+          (ref) => getContactUserByUid(
+            ref as GetContactUserByUidRef,
+            uid,
+          ),
+          from: getContactUserByUidProvider,
+          name: r'getContactUserByUidProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$getContactUserByUidHash,
+          dependencies: GetContactUserByUidFamily._dependencies,
+          allTransitiveDependencies:
+              GetContactUserByUidFamily._allTransitiveDependencies,
+          uid: uid,
+        );
+
+  GetContactUserByUidProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.uid,
+  }) : super.internal();
+
+  final String uid;
+
+  @override
+  Override overrideWith(
+    UserModel? Function(GetContactUserByUidRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: GetContactUserByUidProvider._internal(
+        (ref) => create(ref as GetContactUserByUidRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        uid: uid,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<UserModel?> createElement() {
+    return _GetContactUserByUidProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GetContactUserByUidProvider && other.uid == uid;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, uid.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin GetContactUserByUidRef on AutoDisposeProviderRef<UserModel?> {
+  /// The parameter `uid` of this provider.
+  String get uid;
+}
+
+class _GetContactUserByUidProviderElement
+    extends AutoDisposeProviderElement<UserModel?> with GetContactUserByUidRef {
+  _GetContactUserByUidProviderElement(super.provider);
+
+  @override
+  String get uid => (origin as GetContactUserByUidProvider).uid;
 }
 
 String _$isContactBlockedHash() => r'86a5f58d6d959a011d6a50f8c03bc373b24a37b1';
@@ -614,14 +764,14 @@ class _IsContactBlockedProviderElement extends AutoDisposeProviderElement<bool>
 }
 
 String _$filteredRegisteredContactsHash() =>
-    r'55fc54a177f5a71ca6f80b57be77a37a58c5d75e';
+    r'172fa3c6eebcf382f7c878a9e5125d97ab548052';
 
 /// See also [filteredRegisteredContacts].
 @ProviderFor(filteredRegisteredContacts)
 const filteredRegisteredContactsProvider = FilteredRegisteredContactsFamily();
 
 /// See also [filteredRegisteredContacts].
-class FilteredRegisteredContactsFamily extends Family<List<UserModel>> {
+class FilteredRegisteredContactsFamily extends Family<List<SyncedContact>> {
   /// See also [filteredRegisteredContacts].
   const FilteredRegisteredContactsFamily();
 
@@ -660,7 +810,7 @@ class FilteredRegisteredContactsFamily extends Family<List<UserModel>> {
 
 /// See also [filteredRegisteredContacts].
 class FilteredRegisteredContactsProvider
-    extends AutoDisposeProvider<List<UserModel>> {
+    extends AutoDisposeProvider<List<SyncedContact>> {
   /// See also [filteredRegisteredContacts].
   FilteredRegisteredContactsProvider(
     String query,
@@ -695,7 +845,7 @@ class FilteredRegisteredContactsProvider
 
   @override
   Override overrideWith(
-    List<UserModel> Function(FilteredRegisteredContactsRef provider) create,
+    List<SyncedContact> Function(FilteredRegisteredContactsRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -712,7 +862,7 @@ class FilteredRegisteredContactsProvider
   }
 
   @override
-  AutoDisposeProviderElement<List<UserModel>> createElement() {
+  AutoDisposeProviderElement<List<SyncedContact>> createElement() {
     return _FilteredRegisteredContactsProviderElement(this);
   }
 
@@ -732,13 +882,14 @@ class FilteredRegisteredContactsProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin FilteredRegisteredContactsRef on AutoDisposeProviderRef<List<UserModel>> {
+mixin FilteredRegisteredContactsRef
+    on AutoDisposeProviderRef<List<SyncedContact>> {
   /// The parameter `query` of this provider.
   String get query;
 }
 
 class _FilteredRegisteredContactsProviderElement
-    extends AutoDisposeProviderElement<List<UserModel>>
+    extends AutoDisposeProviderElement<List<SyncedContact>>
     with FilteredRegisteredContactsRef {
   _FilteredRegisteredContactsProviderElement(super.provider);
 
@@ -953,7 +1104,7 @@ final contactsSyncInfoProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ContactsSyncInfoRef = AutoDisposeProviderRef<Map<String, dynamic>>;
-String _$contactsNotifierHash() => r'90f934f017d462700d4e51145c6edca7cdd8bb2c';
+String _$contactsNotifierHash() => r'e2bc6c823c77e41d4e7f300efe9822006779cc06';
 
 /// See also [ContactsNotifier].
 @ProviderFor(ContactsNotifier)

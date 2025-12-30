@@ -1,6 +1,5 @@
 // lib/features/users/screens/users_list_screen.dart
-// UPDATED: Live status tracking with Chinese Red styling and last post time display
-import 'package:flutter/cupertino.dart';
+// UPDATED: Using GoRouter for navigation
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,12 +8,8 @@ import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/marketplace/providers/marketplace_convenience_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-
-// Chinese Red color for live indicators
-const Color kChineseRed = Color(0xFFDE2910);
 
 class UsersListScreen extends ConsumerStatefulWidget {
   const UsersListScreen({super.key});
@@ -23,100 +18,53 @@ class UsersListScreen extends ConsumerStatefulWidget {
   ConsumerState<UsersListScreen> createState() => _UsersListScreenState();
 }
 
-class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTickerProviderStateMixin {
+class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   final ScrollController _scrollController = ScrollController();
   String _selectedCategory = 'All';
   bool _isInitialized = false;
-  bool _isLoadingInitial = false;
-  String? _error;
-  bool _showMarketplaceBanner = true;
-  late AnimationController _bannerAnimationController;
-  late Animation<double> _bannerAnimation;
+  bool _isLoadingInitialData = false;
   
-  final List<String> categories = ['All', 'Following', 'Live'];
+  final List<String> categories = ['All', 'Following', 'Verified'];
 
   @override
   void initState() {
     super.initState();
-    _bannerAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _bannerAnimation = CurvedAnimation(
-      parent: _bannerAnimationController,
-      curve: Curves.elasticOut,
-    );
-    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
-      _checkBannerStatus();
     });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _bannerAnimationController.dispose();
     super.dispose();
   }
 
-  Future<void> _checkBannerStatus() async {
-    if (mounted) {
-      setState(() {
-        _showMarketplaceBanner = true;
-      });
-      _bannerAnimationController.forward();
-    }
-  }
-
-  Future<void> _dismissBanner() async {
-    if (mounted) {
-      setState(() {
-        _showMarketplaceBanner = false;
-      });
-    }
-  }
-
-  void _navigateToMarketplace() {
-    HapticFeedback.mediumImpact();
-    context.push(RoutePaths.marketplaceFeed);
-  }
-
-  ModernThemeExtension _getSafeTheme(BuildContext context) {
-    return Theme.of(context).extension<ModernThemeExtension>() ?? 
-        ModernThemeExtension(
-          primaryColor: const Color(0xFFFE2C55),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
-          dividerColor: Theme.of(context).dividerColor,
-          textTertiaryColor: Colors.grey[400],
-          surfaceVariantColor: Colors.grey[100],
-        );
-  }
-
+  // Check if we have cached data
   bool get _hasCachedData {
     final users = ref.read(usersProvider);
     return users.isNotEmpty;
   }
 
-  void _initializeScreen() {
+  // Cache-aware initialization
+  void _initializeScreen() async {
     if (_hasCachedData) {
+      // Use cached data immediately - instant load
       setState(() {
         _isInitialized = true;
       });
-      debugPrint('Users screen: Using cached data');
+      debugPrint('Users screen: Using cached data (${ref.read(usersProvider).length} users)');
     } else {
-      debugPrint('Users screen: No cached data found, loading initial data');
-      _loadInitialData();
+      // No cached data - load fresh data (new user or cleared cache)
+      debugPrint('Users screen: No cached data found, loading from server...');
+      await _loadInitialData();
     }
   }
 
+  // Load initial data for first time or after cache clear
   Future<void> _loadInitialData() async {
     setState(() {
-      _isLoadingInitial = true;
-      _error = null;
+      _isLoadingInitialData = true;
     });
 
     try {
@@ -124,8 +72,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
       
       if (mounted) {
         setState(() {
+          _isLoadingInitialData = false;
           _isInitialized = true;
-          _isLoadingInitial = false;
         });
         debugPrint('Users screen: Initial data loaded successfully');
       }
@@ -133,106 +81,95 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
       debugPrint('Users screen: Error loading initial data: $e');
       if (mounted) {
         setState(() {
-          _error = e.toString();
-          _isLoadingInitial = false;
+          _isLoadingInitialData = false;
           _isInitialized = true;
         });
       }
     }
   }
 
+  // Refresh users data (only called by pull-to-refresh)
   Future<void> _refreshUsers() async {
-    try {
-      await ref.read(authenticationProvider.notifier).loadUsers();
-      if (_error != null) {
-        setState(() {
-          _error = null;
-        });
-      }
-      debugPrint('Users screen: Data refreshed successfully');
-    } catch (e) {
-      debugPrint('Users screen: Error refreshing data: $e');
-    }
+    debugPrint('Users screen: Pull-to-refresh triggered');
+    await ref.read(authenticationProvider.notifier).loadUsers();
   }
 
   List<UserModel> get filteredUsers {
     final users = ref.watch(usersProvider);
     final followedUsers = ref.watch(followedUsersProvider);
     final currentUser = ref.watch(currentUserProvider);
-    final marketplaceVideos = ref.watch(marketplaceVideosProvider);
-
+    
     List<UserModel> filteredList;
-
+    
     switch (_selectedCategory) {
       case 'Following':
         filteredList = users
             .where((user) => followedUsers.contains(user.id))
             .toList();
         break;
-      case 'Live':
+      case 'Verified':
         filteredList = users
-            .where((user) => user.isLive)
+            .where((user) => user.isVerified)
             .toList();
         break;
-      default:
+      default: // 'All'
         filteredList = users;
         break;
     }
 
-    // Filter out current user
+    // Always filter out current user
     if (currentUser != null) {
       filteredList.removeWhere((user) => user.id == currentUser.id);
     }
-
-    // Only filter by marketplace videos if marketplace data is loaded (not empty)
-    if (marketplaceVideos.isNotEmpty) {
-      // Filter out users who have no marketplace videos
-      filteredList.removeWhere((user) {
-        final userMarketplaceVideos = marketplaceVideos.where((video) => video.userId == user.id);
-        return userMarketplaceVideos.isEmpty;
-      });
-    }
-
+    
+    // Sort by latest activity - most recent first
     filteredList.sort((a, b) {
-      // Live users always come first
-      if (a.isLive && !b.isLive) return -1;
-      if (!a.isLive && b.isLive) return 1;
-
+      // Verified users always come first
+      if (a.isVerified && !b.isVerified) return -1;
+      if (!a.isVerified && b.isVerified) return 1;
+      
+      // Then sort by last activity
       final aLastPost = a.lastPostAtDateTime;
       final bLastPost = b.lastPostAtDateTime;
-
+      
+      // Users with recent posts come first
       if (aLastPost != null && bLastPost != null) {
-        return bLastPost.compareTo(aLastPost);
+        return bLastPost.compareTo(aLastPost); // Most recent first
       }
-
+      
+      // Users with any posts come before users with no posts
       if (aLastPost != null && bLastPost == null) return -1;
       if (aLastPost == null && bLastPost != null) return 1;
-
+      
+      // For users with no posts, sort by creation date (newest first)
       return b.createdAt.compareTo(a.createdAt);
     });
-
+    
     return filteredList;
   }
 
   Future<void> _navigateToUserProfile(UserModel user) async {
     try {
       HapticFeedback.lightImpact();
-
-      final userVideos = ref.read(marketplaceVideosProvider).where((video) => video.userId == user.id).toList();
-
+      
+      final userVideos = ref.read(videosProvider).where((video) => video.userId == user.id).toList();
+      
       if (userVideos.isNotEmpty) {
-        // Navigate to single marketplace video with user context
+        // Navigate to videos feed starting with this user's first video
         context.push(
-          RoutePaths.singleMarketplaceVideo(userVideos.first.id),
+          RoutePaths.videosFeed,
           extra: {
+            'startVideoId': userVideos.first.id,
             'userId': user.id,
           },
         );
       } else {
-        _showSnackBar('${user.name} hasn\'t posted any marketplace items yet');
+        _showSnackBar('${user.name} hasn\'t posted any videos yet');
+        // Navigate to user profile
         context.push(RoutePaths.userProfile(user.id));
       }
     } catch (e) {
+      // Fallback to user profile
       context.push(RoutePaths.userProfile(user.id));
     }
   }
@@ -250,415 +187,182 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
-    final theme = _getSafeTheme(context);
+    final theme = context.modernTheme;
     
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            Column(
-              children: [
-                // Enhanced Custom App Bar
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.surfaceColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
-                        spreadRadius: -4,
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                        spreadRadius: -2,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Manage Button - Navigate to Manage Post Screen
-                      Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            context.push(RoutePaths.manageMarketplaceListings);
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              CupertinoIcons.gear,
-                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
-                      
-                      Expanded(
-                        child: Center(
-                          child: Material(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
-                              onTap: _navigateToMarketplace,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      const Color(0xFFFE2C55),
-                                      const Color(0xFFFE2C55).withOpacity(0.8),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFFE2C55).withOpacity(0.4),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Icon(
-                                        Icons.explore_rounded,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'Marketplace',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      Icons.arrow_forward_ios_rounded,
-                                      color: Colors.white,
-                                      size: 12,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      
-                      // Search Button
-                      Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            showSearch(
-                              context: context,
-                              delegate: UserSearchDelegate(ref: ref),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.search_rounded,
-                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            // Enhanced Custom App Bar
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.dividerColor!.withOpacity(0.15),
+                  width: 1,
                 ),
-                
-                // Users List with integrated filter tabs
-                Expanded(
-                  child: Container(
-                    color: theme.surfaceColor,
-                    child: !_isInitialized 
-                      ? _buildInitialLoadingView(theme)
-                      : _error != null
-                          ? _buildErrorView(theme)
-                          : _buildUsersListWithTabs(),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryColor!.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
                   ),
-                ),
-              ],
-            ),
-            
-            // Eye-catching Marketplace Banner
-            if (_showMarketplaceBanner)
-              Positioned(
-                top: MediaQuery.of(context).size.height * 0.35,
-                left: 16,
-                right: 16,
-                child: ScaleTransition(
-                  scale: _bannerAnimation,
-                  child: _buildMarketplaceBanner(theme),
-                ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMarketplaceBanner(ModernThemeExtension theme) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFFE2C55),
-            const Color(0xFFFF6B6B),
-            const Color(0xFFFE2C55),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFE2C55).withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _navigateToMarketplace,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 2,
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Close button
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Material(
+              child: Row(
+                children: [
+                  // Profile Button
+                  Material(
                     color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        _dismissBanner();
+                        context.push(RoutePaths.managePosts);
                       },
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
+                          color: theme.primaryColor!.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 16,
+                        child: Icon(
+                          Icons.person,
+                          color: theme.primaryColor,
+                          size: 20,
                         ),
                       ),
                     ),
                   ),
-                ),
-                
-                // Banner content
-                Padding(
-                  padding: const EdgeInsets.only(right: 24),
-                  child: Row(
-                    children: [
-                      // Animated icon
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(seconds: 2),
-                        builder: (context, value, child) {
-                          return Transform.rotate(
-                            angle: value * 0.1,
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.white.withOpacity(0.3),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                CupertinoIcons.compass,
-                                color: Colors.white,
-                                size: 32,
+                  
+                  // Discover Button (Center)
+                  Expanded(
+                    child: Center(
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push(RoutePaths.videosFeed);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFE2C55).withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFFE2C55).withOpacity(0.1),
+                                width: 1,
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      
-                      const SizedBox(width: 16),
-                      
-                      // Text content
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
+                                const Icon(
+                                  Icons.radio_button_checked,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
                                 const Text(
-                                  '🎉 Tap to Explore!',
+                                  'Discover',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'NEW',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  color: Colors.white,
+                                  size: 12,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Discover amazing products, and deals in the marketplace',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                height: 1.3,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Check Out',
-                                    style: TextStyle(
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.arrow_forward,
-                                    color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                                    size: 14,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  
+                  // Search Button
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        showSearch(
+                          context: context,
+                          delegate: UserSearchDelegate(ref: ref),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor!.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: theme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            
+            // Users List with integrated filter tabs
+            Expanded(
+              child: Container(
+                color: theme.surfaceColor,
+                child: !_isInitialized 
+                  ? _buildLoadingView(theme, 'Initializing...')
+                  : _isLoadingInitialData
+                      ? _buildLoadingView(theme, 'Loading users...')
+                      : _buildUsersListWithTabs(),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildInitialLoadingView(ModernThemeExtension theme) {
+  Widget _buildLoadingView(ModernThemeExtension theme, String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: theme.primaryColor ?? const Color(0xFFFE2C55),
+            color: theme.primaryColor,
             strokeWidth: 3,
           ),
           const SizedBox(height: 16),
           Text(
-            _isLoadingInitial ? 'Loading users...' : 'Initializing...',
+            message,
             style: TextStyle(
-              color: theme.textSecondaryColor ?? Colors.grey[600],
+              color: theme.textSecondaryColor,
               fontSize: 16,
             ),
           ),
@@ -667,89 +371,25 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     );
   }
 
-  Widget _buildErrorView(ModernThemeExtension theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline,
-                color: Colors.red.shade600,
-                size: 64,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Unable to load users',
-              style: TextStyle(
-                color: theme.textColor ?? Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(
-                color: theme.textSecondaryColor ?? Colors.grey[600],
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _loadInitialData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
-              ),
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Try Again',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'Following':
         return Icons.favorite;
-      case 'Live':
-        return Icons.sensors;
+      case 'Verified':
+        return Icons.verified;
       default:
         return Icons.people;
     }
   }
 
   Widget _buildUsersListWithTabs() {
-    final theme = _getSafeTheme(context);
+    final theme = context.modernTheme;
     final users = filteredUsers;
 
-    if (users.isEmpty && _error == null) {
+    if (users.isEmpty) {
       return RefreshIndicator(
         onRefresh: _refreshUsers,
-        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+        color: theme.primaryColor,
         backgroundColor: theme.surfaceColor,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -759,55 +399,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.5,
                 child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _getEmptyStateIcon(),
-                          color: theme.textTertiaryColor ?? Colors.grey[400],
-                          size: 64,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          _getEmptyStateTitle(),
-                          style: TextStyle(
-                            color: theme.textColor ?? Colors.black,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _getEmptyStateSubtitle(),
-                          style: TextStyle(
-                            color: theme.textSecondaryColor ?? Colors.grey[600],
-                            fontSize: 15,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        if (_selectedCategory == 'All') ...[
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              context.push(RoutePaths.createProfile);
-                            },
-                            icon: const Icon(Icons.person_add),
-                            label: const Text('Join WemaChat'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                  child: _buildEmptyState(theme),
                 ),
               ),
             ],
@@ -818,7 +410,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
 
     return RefreshIndicator(
       onRefresh: _refreshUsers,
-      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+      color: theme.primaryColor,
       backgroundColor: theme.surfaceColor,
       child: CustomScrollView(
         controller: _scrollController,
@@ -856,12 +448,12 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
         color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+          color: theme.dividerColor!.withOpacity(0.15),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            color: theme.primaryColor!.withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: -4,
@@ -891,7 +483,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                   borderRadius: BorderRadius.circular(12),
                   border: isSelected ? Border(
                     bottom: BorderSide(
-                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                      color: theme.primaryColor!,
                       width: 3,
                     ),
                   ) : null,
@@ -905,15 +497,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         color: isSelected 
-                          ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
-                          : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                          ? theme.primaryColor!.withOpacity(0.15)
+                          : theme.primaryColor!.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Icon(
                         _getCategoryIcon(category),
                         color: isSelected 
-                          ? theme.primaryColor ?? const Color(0xFFFE2C55)
-                          : theme.textSecondaryColor ?? Colors.grey[600],
+                          ? theme.primaryColor 
+                          : theme.textSecondaryColor,
                         size: 14,
                       ),
                     ),
@@ -923,8 +515,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
                           color: isSelected 
-                            ? theme.primaryColor ?? const Color(0xFFFE2C55)
-                            : theme.textSecondaryColor ?? Colors.grey[600],
+                            ? theme.primaryColor 
+                            : theme.textSecondaryColor,
                           fontWeight: isSelected 
                             ? FontWeight.w700 
                             : FontWeight.w500,
@@ -948,12 +540,64 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     );
   }
 
+  Widget _buildEmptyState(ModernThemeExtension theme) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getEmptyStateIcon(),
+            color: theme.textTertiaryColor,
+            size: 64,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            _getEmptyStateTitle(),
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getEmptyStateSubtitle(),
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+              fontSize: 15,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (_selectedCategory == 'All') ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                context.push(RoutePaths.createProfile);
+              },
+              icon: const Icon(Icons.person_add),
+              label: const Text('Join WeiBao'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   IconData _getEmptyStateIcon() {
     switch (_selectedCategory) {
       case 'Following':
         return Icons.favorite_outline;
-      case 'Live':
-        return Icons.sensors_off;
+      case 'Verified':
+        return Icons.verified_outlined;
       default:
         return Icons.people_outline;
     }
@@ -963,8 +607,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     switch (_selectedCategory) {
       case 'Following':
         return 'No Followed Users';
-      case 'Live':
-        return 'No Live Streams';
+      case 'Verified':
+        return 'No Verified Users';
       default:
         return 'No Users Available';
     }
@@ -974,17 +618,17 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     switch (_selectedCategory) {
       case 'Following':
         return 'Start following users to see them here';
-      case 'Live':
-        return 'No one is currently live streaming';
+      case 'Featured':
+        return 'Featured creators will appear here when available';
       default:
-        return 'Users will appear here when they join WemaChat';
+        return 'Users will appear here when they join WeiBao';
     }
   }
 
   Widget _buildUserItem(UserModel user) {
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(user.id);
-    final theme = _getSafeTheme(context);
+    final theme = context.modernTheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -993,16 +637,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
         color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: user.isLive 
-            ? kChineseRed.withOpacity(0.4)
-            : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
-          width: user.isLive ? 2 : 1,
+          color: user.isVerified 
+            ? Colors.blue.withOpacity(0.3)
+            : theme.dividerColor!.withOpacity(0.15),
+          width: user.isVerified ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: user.isLive 
-              ? kChineseRed.withOpacity(0.2)
-              : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            color: user.isVerified 
+              ? Colors.blue.withOpacity(0.12)
+              : theme.primaryColor!.withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: -4,
@@ -1022,19 +666,20 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(12),
-            decoration: user.isLive ? BoxDecoration(
+            decoration: user.isVerified ? BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  kChineseRed.withOpacity(0.05),
+                  Colors.blue.withOpacity(0.05),
                   Colors.transparent,
                 ],
               ),
             ) : null,
             child: Row(
               children: [
+                // Enhanced User Avatar
                 Stack(
                   children: [
                     AnimatedContainer(
@@ -1044,16 +689,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: user.isLive ? LinearGradient(
-                          colors: [kChineseRed, kChineseRed.withOpacity(0.7)],
+                        gradient: user.isVerified ? LinearGradient(
+                          colors: [Colors.blue.shade300, Colors.indigo.shade400],
                         ) : null,
-                        border: !user.isLive ? Border.all(
-                          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                        border: !user.isVerified ? Border.all(
+                          color: theme.dividerColor!.withOpacity(0.2),
                           width: 1,
                         ) : null,
                         boxShadow: [
                           BoxShadow(
-                            color: (user.isLive ? kChineseRed : (theme.primaryColor ?? const Color(0xFFFE2C55)))
+                            color: (user.isVerified ? Colors.blue : theme.primaryColor!)
                                 .withOpacity(0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -1070,18 +715,18 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
                                     decoration: BoxDecoration(
-                                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                                      color: theme.primaryColor!.withOpacity(0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       Icons.person,
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                      color: theme.primaryColor,
                                       size: 22,
                                     ),
                                   ),
                                   errorWidget: (context, url, error) => Container(
                                     decoration: BoxDecoration(
-                                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                      color: theme.primaryColor!.withOpacity(0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
@@ -1090,7 +735,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
-                                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                          color: theme.primaryColor,
                                         ),
                                       ),
                                     ),
@@ -1098,7 +743,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                 )
                               : Container(
                                   decoration: BoxDecoration(
-                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                    color: theme.primaryColor!.withOpacity(0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
@@ -1107,7 +752,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w700,
-                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                        color: theme.primaryColor,
                                       ),
                                     ),
                                   ),
@@ -1115,26 +760,28 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         ),
                       ),
                     ),
-                    if (user.isLive)
+                    
+                    // Verified indicator on avatar
+                    if (user.isVerified)
                       Positioned(
                         top: -2,
                         right: -2,
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: kChineseRed,
+                            color: Colors.blue,
                             shape: BoxShape.circle,
-                            border: Border.all(color: theme.surfaceColor ?? Colors.white, width: 2),
+                            border: Border.all(color: theme.surfaceColor!, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: kChineseRed.withOpacity(0.5),
-                                blurRadius: 6,
+                                color: Colors.blue.withOpacity(0.3),
+                                blurRadius: 4,
                                 offset: const Offset(0, 1),
                               ),
                             ],
                           ),
                           child: const Icon(
-                            Icons.sensors,
+                            Icons.verified_rounded,
                             color: Colors.white,
                             size: 10,
                           ),
@@ -1142,12 +789,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       ),
                   ],
                 ),
+                
                 const SizedBox(width: 12),
+                
+                // User Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // User name with verified badge next to it
                       Row(
                         children: [
                           Flexible(
@@ -1156,7 +807,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: theme.textColor ?? Colors.black,
+                                color: theme.textColor,
                                 letterSpacing: -0.2,
                               ),
                               maxLines: 1,
@@ -1164,44 +815,36 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             ),
                           ),
                           if (user.isVerified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.verified,
-                              color: Colors.blue,
-                              size: 16,
-                            ),
-                          ],
-                          if (user.isLive) ...[
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: kChineseRed,
+                                color: Colors.blue,
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: kChineseRed.withOpacity(0.4),
-                                    blurRadius: 6,
+                                    color: Colors.blue.withOpacity(0.3),
+                                    blurRadius: 4,
                                     offset: const Offset(0, 1),
                                   ),
                                 ],
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(
-                                    Icons.circle,
+                                children: [
+                                  const Icon(
+                                    Icons.verified_rounded,
                                     color: Colors.white,
-                                    size: 8,
+                                    size: 10,
                                   ),
-                                  SizedBox(width: 3),
+                                  const SizedBox(width: 3),
                                   Text(
-                                    'LIVE',
+                                    'Verified',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5,
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
                                 ],
@@ -1210,7 +853,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           ],
                         ],
                       ),
+                      
                       const SizedBox(height: 4),
+                      
+                      // Stats
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -1236,12 +882,14 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           ],
                         ),
                       ),
+                      
                       const SizedBox(height: 4),
-                      // Last activity - exact styling from sample screen
+                      
+                      // Last activity
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                          color: theme.primaryColor!.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -1250,7 +898,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             Icon(
                               Icons.schedule_rounded,
                               size: 10,
-                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                              color: theme.primaryColor,
                             ),
                             const SizedBox(width: 3),
                             Flexible(
@@ -1260,7 +908,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   : 'No posts',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                  color: theme.primaryColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -1273,7 +921,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                     ],
                   ),
                 ),
+                
                 const SizedBox(width: 8),
+                
+                // Follow Button
                 Material(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
@@ -1291,17 +942,17 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isFollowing ? (theme.surfaceVariantColor ?? Colors.grey[100]) : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                        color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isFollowing 
-                            ? (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3)
-                            : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                            ? theme.dividerColor!.withOpacity(0.3)
+                            : theme.primaryColor!,
                           width: 1,
                         ),
                         boxShadow: !isFollowing ? [
                           BoxShadow(
-                            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3),
+                            color: theme.primaryColor!.withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -1315,13 +966,13 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               color: isFollowing 
-                                ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
+                                ? theme.primaryColor!.withOpacity(0.15)
                                 : Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Icon(
                               isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                              color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
+                              color: isFollowing ? theme.primaryColor : Colors.white,
                               size: 12,
                             ),
                           ),
@@ -1330,7 +981,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             child: Text(
                               isFollowing ? 'Following' : 'Follow',
                               style: TextStyle(
-                                color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
+                                color: isFollowing ? theme.primaryColor : Colors.white,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.1,
@@ -1355,15 +1006,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   Widget _buildStatChip({
     required IconData icon,
     required String text,
-    required ModernThemeExtension theme,
+    required theme,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
+        color: theme.surfaceVariantColor!.withOpacity(0.7),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+          color: theme.dividerColor!.withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -1373,14 +1024,14 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
           Icon(
             icon,
             size: 10,
-            color: theme.textSecondaryColor ?? Colors.grey[600],
+            color: theme.textSecondaryColor,
           ),
           const SizedBox(width: 3),
           Text(
             text,
             style: TextStyle(
               fontSize: 10,
-              color: theme.textSecondaryColor ?? Colors.grey[600],
+              color: theme.textSecondaryColor,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1400,7 +1051,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   }
 }
 
-// Search Delegate with GoRouter navigation
+// Search Delegate for User Search
 class UserSearchDelegate extends SearchDelegate<UserModel?> {
   final WidgetRef ref;
 
@@ -1409,23 +1060,9 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
   @override
   String get searchFieldLabel => 'Search users...';
 
-  ModernThemeExtension _getSafeTheme(BuildContext context) {
-    return Theme.of(context).extension<ModernThemeExtension>() ?? 
-        ModernThemeExtension(
-          primaryColor: const Color(0xFFFE2C55),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
-          dividerColor: Theme.of(context).dividerColor,
-          textTertiaryColor: Colors.grey[400],
-          surfaceVariantColor: Colors.grey[100],
-        );
-  }
-
   @override
   ThemeData appBarTheme(BuildContext context) {
-    final theme = _getSafeTheme(context);
+    final theme = Theme.of(context).extension<ModernThemeExtension>()!;
     return Theme.of(context).copyWith(
       appBarTheme: AppBarTheme(
         backgroundColor: theme.surfaceColor,
@@ -1469,7 +1106,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    final theme = _getSafeTheme(context);
+    final theme = context.modernTheme;
     
     if (query.isEmpty) {
       return Center(
@@ -1479,7 +1116,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
             Icon(
               Icons.search,
               size: 64,
-              color: theme.textTertiaryColor ?? Colors.grey[400],
+              color: theme.textTertiaryColor,
             ),
             const SizedBox(height: 16),
             Text(
@@ -1487,15 +1124,15 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: theme.textColor ?? Colors.black,
+                color: theme.textColor,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Find sellers and businesses on WemaChat',
+              'Find creators and friends on WeiBao',
               style: TextStyle(
                 fontSize: 14,
-                color: theme.textSecondaryColor ?? Colors.grey[600],
+                color: theme.textSecondaryColor,
               ),
             ),
           ],
@@ -1509,7 +1146,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
             child: CircularProgressIndicator(
-              color: theme.primaryColor ?? const Color(0xFFFE2C55),
+              color: theme.primaryColor,
             ),
           );
         }
@@ -1522,7 +1159,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                 Icon(
                   Icons.error_outline,
                   size: 64,
-                  color: theme.textTertiaryColor ?? Colors.grey[400],
+                  color: theme.textTertiaryColor,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -1530,7 +1167,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: theme.textColor ?? Colors.black,
+                    color: theme.textColor,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1538,7 +1175,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   'Unable to search users at the moment',
                   style: TextStyle(
                     fontSize: 14,
-                    color: theme.textSecondaryColor ?? Colors.grey[600],
+                    color: theme.textSecondaryColor,
                   ),
                 ),
               ],
@@ -1556,7 +1193,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                 Icon(
                   Icons.person_search,
                   size: 64,
-                  color: theme.textTertiaryColor ?? Colors.grey[400],
+                  color: theme.textTertiaryColor,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -1564,7 +1201,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: theme.textColor ?? Colors.black,
+                    color: theme.textColor,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1572,7 +1209,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   'Try searching with different keywords',
                   style: TextStyle(
                     fontSize: 14,
-                    color: theme.textSecondaryColor ?? Colors.grey[600],
+                    color: theme.textSecondaryColor,
                   ),
                 ),
               ],
@@ -1597,7 +1234,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   color: theme.surfaceColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                    color: theme.dividerColor!.withOpacity(0.2),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -1615,13 +1252,14 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   borderRadius: BorderRadius.circular(12),
                   child: Row(
                     children: [
+                      // User Avatar
                       Container(
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                            color: theme.dividerColor!.withOpacity(0.2),
                           ),
                         ),
                         child: ClipRRect(
@@ -1631,43 +1269,46 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                   imageUrl: user.profileImage,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
-                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                                    color: theme.primaryColor!.withOpacity(0.1),
                                     child: Icon(
                                       Icons.person,
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                      color: theme.primaryColor,
                                       size: 24,
                                     ),
                                   ),
                                   errorWidget: (context, url, error) => Container(
-                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                    color: theme.primaryColor!.withOpacity(0.15),
                                     child: Center(
                                       child: Text(
                                         user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                          color: theme.primaryColor,
                                         ),
                                       ),
                                     ),
                                   ),
                                 )
                               : Container(
-                                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                  color: theme.primaryColor!.withOpacity(0.15),
                                   child: Center(
                                     child: Text(
                                       user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                        color: theme.primaryColor,
                                       ),
                                     ),
                                   ),
                                 ),
                         ),
                       ),
+                      
                       const SizedBox(width: 12),
+                      
+                      // User Info
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1679,39 +1320,18 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                     user.name,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
-                                      color: theme.textColor ?? Colors.black,
+                                      color: theme.textColor,
                                       fontSize: 16,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (user.isLive) ...[
+                                if (user.isVerified) ...[
                                   const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: kChineseRed,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(
-                                          Icons.circle,
-                                          color: Colors.white,
-                                          size: 8,
-                                        ),
-                                        SizedBox(width: 3),
-                                        Text(
-                                          'LIVE',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  const Icon(
+                                    Icons.verified,
+                                    color: Colors.blue,
+                                    size: 16,
                                   ),
                                 ],
                               ],
@@ -1720,7 +1340,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                             Text(
                               '${user.videosCount} posts • ${_formatCount(user.followers)} followers',
                               style: TextStyle(
-                                color: theme.textSecondaryColor ?? Colors.grey[600],
+                                color: theme.textSecondaryColor,
                                 fontSize: 14,
                               ),
                             ),
@@ -1729,7 +1349,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                               Text(
                                 user.bio,
                                 style: TextStyle(
-                                  color: theme.textSecondaryColor ?? Colors.grey[600],
+                                  color: theme.textSecondaryColor,
                                   fontSize: 12,
                                 ),
                                 maxLines: 1,
@@ -1739,7 +1359,10 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                           ],
                         ),
                       ),
+                      
                       const SizedBox(width: 8),
+                      
+                      // Follow Button
                       Material(
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
@@ -1752,18 +1375,18 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isFollowing ? (theme.surfaceVariantColor ?? Colors.grey[100]) : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                              color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isFollowing 
-                                  ? (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3)
-                                  : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                                  ? theme.dividerColor!.withOpacity(0.3)
+                                  : theme.primaryColor!,
                               ),
                             ),
                             child: Text(
                               isFollowing ? 'Following' : 'Follow',
                               style: TextStyle(
-                                color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
+                                color: isFollowing ? theme.primaryColor : Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),

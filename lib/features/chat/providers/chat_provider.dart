@@ -1,6 +1,7 @@
 // lib/features/chat/providers/chat_provider.dart
 // Updated chat provider using new authentication system and HTTP services
 // UPDATED: Removed all channel references, fully users-based system
+// UPDATED: Added SQLite local storage for offline-first chat list
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -10,6 +11,8 @@ import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_database_provider.dart';
+import 'package:textgb/features/chat/services/chat_database_service.dart';
 
 part 'chat_provider.g.dart';
 
@@ -20,6 +23,7 @@ class ChatListState {
   final String? error;
   final bool hasMore;
   final String searchQuery;
+  final bool isLoadedFromLocal; // Track if loaded from SQLite
 
   const ChatListState({
     this.isLoading = false,
@@ -27,6 +31,7 @@ class ChatListState {
     this.error,
     this.hasMore = true,
     this.searchQuery = '',
+    this.isLoadedFromLocal = false,
   });
 
   ChatListState copyWith({
@@ -35,6 +40,7 @@ class ChatListState {
     String? error,
     bool? hasMore,
     String? searchQuery,
+    bool? isLoadedFromLocal,
   }) {
     return ChatListState(
       isLoading: isLoading ?? this.isLoading,
@@ -42,6 +48,7 @@ class ChatListState {
       error: error,
       hasMore: hasMore ?? this.hasMore,
       searchQuery: searchQuery ?? this.searchQuery,
+      isLoadedFromLocal: isLoadedFromLocal ?? this.isLoadedFromLocal,
     );
   }
 
@@ -77,7 +84,8 @@ class ChatListState {
 @riverpod
 class ChatList extends _$ChatList {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
-  
+  ChatDatabaseService get _databaseService => ref.read(chatDatabaseProvider);
+
   @override
   FutureOr<ChatListState> build() async {
     // Use new user-based auth system
@@ -86,10 +94,47 @@ class ChatList extends _$ChatList {
       return const ChatListState(error: 'User not authenticated');
     }
 
-    // Start listening to chats stream for this user
+    // Phase 1: Load from SQLite immediately (instant, offline-first)
+    await _loadChatsFromLocal(currentUser.uid);
+
+    // Phase 2: Start listening to chats stream for this user (background sync)
     _subscribeToChats(currentUser.uid);
-    
+
     return const ChatListState(isLoading: true);
+  }
+
+  /// Load chats from local SQLite database (instant, offline-first)
+  Future<void> _loadChatsFromLocal(String userId) async {
+    try {
+      final localChats = await _databaseService.getChats(userId);
+
+      if (localChats.isNotEmpty) {
+        debugPrint('ChatProvider: Loaded ${localChats.length} chats from SQLite');
+
+        // Build chat list items from local chats
+        final chatItems = await _buildChatListItems(localChats, userId);
+
+        state = AsyncValue.data(ChatListState(
+          chats: chatItems,
+          isLoading: false,
+          isLoadedFromLocal: true,
+        ));
+      }
+    } catch (e) {
+      debugPrint('ChatProvider: Error loading from SQLite: $e');
+      // Continue to load from server even if local fails
+    }
+  }
+
+  /// Save chats to local SQLite database
+  Future<void> _saveChatsToLocal(List<ChatModel> chats) async {
+    try {
+      if (chats.isEmpty) return;
+      await _databaseService.upsertChats(chats);
+      debugPrint('ChatProvider: Saved ${chats.length} chats to SQLite');
+    } catch (e) {
+      debugPrint('ChatProvider: Error saving to SQLite: $e');
+    }
   }
 
   void _subscribeToChats(String userId) {
@@ -97,15 +142,21 @@ class ChatList extends _$ChatList {
     _repository.getChatsStream(userId).listen(
       (chats) async {
         try {
+          // Save chats to SQLite for offline access
+          await _saveChatsToLocal(chats);
+
           final chatItems = await _buildChatListItems(chats, userId);
-          
+
           state = AsyncValue.data(ChatListState(
             chats: chatItems,
             isLoading: false,
           ));
         } catch (e) {
           debugPrint('Error in chat stream: $e');
+          // Keep local chats visible even on error
+          final currentState = state.valueOrNull;
           state = AsyncValue.data(ChatListState(
+            chats: currentState?.chats ?? [],
             error: e.toString(),
             isLoading: false,
           ));
@@ -113,7 +164,10 @@ class ChatList extends _$ChatList {
       },
       onError: (error) {
         debugPrint('Chat stream error: $error');
+        // Keep local chats visible even on network error
+        final currentState = state.valueOrNull;
         state = AsyncValue.data(ChatListState(
+          chats: currentState?.chats ?? [],
           error: error.toString(),
           isLoading: false,
         ));

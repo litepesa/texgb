@@ -15,7 +15,7 @@ class ContactsState {
   final bool isLoading;
   final bool isSuccessful;
   final List<Contact> deviceContacts;
-  final List<UserModel> registeredContacts;
+  final List<SyncedContact> registeredContacts; // Changed to SyncedContact
   final List<Contact> unregisteredContacts;
   final List<UserModel> blockedContacts;
   final String? error;
@@ -24,7 +24,7 @@ class ContactsState {
   final SyncStatus syncStatus;
   final bool hasPermission;
   final String? syncVersion;
-  final Map<String, UserModel> contactsMap; // For faster lookups
+  final Map<String, SyncedContact> contactsMap; // Changed to SyncedContact
   final bool backgroundSyncAvailable;
 
   const ContactsState({
@@ -48,7 +48,7 @@ class ContactsState {
     bool? isLoading,
     bool? isSuccessful,
     List<Contact>? deviceContacts,
-    List<UserModel>? registeredContacts,
+    List<SyncedContact>? registeredContacts,
     List<Contact>? unregisteredContacts,
     List<UserModel>? blockedContacts,
     String? error,
@@ -57,7 +57,7 @@ class ContactsState {
     SyncStatus? syncStatus,
     bool? hasPermission,
     String? syncVersion,
-    Map<String, UserModel>? contactsMap,
+    Map<String, SyncedContact>? contactsMap,
     bool? backgroundSyncAvailable,
   }) {
     return ContactsState(
@@ -79,10 +79,10 @@ class ContactsState {
   }
 
   // Update registered contacts and rebuild map
-  ContactsState withUpdatedRegisteredContacts(List<UserModel> contacts) {
+  ContactsState withUpdatedRegisteredContacts(List<SyncedContact> contacts) {
     return copyWith(
       registeredContacts: contacts,
-      contactsMap: {for (var contact in contacts) contact.uid: contact},
+      contactsMap: {for (var contact in contacts) contact.user.uid: contact},
     );
   }
 }
@@ -162,13 +162,13 @@ class ContactsNotifier extends _$ContactsNotifier {
       
       // Determine sync status
       final syncStatus = syncNeeded ? SyncStatus.stale : SyncStatus.upToDate;
-      
-      // Create contacts map for efficient lookups
+
+      // Create contacts map for efficient lookups (using user.uid as key)
       final contactsMap = {
-        for (var contact in cachedData.registeredContacts) 
-          contact.uid: contact
+        for (var contact in cachedData.registeredContacts)
+          contact.user.uid: contact
       };
-      
+
       // Update state with cached data
       return currentState.copyWith(
         registeredContacts: cachedData.registeredContacts,
@@ -291,10 +291,10 @@ class ContactsNotifier extends _$ContactsNotifier {
         forceSync: forceSync,
       );
 
-      // Create contacts map for efficient lookups
+      // Create contacts map for efficient lookups (using user.uid as key)
       final contactsMap = {
-        for (var contact in result.registeredContacts) 
-          contact.uid: contact
+        for (var contact in result.registeredContacts)
+          contact.user.uid: contact
       };
 
       // Update state with results
@@ -406,9 +406,9 @@ class ContactsNotifier extends _$ContactsNotifier {
   }
 
   // Updated contact operations using new backend repository
-  Future<void> addContact(UserModel contactUser) async {
+  Future<void> addContact(UserModel contactUser, {String? localName}) async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
@@ -418,15 +418,21 @@ class ContactsNotifier extends _$ContactsNotifier {
       // Use the authentication provider's follow user method instead
       await ref.read(authenticationProvider.notifier).followUser(contactUser.uid);
 
+      // Create SyncedContact with local name (or use registered name as fallback)
+      final syncedContact = SyncedContact(
+        user: contactUser,
+        localContactName: localName ?? contactUser.name,
+      );
+
       // Optimistic update - add to local state immediately
-      final updatedContacts = List<UserModel>.from(state.value!.registeredContacts);
-      if (!updatedContacts.any((contact) => contact.uid == contactUser.uid)) {
-        updatedContacts.add(contactUser);
+      final updatedContacts = List<SyncedContact>.from(state.value!.registeredContacts);
+      if (!updatedContacts.any((contact) => contact.user.uid == contactUser.uid)) {
+        updatedContacts.add(syncedContact);
       }
 
       // Update contacts map
-      final updatedMap = Map<String, UserModel>.from(state.value!.contactsMap);
-      updatedMap[contactUser.uid] = contactUser;
+      final updatedMap = Map<String, SyncedContact>.from(state.value!.contactsMap);
+      updatedMap[contactUser.uid] = syncedContact;
 
       state = AsyncValue.data(state.value!.copyWith(
         registeredContacts: updatedContacts,
@@ -434,7 +440,7 @@ class ContactsNotifier extends _$ContactsNotifier {
         isLoading: false,
         isSuccessful: true,
       ));
-      
+
       // Update local storage
       await _updateLocalStorage();
     } on ContactsRepositoryException catch (e) {
@@ -453,7 +459,7 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Updated contact removal
   Future<void> removeContact(UserModel contactUser) async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
@@ -464,10 +470,10 @@ class ContactsNotifier extends _$ContactsNotifier {
       await ref.read(authenticationProvider.notifier).followUser(contactUser.uid);
 
       // Optimistic update - remove from local state immediately
-      final updatedContacts = List<UserModel>.from(state.value!.registeredContacts)
-        ..removeWhere((contact) => contact.uid == contactUser.uid);
+      final updatedContacts = List<SyncedContact>.from(state.value!.registeredContacts)
+        ..removeWhere((contact) => contact.user.uid == contactUser.uid);
 
-      final updatedMap = Map<String, UserModel>.from(state.value!.contactsMap);
+      final updatedMap = Map<String, SyncedContact>.from(state.value!.contactsMap);
       updatedMap.remove(contactUser.uid);
 
       state = AsyncValue.data(state.value!.copyWith(
@@ -476,7 +482,7 @@ class ContactsNotifier extends _$ContactsNotifier {
         isLoading: false,
         isSuccessful: true,
       ));
-      
+
       await _updateLocalStorage();
     } on ContactsRepositoryException catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
@@ -494,7 +500,7 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Enhanced contact blocking with local updates
   Future<void> blockContact(UserModel contactUser) async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
@@ -511,10 +517,10 @@ class ContactsNotifier extends _$ContactsNotifier {
       }
 
       // Remove from regular contacts if present
-      final updatedContacts = List<UserModel>.from(state.value!.registeredContacts)
-        ..removeWhere((contact) => contact.uid == contactUser.uid);
+      final updatedContacts = List<SyncedContact>.from(state.value!.registeredContacts)
+        ..removeWhere((contact) => contact.user.uid == contactUser.uid);
 
-      final updatedMap = Map<String, UserModel>.from(state.value!.contactsMap);
+      final updatedMap = Map<String, SyncedContact>.from(state.value!.contactsMap);
       updatedMap.remove(contactUser.uid);
 
       state = AsyncValue.data(state.value!.copyWith(
@@ -621,21 +627,21 @@ class ContactsNotifier extends _$ContactsNotifier {
   }
 
   // Fast contact lookup using the contacts map
-  UserModel? getContactByUid(String uid) {
+  SyncedContact? getContactByUid(String uid) {
     if (!state.hasValue) return null;
     return state.value!.contactsMap[uid];
   }
 
-  // Get filtered contacts for search
-  List<UserModel> getFilteredContacts(String query) {
+  // Get filtered contacts for search (uses displayName which is the local contact name)
+  List<SyncedContact> getFilteredContacts(String query) {
     if (!state.hasValue) return [];
-    
+
     if (query.isEmpty) return state.value!.registeredContacts;
-    
+
     final lowerQuery = query.toLowerCase();
     return state.value!.registeredContacts.where((contact) =>
-      contact.name.toLowerCase().contains(lowerQuery) ||
-      contact.phoneNumber.toLowerCase().contains(lowerQuery)
+      contact.displayName.toLowerCase().contains(lowerQuery) ||
+      contact.user.phoneNumber.toLowerCase().contains(lowerQuery)
     ).toList();
   }
 
@@ -712,11 +718,18 @@ class ContactsNotifier extends _$ContactsNotifier {
 // CONVENIENCE PROVIDERS (All in one file)
 // ========================================
 
-// Convenience provider to get registered contacts
+// Convenience provider to get registered contacts as SyncedContact (includes local names)
 @riverpod
-List<UserModel> registeredContacts(RegisteredContactsRef ref) {
+List<SyncedContact> registeredContacts(RegisteredContactsRef ref) {
   final contactsState = ref.watch(contactsNotifierProvider);
   return contactsState.value?.registeredContacts ?? [];
+}
+
+// Convenience provider to get registered contacts as UserModel (for backward compatibility)
+@riverpod
+List<UserModel> registeredContactUsers(RegisteredContactUsersRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.registeredContacts.map((c) => c.user).toList() ?? [];
 }
 
 // Convenience provider to get unregistered contacts
@@ -797,9 +810,16 @@ bool isContactRegistered(IsContactRegisteredRef ref, String uid) {
 }
 
 @riverpod
-UserModel? getContactByUid(GetContactByUidRef ref, String uid) {
+SyncedContact? getContactByUid(GetContactByUidRef ref, String uid) {
   final contactsState = ref.watch(contactsNotifierProvider);
   return contactsState.value?.contactsMap[uid];
+}
+
+// Get just the UserModel for a contact (for backward compatibility)
+@riverpod
+UserModel? getContactUserByUid(GetContactUserByUidRef ref, String uid) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.contactsMap[uid]?.user;
 }
 
 @riverpod
@@ -808,17 +828,17 @@ bool isContactBlocked(IsContactBlockedRef ref, String uid) {
   return blockedContacts.any((contact) => contact.uid == uid);
 }
 
-// Filtered contacts provider for search
+// Filtered contacts provider for search (uses displayName which is the local contact name)
 @riverpod
-List<UserModel> filteredRegisteredContacts(FilteredRegisteredContactsRef ref, String query) {
+List<SyncedContact> filteredRegisteredContacts(FilteredRegisteredContactsRef ref, String query) {
   final contacts = ref.watch(registeredContactsProvider);
-  
+
   if (query.isEmpty) return contacts;
-  
+
   final lowerQuery = query.toLowerCase();
   return contacts.where((contact) =>
-    contact.name.toLowerCase().contains(lowerQuery) ||
-    contact.phoneNumber.toLowerCase().contains(lowerQuery)
+    contact.displayName.toLowerCase().contains(lowerQuery) ||
+    contact.user.phoneNumber.toLowerCase().contains(lowerQuery)
   ).toList();
 }
 

@@ -1,6 +1,7 @@
 // lib/features/chat/providers/message_provider.dart
 // Updated message provider using new authentication system and HTTP services
 // UPDATED: Removed all channel references, fully users-based system
+// UPDATED: Added SQLite local storage for offline-first messaging
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -10,12 +11,15 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
+import 'package:textgb/features/chat/providers/chat_database_provider.dart';
+import 'package:textgb/features/chat/services/chat_database_service.dart';
 
 part 'message_provider.g.dart';
 
 // Message State
 class MessageState {
   final bool isLoading;
+  final bool isLoadingMore; // For pagination
   final List<MessageModel> messages;
   final String? error;
   final bool hasMore;
@@ -25,9 +29,11 @@ class MessageState {
   final bool isTyping;
   final Map<String, String> participantNames; // userId -> userName
   final Map<String, String> participantImages; // userId -> userImage
+  final bool isLoadedFromLocal; // Track if loaded from SQLite
 
   const MessageState({
     this.isLoading = false,
+    this.isLoadingMore = false,
     this.messages = const [],
     this.error,
     this.hasMore = true,
@@ -37,10 +43,12 @@ class MessageState {
     this.isTyping = false,
     this.participantNames = const {},
     this.participantImages = const {},
+    this.isLoadedFromLocal = false,
   });
 
   MessageState copyWith({
     bool? isLoading,
+    bool? isLoadingMore,
     List<MessageModel>? messages,
     String? error,
     bool? hasMore,
@@ -50,11 +58,13 @@ class MessageState {
     bool? isTyping,
     Map<String, String>? participantNames,
     Map<String, String>? participantImages,
+    bool? isLoadedFromLocal,
     bool clearReply = false,
     bool clearError = false,
   }) {
     return MessageState(
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       messages: messages ?? this.messages,
       error: clearError ? null : (error ?? this.error),
       hasMore: hasMore ?? this.hasMore,
@@ -64,6 +74,7 @@ class MessageState {
       isTyping: isTyping ?? this.isTyping,
       participantNames: participantNames ?? this.participantNames,
       participantImages: participantImages ?? this.participantImages,
+      isLoadedFromLocal: isLoadedFromLocal ?? this.isLoadedFromLocal,
     );
   }
 
@@ -81,7 +92,12 @@ class MessageState {
 @riverpod
 class MessageNotifier extends _$MessageNotifier {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
+  ChatDatabaseService get _databaseService => ref.read(chatDatabaseProvider);
   static const Uuid _uuid = Uuid();
+
+  // Pagination
+  int _currentPage = 0;
+  static const int _pageSize = 50;
 
   @override
   FutureOr<MessageState> build(String chatId) async {
@@ -94,13 +110,59 @@ class MessageNotifier extends _$MessageNotifier {
     // Load participant details for the chat
     await _loadParticipantDetails(chatId);
 
-    // Start listening to messages stream
+    // Phase 1: Load from SQLite immediately (instant, offline-first)
+    await _loadMessagesFromLocal(chatId);
+
+    // Phase 2: Start listening to messages stream (background sync)
     _subscribeToMessages(chatId);
-    
+
     // Load pinned messages
     _loadPinnedMessages(chatId);
-    
+
     return const MessageState(isLoading: true);
+  }
+
+  /// Load messages from local SQLite database (instant, offline-first)
+  Future<void> _loadMessagesFromLocal(String chatId) async {
+    try {
+      final localMessages = await _databaseService.getMessages(chatId, limit: _pageSize);
+
+      if (localMessages.isNotEmpty) {
+        debugPrint('MessageProvider: Loaded ${localMessages.length} messages from SQLite for chat $chatId');
+
+        final currentState = state.valueOrNull ?? const MessageState();
+        state = AsyncValue.data(currentState.copyWith(
+          messages: localMessages,
+          isLoading: false,
+          isLoadedFromLocal: true,
+          hasMore: localMessages.length >= _pageSize,
+          clearError: true,
+        ));
+      }
+    } catch (e) {
+      debugPrint('MessageProvider: Error loading from SQLite: $e');
+      // Continue to load from server even if local fails
+    }
+  }
+
+  /// Save messages to local SQLite database
+  Future<void> _saveMessagesToLocal(List<MessageModel> messages) async {
+    try {
+      if (messages.isEmpty) return;
+      await _databaseService.upsertMessages(messages);
+      debugPrint('MessageProvider: Saved ${messages.length} messages to SQLite');
+    } catch (e) {
+      debugPrint('MessageProvider: Error saving to SQLite: $e');
+    }
+  }
+
+  /// Update message status in local SQLite database
+  Future<void> _updateMessageStatusInLocal(String messageId, MessageStatus status) async {
+    try {
+      await _databaseService.updateMessageStatus(messageId, status.name);
+    } catch (e) {
+      debugPrint('MessageProvider: Error updating message status in SQLite: $e');
+    }
   }
 
   Future<void> _loadParticipantDetails(String chatId) async {
@@ -141,10 +203,17 @@ class MessageNotifier extends _$MessageNotifier {
 
   void _subscribeToMessages(String chatId) {
     _repository.getMessagesStream(chatId).listen(
-      (messages) {
+      (messages) async {
+        // Save new messages from server to SQLite for offline access
+        await _saveMessagesToLocal(messages);
+
         final currentState = state.valueOrNull ?? const MessageState();
+
+        // Merge local and server messages, preserving any sending/failed messages
+        final mergedMessages = _mergeMessages(currentState.messages, messages);
+
         state = AsyncValue.data(currentState.copyWith(
-          messages: messages,
+          messages: mergedMessages,
           isLoading: false,
           clearError: true,
         ));
@@ -152,12 +221,45 @@ class MessageNotifier extends _$MessageNotifier {
       onError: (error) {
         debugPrint('Message stream error: $error');
         final currentState = state.valueOrNull ?? const MessageState();
+        // Keep local messages visible even on network error
         state = AsyncValue.data(currentState.copyWith(
           error: error.toString(),
           isLoading: false,
         ));
       },
     );
+  }
+
+  /// Merge local and server messages, preserving optimistic messages
+  List<MessageModel> _mergeMessages(List<MessageModel> local, List<MessageModel> server) {
+    // Keep optimistic messages (sending/failed status) that haven't been confirmed by server
+    final optimisticMessages = local.where((msg) =>
+        msg.status == MessageStatus.sending || msg.status == MessageStatus.failed).toList();
+
+    // Create a set of server message IDs for quick lookup
+    final serverMessageIds = server.map((m) => m.messageId).toSet();
+
+    // Find optimistic messages that aren't in server response yet
+    final pendingOptimistic = optimisticMessages
+        .where((msg) => !serverMessageIds.contains(msg.messageId))
+        .toList();
+
+    // Merge: server messages + pending optimistic messages
+    final merged = [...server];
+    for (final msg in pendingOptimistic) {
+      // Insert at the right position based on timestamp
+      final insertIndex = merged.indexWhere((m) => m.timestamp.isBefore(msg.timestamp));
+      if (insertIndex == -1) {
+        merged.add(msg);
+      } else {
+        merged.insert(insertIndex, msg);
+      }
+    }
+
+    // Sort by timestamp descending (newest first)
+    merged.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    return merged;
   }
 
   Future<void> _loadPinnedMessages(String chatId) async {
@@ -204,58 +306,78 @@ class MessageNotifier extends _$MessageNotifier {
       return;
     }
 
+    final currentState = state.valueOrNull ?? const MessageState();
+
+    // Build reply metadata if replying
+    final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+
+    final message = MessageModel(
+      messageId: _uuid.v4(),
+      chatId: chatId,
+      senderId: currentUser.uid,
+      content: content.trim(),
+      type: MessageEnum.text,
+      status: MessageStatus.sending,
+      timestamp: DateTime.now(),
+      replyToMessageId: currentState.replyToMessageId,
+      replyToContent: currentState.replyToMessage?.getDisplayContent(),
+      replyToSender: currentState.replyToMessage?.senderId,
+      mediaMetadata: replyMetadata.isNotEmpty ? replyMetadata : null,
+    );
+
+    // Step 1: Save to SQLite immediately (optimistic, for offline support)
+    await _databaseService.upsertMessage(message);
+
+    // Step 2: Add to state (instant UI update)
+    final updatedMessages = [message, ...currentState.messages];
+    state = AsyncValue.data(currentState.copyWith(
+      messages: updatedMessages,
+      clearReply: true,
+      clearError: true,
+    ));
+
+    // Step 3: Send to server
     try {
-      final currentState = state.valueOrNull ?? const MessageState();
-      
-      // Build reply metadata if replying
-      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
-      
-      final message = MessageModel(
-        messageId: _uuid.v4(),
-        chatId: chatId,
-        senderId: currentUser.uid,
-        content: content.trim(),
-        type: MessageEnum.text,
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        replyToMessageId: currentState.replyToMessageId,
-        replyToContent: currentState.replyToMessage?.getDisplayContent(),
-        replyToSender: currentState.replyToMessage?.senderId,
-        mediaMetadata: replyMetadata.isNotEmpty ? replyMetadata : null,
-      );
-
-      // Optimistically add message to local state
-      final updatedMessages = [message, ...currentState.messages];
-      state = AsyncValue.data(currentState.copyWith(
-        messages: updatedMessages,
-        clearReply: true,
-        clearError: true,
-      ));
-
-      // Send to server
       await _repository.sendMessage(message);
-      
+
+      // Update status to sent in SQLite
+      await _updateMessageStatusInLocal(message.messageId, MessageStatus.sent);
+
       // Update message status to sent
       await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
-      
+
+      // Update state with sent status
+      _updateMessageInState(message.messageId, MessageStatus.sent);
+
     } catch (e) {
       debugPrint('Error sending message: $e');
-      
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final updatedMessages = currentState.messages.map((msg) {
-          if (msg.status == MessageStatus.sending && msg.senderId == currentUser.uid) {
-            return msg.copyWith(status: MessageStatus.failed);
-          }
-          return msg;
-        }).toList();
-        
-        state = AsyncValue.data(currentState.copyWith(
-          messages: updatedMessages,
-          error: 'Failed to send message: $e',
-        ));
-      }
+
+      // Update status to failed in SQLite
+      await _updateMessageStatusInLocal(message.messageId, MessageStatus.failed);
+
+      // Update state with failed status
+      _updateMessageInState(message.messageId, MessageStatus.failed);
+
+      final latestState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(latestState.copyWith(
+        error: 'Failed to send message: $e',
+      ));
     }
+  }
+
+  /// Helper to update a single message status in state
+  void _updateMessageInState(String messageId, MessageStatus status) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    final updatedMessages = currentState.messages.map((msg) {
+      if (msg.messageId == messageId) {
+        return msg.copyWith(status: status);
+      }
+      return msg;
+    }).toList();
+
+    state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
   }
 
   // Send image message
@@ -275,62 +397,65 @@ class MessageNotifier extends _$MessageNotifier {
       return;
     }
 
-    try {
-      // Check file size
-      final fileSize = await imageFile.length();
-      if (fileSize > 50 * 1024 * 1024) { // 50MB limit
-        final currentState = state.valueOrNull ?? const MessageState();
-        state = AsyncValue.data(currentState.copyWith(
-          error: 'Image size exceeds 50MB limit',
-        ));
-        return;
-      }
-
-      final fileName = '${_uuid.v4()}.jpg';
+    // Check file size
+    final fileSize = await imageFile.length();
+    if (fileSize > 50 * 1024 * 1024) { // 50MB limit
       final currentState = state.valueOrNull ?? const MessageState();
-      
-      // Build reply metadata if replying
-      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
-      
-      // Merge with image metadata
-      final imageMetadata = {
-        'fileName': fileName,
-        'fileSize': fileSize,
-        'mimeType': 'image/jpeg',
-        'isUploading': true,
-        ...replyMetadata,
-      };
-      
-      // Create optimistic message
-      final tempMessage = MessageModel(
-        messageId: _uuid.v4(),
-        chatId: chatId,
-        senderId: currentUser.uid,
-        content: caption ?? '',
-        type: MessageEnum.image,
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        replyToMessageId: currentState.replyToMessageId,
-        replyToContent: currentState.replyToMessage?.getDisplayContent(),
-        replyToSender: currentState.replyToMessage?.senderId,
-        mediaMetadata: imageMetadata,
-      );
-
-      // Add to local state immediately
-      final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
-        messages: updatedMessages,
-        clearReply: true,
-        clearError: true,
+        error: 'Image size exceeds 50MB limit',
       ));
-      
+      return;
+    }
+
+    final fileName = '${_uuid.v4()}.jpg';
+    final currentState = state.valueOrNull ?? const MessageState();
+
+    // Build reply metadata if replying
+    final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+
+    // Merge with image metadata
+    final imageMetadata = {
+      'fileName': fileName,
+      'fileSize': fileSize,
+      'mimeType': 'image/jpeg',
+      'isUploading': true,
+      ...replyMetadata,
+    };
+
+    // Create optimistic message
+    final tempMessage = MessageModel(
+      messageId: _uuid.v4(),
+      chatId: chatId,
+      senderId: currentUser.uid,
+      content: caption ?? '',
+      type: MessageEnum.image,
+      status: MessageStatus.sending,
+      timestamp: DateTime.now(),
+      replyToMessageId: currentState.replyToMessageId,
+      replyToContent: currentState.replyToMessage?.getDisplayContent(),
+      replyToSender: currentState.replyToMessage?.senderId,
+      mediaMetadata: imageMetadata,
+    );
+
+    // Step 1: Save to SQLite immediately (optimistic)
+    await _databaseService.upsertMessage(tempMessage);
+
+    // Step 2: Add to local state immediately
+    final updatedMessages = [tempMessage, ...currentState.messages];
+    state = AsyncValue.data(currentState.copyWith(
+      messages: updatedMessages,
+      clearReply: true,
+      clearError: true,
+    ));
+
+    try {
       // Upload image via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final imageUrl = await authNotifier.storeFileToStorage(
         file: imageFile,
         reference: 'chat_media/$chatId/$fileName',
       );
-      
+
       // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: imageUrl,
@@ -344,15 +469,26 @@ class MessageNotifier extends _$MessageNotifier {
         },
       );
 
+      // Update SQLite with final message
+      await _databaseService.upsertMessage(finalMessage);
+
       // Send final message
       await _repository.sendMessage(finalMessage);
       await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
-      
+
+      // Update SQLite status
+      await _updateMessageStatusInLocal(finalMessage.messageId, MessageStatus.sent);
+      _updateMessageInState(finalMessage.messageId, MessageStatus.sent);
+
     } catch (e) {
       debugPrint('Error sending image: $e');
-      
-      final currentState = state.valueOrNull ?? const MessageState();
-      state = AsyncValue.data(currentState.copyWith(
+
+      // Update SQLite status to failed
+      await _updateMessageStatusInLocal(tempMessage.messageId, MessageStatus.failed);
+      _updateMessageInState(tempMessage.messageId, MessageStatus.failed);
+
+      final latestState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(latestState.copyWith(
         error: 'Failed to send image: $e',
       ));
     }
@@ -810,10 +946,13 @@ class MessageNotifier extends _$MessageNotifier {
     if (failedMessage.status != MessageStatus.failed) return;
 
     try {
-      // Update status to sending
+      // Update status to sending in SQLite
+      await _updateMessageStatusInLocal(messageId, MessageStatus.sending);
+
+      // Update status to sending in state
       final updatedMessages = List<MessageModel>.from(currentState.messages);
       updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.sending);
-      
+
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
         clearError: true,
@@ -822,17 +961,24 @@ class MessageNotifier extends _$MessageNotifier {
       // Retry sending
       await _repository.sendMessage(failedMessage.copyWith(status: MessageStatus.sending));
       await _repository.updateMessageStatus(chatId, messageId, MessageStatus.sent);
-      
+
+      // Update SQLite status to sent
+      await _updateMessageStatusInLocal(messageId, MessageStatus.sent);
+      _updateMessageInState(messageId, MessageStatus.sent);
+
     } catch (e) {
       debugPrint('Error retrying message: $e');
-      
+
+      // Update SQLite status back to failed
+      await _updateMessageStatusInLocal(messageId, MessageStatus.failed);
+
       final latestState = state.valueOrNull;
       if (latestState != null) {
         final updatedMessages = List<MessageModel>.from(latestState.messages);
         if (messageIndex < updatedMessages.length) {
           updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.failed);
         }
-        
+
         state = AsyncValue.data(latestState.copyWith(
           messages: updatedMessages,
           error: 'Failed to retry message: $e',
@@ -841,30 +987,44 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
-  // Load more messages (pagination)
+  // Load more messages (pagination) - loads from SQLite
   Future<void> loadMoreMessages(String chatId) async {
     final currentState = state.valueOrNull;
-    if (currentState == null || currentState.isLoading || !currentState.hasMore) {
+    if (currentState == null || currentState.isLoadingMore || !currentState.hasMore) {
       return;
     }
 
     try {
-      state = AsyncValue.data(currentState.copyWith(isLoading: true));
-      
-      // In a real implementation, you would load older messages here
-      // For now, we'll just mark as no more messages
-      await Future.delayed(const Duration(milliseconds: 500));
-      
+      state = AsyncValue.data(currentState.copyWith(isLoadingMore: true));
+
+      _currentPage++;
+
+      // Load older messages from SQLite
+      final olderMessages = await _databaseService.getMessages(
+        chatId,
+        limit: _pageSize,
+        offset: _currentPage * _pageSize,
+      );
+
+      debugPrint('MessageProvider: Loaded ${olderMessages.length} more messages from SQLite (page $_currentPage)');
+
+      // Check if there are more messages
+      final hasMoreMessages = olderMessages.length >= _pageSize;
+
+      // Append older messages to existing list
+      final allMessages = [...currentState.messages, ...olderMessages];
+
       state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
-        hasMore: false,
+        messages: allMessages,
+        isLoadingMore: false,
+        hasMore: hasMoreMessages,
       ));
-      
+
     } catch (e) {
       debugPrint('Error loading more messages: $e');
-      
+
       state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
+        isLoadingMore: false,
         error: 'Failed to load more messages: $e',
       ));
     }
@@ -1465,15 +1625,8 @@ class MessageNotifier extends _$MessageNotifier {
         clearError: true,
       ));
 
-      // Send gift via API (handles wallet deduction)
-      // The /gifts/send endpoint will handle the transaction
-      // We'll use the existing HTTP client from auth repository
-      if (recipientId != null) {
-        final authNotifier = ref.read(authenticationProvider.notifier);
-        // Note: This assumes we have access to the HTTP client through auth
-        // The gift API call is already handled by VirtualGiftsBottomSheet
-        // So we just need to send the message to the chat
-      }
+      // Note: The gift API call (wallet deduction) is already handled by VirtualGiftsBottomSheet
+      // Here we just send the chat message notification
 
       // Send message to chat repository
       await _repository.sendMessage(tempMessage);

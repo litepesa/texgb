@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/contacts/repositories/contacts_repository.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/widgets/contact_item_widget.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -34,7 +35,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey();
   
   // Cached filtered lists for better performance
-  List<UserModel> _filteredRegisteredContacts = [];
+  List<SyncedContact> _filteredRegisteredContacts = [];
   List<Contact> _filteredUnregisteredContacts = [];
   
   @override
@@ -89,10 +90,11 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       _filteredRegisteredContacts = contactsState.registeredContacts;
       _filteredUnregisteredContacts = contactsState.unregisteredContacts;
     } else {
+      // Use displayName (local contact name) for search
       _filteredRegisteredContacts = contactsState.registeredContacts
           .where((contact) =>
-              contact.name.toLowerCase().contains(_searchQuery) ||
-              contact.phoneNumber.toLowerCase().contains(_searchQuery))
+              contact.displayName.toLowerCase().contains(_searchQuery) ||
+              contact.user.phoneNumber.toLowerCase().contains(_searchQuery))
           .toList();
 
       _filteredUnregisteredContacts = contactsState.unregisteredContacts
@@ -411,11 +413,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   List<Widget> _buildRegisteredContactsSection(theme) {
     if (_filteredRegisteredContacts.isEmpty) return [];
 
-    final Map<String, List<UserModel>> groupedContacts = {};
-    
+    final Map<String, List<SyncedContact>> groupedContacts = {};
+
     for (final contact in _filteredRegisteredContacts) {
-      final firstLetter = contact.name.isNotEmpty 
-          ? contact.name[0].toUpperCase()
+      // Use displayName (local contact name) for grouping
+      final firstLetter = contact.displayName.isNotEmpty
+          ? contact.displayName[0].toUpperCase()
           : '#';
       if (!groupedContacts.containsKey(firstLetter)) {
         groupedContacts[firstLetter] = [];
@@ -428,8 +431,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     final List<Widget> sections = [];
 
     for (final letter in sortedLetters) {
-      final contactsInGroup = groupedContacts[letter]!..sort((a, b) => a.name.compareTo(b.name));
-      
+      // Sort by displayName (local contact name)
+      final contactsInGroup = groupedContacts[letter]!..sort((a, b) => a.displayName.compareTo(b.displayName));
+
       sections.add(
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -446,21 +450,22 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       );
 
       for (int i = 0; i < contactsInGroup.length; i++) {
-        final contact = contactsInGroup[i];
+        final syncedContact = contactsInGroup[i];
+        final user = syncedContact.user;
         final showDivider = i < contactsInGroup.length - 1;
-        
+
         sections.add(
           _buildWeChatContactItem(
-            title: contact.name,
-            subtitle: contact.phoneNumber,
+            title: syncedContact.displayName, // Use local contact name
+            subtitle: user.phoneNumber,
             onTap: () {
-              _navigateToContactProfile(contact);
+              _navigateToContactProfile(user); // Pass UserModel for profile
             },
             theme: theme,
             showDivider: showDivider,
             isContact: true,
-            contact: contact,
-            profileImageUrl: contact.profileImage,
+            contact: user,
+            profileImageUrl: user.profileImage,
           ),
         );
       }
