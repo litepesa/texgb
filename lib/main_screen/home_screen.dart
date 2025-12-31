@@ -7,12 +7,22 @@ import 'package:go_router/go_router.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/groups/screens/groups_list_screen.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/groups/providers/groups_providers.dart';
+import 'package:textgb/features/marketplace/screens/create_listing_screen.dart';
+import 'package:textgb/features/status/screens/status_list_screen.dart';
+import 'package:textgb/features/status/providers/status_providers.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
-import 'package:textgb/main_screen/discover_screen.dart';
+import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/videos/screens/recommended_posts_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen_v2.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 
@@ -32,19 +42,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _currentIndex = 0;
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
-  
+
+  // For index 1 tab: track which view to show (0=Groups, 1=Moments, 2=Channels)
+  int _tab1Selection = 0;
+
   final List<String> _tabNames = [
-    'Chats',      // Index 0 - Chats 
-    'Contacts',   // Index 1 - Contacts Screen
-    'Discover',   // Index 2 - Discover Screen
-    'Profile',    // Index 3 - My Profile
+    'Chats',          // Index 0 - Chats Screen
+    'Groups',         // Index 1 - Groups / Moments / Channels (Switchable)
+    'Marketplace',    // Index 2 - Marketplace Home Screen
+    'Status',         // Index 3 - Status List Screen
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_2_fill,              // Chats
-    CupertinoIcons.person_2_square_stack,           // Contacts
-    CupertinoIcons.compass,                         // Discover
-    CupertinoIcons.person,                          // Profile/Me
+    CupertinoIcons.chat_bubble_2,                // Chats
+    Icons.group_outlined,                        // Groups
+    Icons.store_outlined,                        // Marketplace
+    Icons.donut_large_rounded,                   // Status
   ];
 
   @override
@@ -251,23 +264,260 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _KeepAliveWrapper(
             child: const ChatsTab(),
           ),
-          // Contacts tab (index 1) - Contacts Screen
+          // Groups/Moments/Channels tab (index 1) - Switchable between three views
+          _KeepAliveWrapper(
+            child: _tab1Selection == 0
+                ? const GroupsListScreen()
+                : _tab1Selection == 1
+                    ? const RecommendedPostsScreen()
+                    : const ChannelsListScreen(),
+          ),
+          // Marketplace Tab (index 2) - Sellers List Screen
           _KeepAliveWrapper(
             child: const UsersListScreen(),
           ),
-          // Discover tab (index 2) - Discover Screen
+          // Status tab (index 3) - Status List Screen
           _KeepAliveWrapper(
-            child: const DiscoverScreen(),
-          ),
-          // Me tab (index 3) - My Profile
-          _KeepAliveWrapper(
-            child: const MyProfileScreen(),
+            child: const StatusListScreen(),
           ),
         ],
       ),
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
+      floatingActionButton: _currentIndex == 0 ? _buildMultipleFabs(modernTheme) : _buildFab(modernTheme),
     );
+  }
+
+  Widget _buildMultipleFabs(ModernThemeExtension modernTheme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Wallet FAB
+        FloatingActionButton(
+          heroTag: 'wallet_fab',
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WalletScreen(),
+              ),
+            );
+          },
+          child: const Icon(Icons.monetization_on_outlined),
+        ),
+        const SizedBox(height: 16),
+        // Contacts FAB
+        FloatingActionButton(
+          heroTag: 'contacts_fab',
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ContactsScreen(),
+              ),
+            );
+          },
+          child: const Icon(CupertinoIcons.chat_bubble_2_fill),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupsChannelsSwitcher(ModernThemeExtension modernTheme, Color textColor) {
+    return Container(
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceVariantColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Groups tab
+          GestureDetector(
+            onTap: () {
+              if (_tab1Selection != 0) {
+                setState(() {
+                  _tab1Selection = 0;
+                });
+                HapticFeedback.lightImpact();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _tab1Selection == 0
+                    ? modernTheme.backgroundColor
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Groups',
+                style: TextStyle(
+                  color: _tab1Selection == 0
+                      ? textColor
+                      : modernTheme.textSecondaryColor,
+                  fontSize: 14,
+                  fontWeight: _tab1Selection == 0
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          // Moments tab
+          GestureDetector(
+            onTap: () {
+              if (_tab1Selection != 1) {
+                setState(() {
+                  _tab1Selection = 1;
+                });
+                HapticFeedback.lightImpact();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _tab1Selection == 1
+                    ? modernTheme.backgroundColor
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Moments',
+                style: TextStyle(
+                  color: _tab1Selection == 1
+                      ? textColor
+                      : modernTheme.textSecondaryColor,
+                  fontSize: 14,
+                  fontWeight: _tab1Selection == 1
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          // Channels tab
+          GestureDetector(
+            onTap: () {
+              if (_tab1Selection != 2) {
+                setState(() {
+                  _tab1Selection = 2;
+                });
+                HapticFeedback.lightImpact();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _tab1Selection == 2
+                    ? modernTheme.backgroundColor
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Channels',
+                style: TextStyle(
+                  color: _tab1Selection == 2
+                      ? textColor
+                      : modernTheme.textSecondaryColor,
+                  fontSize: 14,
+                  fontWeight: _tab1Selection == 2
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFab(ModernThemeExtension modernTheme) {
+    if (_currentIndex == 1) {
+      // Groups/Moments/Channels tab - Show appropriate FAB based on current view
+      if (_tab1Selection == 0) {
+        // Groups view - Create new group
+        return FloatingActionButton(
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreateGroupScreen(),
+              ),
+            );
+
+            // Refresh groups list if group was created
+            if (result == true && mounted) {
+              ref.invalidate(groupsListProvider);
+            }
+          },
+          child: const Icon(Icons.group_add),
+        );
+      } else if (_tab1Selection == 1) {
+        // Moments view - Create new post
+        return FloatingActionButton(
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () {
+            context.push(RoutePaths.createPost);
+          },
+          child: const Icon(Icons.add),
+        );
+      } else {
+        // Channels view - Create new channel
+        return FloatingActionButton(
+          backgroundColor: modernTheme.backgroundColor,
+          foregroundColor: modernTheme.primaryColor,
+          elevation: 4,
+          onPressed: () {
+            context.push(RoutePaths.createChannel);
+          },
+          child: const Icon(CupertinoIcons.add),
+        );
+      }
+    } else if (_currentIndex == 2) {
+      // Marketplace tab - Create new listing
+      return FloatingActionButton(
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreateListingScreen(),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      );
+    } else if (_currentIndex == 3) {
+      // Status tab - Navigate to create status screen
+      return FloatingActionButton(
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () {
+          context.push(RoutePaths.createStatus);
+        },
+        child: const Icon(Icons.camera_alt),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -285,15 +535,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrolledUnderElevation: 0,
       centerTitle: true,
       iconTheme: IconThemeData(color: iconColor),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-        ),
-      ),
+      // For index 1, show Groups/Channels switcher instead of title
+      title: _currentIndex == 1
+          ? _buildGroupsChannelsSwitcher(modernTheme, textColor)
+          : Text(
+              title,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
       actions: [
         // Profile button (visible on Chats tab only)
         if (_currentIndex == 0)

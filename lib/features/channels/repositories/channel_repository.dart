@@ -98,7 +98,9 @@ class ChannelRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ChannelModel.fromJson(data);
+        // Backend may return {"channel": {...}} or just {...}
+        final channelData = data['channel'] ?? data;
+        return ChannelModel.fromJson(channelData);
       }
 
       return null;
@@ -115,27 +117,58 @@ class ChannelRepository {
     required ChannelType type,
     int? subscriptionPriceCoins,
     File? avatar,
-    File? banner,
   }) async {
     try {
+      // Step 1: Upload avatar if provided
+      String? avatarUrl;
+      if (avatar != null) {
+        try {
+          print('[CHANNEL] Uploading avatar: ${avatar.path}');
+          final uploadResponse = await _httpClient.uploadFile(
+            '/upload',
+            avatar,
+            'file',
+            additionalFields: {'type': 'channel_avatar'},
+          );
+
+          if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+            final uploadData = jsonDecode(uploadResponse.body);
+            avatarUrl = uploadData['url'] as String?;
+            print('[CHANNEL] Avatar uploaded successfully: $avatarUrl');
+          } else {
+            print('[CHANNEL] Avatar upload failed with status ${uploadResponse.statusCode}');
+          }
+        } catch (e) {
+          print('[CHANNEL] Error uploading avatar: $e');
+          // Continue without avatar
+        }
+      }
+
+      // Step 2: Create channel with avatar URL
       final body = {
         'name': name,
         'description': description,
         'type': type.name,
         if (subscriptionPriceCoins != null)
           'subscription_price_coins': subscriptionPriceCoins,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
       };
 
+      print('[CHANNEL] Creating channel with data: $body');
       final response = await _httpClient.post('/channels', body: body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return ChannelModel.fromJson(data);
+        print('[CHANNEL] Channel created successfully');
+        // Backend returns {"channel": {...}}, extract the channel object
+        final channelData = data['channel'] ?? data;
+        return ChannelModel.fromJson(channelData);
       }
 
+      print('[CHANNEL] Channel creation failed with status ${response.statusCode}');
       return null;
     } catch (e) {
-      print('Error creating channel: $e');
+      print('[CHANNEL] Error creating channel: $e');
       return null;
     }
   }

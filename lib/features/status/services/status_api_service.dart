@@ -212,7 +212,7 @@ class StatusApiService {
         file,
         'file', // Field name must be "file"
         additionalFields: {
-          'type': isVideo ? 'video' : 'post', // "post" for images, "video" for videos
+          'type': 'status', // All status media goes to status/ folder
         },
       );
 

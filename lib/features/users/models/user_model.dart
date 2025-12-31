@@ -294,8 +294,9 @@ class UserModel {
     String? gender,
     String? location,
     String? language,
-    bool canComment = true,  // NEW: Default true
-    bool canPost = true,     // NEW: Default true
+    bool hasPaid = false,      // NEW: Default false for new users (must pay KES 100)
+    bool canComment = true,    // NEW: Default true
+    bool canPost = true,       // NEW: Default true
   }) {
     final now = DateTime.now().toUtc().toIso8601String();
     return UserModel(
@@ -316,6 +317,7 @@ class UserModel {
       gender: gender,        // NEW
       location: location,    // NEW
       language: language,    // NEW
+      hasPaid: hasPaid,      // NEW: Explicitly set for new users
       canComment: canComment,  // NEW
       canPost: canPost,        // NEW
       tags: [],
@@ -349,6 +351,8 @@ class UserModel {
       'gender': gender,        // NEW
       'location': location,    // NEW
       'language': language,    // NEW
+      'hasPaid': hasPaid,      // NEW
+      'paymentDate': paymentDate, // NEW
       'canComment': canComment,  // NEW
       'canPost': canPost,        // NEW
       'followersCount': followers,
@@ -394,6 +398,8 @@ class UserModel {
     String? gender,        // NEW
     String? location,      // NEW
     String? language,      // NEW
+    bool? hasPaid,         // NEW
+    String? paymentDate,   // NEW
     bool? canComment,      // NEW
     bool? canPost,         // NEW
     List<String>? tags,
@@ -427,6 +433,8 @@ class UserModel {
       gender: gender ?? this.gender,              // NEW
       location: location ?? this.location,        // NEW
       language: language ?? this.language,        // NEW
+      hasPaid: hasPaid ?? this.hasPaid,           // NEW
+      paymentDate: paymentDate ?? this.paymentDate, // NEW
       canComment: canComment ?? this.canComment,  // NEW
       canPost: canPost ?? this.canPost,           // NEW
       tags: tags ?? this.tags,

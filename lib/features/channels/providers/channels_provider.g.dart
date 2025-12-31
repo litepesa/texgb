@@ -594,7 +594,7 @@ class _ChannelsListProviderElement
   String? get search => (origin as ChannelsListProvider).search;
 }
 
-String _$channelActionsHash() => r'a6c5152b45a6e78f11a82fc6c63bbdcdc408fd82';
+String _$channelActionsHash() => r'1ed3a58177f82dfbede410a0a249b67ebfd57620';
 
 /// Channel actions notifier (create, update, delete, subscribe)
 ///

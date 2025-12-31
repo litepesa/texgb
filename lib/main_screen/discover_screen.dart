@@ -57,7 +57,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             modernTheme: modernTheme,
           ),
           
-          /*_buildListItem(
+          _buildListItem(
             icon: Icons.store_outlined,
             title: 'Marketplace',
             subtitle: 'Buy and Sell anything easily',
@@ -71,7 +71,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               );
             },
             modernTheme: modernTheme,
-          ),*/
+          ),
           
           _buildComingSoonItem(
             icon: CupertinoIcons.square_grid_2x2,

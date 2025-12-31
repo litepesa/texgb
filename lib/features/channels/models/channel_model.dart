@@ -14,7 +14,6 @@ class ChannelModel {
   final String name;
   final String description;
   final String? avatarUrl;
-  final String? bannerUrl;
   final ChannelType type;
   final bool isVerified;
   final int subscriberCount;
@@ -41,7 +40,6 @@ class ChannelModel {
     required this.name,
     required this.description,
     this.avatarUrl,
-    this.bannerUrl,
     this.type = ChannelType.public,
     this.isVerified = false,
     this.subscriberCount = 0,
@@ -64,7 +62,6 @@ class ChannelModel {
       name: json['name'] as String,
       description: json['description'] as String,
       avatarUrl: json['avatarUrl'] as String? ?? json['avatar_url'] as String?,
-      bannerUrl: json['bannerUrl'] as String? ?? json['banner_url'] as String?,
       type: _channelTypeFromString(json['type'] as String?),
       isVerified: json['isVerified'] as bool? ?? json['is_verified'] as bool? ?? false,
       subscriberCount: json['subscriberCount'] as int? ?? json['subscriber_count'] as int? ?? 0,
@@ -90,7 +87,6 @@ class ChannelModel {
       'name': name,
       'description': description,
       'avatarUrl': avatarUrl,
-      'bannerUrl': bannerUrl,
       'type': _channelTypeToString(type),
       'isVerified': isVerified,
       'subscriberCount': subscriberCount,
@@ -113,7 +109,6 @@ class ChannelModel {
     String? name,
     String? description,
     String? avatarUrl,
-    String? bannerUrl,
     ChannelType? type,
     bool? isVerified,
     int? subscriberCount,
@@ -134,7 +129,6 @@ class ChannelModel {
       name: name ?? this.name,
       description: description ?? this.description,
       avatarUrl: avatarUrl ?? this.avatarUrl,
-      bannerUrl: bannerUrl ?? this.bannerUrl,
       type: type ?? this.type,
       isVerified: isVerified ?? this.isVerified,
       subscriberCount: subscriberCount ?? this.subscriberCount,

@@ -1,4 +1,5 @@
 // lib/features/channels/providers/channels_provider.dart
+import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/repositories/channel_repository.dart';
@@ -108,6 +109,7 @@ class ChannelActions extends _$ChannelActions {
     required String description,
     required ChannelType type,
     int? subscriptionPriceCoins,
+    File? avatar,
   }) async {
     state = const AsyncValue.loading();
 
@@ -118,6 +120,7 @@ class ChannelActions extends _$ChannelActions {
         description: description,
         type: type,
         subscriptionPriceCoins: subscriptionPriceCoins,
+        avatar: avatar,
       );
 
       if (channel != null) {

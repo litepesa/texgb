@@ -48,7 +48,7 @@ class MomentsUploadService {
         imageFile,
         'file',
         additionalFields: {
-          'type': 'post',
+          'type': 'moment',
         },
       );
 
@@ -84,7 +84,7 @@ class MomentsUploadService {
         videoFile,
         'file',
         additionalFields: {
-          'type': 'video',
+          'type': 'moment',
         },
       );
 

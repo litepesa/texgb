@@ -52,8 +52,8 @@ import 'package:textgb/features/payment/screens/wallet_topup_screen.dart';
 import 'package:textgb/features/payment/screens/payment_status_screen.dart';
 
 // Channels screens
-import 'package:textgb/features/channels/screens/channels_home_screen.dart';
-import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
+import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/post_detail_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
@@ -686,7 +686,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.channelsHome,
         name: RouteNames.channelsHome,
-        builder: (context, state) => const ChannelsHomeScreen(),
+        builder: (context, state) => const ChannelsListScreen(),
       ),
 
       GoRoute(
@@ -694,7 +694,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.channelDetail,
         builder: (context, state) {
           final channelId = state.pathParameters['channelId']!;
-          return ChannelDetailScreen(channelId: channelId);
+          return ChannelFeedScreen(channelId: channelId);
         },
       ),
 
