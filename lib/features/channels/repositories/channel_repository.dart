@@ -388,7 +388,7 @@ class ChannelRepository {
           '/upload',
           mediaFile,
           'file',
-          additionalFields: {'type': 'post'},
+          additionalFields: {'type': 'channel_post'},
         );
 
         if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
@@ -416,7 +416,7 @@ class ChannelRepository {
             '/upload',
             imageFiles[i],
             'file',
-            additionalFields: {'type': 'post'},
+            additionalFields: {'type': 'channel_post'},
           );
 
           if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
@@ -468,7 +468,7 @@ class ChannelRepository {
         if (previewDuration != null) 'preview_duration_seconds': previewDuration,
       };
 
-      final response = await _httpClient.post('/channels/posts', body: body);
+      final response = await _httpClient.post('/posts', body: body);
 
       onUploadProgress?.call(1.0);
 
@@ -489,7 +489,7 @@ class ChannelRepository {
   /// Delete post
   Future<bool> deletePost(String postId) async {
     try {
-      final response = await _httpClient.delete('/channels/posts/$postId');
+      final response = await _httpClient.delete('/posts/$postId');
       return response.statusCode == 200;
     } catch (e) {
       print('Error deleting post: $e');
@@ -500,7 +500,7 @@ class ChannelRepository {
   /// Like post
   Future<bool> likePost(String postId) async {
     try {
-      final response = await _httpClient.post('/channels/posts/$postId/like');
+      final response = await _httpClient.post('/posts/$postId/like');
       return response.statusCode == 200;
     } catch (e) {
       print('Error liking post: $e');
@@ -511,7 +511,7 @@ class ChannelRepository {
   /// Unlike post
   Future<bool> unlikePost(String postId) async {
     try {
-      final response = await _httpClient.delete('/channels/posts/$postId/like');
+      final response = await _httpClient.delete('/posts/$postId/like');
       return response.statusCode == 200;
     } catch (e) {
       print('Error unliking post: $e');
@@ -522,7 +522,7 @@ class ChannelRepository {
   /// Unlock premium post
   Future<bool> unlockPost(String postId) async {
     try {
-      final response = await _httpClient.post('/channels/posts/$postId/unlock');
+      final response = await _httpClient.post('/posts/$postId/unlock');
       return response.statusCode == 200;
     } catch (e) {
       print('Error unlocking post: $e');
