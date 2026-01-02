@@ -12,11 +12,11 @@ enum PostContentType {
 /// Channel post model with premium features
 class ChannelPost {
   final String id;
-  final String channelId;
+  final String? channelId;
   final String? channelName;
   final String? channelAvatarUrl;
-  final String authorId;
-  final String authorName;
+  final String? authorId;
+  final String? authorName;
   final String? authorAvatarUrl;
   final PostContentType contentType;
 
@@ -55,11 +55,11 @@ class ChannelPost {
 
   const ChannelPost({
     required this.id,
-    required this.channelId,
+    this.channelId,
     this.channelName,
     this.channelAvatarUrl,
-    required this.authorId,
-    required this.authorName,
+    this.authorId,
+    this.authorName,
     this.authorAvatarUrl,
     required this.contentType,
     this.text,
@@ -88,11 +88,11 @@ class ChannelPost {
   factory ChannelPost.fromJson(Map<String, dynamic> json) {
     return ChannelPost(
       id: json['id'] as String,
-      channelId: json['channelId'] as String? ?? json['channel_id'] as String,
+      channelId: json['channelId'] as String? ?? json['channel_id'] as String?,
       channelName: json['channelName'] as String? ?? json['channel_name'] as String?,
       channelAvatarUrl: json['channelAvatarUrl'] as String? ?? json['channel_avatar_url'] as String?,
-      authorId: json['authorId'] as String? ?? json['author_id'] as String,
-      authorName: json['authorName'] as String? ?? json['author_name'] as String,
+      authorId: json['authorId'] as String? ?? json['author_id'] as String?,
+      authorName: json['authorName'] as String? ?? json['author_name'] as String?,
       authorAvatarUrl: json['authorAvatarUrl'] as String? ?? json['author_avatar_url'] as String?,
       contentType: _postContentTypeFromString(json['contentType'] as String? ?? json['content_type'] as String?),
       text: json['text'] as String?,
