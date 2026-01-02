@@ -112,8 +112,6 @@ class ChannelActions extends _$ChannelActions {
     int? subscriptionPriceCoins,
     File? avatar,
   }) async {
-    state = const AsyncValue.loading();
-
     try {
       final repository = ref.read(channelRepositoryProvider);
       final result = await repository.createChannel(
@@ -130,12 +128,10 @@ class ChannelActions extends _$ChannelActions {
         ref.invalidate(subscribedChannelsProvider);
       }
 
-      state = const AsyncValue.data(null);
       return result;
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+    } catch (e) {
       return {
-        'error': 'An unexpected error occurred',
+        'error': 'An unexpected error occurred: ${e.toString()}',
       };
     }
   }

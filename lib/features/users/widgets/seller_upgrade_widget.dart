@@ -216,6 +216,15 @@ class SellerUpgradeWidget extends StatelessWidget {
                             colors: [Color(0xFFE65100), Color(0xFFFF6F00)],
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        _buildHighlightCard(
+                          icon: Icons.live_tv_rounded,
+                          title: 'Live Selling (Coming Soon)',
+                          description: 'Sell products live to thousands of viewers - verified sellers will get early access to livestream shopping',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFD32F2F), Color(0xFFE91E63)],
+                          ),
+                        ),
                         const SizedBox(height: 24),
                       ],
                     ),

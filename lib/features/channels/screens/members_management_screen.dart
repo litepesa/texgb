@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 
-/// Screen for managing channel members (admins/moderators)
+/// Screen for managing channel members (admins only)
 class MembersManagementScreen extends ConsumerStatefulWidget {
   final String channelId;
 
@@ -102,9 +102,6 @@ class _MembersManagementScreenState
                 final admins = filteredMembers
                     .where((m) => m.role == MemberRole.admin)
                     .toList();
-                final moderators = filteredMembers
-                    .where((m) => m.role == MemberRole.moderator)
-                    .toList();
 
                 return RefreshIndicator(
                   onRefresh: () async {
@@ -117,7 +114,6 @@ class _MembersManagementScreenState
                         totalMembers: members.length,
                         maxMembers: 8,
                         admins: admins.length,
-                        moderators: moderators.length,
                       ),
 
                       // Owner Section
@@ -130,12 +126,6 @@ class _MembersManagementScreenState
                       if (admins.isNotEmpty) ...[
                         _buildSectionHeader('Admins', admins.length),
                         ...admins.map((member) => _buildMemberTile(member)),
-                      ],
-
-                      // Moderators Section
-                      if (moderators.isNotEmpty) ...[
-                        _buildSectionHeader('Moderators', moderators.length),
-                        ...moderators.map((member) => _buildMemberTile(member)),
                       ],
 
                       if (filteredMembers.isEmpty && _searchQuery.isNotEmpty)
@@ -158,7 +148,7 @@ class _MembersManagementScreenState
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddMemberDialog(context),
         icon: const Icon(Icons.person_add),
-        label: const Text('Add Member'),
+        label: const Text('Add Admin'),
       ),
     );
   }
@@ -167,7 +157,6 @@ class _MembersManagementScreenState
     required int totalMembers,
     required int maxMembers,
     required int admins,
-    required int moderators,
   }) {
     final spotsLeft = maxMembers - totalMembers;
     final isAtLimit = totalMembers >= maxMembers;
@@ -203,13 +192,7 @@ class _MembersManagementScreenState
               color: isAtLimit ? Colors.orange : Colors.blue,
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                _buildStatChip('Admins', admins, Colors.purple),
-                const SizedBox(width: 8),
-                _buildStatChip('Moderators', moderators, Colors.green),
-              ],
-            ),
+            _buildStatChip('Admins', admins, Colors.purple),
             if (isAtLimit) ...[
               const SizedBox(height: 8),
               Text(
@@ -311,36 +294,10 @@ class _MembersManagementScreenState
       ),
       trailing: isOwner
           ? null
-          : PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'change_role') {
-                  _showChangeRoleDialog(member);
-                } else if (value == 'remove') {
-                  _confirmRemoveMember(member);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'change_role',
-                  child: Row(
-                    children: [
-                      Icon(Icons.swap_horiz, size: 20),
-                      SizedBox(width: 8),
-                      Text('Change Role'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'remove',
-                  child: Row(
-                    children: [
-                      Icon(Icons.remove_circle, size: 20, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Remove', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
+          : IconButton(
+              icon: const Icon(Icons.remove_circle, color: Colors.red),
+              onPressed: () => _confirmRemoveMember(member),
+              tooltip: 'Remove admin',
             ),
     );
   }
@@ -367,7 +324,7 @@ class _MembersManagementScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Add admins and moderators to help manage your channel',
+              'Add admins to help manage your channel',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -433,21 +390,18 @@ class _MembersManagementScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Channels can have up to 8 team members (excluding owner):',
+              'Channels can have up to 8 admins (excluding owner):',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
             SizedBox(height: 12),
             Text('• 1 Owner (you)'),
-            Text('• Up to 8 Admins and/or Moderators'),
+            Text('• Up to 8 Admins'),
             SizedBox(height: 12),
             Text('Admins can:'),
-            Text('  - Manage posts'),
-            Text('  - Moderate comments'),
-            Text('  - Add/remove moderators'),
-            SizedBox(height: 8),
-            Text('Moderators can:'),
-            Text('  - Moderate comments'),
-            Text('  - Pin/unpin comments'),
+            Text('  - Create and manage posts'),
+            Text('  - Moderate and delete comments'),
+            Text('  - Ban users'),
+            Text('  - Manage other admins'),
           ],
         ),
         actions: [
@@ -478,63 +432,46 @@ class _MembersManagementScreenState
     if (!mounted) return;
 
     final userIdController = TextEditingController();
-    MemberRole selectedRole = MemberRole.moderator;
 
     await showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Add Member'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: userIdController,
-                decoration: const InputDecoration(
-                  labelText: 'User ID',
-                  hintText: 'Enter user ID',
-                  border: OutlineInputBorder(),
-                ),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add Admin'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: userIdController,
+              decoration: const InputDecoration(
+                labelText: 'User ID',
+                hintText: 'Enter user ID',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<MemberRole>(
-                value: selectedRole,
-                decoration: const InputDecoration(
-                  labelText: 'Role',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: MemberRole.admin,
-                    child: Row(
-                      children: [
-                        Icon(Icons.admin_panel_settings,
-                            color: _getRoleColor(MemberRole.admin)),
-                        const SizedBox(width: 8),
-                        const Text('Admin'),
-                      ],
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: MemberRole.moderator,
-                    child: Row(
-                      children: [
-                        Icon(Icons.shield,
-                            color: _getRoleColor(MemberRole.moderator)),
-                        const SizedBox(width: 8),
-                        const Text('Moderator'),
-                      ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.purple),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.admin_panel_settings, color: Colors.purple),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Role: Admin',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.purple,
                     ),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => selectedRole = value);
-                  }
-                },
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -550,7 +487,7 @@ class _MembersManagementScreenState
                 }
 
                 Navigator.pop(dialogContext);
-                await _addMember(userIdController.text.trim(), selectedRole);
+                await _addMember(userIdController.text.trim(), MemberRole.admin);
               },
               child: const Text('Add'),
             ),
@@ -573,65 +510,6 @@ class _MembersManagementScreenState
         SnackBar(
           content: Text(
             success ? 'Member added successfully!' : 'Failed to add member',
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _showChangeRoleDialog(ChannelMember member) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Change role for ${member.userName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.admin_panel_settings,
-                  color: _getRoleColor(MemberRole.admin)),
-              title: const Text('Admin'),
-              onTap: () {
-                Navigator.pop(context);
-                _changeRole(member, MemberRole.admin);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.shield,
-                  color: _getRoleColor(MemberRole.moderator)),
-              title: const Text('Moderator'),
-              onTap: () {
-                Navigator.pop(context);
-                _changeRole(member, MemberRole.moderator);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _changeRole(ChannelMember member, MemberRole newRole) async {
-    // Remove old role and add new role
-    final actionsNotifier = ref.read(channelMemberActionsProvider.notifier);
-
-    await actionsNotifier.removeMember(
-      channelId: widget.channelId,
-      userId: member.userId,
-    );
-
-    final success = await actionsNotifier.addMember(
-      channelId: widget.channelId,
-      userId: member.userId,
-      role: newRole,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success ? 'Role changed successfully!' : 'Failed to change role',
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
@@ -691,8 +569,6 @@ class _MembersManagementScreenState
         return Colors.amber;
       case MemberRole.admin:
         return Colors.purple;
-      case MemberRole.moderator:
-        return Colors.green;
       case MemberRole.subscriber:
         return Colors.blue;
     }
@@ -704,8 +580,6 @@ class _MembersManagementScreenState
         return 'Owner';
       case MemberRole.admin:
         return 'Admin';
-      case MemberRole.moderator:
-        return 'Moderator';
       case MemberRole.subscriber:
         return 'Subscriber';
     }

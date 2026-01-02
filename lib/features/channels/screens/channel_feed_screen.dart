@@ -80,9 +80,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
           return _buildNotFoundState(theme);
         }
 
-        final isAdmin = channel.isAdmin == true ||
-                       channel.isModerator == true ||
-                       channel.isOwner == true;
+        final isAdmin = channel.isAdmin == true || channel.isOwner == true;
 
         return Scaffold(
           backgroundColor: theme.backgroundColor,
@@ -150,9 +148,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
   }
 
   PreferredSizeWidget _buildAppBar(ChannelModel channel, ModernThemeExtension theme) {
-    final isAdmin = channel.isAdmin == true ||
-                   channel.isModerator == true ||
-                   channel.isOwner == true;
+    final isAdmin = channel.isAdmin == true || channel.isOwner == true;
 
     return AppBar(
       backgroundColor: theme.appBarColor,
@@ -524,9 +520,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
   }
 
   Widget _buildEmptyPostsState(ChannelModel channel, ModernThemeExtension theme) {
-    final canPost = channel.isAdmin == true ||
-        channel.isModerator == true ||
-        channel.isOwner == true;
+    final canPost = channel.isAdmin == true || channel.isOwner == true;
 
     return Center(
       child: Padding(

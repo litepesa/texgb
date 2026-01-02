@@ -98,8 +98,20 @@ class ChannelRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Backend may return {"channel": {...}} or just {...}
-        final channelData = data['channel'] ?? data;
+        // Backend returns {"channel": {...}, "isOwner": bool, "isAdmin": bool, ...}
+        // Merge the user relationship fields into the channel data
+        final channelData = Map<String, dynamic>.from(data['channel'] ?? data);
+
+        // Add user relationship fields from the response
+        if (data.containsKey('isOwner')) channelData['is_owner'] = data['isOwner'];
+        if (data.containsKey('is_owner')) channelData['is_owner'] = data['is_owner'];
+        if (data.containsKey('isAdmin')) channelData['is_admin'] = data['isAdmin'];
+        if (data.containsKey('is_admin')) channelData['is_admin'] = data['is_admin'];
+        if (data.containsKey('isSubscribed')) channelData['is_subscribed'] = data['isSubscribed'];
+        if (data.containsKey('is_subscribed')) channelData['is_subscribed'] = data['is_subscribed'];
+        if (data.containsKey('unreadCount')) channelData['unread_count'] = data['unreadCount'];
+        if (data.containsKey('unread_count')) channelData['unread_count'] = data['unread_count'];
+
         return ChannelModel.fromJson(channelData);
       }
 
@@ -348,7 +360,7 @@ class ChannelRepository {
     }
   }
 
-  /// Create post (with chunked upload for large files)
+  /// Create post (with media upload support)
   Future<ChannelPost?> createPost({
     required String channelId,
     required PostContentType contentType,
@@ -361,28 +373,115 @@ class ChannelRepository {
     Function(double)? onUploadProgress,
   }) async {
     try {
-      // TODO: Implement chunked upload for large files (>100MB)
-      // For now, simple upload
+      String? mediaUrl;
+      List<String>? mediaUrls;
+      String? thumbnailUrl;
+      int? mediaSizeBytes;
+      int? mediaDurationSeconds;
 
+      // Step 1: Upload media files if provided
+      if (mediaFile != null) {
+        // Upload single media file (video, audio, document)
+        onUploadProgress?.call(0.2);
+
+        final uploadResponse = await _httpClient.uploadFile(
+          '/upload',
+          mediaFile,
+          'file',
+          additionalFields: {'type': 'post'},
+        );
+
+        if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+          final uploadData = jsonDecode(uploadResponse.body);
+          mediaUrl = uploadData['url'];
+          mediaSizeBytes = await mediaFile.length();
+
+          // If it's a video, generate thumbnail
+          if (contentType == PostContentType.video) {
+            onUploadProgress?.call(0.5);
+            // TODO: Generate and upload thumbnail
+            // For now, use the same URL as placeholder
+          }
+        } else {
+          print('Media upload failed: ${uploadResponse.statusCode}');
+          return null;
+        }
+      } else if (imageFiles != null && imageFiles.isNotEmpty) {
+        // Upload multiple images
+        onUploadProgress?.call(0.2);
+
+        mediaUrls = [];
+        for (int i = 0; i < imageFiles.length; i++) {
+          final uploadResponse = await _httpClient.uploadFile(
+            '/upload',
+            imageFiles[i],
+            'file',
+            additionalFields: {'type': 'post'},
+          );
+
+          if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+            final uploadData = jsonDecode(uploadResponse.body);
+            mediaUrls.add(uploadData['url']);
+          }
+
+          // Update progress
+          final uploadProgress = 0.2 + (0.6 * (i + 1) / imageFiles.length);
+          onUploadProgress?.call(uploadProgress);
+        }
+
+        if (mediaUrls.isEmpty) {
+          print('All image uploads failed');
+          return null;
+        }
+      }
+
+      onUploadProgress?.call(0.8);
+
+      // Step 2: Map content type to backend format
+      String backendContentType;
+      switch (contentType) {
+        case PostContentType.text:
+          backendContentType = 'text';
+          break;
+        case PostContentType.image:
+        case PostContentType.textImage:
+          backendContentType = 'image';
+          break;
+        case PostContentType.video:
+        case PostContentType.textVideo:
+          backendContentType = 'video';
+          break;
+      }
+
+      // Step 3: Create post with uploaded media URLs
       final body = {
         'channel_id': channelId,
-        'content_type': contentType.name,
-        if (text != null) 'text': text,
+        'content_type': backendContentType,
+        if (text != null && text.isNotEmpty) 'text': text,
+        if (mediaUrl != null) 'media_url': mediaUrl,
+        if (mediaUrls != null && mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
+        if (thumbnailUrl != null) 'media_thumbnail_url': thumbnailUrl,
+        if (mediaSizeBytes != null) 'media_size_bytes': mediaSizeBytes,
+        if (mediaDurationSeconds != null) 'media_duration_seconds': mediaDurationSeconds,
         'is_premium': isPremium,
         if (priceCoins != null) 'price_coins': priceCoins,
-        if (previewDuration != null) 'preview_duration': previewDuration,
+        if (previewDuration != null) 'preview_duration_seconds': previewDuration,
       };
 
       final response = await _httpClient.post('/channels/posts', body: body);
 
+      onUploadProgress?.call(1.0);
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return ChannelPost.fromJson(data);
+        return ChannelPost.fromJson(data['post'] ?? data);
       }
 
+      print('Create post failed: ${response.statusCode} - ${response.body}');
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Error creating post: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }

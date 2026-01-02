@@ -333,7 +333,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'Moments',
+                'Status',
                 style: TextStyle(
                   color: _tab1Selection == 1
                       ? textColor

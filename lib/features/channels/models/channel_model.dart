@@ -30,7 +30,6 @@ class ChannelModel {
   // User's relationship to this channel
   final bool? isSubscribed;
   final bool? isAdmin;
-  final bool? isModerator;
   final bool? isOwner;
   final bool? hasNotificationsEnabled;
 
@@ -50,7 +49,6 @@ class ChannelModel {
     this.updatedAt,
     this.isSubscribed,
     this.isAdmin,
-    this.isModerator,
     this.isOwner,
     this.hasNotificationsEnabled,
   });
@@ -74,7 +72,6 @@ class ChannelModel {
                  (json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null),
       isSubscribed: json['isSubscribed'] as bool? ?? json['is_subscribed'] as bool?,
       isAdmin: json['isAdmin'] as bool? ?? json['is_admin'] as bool?,
-      isModerator: json['isModerator'] as bool? ?? json['is_moderator'] as bool?,
       isOwner: json['isOwner'] as bool? ?? json['is_owner'] as bool?,
       hasNotificationsEnabled: json['hasNotificationsEnabled'] as bool? ?? json['has_notifications_enabled'] as bool?,
     );
@@ -97,7 +94,6 @@ class ChannelModel {
       'updatedAt': updatedAt?.toIso8601String(),
       'isSubscribed': isSubscribed,
       'isAdmin': isAdmin,
-      'isModerator': isModerator,
       'isOwner': isOwner,
       'hasNotificationsEnabled': hasNotificationsEnabled,
     };
@@ -119,7 +115,6 @@ class ChannelModel {
     DateTime? updatedAt,
     bool? isSubscribed,
     bool? isAdmin,
-    bool? isModerator,
     bool? isOwner,
     bool? hasNotificationsEnabled,
   }) {
@@ -139,7 +134,6 @@ class ChannelModel {
       updatedAt: updatedAt ?? this.updatedAt,
       isSubscribed: isSubscribed ?? this.isSubscribed,
       isAdmin: isAdmin ?? this.isAdmin,
-      isModerator: isModerator ?? this.isModerator,
       isOwner: isOwner ?? this.isOwner,
       hasNotificationsEnabled: hasNotificationsEnabled ?? this.hasNotificationsEnabled,
     );
@@ -201,11 +195,10 @@ class ChannelMember {
   }
 }
 
-/// Member role enum
+/// Member role enum (simplified: owner, admin, subscriber only)
 enum MemberRole {
   owner,
   admin,
-  moderator,
   subscriber,
 }
 
@@ -215,15 +208,9 @@ extension MemberRoleExtension on MemberRole {
 
   bool get canDeletePosts => this == MemberRole.owner || this == MemberRole.admin;
 
-  bool get canDeleteComments =>
-      this == MemberRole.owner ||
-      this == MemberRole.admin ||
-      this == MemberRole.moderator;
+  bool get canDeleteComments => this == MemberRole.owner || this == MemberRole.admin;
 
-  bool get canBanUsers =>
-      this == MemberRole.owner ||
-      this == MemberRole.admin ||
-      this == MemberRole.moderator;
+  bool get canBanUsers => this == MemberRole.owner || this == MemberRole.admin;
 
   bool get canManageMembers => this == MemberRole.owner || this == MemberRole.admin;
 
@@ -237,8 +224,6 @@ extension MemberRoleExtension on MemberRole {
         return 'Owner';
       case MemberRole.admin:
         return 'Admin';
-      case MemberRole.moderator:
-        return 'Moderator';
       case MemberRole.subscriber:
         return 'Subscriber';
     }
@@ -276,8 +261,6 @@ MemberRole _memberRoleFromString(String? value) {
       return MemberRole.owner;
     case 'admin':
       return MemberRole.admin;
-    case 'moderator':
-      return MemberRole.moderator;
     case 'subscriber':
       return MemberRole.subscriber;
     default:
@@ -291,8 +274,6 @@ String _memberRoleToString(MemberRole role) {
       return 'owner';
     case MemberRole.admin:
       return 'admin';
-    case MemberRole.moderator:
-      return 'moderator';
     case MemberRole.subscriber:
       return 'subscriber';
   }
