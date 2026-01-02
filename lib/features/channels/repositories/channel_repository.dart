@@ -110,8 +110,36 @@ class ChannelRepository {
     }
   }
 
+  /// Check if a channel name is available
+  Future<Map<String, dynamic>> checkNameAvailability(String name) async {
+    try {
+      final encodedName = Uri.encodeComponent(name.trim());
+      final response = await _httpClient.get('/channels/check-name?name=$encodedName');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'available': data['available'] ?? false,
+          'message': data['message'] ?? '',
+        };
+      }
+
+      return {
+        'available': false,
+        'message': 'Unable to check name availability',
+      };
+    } catch (e) {
+      print('[CHANNEL] Error checking name availability: $e');
+      return {
+        'available': false,
+        'message': 'Error checking availability',
+      };
+    }
+  }
+
   /// Create new channel
-  Future<ChannelModel?> createChannel({
+  /// Returns a Map with either 'channel' or 'error' key
+  Future<Map<String, dynamic>> createChannel({
     required String name,
     required String description,
     required ChannelType type,
@@ -162,14 +190,48 @@ class ChannelRepository {
         print('[CHANNEL] Channel created successfully');
         // Backend returns {"channel": {...}}, extract the channel object
         final channelData = data['channel'] ?? data;
-        return ChannelModel.fromJson(channelData);
+        return {
+          'channel': ChannelModel.fromJson(channelData),
+        };
       }
 
+      // Handle error response
       print('[CHANNEL] Channel creation failed with status ${response.statusCode}');
-      return null;
+      final errorData = jsonDecode(response.body);
+      String errorMessage = 'Failed to create channel';
+
+      // Extract specific error message from backend
+      if (errorData['errors'] != null) {
+        final errors = errorData['errors'] as Map<String, dynamic>;
+        if (errors['name'] != null) {
+          // Get the first error message for the name field
+          final nameErrors = errors['name'];
+          if (nameErrors is List && nameErrors.isNotEmpty) {
+            errorMessage = nameErrors[0];
+          } else if (nameErrors is String) {
+            errorMessage = nameErrors;
+          }
+        } else {
+          // Get the first error message from any field
+          final firstError = errors.values.firstOrNull;
+          if (firstError is List && firstError.isNotEmpty) {
+            errorMessage = firstError[0];
+          } else if (firstError is String) {
+            errorMessage = firstError;
+          }
+        }
+      } else if (errorData['error'] != null) {
+        errorMessage = errorData['error'];
+      }
+
+      return {
+        'error': errorMessage,
+      };
     } catch (e) {
       print('[CHANNEL] Error creating channel: $e');
-      return null;
+      return {
+        'error': 'An error occurred while creating the channel',
+      };
     }
   }
 

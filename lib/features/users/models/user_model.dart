@@ -93,7 +93,12 @@ class UserModel {
   // ===============================
   final bool isAdmin;       // Platform administrator (full control)
   final bool isModerator;   // Content moderator (can moderate content, ban users)
-  
+
+  // ===============================
+  // BUSINESS/COMMERCE ROLE
+  // ===============================
+  final bool isSeller;      // Marketplace seller (can list products for sale)
+
   // ===============================
   // NEW PROFILE FIELDS
   // ===============================
@@ -144,6 +149,7 @@ class UserModel {
     required this.isVerified,
     this.isAdmin = false,       // NEW: Default = false (not admin)
     this.isModerator = false,   // NEW: Default = false (not moderator)
+    this.isSeller = false,      // NEW: Default = false (not seller)
     this.gender,      // NEW
     this.location,    // NEW
     this.language,    // NEW
@@ -180,9 +186,10 @@ class UserModel {
       videosCount: _extractInt(map['videosCount'] ?? map['videos_count']) ?? 0,
       likesCount: _extractInt(map['likesCount'] ?? map['likes_count']) ?? 0,
       isVerified: _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
-      // NEW: Extract admin/moderator flags
+      // NEW: Extract admin/moderator/seller flags
       isAdmin: _extractBool(map['isAdmin'] ?? map['is_admin']) ?? false,
       isModerator: _extractBool(map['isModerator'] ?? map['is_moderator']) ?? false,
+      isSeller: _extractBool(map['isSeller'] ?? map['is_seller']) ?? false,
       // NEW: Extract profile fields
       gender: _extractString(map['gender']),
       location: _extractString(map['location']),
@@ -291,6 +298,7 @@ class UserModel {
     required String bio,
     bool isAdmin = false,      // NEW: Default false
     bool isModerator = false,  // NEW: Default false
+    bool isSeller = false,     // NEW: Default false
     String? gender,
     String? location,
     String? language,
@@ -314,6 +322,7 @@ class UserModel {
       isVerified: false,
       isAdmin: isAdmin,          // NEW
       isModerator: isModerator,  // NEW
+      isSeller: isSeller,        // NEW
       gender: gender,        // NEW
       location: location,    // NEW
       language: language,    // NEW
@@ -348,6 +357,7 @@ class UserModel {
       'userType': 'user',
       'isAdmin': isAdmin,          // NEW
       'isModerator': isModerator,  // NEW
+      'isSeller': isSeller,        // NEW
       'gender': gender,        // NEW
       'location': location,    // NEW
       'language': language,    // NEW
@@ -395,6 +405,7 @@ class UserModel {
     bool? isVerified,
     bool? isAdmin,         // NEW
     bool? isModerator,     // NEW
+    bool? isSeller,        // NEW
     String? gender,        // NEW
     String? location,      // NEW
     String? language,      // NEW
@@ -430,6 +441,7 @@ class UserModel {
       isVerified: isVerified ?? this.isVerified,
       isAdmin: isAdmin ?? this.isAdmin,              // NEW
       isModerator: isModerator ?? this.isModerator,  // NEW
+      isSeller: isSeller ?? this.isSeller,           // NEW
       gender: gender ?? this.gender,              // NEW
       location: location ?? this.location,        // NEW
       language: language ?? this.language,        // NEW
@@ -577,7 +589,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, isAdmin: $isAdmin, isModerator: $isModerator, phoneNumber: $phoneNumber, isLive: $isLive, canComment: $canComment, canPost: $canPost)';
+    return 'UserModel(uid: $uid, name: $name, isAdmin: $isAdmin, isModerator: $isModerator, isSeller: $isSeller, phoneNumber: $phoneNumber, isLive: $isLive, canComment: $canComment, canPost: $canPost)';
   }
 
   // ===============================

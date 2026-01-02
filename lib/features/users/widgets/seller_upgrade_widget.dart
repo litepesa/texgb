@@ -76,7 +76,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Reach 22+ million WhatsApp users in Kenya',
+                          'Reach 1M+ active users in Kenya',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -135,14 +135,14 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _buildMarketStat(
-                            '22M+',
-                            'WhatsApp users in Kenya',
+                            '1M+',
+                            'Active users on WemaChat',
                             Icons.people_rounded,
                           ),
                           const SizedBox(height: 10),
                           _buildMarketStat(
                             '100%',
-                            'Direct access through WhatsApp',
+                            'Direct customer engagement',
                             CupertinoIcons.bubble_left,
                           ),
                           const SizedBox(height: 10),
@@ -159,7 +159,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
-                              '💡 Your competitors are already missing out on millions of potential customers. Don\'t make the same mistake!',
+                              '💡 Your competitors are already reaching thousands of customers daily. Don\'t get left behind!',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -184,7 +184,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.groups_rounded,
                           title: 'Massive Audience Reach',
-                          description: 'Tap into Kenya\'s 22+ million WhatsApp users - your potential customers are already on the platform they use daily',
+                          description: 'Reach over 1 million active Kenyan users on WemaChat - your potential customers are already here',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFD32F2F), Color(0xFFE53935)],
                           ),
@@ -201,8 +201,8 @@ class SellerUpgradeWidget extends StatelessWidget {
                         const SizedBox(height: 12),
                         _buildHighlightCard(
                           icon: CupertinoIcons.bubble_left,
-                          title: 'WhatsApp-First Platform',
-                          description: 'Every buyer can reach you instantly on WhatsApp - the app they already use and trust',
+                          title: 'Direct Buyer Connection',
+                          description: 'Buyers can message you instantly through WemaChat\'s built-in messaging - no third-party apps needed',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
                           ),
@@ -259,19 +259,19 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _buildMissingItem(
-                            '🚫 Losing sales to competitors who are already on the platform',
+                            '🚫 Losing sales to competitors who are already on WemaChat',
                           ),
                           _buildMissingItem(
-                            '🚫 Missing out on millions of active buyers searching daily',
+                            '🚫 Missing out on 1M+ active buyers searching daily',
                           ),
                           _buildMissingItem(
                             '🚫 Paying commissions on other platforms when you could keep 100%',
                           ),
                           _buildMissingItem(
-                            '🚫 Limited reach when you could access 22M+ WhatsApp users',
+                            '🚫 Limited reach when you could access WemaChat\'s growing user base',
                           ),
                           _buildMissingItem(
-                            '🚫 Complicated checkout processes instead of simple WhatsApp orders',
+                            '🚫 Complicated processes instead of simple direct messaging',
                           ),
                         ],
                       ),
@@ -369,7 +369,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Smart sellers are already reaching thousands of customers daily through WhatsApp orders. Your competition is growing - don\'t get left behind!',
+                            'Smart sellers are already reaching thousands of customers daily on WemaChat. Your competition is growing - don\'t get left behind!',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 15,
@@ -468,7 +468,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 Icon(Icons.rocket_launch_rounded, size: 22),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Start Selling - KES 999',
+                                  'Start Selling - USD 25',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -747,7 +747,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'KES 999',
+                          'USD 25 / KES 3,225',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -758,7 +758,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'One-time payment for seller access',
+                      'One-time payment for lifetime seller access',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -900,7 +900,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Need help? Contact Pomasoft LTD on WhatsApp:',
+                            'Need help? Contact Support:',
                             style: TextStyle(
                               color: Colors.orange[700],
                               fontSize: 14,
@@ -912,7 +912,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('WhatsApp number copied to clipboard!'),
+                                  content: Text('Phone number copied to clipboard!'),
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );

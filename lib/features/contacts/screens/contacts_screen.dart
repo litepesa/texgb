@@ -218,53 +218,81 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: theme.surfaceColor,
-        body: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              _buildWeChatHeader(theme),
-              
-              Expanded(
-                child: Container(
-                  color: theme.surfaceColor,
-                  child: Consumer(
-                    builder: (context, ref, child) {
-                      final contactsState = ref.watch(contactsNotifierProvider);
-                      
-                      return contactsState.when(
-                        data: (state) {
-                          if (state.syncStatus == SyncStatus.permissionDenied) {
-                            return ContactsEmptyStatesWidget.buildPermissionScreen(
-                              context,
-                              () async {
-                                final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-                                await contactsNotifier.requestPermission();
-                              },
-                            );
-                          }
-                          
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _updateFilteredContacts();
-                          });
-                          
-                          return _buildWeChatContactsList(state);
-                        },
-                        loading: () => ContactsEmptyStatesWidget.buildLoadingState(
-                          context, 
-                          'Loading contacts...'
-                        ),
-                        error: (error, stackTrace) => ContactsEmptyStatesWidget.buildErrorState(
-                          context,
-                          error.toString(),
-                          _forceSyncContacts,
-                        ),
-                      );
-                    },
-                  ),
+        appBar: AppBar(
+          backgroundColor: theme.surfaceColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_rounded,
+              color: theme.textColor,
+              size: 20,
+            ),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            },
+          ),
+          title: Text(
+            'Contacts',
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          centerTitle: false,
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
+                ? Brightness.light 
+                : Brightness.dark,
+            statusBarBrightness: Theme.of(context).brightness,
+          ),
+        ),
+        body: Column(
+          children: [
+            _buildWeChatHeader(theme),
+            
+            Expanded(
+              child: Container(
+                color: theme.surfaceColor,
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final contactsState = ref.watch(contactsNotifierProvider);
+                    
+                    return contactsState.when(
+                      data: (state) {
+                        if (state.syncStatus == SyncStatus.permissionDenied) {
+                          return ContactsEmptyStatesWidget.buildPermissionScreen(
+                            context,
+                            () async {
+                              final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+                              await contactsNotifier.requestPermission();
+                            },
+                          );
+                        }
+                        
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _updateFilteredContacts();
+                        });
+                        
+                        return _buildWeChatContactsList(state);
+                      },
+                      loading: () => ContactsEmptyStatesWidget.buildLoadingState(
+                        context, 
+                        'Loading contacts...'
+                      ),
+                      error: (error, stackTrace) => ContactsEmptyStatesWidget.buildErrorState(
+                        context,
+                        error.toString(),
+                        _forceSyncContacts,
+                      ),
+                    );
+                  },
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

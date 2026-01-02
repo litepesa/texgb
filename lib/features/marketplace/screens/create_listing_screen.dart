@@ -11,6 +11,7 @@ import 'package:textgb/features/marketplace/providers/marketplace_provider.dart'
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/marketplace/services/marketplace_thumbnail_service.dart';
+import 'package:textgb/features/users/widgets/seller_required_banner_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
@@ -918,8 +919,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     final uploadProgress = _uploadProgress;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final currentUser = ref.watch(currentUserProvider);
-    // Use canPost field instead of hasPaid - more appropriate for posting permissions
-    final canPost = currentUser?.canPost ?? false;
+    // Use isSeller field to check if user can create marketplace listings
+    final canPost = currentUser?.isSeller ?? false;
     final modernTheme = context.modernTheme;
     
     if (!isAuthenticated) {
@@ -1242,15 +1243,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: !canPost 
-                          ? const Text('Payment Required to Post')
+                      child: !canPost
+                          ? const Text('Seller Account Required')
                           : (_isProcessing
-                              ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
-                                  ? 'Processing...' 
+                              ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0
+                                  ? 'Processing...'
                                   : 'Processing...')
                               : (isUploading
                                   ? const Text('Uploading...')
-                                  : const Text('Post Video'))),
+                                  : const Text('Post Listing'))),
                     ),
                   ),
                   
@@ -1259,13 +1260,11 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
               ),
             ),
           ),
-          if (!canPost)
-            Positioned(
-              top: MediaQuery.of(context).size.height * 0.25,
-              left: 16,
-              right: 16,
-              child: _buildMarketplaceBanner(modernTheme),
-            ),
+          // Seller required banner (matches position in users list screen)
+          SellerRequiredBannerWidget(
+            verticalPosition: 0.35,
+            horizontalMargin: 16,
+          ),
         ],
       ),
     );

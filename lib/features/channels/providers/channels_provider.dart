@@ -104,7 +104,8 @@ class ChannelActions extends _$ChannelActions {
   }
 
   /// Create new channel
-  Future<ChannelModel?> createChannel({
+  /// Returns a Map with either 'channel' (ChannelModel) or 'error' (String) key
+  Future<Map<String, dynamic>> createChannel({
     required String name,
     required String description,
     required ChannelType type,
@@ -115,7 +116,7 @@ class ChannelActions extends _$ChannelActions {
 
     try {
       final repository = ref.read(channelRepositoryProvider);
-      final channel = await repository.createChannel(
+      final result = await repository.createChannel(
         name: name,
         description: description,
         type: type,
@@ -123,17 +124,32 @@ class ChannelActions extends _$ChannelActions {
         avatar: avatar,
       );
 
-      if (channel != null) {
+      if (result['channel'] != null) {
         // Invalidate channels list to refresh
         ref.invalidate(channelsListProvider);
         ref.invalidate(subscribedChannelsProvider);
       }
 
       state = const AsyncValue.data(null);
-      return channel;
+      return result;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
-      return null;
+      return {
+        'error': 'An unexpected error occurred',
+      };
+    }
+  }
+
+  /// Check if a channel name is available
+  Future<Map<String, dynamic>> checkNameAvailability(String name) async {
+    try {
+      final repository = ref.read(channelRepositoryProvider);
+      return await repository.checkNameAvailability(name);
+    } catch (e) {
+      return {
+        'available': false,
+        'message': 'Error checking availability',
+      };
     }
   }
 

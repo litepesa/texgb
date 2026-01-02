@@ -1,5 +1,6 @@
 // lib/features/channels/screens/create_channel_screen.dart
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,12 +31,67 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
   File? _avatarImage;
   final ImagePicker _picker = ImagePicker();
 
+  // Name availability checking
+  Timer? _nameCheckTimer;
+  bool _isCheckingName = false;
+  bool? _isNameAvailable;
+  String? _nameAvailabilityMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onNameChanged);
+  }
+
   @override
   void dispose() {
+    _nameCheckTimer?.cancel();
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
     super.dispose();
+  }
+
+  void _onNameChanged() {
+    // Cancel any existing timer
+    _nameCheckTimer?.cancel();
+
+    final name = _nameController.text.trim();
+
+    // Reset state if name is too short
+    if (name.length < 3) {
+      setState(() {
+        _isCheckingName = false;
+        _isNameAvailable = null;
+        _nameAvailabilityMessage = null;
+      });
+      return;
+    }
+
+    // Set checking state
+    setState(() {
+      _isCheckingName = true;
+      _isNameAvailable = null;
+    });
+
+    // Debounce: check after 500ms of no typing
+    _nameCheckTimer = Timer(const Duration(milliseconds: 500), () {
+      _checkNameAvailability(name);
+    });
+  }
+
+  Future<void> _checkNameAvailability(String name) async {
+    final actionsNotifier = ref.read(channelActionsProvider.notifier);
+    final result = await actionsNotifier.checkNameAvailability(name);
+
+    if (mounted) {
+      setState(() {
+        _isCheckingName = false;
+        _isNameAvailable = result['available'] as bool?;
+        _nameAvailabilityMessage = result['message'] as String?;
+      });
+    }
   }
 
   ModernThemeExtension _getModernTheme() {
@@ -160,9 +216,18 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                   borderSide: BorderSide(color: modernTheme.primaryColor!, width: 2),
                 ),
                 prefixIcon: Icon(Icons.tv, color: modernTheme.textSecondaryColor),
+                suffixIcon: _buildNameAvailabilityIcon(modernTheme),
                 filled: true,
                 fillColor: modernTheme.surfaceColor,
                 counterStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                helperText: _nameAvailabilityMessage,
+                helperStyle: TextStyle(
+                  color: _isNameAvailable == true
+                      ? Colors.green
+                      : _isNameAvailable == false
+                          ? Colors.red
+                          : modernTheme.textSecondaryColor,
+                ),
               ),
               maxLength: 50,
               validator: (value) {
@@ -171,6 +236,9 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                 }
                 if (value.trim().length < 3) {
                   return 'Name must be at least 3 characters';
+                }
+                if (_isNameAvailable == false) {
+                  return 'This channel name is already taken';
                 }
                 return null;
               },
@@ -567,6 +635,29 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
     );
   }
 
+  Widget? _buildNameAvailabilityIcon(ModernThemeExtension modernTheme) {
+    if (_isCheckingName) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_isNameAvailable == true) {
+      return const Icon(Icons.check_circle, color: Colors.green);
+    }
+
+    if (_isNameAvailable == false) {
+      return const Icon(Icons.cancel, color: Colors.red);
+    }
+
+    return null;
+  }
+
   Future<void> _createChannel() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -576,7 +667,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
 
     try {
       final actionsNotifier = ref.read(channelActionsProvider.notifier);
-      final channel = await actionsNotifier.createChannel(
+      final result = await actionsNotifier.createChannel(
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         type: _selectedType,
@@ -587,8 +678,9 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
       );
 
       if (mounted) {
-        if (channel != null) {
+        if (result['channel'] != null) {
           // Success - navigate to the new channel
+          final channel = result['channel'] as ChannelModel;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${channel.name} created successfully!'),
@@ -599,11 +691,13 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
           Navigator.pop(context);
           context.goToChannelDetail(channel.id);
         } else {
-          // Failed
+          // Failed - show specific error message
+          final errorMessage = result['error'] as String? ?? 'Failed to create channel. Please try again.';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to create channel. Please try again.'),
+            SnackBar(
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
             ),
           );
           setState(() => _isCreating = false);
