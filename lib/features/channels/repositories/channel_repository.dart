@@ -346,11 +346,11 @@ class ChannelRepository {
   /// Get single post
   Future<ChannelPost?> getPost(String postId) async {
     try {
-      final response = await _httpClient.get('/channels/posts/$postId');
+      final response = await _httpClient.get('/channel-posts/$postId');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ChannelPost.fromJson(data);
+        return ChannelPost.fromJson(data['post'] ?? data);
       }
 
       return null;
@@ -468,7 +468,7 @@ class ChannelRepository {
         if (previewDuration != null) 'preview_duration_seconds': previewDuration,
       };
 
-      final response = await _httpClient.post('/posts', body: body);
+      final response = await _httpClient.post('/channel-posts', body: body);
 
       onUploadProgress?.call(1.0);
 
@@ -477,7 +477,7 @@ class ChannelRepository {
         return ChannelPost.fromJson(data['post'] ?? data);
       }
 
-      print('Create post failed: ${response.statusCode} - ${response.body}');
+      print('Create channel post failed: ${response.statusCode} - ${response.body}');
       return null;
     } catch (e, stackTrace) {
       print('Error creating post: $e');
@@ -489,7 +489,7 @@ class ChannelRepository {
   /// Delete post
   Future<bool> deletePost(String postId) async {
     try {
-      final response = await _httpClient.delete('/posts/$postId');
+      final response = await _httpClient.delete('/channel-posts/$postId');
       return response.statusCode == 200;
     } catch (e) {
       print('Error deleting post: $e');
@@ -500,7 +500,7 @@ class ChannelRepository {
   /// Like post
   Future<bool> likePost(String postId) async {
     try {
-      final response = await _httpClient.post('/posts/$postId/like');
+      final response = await _httpClient.post('/channel-posts/$postId/like');
       return response.statusCode == 200;
     } catch (e) {
       print('Error liking post: $e');
@@ -511,7 +511,7 @@ class ChannelRepository {
   /// Unlike post
   Future<bool> unlikePost(String postId) async {
     try {
-      final response = await _httpClient.delete('/posts/$postId/like');
+      final response = await _httpClient.delete('/channel-posts/$postId/like');
       return response.statusCode == 200;
     } catch (e) {
       print('Error unliking post: $e');
@@ -522,7 +522,7 @@ class ChannelRepository {
   /// Unlock premium post
   Future<bool> unlockPost(String postId) async {
     try {
-      final response = await _httpClient.post('/posts/$postId/unlock');
+      final response = await _httpClient.post('/channel-posts/$postId/unlock');
       return response.statusCode == 200;
     } catch (e) {
       print('Error unlocking post: $e');
@@ -553,7 +553,7 @@ class ChannelRepository {
           .join('&');
 
       final response = await _httpClient.get(
-        '/channels/posts/$postId/comments?$queryString',
+        '/channel-posts/$postId/comments?$queryString',
       );
 
       if (response.statusCode == 200) {
@@ -584,11 +584,11 @@ class ChannelRepository {
         if (parentCommentId != null) 'parent_comment_id': parentCommentId,
       };
 
-      final response = await _httpClient.post('/channels/comments', body: body);
+      final response = await _httpClient.post('/comments', body: body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return ChannelComment.fromJson(data);
+        return ChannelComment.fromJson(data['comment'] ?? data);
       }
 
       return null;
@@ -601,7 +601,7 @@ class ChannelRepository {
   /// Delete comment
   Future<bool> deleteComment(String commentId) async {
     try {
-      final response = await _httpClient.delete('/channels/comments/$commentId');
+      final response = await _httpClient.delete('/comments/$commentId');
       return response.statusCode == 200;
     } catch (e) {
       print('Error deleting comment: $e');
@@ -612,7 +612,7 @@ class ChannelRepository {
   /// Like comment
   Future<bool> likeComment(String commentId) async {
     try {
-      final response = await _httpClient.post('/channels/comments/$commentId/like');
+      final response = await _httpClient.post('/comments/$commentId/like');
       return response.statusCode == 200;
     } catch (e) {
       print('Error liking comment: $e');
@@ -623,7 +623,7 @@ class ChannelRepository {
   /// Pin comment (admin/mod only)
   Future<bool> pinComment(String commentId) async {
     try {
-      final response = await _httpClient.post('/channels/comments/$commentId/pin');
+      final response = await _httpClient.post('/comments/$commentId/pin');
       return response.statusCode == 200;
     } catch (e) {
       print('Error pinning comment: $e');

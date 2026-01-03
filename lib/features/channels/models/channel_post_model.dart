@@ -86,6 +86,42 @@ class ChannelPost {
   });
 
   factory ChannelPost.fromJson(Map<String, dynamic> json) {
+    // Parse image URLs from multiple possible sources
+    List<String>? imageUrls;
+    if (json['imageUrls'] != null) {
+      imageUrls = (json['imageUrls'] as List<dynamic>).map((e) => e as String).toList();
+    } else if (json['image_urls'] != null) {
+      imageUrls = (json['image_urls'] as List<dynamic>).map((e) => e as String).toList();
+    } else if (json['mediaUrls'] != null) {
+      imageUrls = (json['mediaUrls'] as List<dynamic>).map((e) => e as String).toList();
+    } else if (json['media_urls'] != null) {
+      imageUrls = (json['media_urls'] as List<dynamic>).map((e) => e as String).toList();
+    }
+
+    // Parse thumbnail URL from multiple possible sources
+    String? thumbnailUrl = json['thumbnailUrl'] as String? ??
+                          json['thumbnail_url'] as String? ??
+                          json['mediaThumbnailUrl'] as String? ??
+                          json['media_thumbnail_url'] as String?;
+
+    // Parse duration from multiple possible sources
+    int? fullDuration = json['fullDuration'] as int? ??
+                       json['full_duration'] as int? ??
+                       json['mediaDurationSeconds'] as int? ??
+                       json['media_duration_seconds'] as int?;
+
+    // Parse file size from multiple possible sources
+    int? fileSize = json['fileSize'] as int? ??
+                   json['file_size'] as int? ??
+                   json['mediaSizeBytes'] as int? ??
+                   json['media_size_bytes'] as int?;
+
+    // Parse unlocked status from multiple possible sources
+    bool? hasUnlocked = json['hasUnlocked'] as bool? ??
+                       json['has_unlocked'] as bool? ??
+                       json['isUnlocked'] as bool? ??
+                       json['is_unlocked'] as bool?;
+
     return ChannelPost(
       id: json['id'] as String,
       channelId: json['channelId'] as String? ?? json['channel_id'] as String?,
@@ -97,23 +133,22 @@ class ChannelPost {
       contentType: _postContentTypeFromString(json['contentType'] as String? ?? json['content_type'] as String?),
       text: json['text'] as String?,
       mediaUrl: json['mediaUrl'] as String? ?? json['media_url'] as String?,
-      imageUrls: (json['imageUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-                 (json['image_urls'] as List<dynamic>?)?.map((e) => e as String).toList(),
-      thumbnailUrl: json['thumbnailUrl'] as String? ?? json['thumbnail_url'] as String?,
+      imageUrls: imageUrls,
+      thumbnailUrl: thumbnailUrl,
       isPremium: json['isPremium'] as bool? ?? json['is_premium'] as bool? ?? false,
       priceCoins: json['priceCoins'] as int? ?? json['price_coins'] as int?,
-      previewDuration: json['previewDuration'] as int? ?? json['preview_duration'] as int?,
-      fullDuration: json['fullDuration'] as int? ?? json['full_duration'] as int?,
-      fileSize: json['fileSize'] as int? ?? json['file_size'] as int?,
+      previewDuration: json['previewDuration'] as int? ?? json['preview_duration'] as int? ?? json['previewDurationSeconds'] as int? ?? json['preview_duration_seconds'] as int?,
+      fullDuration: fullDuration,
+      fileSize: fileSize,
       views: json['views'] as int? ?? 0,
       likes: json['likes'] as int? ?? 0,
       commentsCount: json['commentsCount'] as int? ?? json['comments_count'] as int? ?? 0,
-      unlocksCount: json['unlocksCount'] as int? ?? json['unlocks_count'] as int? ?? 0,
+      unlocksCount: json['unlocksCount'] as int? ?? json['unlocks_count'] as int? ?? json['unlocks'] as int? ?? 0,
       sharesCount: json['sharesCount'] as int? ?? json['shares_count'] as int? ?? 0,
       commentsEnabled: json['commentsEnabled'] as bool? ?? json['comments_enabled'] as bool? ?? true,
       isPinned: json['isPinned'] as bool? ?? json['is_pinned'] as bool? ?? false,
       hasLiked: json['hasLiked'] as bool? ?? json['has_liked'] as bool?,
-      hasUnlocked: json['hasUnlocked'] as bool? ?? json['has_unlocked'] as bool?,
+      hasUnlocked: hasUnlocked,
       hasViewed: json['hasViewed'] as bool? ?? json['has_viewed'] as bool?,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) :
                  (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null),
