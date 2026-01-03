@@ -260,7 +260,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
                 // Author Info
                 Expanded(
                   child: Text(
-                    post.authorName,
+                    post.authorName ?? 'Unknown Author',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
