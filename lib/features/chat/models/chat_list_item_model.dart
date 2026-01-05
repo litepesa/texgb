@@ -22,7 +22,7 @@ class ChatListItemModel {
   String getDisplayTime() {
     final now = DateTime.now();
     final difference = now.difference(chat.lastMessageTime);
-    
+
     if (difference.inMinutes < 1) {
       return 'now';
     } else if (difference.inMinutes < 60) {
@@ -41,9 +41,10 @@ class ChatListItemModel {
 
   String getLastMessagePreview({String? currentUserId}) {
     // Determine if the last message was sent by the current user
-    final isCurrentUserSender = currentUserId != null && chat.lastMessageSender == currentUserId;
+    final isCurrentUserSender =
+        currentUserId != null && chat.lastMessageSender == currentUserId;
     final prefix = isCurrentUserSender ? 'You: ' : '';
-    
+
     switch (chat.lastMessageType) {
       case MessageEnum.text:
         return '$prefix${chat.lastMessage}';

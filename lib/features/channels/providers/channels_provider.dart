@@ -150,7 +150,8 @@ class ChannelActions extends _$ChannelActions {
   }
 
   /// Update channel
-  Future<bool> updateChannel(String channelId, Map<String, dynamic> updates) async {
+  Future<bool> updateChannel(
+      String channelId, Map<String, dynamic> updates) async {
     state = const AsyncValue.loading();
 
     try {

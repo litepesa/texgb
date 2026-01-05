@@ -4,7 +4,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 class CustomErrorWidget extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
-  
+
   const CustomErrorWidget({
     super.key,
     required this.error,
@@ -14,7 +14,7 @@ class CustomErrorWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -49,7 +49,8 @@ class CustomErrorWidget extends StatelessWidget {
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               child: const Text('Retry'),
             ),

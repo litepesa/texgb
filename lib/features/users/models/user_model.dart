@@ -45,7 +45,8 @@ class UserPreferences {
   factory UserPreferences.fromMap(Map<String, dynamic> map) {
     return UserPreferences(
       autoPlay: map['autoPlay'] ?? map['auto_play'] ?? true,
-      receiveNotifications: map['receiveNotifications'] ?? map['receive_notifications'] ?? true,
+      receiveNotifications:
+          map['receiveNotifications'] ?? map['receive_notifications'] ?? true,
       darkMode: map['darkMode'] ?? map['dark_mode'] ?? false,
     );
   }
@@ -87,37 +88,40 @@ class UserModel {
   final int videosCount;
   final int likesCount;
   final bool isVerified;
-  
+
   // ===============================
   // PERMISSION FIELDS (Staff roles)
   // ===============================
-  final bool isAdmin;       // Platform administrator (full control)
-  final bool isModerator;   // Content moderator (can moderate content, ban users)
+  final bool isAdmin; // Platform administrator (full control)
+  final bool isModerator; // Content moderator (can moderate content, ban users)
 
   // ===============================
   // BUSINESS/COMMERCE ROLE
   // ===============================
-  final bool isSeller;      // Marketplace seller (can list products for sale)
+  final bool isSeller; // Marketplace seller (can list products for sale)
 
   // ===============================
   // NEW PROFILE FIELDS
   // ===============================
-  final String? gender;      // NEW: User gender (male/female)
-  final String? location;    // NEW: User location (e.g., "Nairobi, Kenya")
-  final String? language;    // NEW: User native language (e.g., "English", "Swahili")
+  final String? gender; // NEW: User gender (male/female)
+  final String? location; // NEW: User location (e.g., "Nairobi, Kenya")
+  final String?
+      language; // NEW: User native language (e.g., "English", "Swahili")
 
   // ===============================
   // PAYMENT FIELDS (M-Pesa activation payment)
   // ===============================
-  final bool hasPaid;        // NEW: Has user paid KES 99 activation fee
+  final bool hasPaid; // NEW: Has user paid KES 99 activation fee
   final String? paymentDate; // NEW: Date when user paid activation fee
 
   // ===============================
   // BAN/RESTRICTION FIELDS (Admin controlled)
   // ===============================
-  final bool canComment;     // NEW: Can user comment on threads? (true = yes, false = banned from commenting)
-  final bool canPost;        // NEW: Can user post videos? (true = yes, false = banned from posting)
-  
+  final bool
+      canComment; // NEW: Can user comment on threads? (true = yes, false = banned from commenting)
+  final bool
+      canPost; // NEW: Can user post videos? (true = yes, false = banned from posting)
+
   // ===============================
   // OTHER FIELDS
   // ===============================
@@ -130,7 +134,7 @@ class UserModel {
   final String lastSeen;
   final bool isActive;
   final bool isFeatured;
-  final bool isLive;         // NEW: Track if user is currently live streaming
+  final bool isLive; // NEW: Track if user is currently live streaming
   final String? lastPostAt;
   final UserPreferences preferences;
 
@@ -147,16 +151,16 @@ class UserModel {
     required this.videosCount,
     required this.likesCount,
     required this.isVerified,
-    this.isAdmin = false,       // NEW: Default = false (not admin)
-    this.isModerator = false,   // NEW: Default = false (not moderator)
-    this.isSeller = false,      // NEW: Default = false (not seller)
-    this.gender,      // NEW
-    this.location,    // NEW
-    this.language,    // NEW
-    this.hasPaid = true,   // NEW: Default = true (grandfathered users)
-    this.paymentDate,      // NEW
-    this.canComment = true,  // NEW: Default = true (not banned)
-    this.canPost = true,     // NEW: Default = true (not banned)
+    this.isAdmin = false, // NEW: Default = false (not admin)
+    this.isModerator = false, // NEW: Default = false (not moderator)
+    this.isSeller = false, // NEW: Default = false (not seller)
+    this.gender, // NEW
+    this.location, // NEW
+    this.language, // NEW
+    this.hasPaid = true, // NEW: Default = true (grandfathered users)
+    this.paymentDate, // NEW
+    this.canComment = true, // NEW: Default = true (not banned)
+    this.canPost = true, // NEW: Default = true (not banned)
     required this.tags,
     required this.followerUIDs,
     required this.followingUIDs,
@@ -166,7 +170,7 @@ class UserModel {
     required this.lastSeen,
     required this.isActive,
     required this.isFeatured,
-    this.isLive = false,  // NEW
+    this.isLive = false, // NEW
     this.lastPostAt,
     this.preferences = const UserPreferences(),
   });
@@ -175,20 +179,27 @@ class UserModel {
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       uid: _extractString(map['uid'] ?? map['id']) ?? '',
-      phoneNumber: _extractString(map['phoneNumber'] ?? map['phone_number']) ?? '',
-      mpesaNumber: _extractMpesaNumber(map['mpesaNumber'] ?? map['mpesa_number']),
+      phoneNumber:
+          _extractString(map['phoneNumber'] ?? map['phone_number']) ?? '',
+      mpesaNumber:
+          _extractMpesaNumber(map['mpesaNumber'] ?? map['mpesa_number']),
       name: _extractString(map['name']) ?? '',
       bio: _extractString(map['bio']) ?? '',
-      profileImage: _extractString(map['profileImage'] ?? map['profile_image']) ?? '',
+      profileImage:
+          _extractString(map['profileImage'] ?? map['profile_image']) ?? '',
       coverImage: _extractString(map['coverImage'] ?? map['cover_image']) ?? '',
-      followers: _extractInt(map['followersCount'] ?? map['followers_count']) ?? 0,
-      following: _extractInt(map['followingCount'] ?? map['following_count']) ?? 0,
+      followers:
+          _extractInt(map['followersCount'] ?? map['followers_count']) ?? 0,
+      following:
+          _extractInt(map['followingCount'] ?? map['following_count']) ?? 0,
       videosCount: _extractInt(map['videosCount'] ?? map['videos_count']) ?? 0,
       likesCount: _extractInt(map['likesCount'] ?? map['likes_count']) ?? 0,
-      isVerified: _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
+      isVerified:
+          _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
       // NEW: Extract admin/moderator/seller flags
       isAdmin: _extractBool(map['isAdmin'] ?? map['is_admin']) ?? false,
-      isModerator: _extractBool(map['isModerator'] ?? map['is_moderator']) ?? false,
+      isModerator:
+          _extractBool(map['isModerator'] ?? map['is_moderator']) ?? false,
       isSeller: _extractBool(map['isSeller'] ?? map['is_seller']) ?? false,
       // NEW: Extract profile fields
       gender: _extractString(map['gender']),
@@ -202,15 +213,19 @@ class UserModel {
       canComment: _extractBool(map['canComment'] ?? map['can_comment']) ?? true,
       canPost: _extractBool(map['canPost'] ?? map['can_post']) ?? true,
       tags: _parseStringArray(map['tags']),
-      followerUIDs: _parseStringArray(map['followerUIDs'] ?? map['follower_uids'] ?? map['follower_UIDs']),
-      followingUIDs: _parseStringArray(map['followingUIDs'] ?? map['following_uids'] ?? map['following_UIDs']),
+      followerUIDs: _parseStringArray(
+          map['followerUIDs'] ?? map['follower_uids'] ?? map['follower_UIDs']),
+      followingUIDs: _parseStringArray(map['followingUIDs'] ??
+          map['following_uids'] ??
+          map['following_UIDs']),
       likedVideos: _parseStringArray(map['likedVideos'] ?? map['liked_videos']),
       createdAt: _extractString(map['createdAt'] ?? map['created_at']) ?? '',
       updatedAt: _extractString(map['updatedAt'] ?? map['updated_at']) ?? '',
       lastSeen: _extractString(map['lastSeen'] ?? map['last_seen']) ?? '',
       isActive: _extractBool(map['isActive'] ?? map['is_active']) ?? true,
-      isFeatured: _extractBool(map['isFeatured'] ?? map['is_featured']) ?? false,
-      isLive: _extractBool(map['isLive'] ?? map['is_live']) ?? false,  // NEW
+      isFeatured:
+          _extractBool(map['isFeatured'] ?? map['is_featured']) ?? false,
+      isLive: _extractBool(map['isLive'] ?? map['is_live']) ?? false, // NEW
       lastPostAt: _extractString(map['lastPostAt'] ?? map['last_post_at']),
       preferences: UserPreferences.fromMap(
         (map['preferences'] as Map<String, dynamic>?) ?? <String, dynamic>{},
@@ -270,21 +285,25 @@ class UserModel {
 
   static List<String> _parseStringArray(dynamic value) {
     if (value == null) return [];
-    
+
     if (value is List) {
-      return value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      return value
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
-    
+
     if (value is String) {
       if (value.isEmpty || value == '{}' || value == '[]') return [];
       String cleaned = value.replaceAll(RegExp(r'[{}"\[\]]'), '');
       if (cleaned.isEmpty) return [];
-      return cleaned.split(',')
+      return cleaned
+          .split(',')
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty)
           .toList();
     }
-    
+
     return [];
   }
 
@@ -296,15 +315,15 @@ class UserModel {
     String? mpesaNumber,
     required String profileImage,
     required String bio,
-    bool isAdmin = false,      // NEW: Default false
-    bool isModerator = false,  // NEW: Default false
-    bool isSeller = false,     // NEW: Default false
+    bool isAdmin = false, // NEW: Default false
+    bool isModerator = false, // NEW: Default false
+    bool isSeller = false, // NEW: Default false
     String? gender,
     String? location,
     String? language,
-    bool hasPaid = false,      // NEW: Default false for new users (must pay KES 100)
-    bool canComment = true,    // NEW: Default true
-    bool canPost = true,       // NEW: Default true
+    bool hasPaid = false, // NEW: Default false for new users (must pay KES 100)
+    bool canComment = true, // NEW: Default true
+    bool canPost = true, // NEW: Default true
   }) {
     final now = DateTime.now().toUtc().toIso8601String();
     return UserModel(
@@ -320,15 +339,15 @@ class UserModel {
       videosCount: 0,
       likesCount: 0,
       isVerified: false,
-      isAdmin: isAdmin,          // NEW
-      isModerator: isModerator,  // NEW
-      isSeller: isSeller,        // NEW
-      gender: gender,        // NEW
-      location: location,    // NEW
-      language: language,    // NEW
-      hasPaid: hasPaid,      // NEW: Explicitly set for new users
-      canComment: canComment,  // NEW
-      canPost: canPost,        // NEW
+      isAdmin: isAdmin, // NEW
+      isModerator: isModerator, // NEW
+      isSeller: isSeller, // NEW
+      gender: gender, // NEW
+      location: location, // NEW
+      language: language, // NEW
+      hasPaid: hasPaid, // NEW: Explicitly set for new users
+      canComment: canComment, // NEW
+      canPost: canPost, // NEW
       tags: [],
       followerUIDs: [],
       followingUIDs: [],
@@ -338,7 +357,7 @@ class UserModel {
       lastSeen: now,
       isActive: true,
       isFeatured: false,
-      isLive: false,         // NEW
+      isLive: false, // NEW
       lastPostAt: null,
       preferences: const UserPreferences(),
     );
@@ -355,16 +374,16 @@ class UserModel {
       'coverImage': coverImage,
       'bio': bio,
       'userType': 'user',
-      'isAdmin': isAdmin,          // NEW
-      'isModerator': isModerator,  // NEW
-      'isSeller': isSeller,        // NEW
-      'gender': gender,        // NEW
-      'location': location,    // NEW
-      'language': language,    // NEW
-      'hasPaid': hasPaid,      // NEW
+      'isAdmin': isAdmin, // NEW
+      'isModerator': isModerator, // NEW
+      'isSeller': isSeller, // NEW
+      'gender': gender, // NEW
+      'location': location, // NEW
+      'language': language, // NEW
+      'hasPaid': hasPaid, // NEW
       'paymentDate': paymentDate, // NEW
-      'canComment': canComment,  // NEW
-      'canPost': canPost,        // NEW
+      'canComment': canComment, // NEW
+      'canPost': canPost, // NEW
       'followersCount': followers,
       'followingCount': following,
       'videosCount': videosCount,
@@ -372,7 +391,7 @@ class UserModel {
       'isVerified': isVerified,
       'isActive': isActive,
       'isFeatured': isFeatured,
-      'isLive': isLive,        // NEW
+      'isLive': isLive, // NEW
       'tags': _formatArrayForPostgreSQL(tags),
       'createdAt': createdAt,
       'updatedAt': updatedAt,
@@ -403,16 +422,16 @@ class UserModel {
     int? videosCount,
     int? likesCount,
     bool? isVerified,
-    bool? isAdmin,         // NEW
-    bool? isModerator,     // NEW
-    bool? isSeller,        // NEW
-    String? gender,        // NEW
-    String? location,      // NEW
-    String? language,      // NEW
-    bool? hasPaid,         // NEW
-    String? paymentDate,   // NEW
-    bool? canComment,      // NEW
-    bool? canPost,         // NEW
+    bool? isAdmin, // NEW
+    bool? isModerator, // NEW
+    bool? isSeller, // NEW
+    String? gender, // NEW
+    String? location, // NEW
+    String? language, // NEW
+    bool? hasPaid, // NEW
+    String? paymentDate, // NEW
+    bool? canComment, // NEW
+    bool? canPost, // NEW
     List<String>? tags,
     List<String>? followerUIDs,
     List<String>? followingUIDs,
@@ -422,7 +441,7 @@ class UserModel {
     String? lastSeen,
     bool? isActive,
     bool? isFeatured,
-    bool? isLive,          // NEW
+    bool? isLive, // NEW
     String? lastPostAt,
     UserPreferences? preferences,
   }) {
@@ -439,16 +458,16 @@ class UserModel {
       videosCount: videosCount ?? this.videosCount,
       likesCount: likesCount ?? this.likesCount,
       isVerified: isVerified ?? this.isVerified,
-      isAdmin: isAdmin ?? this.isAdmin,              // NEW
-      isModerator: isModerator ?? this.isModerator,  // NEW
-      isSeller: isSeller ?? this.isSeller,           // NEW
-      gender: gender ?? this.gender,              // NEW
-      location: location ?? this.location,        // NEW
-      language: language ?? this.language,        // NEW
-      hasPaid: hasPaid ?? this.hasPaid,           // NEW
+      isAdmin: isAdmin ?? this.isAdmin, // NEW
+      isModerator: isModerator ?? this.isModerator, // NEW
+      isSeller: isSeller ?? this.isSeller, // NEW
+      gender: gender ?? this.gender, // NEW
+      location: location ?? this.location, // NEW
+      language: language ?? this.language, // NEW
+      hasPaid: hasPaid ?? this.hasPaid, // NEW
       paymentDate: paymentDate ?? this.paymentDate, // NEW
-      canComment: canComment ?? this.canComment,  // NEW
-      canPost: canPost ?? this.canPost,           // NEW
+      canComment: canComment ?? this.canComment, // NEW
+      canPost: canPost ?? this.canPost, // NEW
       tags: tags ?? this.tags,
       followerUIDs: followerUIDs ?? this.followerUIDs,
       followingUIDs: followingUIDs ?? this.followingUIDs,
@@ -458,7 +477,7 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
-      isLive: isLive ?? this.isLive,              // NEW
+      isLive: isLive ?? this.isLive, // NEW
       lastPostAt: lastPostAt ?? this.lastPostAt,
       preferences: preferences ?? this.preferences,
     );
@@ -476,7 +495,7 @@ class UserModel {
   bool get canAccessAdminPanel => isAdmin;
   bool get canManageUsers => isAdmin;
   bool get canManageContent => isAdmin || isModerator;
-  
+
   String get userTypeDisplay {
     if (isAdmin && isModerator) return 'Super Admin';
     if (isAdmin) return 'Administrator';
@@ -490,7 +509,7 @@ class UserModel {
   bool get isBannedFromPosting => !canPost;
   bool get isFullyBanned => !canComment && !canPost;
   bool get hasAnyRestrictions => !canComment || !canPost;
-  
+
   String get banStatusDescription {
     if (isFullyBanned) return 'Banned from commenting and posting';
     if (isBannedFromCommenting) return 'Banned from commenting';
@@ -519,32 +538,32 @@ class UserModel {
 
   // NEW: Gender helper methods
   bool get hasGender => gender != null && gender!.isNotEmpty;
-  
+
   UserGender? get genderEnum => UserGender.fromString(gender);
-  
+
   String get genderDisplay {
     final g = genderEnum;
     return g?.displayName ?? 'Not specified';
   }
-  
+
   bool get isMale => genderEnum == UserGender.male;
   bool get isFemale => genderEnum == UserGender.female;
 
   // NEW: Location helper methods
   bool get hasLocation => location != null && location!.isNotEmpty;
-  
+
   String get locationDisplay => location ?? 'Location not set';
 
   // NEW: Language helper methods
   bool get hasLanguage => language != null && language!.isNotEmpty;
-  
+
   String get languageDisplay => language ?? 'Language not set';
 
   // Timestamp helper methods
   DateTime get lastSeenDateTime => DateTime.parse(lastSeen);
   DateTime get createdAtDateTime => DateTime.parse(createdAt);
   DateTime get updatedAtDateTime => DateTime.parse(updatedAt);
-  
+
   DateTime? get lastPostAtDateTime {
     if (lastPostAt == null || lastPostAt!.isEmpty) return null;
     try {
@@ -553,16 +572,16 @@ class UserModel {
       return null;
     }
   }
-  
+
   bool get hasPostedVideos => lastPostAt != null && lastPostAt!.isNotEmpty;
-  
+
   String get lastPostTimeAgo {
     final lastPost = lastPostAtDateTime;
     if (lastPost == null) return 'Never posted';
-    
+
     final now = DateTime.now();
     final difference = now.difference(lastPost);
-    
+
     if (difference.inDays > 365) {
       return '${(difference.inDays / 365).floor()}y ago';
     } else if (difference.inDays > 30) {
@@ -602,7 +621,8 @@ class UserModel {
         'tags_length': tags.length,
         'tags_type': tags.runtimeType.toString(),
         'tags_formatted': _formatArrayForPostgreSQL(tags),
-        'formatted_type': _formatArrayForPostgreSQL(tags).runtimeType.toString(),
+        'formatted_type':
+            _formatArrayForPostgreSQL(tags).runtimeType.toString(),
         'lastPostAt_value': lastPostAt,
         'hasPostedVideos': hasPostedVideos,
         'lastPostTimeAgo': lastPostTimeAgo,
@@ -648,37 +668,37 @@ class UserModel {
 
   List<String> validate() {
     List<String> errors = [];
-    
+
     if (uid.isEmpty) errors.add('UID cannot be empty');
     if (name.isEmpty) errors.add('Name cannot be empty');
     if (phoneNumber.isEmpty) errors.add('Phone number cannot be empty');
     if (name.length > 50) errors.add('Name cannot exceed 50 characters');
     if (bio.length > 160) errors.add('Bio cannot exceed 160 characters');
-    
+
     // Validate M-Pesa number format if provided
     if (mpesaNumber != null && mpesaNumber!.isNotEmpty) {
       if (!RegExp(r'^254\d{9}$').hasMatch(mpesaNumber!)) {
         errors.add('M-Pesa number must be in format 254XXXXXXXXX');
       }
     }
-    
+
     // NEW: Validate gender
     if (gender != null && gender!.isNotEmpty) {
       if (genderEnum == null) {
         errors.add('Gender must be either "male" or "female"');
       }
     }
-    
+
     // NEW: Validate location length
     if (location != null && location!.length > 255) {
       errors.add('Location cannot exceed 255 characters');
     }
-    
+
     // NEW: Validate language length
     if (language != null && language!.length > 100) {
       errors.add('Language cannot exceed 100 characters');
     }
-    
+
     return errors;
   }
 

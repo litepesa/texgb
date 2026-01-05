@@ -61,7 +61,7 @@ class SimpleSearchState {
   bool get isEmpty => status == SearchStatus.empty;
   bool get isError => status == SearchStatus.error;
   bool get hasResults => videos.isNotEmpty;
-  
+
   @override
   String toString() {
     return 'SimpleSearchState(status: $status, query: "$query", videos: ${videos.length}, total: $totalResults, usernameOnly: $usernameOnly)';
@@ -99,7 +99,7 @@ class VideoSearch extends _$VideoSearch {
     _debounceTimer?.cancel();
 
     final trimmed = query.trim();
-    
+
     // Clear results if query is too short
     if (trimmed.length < 2) {
       state = const SimpleSearchState();
@@ -140,7 +140,7 @@ class VideoSearch extends _$VideoSearch {
 
     try {
       debugPrint('📄 Loading more results (offset: ${state.videos.length})');
-      
+
       final repository = ref.read(searchRepositoryProvider);
       final response = await repository.searchVideos(
         query: state.query,
@@ -156,7 +156,8 @@ class VideoSearch extends _$VideoSearch {
         totalResults: response.total,
       );
 
-      debugPrint('✅ Loaded more: ${response.videos.length} videos (total: ${state.videos.length})');
+      debugPrint(
+          '✅ Loaded more: ${response.videos.length} videos (total: ${state.videos.length})');
     } catch (e) {
       debugPrint('❌ Load more error: $e');
       // Don't update state on pagination errors - just log it
@@ -194,7 +195,7 @@ class VideoSearch extends _$VideoSearch {
   Future<void> _performSearch(String query, bool usernameOnly) async {
     try {
       debugPrint('🔍 Searching: "$query" (usernameOnly: $usernameOnly)');
-      
+
       state = state.copyWith(
         status: SearchStatus.loading,
         query: query,
@@ -224,7 +225,8 @@ class VideoSearch extends _$VideoSearch {
           totalResults: response.total,
           hasMore: response.hasMore,
         );
-        debugPrint('✅ Search complete: ${response.videos.length} videos (total: ${response.total})');
+        debugPrint(
+            '✅ Search complete: ${response.videos.length} videos (total: ${response.total})');
       }
     } catch (e) {
       debugPrint('❌ Search failed: $e');
@@ -237,7 +239,8 @@ class VideoSearch extends _$VideoSearch {
   }
 
   // Helper to check if provider is still mounted
-  bool get mounted => state.status != SearchStatus.idle || state.query.isNotEmpty;
+  bool get mounted =>
+      state.status != SearchStatus.idle || state.query.isNotEmpty;
 }
 
 // ===============================

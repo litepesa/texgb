@@ -28,7 +28,7 @@ class ModernBottomNavBar extends StatelessWidget {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final effectiveElevation = elevation ?? (isDarkMode ? 1.0 : 2.0);
-    
+
     // Get system navigation height to add proper padding
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -36,9 +36,10 @@ class ModernBottomNavBar extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       // Adjust margins to ensure we're not too close to system navigation
       margin: EdgeInsets.only(
-        left: 16, 
-        right: 16, 
-        bottom: bottomPadding + 8, // Add bottom padding based on system nav height
+        left: 16,
+        right: 16,
+        bottom:
+            bottomPadding + 8, // Add bottom padding based on system nav height
         top: 12,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -59,7 +60,7 @@ class ModernBottomNavBar extends StatelessWidget {
         children: List.generate(items.length, (index) {
           final item = items[index];
           final isSelected = index == currentIndex;
-          
+
           return _NavItem(
             index: index,
             icon: item.icon,
@@ -118,9 +119,9 @@ class _NavItem extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isSelected 
-                      ? selectedColor.withOpacity(0.2) 
-                      : Colors.transparent,
+                    color: isSelected
+                        ? selectedColor.withOpacity(0.2)
+                        : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
                   child: IconTheme(
@@ -138,7 +139,8 @@ class _NavItem extends StatelessWidget {
                     style: TextStyle(
                       color: isSelected ? selectedColor : unselectedColor,
                       fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
                       height: 1.1,
                     ),
                     child: Text(

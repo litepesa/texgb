@@ -17,7 +17,8 @@ class StatusConstants {
   static const int textStatusDuration = 5;
   static const int imageStatusDuration = 5;
   static const int videoStatusMinDuration = 1;
-  static const int videoStatusMaxDuration = 30; // Max 30 seconds for status videos
+  static const int videoStatusMaxDuration =
+      30; // Max 30 seconds for status videos
 
   // Auto-advance delay between statuses (milliseconds)
   static const int autoAdvanceDelay = 300;
@@ -74,11 +75,17 @@ class StatusConstants {
   // ===============================
 
   // Ring gradient colors (viewed vs unviewed)
-  static const List<String> unviewedGradient = ['#FF6B6B', '#4ECDC4']; // Red to Teal
+  static const List<String> unviewedGradient = [
+    '#FF6B6B',
+    '#4ECDC4'
+  ]; // Red to Teal
   static const List<String> viewedGradient = ['#9CA3AF', '#9CA3AF']; // Gray
 
   // My status ring color
-  static const List<String> myStatusGradient = ['#3B82F6', '#8B5CF6']; // Blue to Purple
+  static const List<String> myStatusGradient = [
+    '#3B82F6',
+    '#8B5CF6'
+  ]; // Blue to Purple
 
   // ===============================
   // LIMITS

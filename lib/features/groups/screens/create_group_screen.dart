@@ -51,7 +51,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
         final authNotifier = ref.read(authenticationProvider.notifier);
         final uploadedUrl = await authNotifier.storeFileToStorage(
           file: _selectedImageFile!,
-          reference: 'groups/group_images/${DateTime.now().millisecondsSinceEpoch}.jpg',
+          reference:
+              'groups/group_images/${DateTime.now().millisecondsSinceEpoch}.jpg',
         );
 
         if (mounted) {
@@ -252,7 +253,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 color: modernTheme.infoColor?.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: modernTheme.infoColor?.withOpacity(0.3) ?? Colors.transparent,
+                  color: modernTheme.infoColor?.withOpacity(0.3) ??
+                      Colors.transparent,
                 ),
               ),
               child: Row(

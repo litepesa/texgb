@@ -5,7 +5,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 /// A full-screen video player overlay widget that can play videos from URLs.
-/// 
+///
 /// Features:
 /// - Full-screen video playback
 /// - Play/pause controls
@@ -119,17 +119,16 @@ class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
           children: [
             // Header with close button
             _buildHeader(modernTheme),
-            
+
             // Video player content
             Expanded(
               child: Center(
                 child: _buildVideoContent(modernTheme),
               ),
             ),
-            
+
             // Video controls
-            if (_isInitialized && !_hasError)
-              _buildVideoControls(modernTheme),
+            if (_isInitialized && !_hasError) _buildVideoControls(modernTheme),
           ],
         ),
       ),
@@ -186,7 +185,7 @@ class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
             aspectRatio: _videoPlayerController!.value.aspectRatio,
             child: VideoPlayer(_videoPlayerController!),
           ),
-          
+
           // Play/Pause overlay
           if (!_videoPlayerController!.value.isPlaying)
             Container(
@@ -267,9 +266,9 @@ class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
               backgroundColor: Colors.white10,
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Control buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -282,7 +281,6 @@ class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
                   size: 32,
                 ),
               ),
-              
               IconButton(
                 onPressed: _togglePlayPause,
                 icon: Icon(
@@ -293,7 +291,6 @@ class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
                   size: 48,
                 ),
               ),
-              
               IconButton(
                 onPressed: _seekForward,
                 icon: const Icon(

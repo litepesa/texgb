@@ -91,7 +91,9 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                 Icon(
                   Icons.auto_awesome,
                   size: 64,
-                  color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.5),
+                  color: (modernTheme.primaryColor ??
+                          Theme.of(context).primaryColor)
+                      .withOpacity(0.5),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -127,7 +129,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                   icon: Icons.text_fields_rounded,
                   title: 'Text',
                   subtitle: 'Share text with colorful backgrounds',
-                  color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                  color: modernTheme.primaryColor ??
+                      Theme.of(context).primaryColor,
                   onTap: () {
                     setState(() => _mode = CreateMode.text);
                   },
@@ -165,12 +168,17 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
+              color:
+                  (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
+                      .withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: modernTheme.primaryColor ?? Theme.of(context).primaryColor, size: 20),
+                Icon(Icons.info_outline,
+                    color: modernTheme.primaryColor ??
+                        Theme.of(context).primaryColor,
+                    size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -245,7 +253,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                         subtitle,
                         style: TextStyle(
                           fontSize: 13,
-                          color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                          color: modernTheme.textSecondaryColor ??
+                              Colors.grey[600],
                         ),
                       ),
                     ],
@@ -274,14 +283,17 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
         onTap: () {
           // Cycle through backgrounds on tap (WhatsApp behavior)
           setState(() {
-            _backgroundIndex = (_backgroundIndex + 1) % TextStatusBackground.values.length;
+            _backgroundIndex =
+                (_backgroundIndex + 1) % TextStatusBackground.values.length;
             _selectedBackground = TextStatusBackground.values[_backgroundIndex];
           });
         },
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: _selectedBackground.colors.map((hex) => _hexToColor(hex)).toList(),
+              colors: _selectedBackground.colors
+                  .map((hex) => _hexToColor(hex))
+                  .toList(),
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -342,7 +354,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                         // Privacy button
                         IconButton(
                           onPressed: _showPrivacyOptions,
-                          icon: const Icon(Icons.lock_outline, color: Colors.white),
+                          icon: const Icon(Icons.lock_outline,
+                              color: Colors.white),
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black26,
                           ),
@@ -386,19 +399,24 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                                 margin: const EdgeInsets.only(right: 12),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: bg.colors.map((hex) => _hexToColor(hex)).toList(),
+                                    colors: bg.colors
+                                        .map((hex) => _hexToColor(hex))
+                                        .toList(),
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: isSelected ? Colors.white : Colors.transparent,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.transparent,
                                     width: 3,
                                   ),
                                   boxShadow: isSelected
                                       ? [
                                           BoxShadow(
-                                            color: Colors.white.withOpacity(0.3),
+                                            color:
+                                                Colors.white.withOpacity(0.3),
                                             blurRadius: 8,
                                             spreadRadius: 2,
                                           )
@@ -428,7 +446,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                             ),
                             // Send button
                             FloatingActionButton(
-                              onPressed: _canCreateText ? _handleCreateText : null,
+                              onPressed:
+                                  _canCreateText ? _handleCreateText : null,
                               backgroundColor: _canCreateText
                                   ? Colors.white
                                   : Colors.white.withOpacity(0.3),
@@ -439,13 +458,15 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                                       height: 24,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                                        color: modernTheme.primaryColor ??
+                                            Theme.of(context).primaryColor,
                                       ),
                                     )
                                   : Icon(
                                       Icons.send,
                                       color: _canCreateText
-                                          ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
+                                          ? (modernTheme.primaryColor ??
+                                              Theme.of(context).primaryColor)
                                           : Colors.white,
                                     ),
                             ),
@@ -465,7 +486,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                   right: 0,
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.black26,
                         borderRadius: BorderRadius.circular(20),
@@ -664,8 +686,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                           LinearProgressIndicator(
                             value: _uploadProgress > 0 ? _uploadProgress : null,
                             backgroundColor: Colors.white24,
-                            valueColor:
-                                const AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -693,7 +715,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                           ),
                           FloatingActionButton(
                             onPressed: _handleCreateMedia,
-                            backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                            backgroundColor: modernTheme.primaryColor ??
+                                Theme.of(context).primaryColor,
                             child: const Icon(Icons.send, color: Colors.white),
                           ),
                         ],
@@ -815,12 +838,14 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
                       visibility.description,
                       style: TextStyle(
                         fontSize: 12,
-                        color: modernTheme.textSecondaryColor ?? Colors.grey[600],
+                        color:
+                            modernTheme.textSecondaryColor ?? Colors.grey[600],
                       ),
                     ),
                     value: visibility,
                     groupValue: _visibility,
-                    activeColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                    activeColor: modernTheme.primaryColor ??
+                        Theme.of(context).primaryColor,
                     onChanged: (value) {
                       if (value != null) {
                         setState(() => _visibility = value);

@@ -28,9 +28,11 @@ class StatusReaction {
       statusId: json['statusId'] as String? ?? json['status_id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String,
       userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatar: json['userAvatar'] as String? ?? json['user_avatar'] as String,
+      userAvatar:
+          json['userAvatar'] as String? ?? json['user_avatar'] as String,
       emoji: json['emoji'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? json['created_at'] as String),
+      createdAt: DateTime.parse(
+          json['createdAt'] as String? ?? json['created_at'] as String),
     );
   }
 

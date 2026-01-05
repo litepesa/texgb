@@ -6,16 +6,16 @@ import 'theme_extensions.dart';
 
 ThemeData modernDarkTheme() {
   final ThemeData base = ThemeData.dark();
-  
+
   // Define font styles with Google Fonts
   final textTheme = _createTextTheme();
-  
+
   // Updated colors based on user preferences
-  const newPrimaryGreen = Color(0xFF25D366);  // Green color
-  const newBackground = Color(0xFF30302E);    // Updated background color
-  const newSurface = Color(0xFF262624);       // Updated app bar and surfaces color
-  const pureWhite = Colors.white;             // Pure white for text
-  
+  const newPrimaryGreen = Color(0xFF25D366); // Green color
+  const newBackground = Color(0xFF30302E); // Updated background color
+  const newSurface = Color(0xFF262624); // Updated app bar and surfaces color
+  const pureWhite = Colors.white; // Pure white for text
+
   return base.copyWith(
     colorScheme: ColorScheme.fromSeed(
       seedColor: newPrimaryGreen,
@@ -27,7 +27,7 @@ ThemeData modernDarkTheme() {
       surfaceTint: Colors.transparent, // Disable surface tint in Material 3
     ),
     scaffoldBackgroundColor: newBackground,
-    
+
     // Extensions
     extensions: [
       ModernThemeExtension.darkMode,
@@ -35,14 +35,15 @@ ThemeData modernDarkTheme() {
       const ResponsiveThemeExtension(),
       const AnimationThemeExtension(),
     ],
-    
+
     // AppBar Theme
     appBarTheme: AppBarTheme(
       backgroundColor: newSurface,
       foregroundColor: pureWhite,
       elevation: 0,
       shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent, // Important - removes Material 3 tint
+      surfaceTintColor:
+          Colors.transparent, // Important - removes Material 3 tint
       centerTitle: false,
       titleTextStyle: const TextStyle(
         fontSize: 18,
@@ -58,26 +59,27 @@ ThemeData modernDarkTheme() {
         size: 24,
       ),
     ),
-    
+
     // Text Theme
     textTheme: textTheme.apply(
       bodyColor: pureWhite,
       displayColor: pureWhite,
     ),
-    
+
     // Bottom Navigation Theme
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: newSurface,
       selectedItemColor: newPrimaryGreen,
       unselectedItemColor: Color(0xFFBBBBBB),
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+      unselectedLabelStyle:
+          TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
       showSelectedLabels: true,
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
-    
+
     // Tab Bar Theme
     tabBarTheme: const TabBarTheme(
       indicator: UnderlineTabIndicator(
@@ -97,7 +99,7 @@ ThemeData modernDarkTheme() {
         fontWeight: FontWeight.w600,
       ),
     ),
-    
+
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -115,7 +117,7 @@ ThemeData modernDarkTheme() {
         ),
       ),
     ),
-    
+
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: newPrimaryGreen,
@@ -131,7 +133,7 @@ ThemeData modernDarkTheme() {
         ),
       ),
     ),
-    
+
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: newPrimaryGreen,
@@ -143,7 +145,7 @@ ThemeData modernDarkTheme() {
         ),
       ),
     ),
-    
+
     // Card Theme
     cardTheme: CardTheme(
       color: newSurface,
@@ -156,7 +158,7 @@ ThemeData modernDarkTheme() {
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
     ),
-    
+
     // Modal and Dialog Themes
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: newSurface,
@@ -171,7 +173,7 @@ ThemeData modernDarkTheme() {
       elevation: 0,
       shadowColor: Colors.transparent,
     ),
-    
+
     dialogBackgroundColor: newSurface,
     dialogTheme: DialogTheme(
       backgroundColor: newSurface,
@@ -190,7 +192,7 @@ ThemeData modernDarkTheme() {
         fontSize: 16,
       ),
     ),
-    
+
     // FAB Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: newPrimaryGreen,
@@ -202,7 +204,7 @@ ThemeData modernDarkTheme() {
         borderRadius: BorderRadius.circular(16),
       ),
     ),
-    
+
     // List Tile Theme
     listTileTheme: ListTileThemeData(
       iconColor: const Color(0xFFBBBBBB),
@@ -216,7 +218,7 @@ ThemeData modernDarkTheme() {
       selectedTileColor: newPrimaryGreen.withOpacity(0.15),
       selectedColor: newPrimaryGreen,
     ),
-    
+
     // Switch Theme
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -238,7 +240,7 @@ ThemeData modernDarkTheme() {
         return Colors.transparent;
       }),
     ),
-    
+
     // Checkbox Theme
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
@@ -258,7 +260,7 @@ ThemeData modernDarkTheme() {
         width: 1.5,
       ),
     ),
-    
+
     // Divider Theme
     dividerTheme: const DividerThemeData(
       color: Color(0xFF444442),
@@ -266,13 +268,13 @@ ThemeData modernDarkTheme() {
       indent: 16,
       endIndent: 16,
     ),
-    
+
     // Icon Theme
     iconTheme: const IconThemeData(
       color: Color(0xFFBBBBBB),
       size: 24,
     ),
-    
+
     // Input Decoration Theme
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -301,7 +303,7 @@ ThemeData modernDarkTheme() {
       prefixIconColor: const Color(0xFFBBBBBB),
       suffixIconColor: const Color(0xFFBBBBBB),
     ),
-    
+
     // Chip Theme
     chipTheme: ChipThemeData(
       backgroundColor: const Color(0xFF3A3A38), // Updated chip background
@@ -324,7 +326,7 @@ ThemeData modernDarkTheme() {
       ),
       elevation: 0,
     ),
-    
+
     // Slider Theme
     sliderTheme: const SliderThemeData(
       activeTrackColor: newPrimaryGreen,
@@ -333,14 +335,14 @@ ThemeData modernDarkTheme() {
       overlayColor: Color(0x2925D366),
       trackHeight: 4.0,
     ),
-    
+
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: newPrimaryGreen,
       circularTrackColor: Color(0xFF3A3A38), // Updated progress track color
       linearTrackColor: Color(0xFF3A3A38),
     ),
-    
+
     // Page Transitions Theme
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
@@ -348,7 +350,7 @@ ThemeData modernDarkTheme() {
         TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       },
     ),
-    
+
     // Snack Bar Theme
     snackBarTheme: SnackBarThemeData(
       backgroundColor: const Color(0xFF3A3A38), // Updated snackbar background
@@ -359,14 +361,14 @@ ThemeData modernDarkTheme() {
       ),
       behavior: SnackBarBehavior.floating,
     ),
-    
+
     // Banner Theme
     bannerTheme: const MaterialBannerThemeData(
       backgroundColor: Color(0xFF3A3A38), // Updated banner background
       contentTextStyle: TextStyle(color: pureWhite),
       padding: EdgeInsets.all(16),
     ),
-    
+
     // Bottom App Bar Theme
     bottomAppBarTheme: const BottomAppBarTheme(
       color: newSurface,
@@ -381,94 +383,94 @@ ThemeData modernDarkTheme() {
 TextTheme _createTextTheme() {
   const pureWhite = Colors.white;
   const secondaryText = Color(0xFFBBBBBB);
-  
+
   return TextTheme(
     displayLarge: GoogleFonts.inter(
-      fontSize: 57, 
+      fontSize: 57,
       fontWeight: FontWeight.w400,
       letterSpacing: -0.25,
       color: pureWhite,
     ),
     displayMedium: GoogleFonts.inter(
-      fontSize: 45, 
+      fontSize: 45,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       color: pureWhite,
     ),
     displaySmall: GoogleFonts.inter(
-      fontSize: 36, 
+      fontSize: 36,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       color: pureWhite,
     ),
     headlineLarge: GoogleFonts.inter(
-      fontSize: 32, 
+      fontSize: 32,
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
       color: pureWhite,
     ),
     headlineMedium: GoogleFonts.inter(
-      fontSize: 28, 
+      fontSize: 28,
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
       color: pureWhite,
     ),
     headlineSmall: GoogleFonts.inter(
-      fontSize: 24, 
+      fontSize: 24,
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
       color: pureWhite,
     ),
     titleLarge: GoogleFonts.inter(
-      fontSize: 22, 
+      fontSize: 22,
       fontWeight: FontWeight.w500,
       letterSpacing: 0,
       color: pureWhite,
     ),
     titleMedium: GoogleFonts.inter(
-      fontSize: 16, 
+      fontSize: 16,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.15,
       color: pureWhite,
     ),
     titleSmall: GoogleFonts.inter(
-      fontSize: 14, 
+      fontSize: 14,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.1,
       color: pureWhite,
     ),
     bodyLarge: GoogleFonts.inter(
-      fontSize: 16, 
+      fontSize: 16,
       fontWeight: FontWeight.w400,
       letterSpacing: 0.5,
       color: pureWhite,
     ),
     bodyMedium: GoogleFonts.inter(
-      fontSize: 14, 
+      fontSize: 14,
       fontWeight: FontWeight.w400,
       letterSpacing: 0.25,
       color: pureWhite,
     ),
     bodySmall: GoogleFonts.inter(
-      fontSize: 12, 
+      fontSize: 12,
       fontWeight: FontWeight.w400,
       letterSpacing: 0.4,
       color: secondaryText,
     ),
     labelLarge: GoogleFonts.inter(
-      fontSize: 14, 
+      fontSize: 14,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.1,
       color: pureWhite,
     ),
     labelMedium: GoogleFonts.inter(
-      fontSize: 12, 
+      fontSize: 12,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.5,
       color: pureWhite,
     ),
     labelSmall: GoogleFonts.inter(
-      fontSize: 11, 
+      fontSize: 11,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.5,
       color: secondaryText,

@@ -4,7 +4,6 @@
 /// Users select their tribe as their native language identifier
 library;
 
-
 class KenyaLanguages {
   /// All 42 Kenyan tribes organized by linguistic groups + Foreign
   static const List<String> allTribes = [
@@ -134,7 +133,7 @@ class KenyaLanguages {
   /// Search tribes by query
   static List<String> search(String query) {
     if (query.isEmpty) return tribes;
-    
+
     final lowerQuery = query.toLowerCase();
     return allTribes
         .where((tribe) => tribe.toLowerCase().contains(lowerQuery))

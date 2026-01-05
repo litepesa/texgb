@@ -209,7 +209,9 @@ class MomentsFeed extends _$MomentsFeed {
   // Load more (pagination)
   Future<void> loadMore() async {
     final currentState = state.value;
-    if (currentState == null || currentState.isLoadingMore || !currentState.hasMore) {
+    if (currentState == null ||
+        currentState.isLoadingMore ||
+        !currentState.hasMore) {
       return;
     }
 
@@ -314,7 +316,8 @@ class MomentsFeed extends _$MomentsFeed {
           return m;
         }).toList();
 
-        state = AsyncValue.data(currentState.copyWith(moments: revertedMoments));
+        state =
+            AsyncValue.data(currentState.copyWith(moments: revertedMoments));
       }
       rethrow;
     }
@@ -345,9 +348,8 @@ class MomentsFeed extends _$MomentsFeed {
     // Remove all posts from this user from the current feed
     final currentState = state.value;
     if (currentState != null) {
-      final filteredMoments = currentState.moments
-          .where((m) => m.userId != userId)
-          .toList();
+      final filteredMoments =
+          currentState.moments.where((m) => m.userId != userId).toList();
       state = AsyncValue.data(currentState.copyWith(moments: filteredMoments));
       await _saveToCache(currentState.copyWith(moments: filteredMoments));
     }
@@ -390,7 +392,8 @@ class UserMoments extends _$UserMoments {
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getUserMoments(userId, page: 1));
+    state = await AsyncValue.guard(
+        () => _repository.getUserMoments(userId, page: 1));
   }
 }
 
@@ -430,10 +433,10 @@ class MomentComments extends _$MomentComments {
 
       // Update moment's comment count in feed
       ref.read(momentsFeedProvider.notifier).updateMoment(
-        (await ref.read(momentProvider(momentId).future))!.copyWith(
-          commentsCount: currentComments.length + 1,
-        ),
-      );
+            (await ref.read(momentProvider(momentId).future))!.copyWith(
+              commentsCount: currentComments.length + 1,
+            ),
+          );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -450,10 +453,10 @@ class MomentComments extends _$MomentComments {
 
       // Update moment's comment count
       ref.read(momentsFeedProvider.notifier).updateMoment(
-        (await ref.read(momentProvider(momentId).future))!.copyWith(
-          commentsCount: currentComments.length - 1,
-        ),
-      );
+            (await ref.read(momentProvider(momentId).future))!.copyWith(
+              commentsCount: currentComments.length - 1,
+            ),
+          );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -522,7 +525,8 @@ class CreateMoment extends _$CreateMoment {
     try {
       print('[CREATE MOMENT PROVIDER] Calling repository.createMoment...');
       final moment = await _repository.createMoment(request);
-      print('[CREATE MOMENT PROVIDER] Moment created successfully: ${moment.id}');
+      print(
+          '[CREATE MOMENT PROVIDER] Moment created successfully: ${moment.id}');
 
       // Add to feed
       print('[CREATE MOMENT PROVIDER] Adding to feed...');

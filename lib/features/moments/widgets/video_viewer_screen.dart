@@ -68,7 +68,8 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
 
   Future<void> _initializeVideo() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      _controller =
+          VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
       await _controller!.initialize();
 
       setState(() {
@@ -324,7 +325,8 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
                       : 'Comment',
                   color: Colors.white,
                   onPressed: () {
-                    context.push('${RoutePaths.userProfile}/${widget.moment.userId}');
+                    context.push(
+                        '${RoutePaths.userProfile}/${widget.moment.userId}');
                   },
                 ),
 
@@ -493,7 +495,8 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.link, color: Colors.white),
-              title: const Text('Copy link', style: TextStyle(color: Colors.white)),
+              title: const Text('Copy link',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 context.pop();
                 _copyVideoLink();
@@ -501,7 +504,8 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.download, color: Colors.white),
-              title: const Text('Download video', style: TextStyle(color: Colors.white)),
+              title: const Text('Download video',
+                  style: TextStyle(color: Colors.white)),
               onTap: () {
                 context.pop();
                 _downloadVideo();
@@ -509,7 +513,8 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.report_outlined, color: Colors.white),
-              title: const Text('Report', style: TextStyle(color: Colors.white)),
+              title:
+                  const Text('Report', style: TextStyle(color: Colors.white)),
               onTap: () {
                 context.pop();
                 _reportVideo();
@@ -529,8 +534,9 @@ Check out this video from ${widget.moment.userName}!
 
 ${widget.moment.content ?? ''}
 
-View on WemaChat: wemachat://moment/${widget.moment.id}
-      '''.trim();
+View on WemaShop: wemachat://moment/${widget.moment.id}
+      '''
+          .trim();
 
       await Share.share(text, subject: 'Video from ${widget.moment.userName}');
     } catch (e) {
@@ -576,7 +582,8 @@ View on WemaChat: wemachat://moment/${widget.moment.id}
 
       // Download video
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'moment_video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final fileName =
+          'moment_video_${DateTime.now().millisecondsSinceEpoch}.mp4';
       final filePath = '${tempDir.path}/$fileName';
 
       await Dio().download(

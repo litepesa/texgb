@@ -84,9 +84,11 @@ class _StatusReactionPickerState extends State<StatusReactionPicker>
           // Tabs
           TabBar(
             controller: _tabController,
-            labelColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+            labelColor:
+                modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
-            indicatorColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+            indicatorColor:
+                modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             tabs: const [
               Tab(text: 'Quick'),
               Tab(text: 'All'),
@@ -158,11 +160,15 @@ class _StatusReactionPickerState extends State<StatusReactionPicker>
           child: Container(
             decoration: BoxDecoration(
               color: isSelected
-                  ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1)
+                  ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
+                      .withOpacity(0.1)
                   : null,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: modernTheme.primaryColor ?? Theme.of(context).primaryColor, width: 2)
+                  ? Border.all(
+                      color: modernTheme.primaryColor ??
+                          Theme.of(context).primaryColor,
+                      width: 2)
                   : null,
             ),
             child: Center(
@@ -199,11 +205,15 @@ class _ReactionButton extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isSelected
-              ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1)
+              ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
+                  .withOpacity(0.1)
               : Colors.grey[100],
           borderRadius: BorderRadius.circular(16),
           border: isSelected
-              ? Border.all(color: modernTheme.primaryColor ?? Theme.of(context).primaryColor, width: 2)
+              ? Border.all(
+                  color: modernTheme.primaryColor ??
+                      Theme.of(context).primaryColor,
+                  width: 2)
               : null,
         ),
         child: Column(
@@ -219,7 +229,10 @@ class _ReactionButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor) : Colors.grey[700],
+                color: isSelected
+                    ? (modernTheme.primaryColor ??
+                        Theme.of(context).primaryColor)
+                    : Colors.grey[700],
               ),
             ),
           ],

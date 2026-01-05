@@ -17,7 +17,8 @@ class PaymentStatusScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<PaymentStatusScreen> createState() => _PaymentStatusScreenState();
+  ConsumerState<PaymentStatusScreen> createState() =>
+      _PaymentStatusScreenState();
 }
 
 class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
@@ -51,8 +52,10 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
           primaryColor: const Color(0xFF07C160), // WeChat green for Kenya
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          textColor:
+              Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor:
+              Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
           dividerColor: Theme.of(context).dividerColor,
           textTertiaryColor: Colors.grey[400],
           surfaceVariantColor: Colors.grey[100],
@@ -73,9 +76,10 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
   Future<void> _pollPaymentStatus() async {
     _pollCount++;
 
-    final transaction = await ref.read(paymentProvider.notifier).pollPaymentStatus(
-      widget.checkoutRequestId,
-    );
+    final transaction =
+        await ref.read(paymentProvider.notifier).pollPaymentStatus(
+              widget.checkoutRequestId,
+            );
 
     if (!mounted) return;
 
@@ -119,7 +123,8 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
 
           case 'pending':
           default:
-            _statusMessage = 'Waiting for M-Pesa confirmation...\nCheck your phone for the payment prompt.';
+            _statusMessage =
+                'Waiting for M-Pesa confirmation...\nCheck your phone for the payment prompt.';
             _statusIcon = Icons.phone_android;
             _statusColor = Colors.blue;
             break;
@@ -134,7 +139,8 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
       setState(() {
         _isComplete = true;
         _isSuccess = false;
-        _statusMessage = 'Payment timeout. Please check your transaction history.';
+        _statusMessage =
+            'Payment timeout. Please check your transaction history.';
         _statusIcon = Icons.access_time;
         _statusColor = Colors.grey;
       });
@@ -225,7 +231,8 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
                               height: 80,
                               child: CircularProgressIndicator(
                                 strokeWidth: 4,
-                                valueColor: AlwaysStoppedAnimation<Color>(_statusColor),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(_statusColor),
                               ),
                             ),
                             Icon(
@@ -361,7 +368,8 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
                     child: ElevatedButton(
                       onPressed: _navigateBack,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isSuccess ? theme.primaryColor : Colors.grey,
+                        backgroundColor:
+                            _isSuccess ? theme.primaryColor : Colors.grey,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),

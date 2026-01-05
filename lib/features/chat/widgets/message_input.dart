@@ -52,7 +52,7 @@ class _MessageInputState extends State<MessageInput> {
 
   void _handleSendText() {
     final text = _textController.text.trim();
-    
+
     if (text.isNotEmpty) {
       widget.onSendText(text);
       _textController.clear();
@@ -69,7 +69,7 @@ class _MessageInputState extends State<MessageInput> {
         source: ImageSource.gallery,
         imageQuality: 100,
       );
-      
+
       if (image != null) {
         widget.onSendImage(File(image.path));
       }
@@ -84,17 +84,17 @@ class _MessageInputState extends State<MessageInput> {
         type: FileType.any,
         allowMultiple: false,
       );
-      
+
       if (result != null && result.files.isNotEmpty) {
         final file = File(result.files.first.path!);
         final fileName = result.files.first.name;
-        
+
         final fileSize = await file.length();
         if (fileSize > 50 * 1024 * 1024) {
           _showErrorSnackBar('File size exceeds 50MB limit');
           return;
         }
-        
+
         widget.onSendFile(file, fileName);
       }
     } catch (e) {
@@ -124,7 +124,7 @@ class _MessageInputState extends State<MessageInput> {
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     return Container(
       color: Colors.transparent,
       child: Column(
@@ -140,7 +140,7 @@ class _MessageInputState extends State<MessageInput> {
             ),
             const SizedBox(height: 4),
           ],
-          
+
           // Input container
           Container(
             margin: EdgeInsets.only(
@@ -272,9 +272,9 @@ class _MessageInputState extends State<MessageInput> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 8),
-                  
+
                   // Send button
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -282,8 +282,8 @@ class _MessageInputState extends State<MessageInput> {
                     height: 36,
                     decoration: BoxDecoration(
                       color: _isComposing
-                        ? modernTheme.primaryColor
-                        : modernTheme.primaryColor?.withOpacity(0.3),
+                          ? modernTheme.primaryColor
+                          : modernTheme.primaryColor?.withOpacity(0.3),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
@@ -292,8 +292,8 @@ class _MessageInputState extends State<MessageInput> {
                       icon: Icon(
                         Icons.send,
                         color: _isComposing
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.7),
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.7),
                         size: 18,
                       ),
                     ),
@@ -404,7 +404,7 @@ class _MessageInputState extends State<MessageInput> {
         source: ImageSource.camera,
         imageQuality: 100,
       );
-      
+
       if (image != null) {
         widget.onSendImage(File(image.path));
       }
@@ -430,7 +430,7 @@ class _AttachmentOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Column(

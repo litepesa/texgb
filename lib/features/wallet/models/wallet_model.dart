@@ -17,10 +17,10 @@ class CoinPackage {
   });
 
   String get formattedPrice => 'KES ${priceKES.toStringAsFixed(0)}';
-  
+
   // Get value per coin
   double get valuePerCoin => priceKES / coins;
-  
+
   // Check if this is a better deal than another package
   bool isBetterDealThan(CoinPackage other) {
     return valuePerCoin < other.valuePerCoin;
@@ -49,7 +49,7 @@ class CoinPackages {
       displayName: 'Value Pack',
     ),
   ];
-  
+
   static CoinPackage? getByPackageId(String packageId) {
     try {
       return available.firstWhere((package) => package.packageId == packageId);
@@ -57,7 +57,7 @@ class CoinPackages {
       return null;
     }
   }
-  
+
   static CoinPackage get starter => available[0];
   static CoinPackage get popular => available[1];
   static CoinPackage get value => available[2];
@@ -94,8 +94,9 @@ class WalletModel {
       lastUpdated: map['lastUpdated']?.toString() ?? '',
       createdAt: map['createdAt']?.toString() ?? '',
       transactions: (map['transactions'] as List?)
-          ?.map((t) => WalletTransaction.fromMap(t as Map<String, dynamic>))
-          .toList() ?? [],
+              ?.map((t) => WalletTransaction.fromMap(t as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -136,14 +137,15 @@ class WalletModel {
 
   // Helper methods
   String get formattedBalance => '$coinsBalance Coins';
-  
+
   bool get hasBalance => coinsBalance > 0;
-  
+
   bool canAfford(int coinAmount) => coinsBalance >= coinAmount;
 
   // Get equivalent KES value (approximate, based on starter pack rate)
   double get equivalentKESValue => coinsBalance * (100.0 / 99.0);
-  String get formattedKESEquivalent => 'KES ${equivalentKESValue.toStringAsFixed(0)}';
+  String get formattedKESEquivalent =>
+      'KES ${equivalentKESValue.toStringAsFixed(0)}';
 
   @override
   String toString() {
@@ -166,7 +168,8 @@ class WalletTransaction {
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final String type; // 'coin_purchase', 'gift_sent', 'gift_received', 'admin_credit'
+  final String
+      type; // 'coin_purchase', 'gift_sent', 'gift_received', 'admin_credit'
   final int coinAmount;
   final int balanceBefore;
   final int balanceAfter;
@@ -314,7 +317,7 @@ class WalletTransaction {
   bool get isAdminCredit => type == 'admin_credit';
   bool get isCredit => isCoinPurchase || isAdminCredit || isGiftReceived;
   bool get isDebit => isGiftSent;
-  
+
   String get formattedAmount {
     final sign = isCredit ? '+' : '-';
     return '$sign$coinAmount Coins';
@@ -333,7 +336,9 @@ class WalletTransaction {
     switch (type) {
       case 'coin_purchase':
         final package = coinPackage;
-        return package != null ? '${package.displayName} Purchase' : 'Coin Purchase';
+        return package != null
+            ? '${package.displayName} Purchase'
+            : 'Coin Purchase';
       case 'gift_sent':
         return 'Gift Sent';
       case 'gift_received':

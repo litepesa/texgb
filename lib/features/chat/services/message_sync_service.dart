@@ -28,7 +28,8 @@ class MessageSyncService {
       return;
     }
 
-    debugPrint('MessageSyncService: Starting background sync (every $_syncIntervalSeconds seconds)');
+    debugPrint(
+        'MessageSyncService: Starting background sync (every $_syncIntervalSeconds seconds)');
 
     // Run immediately on start
     _syncUnsyncedMessages();
@@ -77,7 +78,8 @@ class MessageSyncService {
         return;
       }
 
-      debugPrint('MessageSyncService: Found ${unsyncedMessages.length} unsynced messages');
+      debugPrint(
+          'MessageSyncService: Found ${unsyncedMessages.length} unsynced messages');
 
       int successCount = 0;
       int failCount = 0;
@@ -87,22 +89,27 @@ class MessageSyncService {
           // Skip messages that are still being uploaded (have isUploading: true in metadata)
           if (message.mediaMetadata != null &&
               message.mediaMetadata!['isUploading'] == true) {
-            debugPrint('MessageSyncService: Skipping message ${message.messageId} (still uploading)');
+            debugPrint(
+                'MessageSyncService: Skipping message ${message.messageId} (still uploading)');
             continue;
           }
 
           // Get retry count from metadata (or 0 if not set)
-          final retryCount = (message.mediaMetadata?['_retryCount'] ?? 0) as int;
+          final retryCount =
+              (message.mediaMetadata?['_retryCount'] ?? 0) as int;
 
           if (retryCount >= _maxRetryAttempts) {
-            debugPrint('MessageSyncService: Message ${message.messageId} exceeded max retries');
+            debugPrint(
+                'MessageSyncService: Message ${message.messageId} exceeded max retries');
             // Update status to failed permanently
-            await _db.updateMessageStatus(message.messageId, MessageStatus.failed.name);
+            await _db.updateMessageStatus(
+                message.messageId, MessageStatus.failed.name);
             continue;
           }
 
           // Try to send the message
-          debugPrint('MessageSyncService: Attempting to sync message ${message.messageId} (attempt ${retryCount + 1})');
+          debugPrint(
+              'MessageSyncService: Attempting to sync message ${message.messageId} (attempt ${retryCount + 1})');
 
           // Update retry count in metadata
           final updatedMetadata = {
@@ -123,7 +130,8 @@ class MessageSyncService {
           await _repository.sendMessage(messageToSend);
 
           // Update status to sent
-          await _db.updateMessageStatus(message.messageId, MessageStatus.sent.name);
+          await _db.updateMessageStatus(
+              message.messageId, MessageStatus.sent.name);
           await _repository.updateMessageStatus(
             message.chatId,
             message.messageId,
@@ -131,19 +139,21 @@ class MessageSyncService {
           );
 
           successCount++;
-          debugPrint('MessageSyncService: Successfully synced message ${message.messageId}');
-
+          debugPrint(
+              'MessageSyncService: Successfully synced message ${message.messageId}');
         } catch (e) {
           failCount++;
-          debugPrint('MessageSyncService: Failed to sync message ${message.messageId}: $e');
+          debugPrint(
+              'MessageSyncService: Failed to sync message ${message.messageId}: $e');
 
           // Update status back to failed
-          await _db.updateMessageStatus(message.messageId, MessageStatus.failed.name);
+          await _db.updateMessageStatus(
+              message.messageId, MessageStatus.failed.name);
         }
       }
 
-      debugPrint('MessageSyncService: Sync complete - $successCount success, $failCount failed');
-
+      debugPrint(
+          'MessageSyncService: Sync complete - $successCount success, $failCount failed');
     } catch (e) {
       debugPrint('MessageSyncService: Error during sync: $e');
     } finally {

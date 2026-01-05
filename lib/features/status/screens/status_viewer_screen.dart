@@ -261,8 +261,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
             ),
 
             // View count at bottom (privacy: only count, not viewer names)
-            if (widget.statusGroup.isMyStatus)
-              _buildViewCount(status),
+            if (widget.statusGroup.isMyStatus) _buildViewCount(status),
 
             // Close button
             Positioned(
@@ -338,7 +337,9 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       decoration: BoxDecoration(
         gradient: status.textBackground != null
             ? LinearGradient(
-                colors: status.textBackground!.colors.map((hex) => _hexToColor(hex)).toList(),
+                colors: status.textBackground!.colors
+                    .map((hex) => _hexToColor(hex))
+                    .toList(),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )

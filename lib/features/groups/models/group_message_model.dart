@@ -79,9 +79,7 @@ class GroupMessageModel {
       mediaType: json['media_type'] != null
           ? MessageMediaType.fromString(json['media_type'])
           : MessageMediaType.text,
-      readBy: json['read_by'] != null
-          ? List<String>.from(json['read_by'])
-          : [],
+      readBy: json['read_by'] != null ? List<String>.from(json['read_by']) : [],
       insertedAt: json['inserted_at'] != null
           ? DateTime.parse(json['inserted_at'])
           : DateTime.now(),

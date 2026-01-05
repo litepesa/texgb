@@ -12,12 +12,12 @@ import 'package:textgb/core/router/app_router.dart';
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
   // Initialize video caching service
   await VideoCacheService().initialize(
     maxMemoryCacheMB: 600,
@@ -26,10 +26,10 @@ void main() async {
     maxConcurrentDownloads: 2,
     enableLogging: true,
   );
-  
+
   // Setup edge-to-edge display
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  
+
   // Apply initial transparent system UI overlays
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -39,7 +39,7 @@ void main() async {
     systemNavigationBarDividerColor: Colors.transparent,
     systemNavigationBarContrastEnforced: false,
   ));
-  
+
   runApp(
     const ProviderScope(
       child: MyApp(),
@@ -61,15 +61,15 @@ class MyApp extends StatelessWidget {
 /// Main app root with go_router integration
 class AppRoot extends ConsumerWidget {
   const AppRoot({super.key});
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch theme state
     final themeState = ref.watch(themeManagerNotifierProvider);
-    
+
     // Get the router from provider
     final router = ref.watch(appRouterProvider);
-    
+
     return themeState.when(
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -78,9 +78,8 @@ class AppRoot extends ConsumerWidget {
           extendBody: true,
           body: Padding(
             padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top,
-              bottom: MediaQuery.of(context).padding.bottom
-            ),
+                top: MediaQuery.of(context).padding.top,
+                bottom: MediaQuery.of(context).padding.bottom),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -92,7 +91,7 @@ class AppRoot extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
-                      'WemaChat',
+                      'WemaShop',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -139,15 +138,15 @@ class AppRoot extends ConsumerWidget {
       data: (themeData) => MaterialApp.router(
         // ==================== APP CONFIGURATION ====================
         debugShowCheckedModeBanner: false,
-        title: 'WemaChat',
-        
+        title: 'WemaShop',
+
         // ==================== THEME ====================
         theme: themeData.activeTheme,
-        
+
         // ==================== ROUTER CONFIGURATION ====================
         // This is where go_router takes over!
         routerConfig: router,
-        
+
         // ==================== BUILDER ====================
         // Optional: Add global overlay or wrapper widgets
         builder: (context, child) {

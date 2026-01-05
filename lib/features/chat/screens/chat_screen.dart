@@ -33,7 +33,8 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToBottom = false;
   String? _backgroundImage;
@@ -50,7 +51,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   static final DefaultCacheManager _fileCacheManager = DefaultCacheManager();
 
   // RFC 3339 date formatters
-  static final DateFormat _rfc3339Format = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  static final DateFormat _rfc3339Format =
+      DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
   static final DateFormat _displayDateFormat = DateFormat('MMM dd, HH:mm');
   static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
 
@@ -103,19 +105,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _markMessagesAsRead() {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     final currentUser = ref.read(currentUserProvider);
-    
+
     if (currentUser != null) {
-      final messageState = ref.read(messageNotifierProvider(widget.chatId)).valueOrNull;
+      final messageState =
+          ref.read(messageNotifierProvider(widget.chatId)).valueOrNull;
       if (messageState != null) {
         final unreadMessageIds = messageState.messages
-            .where((msg) => msg.senderId != currentUser.uid && !msg.isReadBy(currentUser.uid))
+            .where((msg) =>
+                msg.senderId != currentUser.uid &&
+                !msg.isReadBy(currentUser.uid))
             .map((msg) => msg.messageId)
             .toList();
-        
+
         if (unreadMessageIds.isNotEmpty) {
-          messageNotifier.markMessagesAsDelivered(widget.chatId, unreadMessageIds);
+          messageNotifier.markMessagesAsDelivered(
+              widget.chatId, unreadMessageIds);
         }
       }
     }
@@ -161,7 +168,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       if (fileInfo != null && fileInfo.file.existsSync()) {
         return fileInfo.file;
       }
-      
+
       // Download and cache the file
       final file = await _fileCacheManager.getSingleFile(url, key: key);
       return file;
@@ -173,18 +180,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Future<void> _preloadMessageMedia(List<MessageModel> messages) async {
     // Preload recent images and videos for smooth scrolling
-    final recentMessages = messages.take(20).where((msg) => 
-      msg.type == MessageEnum.image || 
-      msg.type == MessageEnum.video ||
-      (msg.mediaMetadata?['isVideoReaction'] == true)
-    );
+    final recentMessages = messages.take(20).where((msg) =>
+        msg.type == MessageEnum.image ||
+        msg.type == MessageEnum.video ||
+        (msg.mediaMetadata?['isVideoReaction'] == true));
 
     for (final message in recentMessages) {
       try {
-        if (message.type == MessageEnum.image && message.mediaUrl?.isNotEmpty == true) {
+        if (message.type == MessageEnum.image &&
+            message.mediaUrl?.isNotEmpty == true) {
           // Preload image
           _imageCacheManager.getSingleFile(message.mediaUrl!);
-        } else if (message.type == MessageEnum.video && message.mediaUrl?.isNotEmpty == true) {
+        } else if (message.type == MessageEnum.video &&
+            message.mediaUrl?.isNotEmpty == true) {
           // Preload video thumbnail or video file
           _videoCacheManager.getSingleFile(message.mediaUrl!);
         } else if (message.mediaMetadata?['isVideoReaction'] == true) {
@@ -206,7 +214,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       await _imageCacheManager.emptyCache();
       await _videoCacheManager.emptyCache();
       await _fileCacheManager.emptyCache();
-      
+
       if (mounted) {
         showSnackBar(context, 'Chat cache cleared');
       }
@@ -220,7 +228,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   // Video player methods with caching
   void _handleVideoThumbnailTap(MessageModel message) async {
     String? videoUrl;
-    
+
     if (message.type == MessageEnum.video) {
       videoUrl = message.mediaUrl;
     } else if (message.mediaMetadata?['isVideoReaction'] == true) {
@@ -229,12 +237,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         videoUrl = videoReactionData['videoUrl'];
       }
     }
-    
+
     if (videoUrl == null || videoUrl.isEmpty) {
       showSnackBar(context, 'Video not available');
       return;
     }
-    
+
     // Show loading indicator while getting cached video
     showDialog(
       context: context,
@@ -243,14 +251,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         child: CircularProgressIndicator(),
       ),
     );
-    
+
     try {
       // Get cached video file
-      final cachedFile = await _getCachedFile(videoUrl, cacheKey: '${message.messageId}_video');
-      
+      final cachedFile = await _getCachedFile(videoUrl,
+          cacheKey: '${message.messageId}_video');
+
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        
+
         if (cachedFile != null) {
           _showVideoPlayer(cachedFile.path);
         } else {
@@ -286,9 +295,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         radius: radius,
         backgroundColor: context.modernTheme.primaryColor?.withOpacity(0.2),
         child: Text(
-          widget.contact.name.isNotEmpty 
-            ? widget.contact.name[0].toUpperCase()
-            : '?',
+          widget.contact.name.isNotEmpty
+              ? widget.contact.name[0].toUpperCase()
+              : '?',
           style: TextStyle(
             color: context.modernTheme.primaryColor,
             fontWeight: FontWeight.bold,
@@ -320,9 +329,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         radius: radius,
         backgroundColor: context.modernTheme.primaryColor?.withOpacity(0.2),
         child: Text(
-          widget.contact.name.isNotEmpty 
-            ? widget.contact.name[0].toUpperCase()
-            : '?',
+          widget.contact.name.isNotEmpty
+              ? widget.contact.name[0].toUpperCase()
+              : '?',
           style: TextStyle(
             color: context.modernTheme.primaryColor,
             fontWeight: FontWeight.bold,
@@ -340,7 +349,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final chatTheme = context.chatTheme;
     final currentUser = ref.watch(currentUserProvider);
     final messageState = ref.watch(messageNotifierProvider(widget.chatId));
-    
+
     if (currentUser == null) {
       return const Scaffold(
         body: Center(child: Text('User not authenticated')),
@@ -354,7 +363,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           _closeVideoPlayer();
           return false;
         }
-        
+
         // Return whether any message was sent when popping
         Navigator.of(context).pop(_hasMessageBeenSent);
         return false;
@@ -385,7 +394,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   Expanded(
                     child: messageState.when(
                       loading: () => _buildLoadingState(modernTheme),
-                      error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
+                      error: (error, stack) =>
+                          _buildErrorState(modernTheme, error.toString()),
                       data: (state) {
                         // Preload media for smooth scrolling
                         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -395,14 +405,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       },
                     ),
                   ),
-                  
+
                   // Message input (hide when video player is visible)
                   if (!_isVideoPlayerVisible)
                     messageState.maybeWhen(
                       data: (state) => MessageInput(
                         onSendText: (text) => _handleSendText(text),
                         onSendImage: (image) => _handleSendImage(image),
-                        onSendFile: (file, fileName) => _handleSendFile(file, fileName),
+                        onSendFile: (file, fileName) =>
+                            _handleSendFile(file, fileName),
                         onSendGift: (gift) => _handleSendGift(gift),
                         contactId: widget.contact.id,
                         contactName: widget.contact.name,
@@ -415,7 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 ],
               ),
             ),
-            
+
             // Video Player Overlay
             if (_isVideoPlayerVisible && _currentVideoUrl != null)
               VideoPlayerOverlay(
@@ -423,7 +434,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 onClose: _closeVideoPlayer,
                 title: 'Shared Video',
               ),
-              
+
             // Scroll to bottom button
             if (_showScrollToBottom && !_isVideoPlayerVisible)
               Positioned(
@@ -446,8 +457,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   Widget _buildOnlineStatus(ModernThemeExtension modernTheme) {
     // Check if user is online (last seen within 5 minutes)
     final lastSeen = DateTime.tryParse(widget.contact.lastSeen);
-    final isOnline = lastSeen != null &&
-        DateTime.now().difference(lastSeen).inMinutes <= 5;
+    final isOnline =
+        lastSeen != null && DateTime.now().difference(lastSeen).inMinutes <= 5;
 
     if (isOnline) {
       return Row(
@@ -532,9 +543,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           elevation: 0,
           systemOverlayStyle: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            statusBarIconBrightness: modernTheme.textColor == Colors.white 
-              ? Brightness.light 
-              : Brightness.dark,
+            statusBarIconBrightness: modernTheme.textColor == Colors.white
+                ? Brightness.light
+                : Brightness.dark,
           ),
           leading: IconButton(
             onPressed: () {
@@ -592,7 +603,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   value: 'pinned_messages',
                   child: Row(
                     children: [
-                      Icon(Icons.push_pin, color: modernTheme.textColor, size: 20),
+                      Icon(Icons.push_pin,
+                          color: modernTheme.textColor, size: 20),
                       const SizedBox(width: 12),
                       Text(
                         'Pinned Messages',
@@ -605,7 +617,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   value: 'wallpaper',
                   child: Row(
                     children: [
-                      Icon(Icons.wallpaper, color: modernTheme.textColor, size: 20),
+                      Icon(Icons.wallpaper,
+                          color: modernTheme.textColor, size: 20),
                       const SizedBox(width: 12),
                       Text(
                         'Wallpaper',
@@ -618,7 +631,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   value: 'font_size',
                   child: Row(
                     children: [
-                      Icon(Icons.text_fields, color: modernTheme.textColor, size: 20),
+                      Icon(Icons.text_fields,
+                          color: modernTheme.textColor, size: 20),
                       const SizedBox(width: 12),
                       Text(
                         'Font Size',
@@ -631,7 +645,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   value: 'clear_cache',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_sweep, color: modernTheme.textColor, size: 20),
+                      Icon(Icons.delete_sweep,
+                          color: modernTheme.textColor, size: 20),
                       const SizedBox(width: 12),
                       Text(
                         'Clear Cache',
@@ -719,7 +734,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         final message = state.messages[index];
         final isCurrentUser = message.senderId == currentUser.uid;
         final isLastInGroup = _isLastInGroup(state.messages, index);
-        
+
         // Use SwipeToWrapper for all messages (including video reactions)
         return SwipeToWrapper(
           message: message,
@@ -737,7 +752,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   Widget _buildEmptyState() {
     final modernTheme = context.modernTheme;
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -767,28 +782,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   bool _isLastInGroup(List<MessageModel> messages, int index) {
     if (index == 0) return true;
-    
+
     final currentMessage = messages[index];
     final nextMessage = messages[index - 1];
-    
+
     return currentMessage.senderId != nextMessage.senderId ||
-           nextMessage.timestamp.difference(currentMessage.timestamp).inMinutes > 5;
+        nextMessage.timestamp.difference(currentMessage.timestamp).inMinutes >
+            5;
   }
 
   void _handleSendText(String text) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
     _hasMessageBeenSent = true;
   }
 
   void _handleSendImage(File image) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendImageMessage(widget.chatId, image);
     _hasMessageBeenSent = true;
   }
 
   void _handleSendFile(File file, String fileName) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendFileMessage(widget.chatId, file, fileName);
     _hasMessageBeenSent = true;
   }
@@ -797,7 +816,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     // Haptic feedback for successful gift send
     HapticFeedback.heavyImpact();
 
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendGiftMessage(
       widget.chatId,
       giftId: gift.id,
@@ -830,14 +850,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _cancelReply() {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.cancelReply();
   }
 
   void _replyToMessage(MessageModel message) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.setReplyToMessage(message);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
@@ -845,7 +867,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   void _showMessageOptions(MessageModel message, bool isCurrentUser) {
     final modernTheme = context.modernTheme;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -867,7 +889,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 ),
               ),
               const SizedBox(height: 20),
-              
               _MessageActionTile(
                 icon: Icons.reply,
                 title: 'Reply',
@@ -876,7 +897,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   _replyToMessage(message);
                 },
               ),
-              
               if (isCurrentUser && message.type == MessageEnum.text) ...[
                 _MessageActionTile(
                   icon: Icons.edit,
@@ -887,17 +907,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   },
                 ),
               ],
-              
               _MessageActionTile(
-                icon: message.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                icon:
+                    message.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
                 title: message.isPinned ? 'Unpin' : 'Pin',
                 onTap: () {
                   Navigator.pop(context);
                   _togglePinMessage(message);
                 },
               ),
-              
-              if (message.type == MessageEnum.text || 
+              if (message.type == MessageEnum.text ||
                   message.mediaMetadata?['isVideoReaction'] == true) ...[
                 _MessageActionTile(
                   icon: Icons.copy,
@@ -908,7 +927,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   },
                 ),
               ],
-              
               if (isCurrentUser) ...[
                 _MessageActionTile(
                   icon: Icons.delete_outline,
@@ -939,7 +957,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   },
                 ),
               ],
-              
               const SizedBox(height: 16),
             ],
           ),
@@ -959,40 +976,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _handleEditMessage(MessageModel message, String newContent) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.editMessage(widget.chatId, message.messageId, newContent);
   }
 
   void _togglePinMessage(MessageModel message) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.togglePinMessage(widget.chatId, message.messageId, message.isPinned);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
+    messageNotifier.togglePinMessage(
+        widget.chatId, message.messageId, message.isPinned);
   }
 
   void _copyMessage(MessageModel message) {
     String textToCopy = message.content;
-    
+
     // UPDATED: For video reactions, copy the reaction text (using userName instead of channelName)
     if (message.mediaMetadata?['isVideoReaction'] == true) {
       final videoReactionData = message.mediaMetadata?['videoReaction'];
       if (videoReactionData != null) {
         final reaction = videoReactionData['reaction'] ?? '';
-        final userName = videoReactionData['userName'] ?? 'video'; // Changed from channelName to userName
-        textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $userName\'s video';
+        final userName = videoReactionData['userName'] ??
+            'video'; // Changed from channelName to userName
+        textToCopy =
+            reaction.isNotEmpty ? reaction : 'Reacted to $userName\'s video';
       }
     }
-    
+
     Clipboard.setData(ClipboardData(text: textToCopy));
     showSnackBar(context, 'Message copied to clipboard');
   }
 
   void _deleteMessage(MessageModel message, bool deleteForEveryone) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.deleteMessage(widget.chatId, message.messageId, deleteForEveryone);
+    final messageNotifier =
+        ref.read(messageNotifierProvider(widget.chatId).notifier);
+    messageNotifier.deleteMessage(
+        widget.chatId, message.messageId, deleteForEveryone);
   }
 
   void _confirmDeleteForEveryone(MessageModel message) {
     final modernTheme = context.modernTheme;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1065,9 +1089,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _showPinnedMessages() {
-    final messageState = ref.read(messageNotifierProvider(widget.chatId)).valueOrNull;
+    final messageState =
+        ref.read(messageNotifierProvider(widget.chatId)).valueOrNull;
     final pinnedMessages = messageState?.pinnedMessages ?? [];
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1108,7 +1133,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   void _confirmBlockContact() {
     final modernTheme = context.modernTheme;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1168,7 +1193,7 @@ class _MessageActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final effectiveColor = color ?? modernTheme.textColor;
-    
+
     return ListTile(
       leading: Icon(icon, color: effectiveColor, size: 22),
       title: Text(
@@ -1217,7 +1242,7 @@ class _EditMessageDialogState extends State<_EditMessageDialog> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return AlertDialog(
       backgroundColor: modernTheme.surfaceColor,
       title: Text(
@@ -1279,7 +1304,8 @@ class _SearchMessagesDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_SearchMessagesDialog> createState() => _SearchMessagesDialogState();
+  ConsumerState<_SearchMessagesDialog> createState() =>
+      _SearchMessagesDialogState();
 }
 
 class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
@@ -1309,9 +1335,11 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
     });
 
     try {
-      final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-      final results = await messageNotifier.searchMessages(widget.chatId, query);
-      
+      final messageNotifier =
+          ref.read(messageNotifierProvider(widget.chatId).notifier);
+      final results =
+          await messageNotifier.searchMessages(widget.chatId, query);
+
       setState(() {
         _searchResults = results;
         _isSearching = false;
@@ -1326,7 +1354,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Dialog(
       backgroundColor: modernTheme.surfaceColor,
       shape: RoundedRectangleBorder(
@@ -1347,7 +1375,6 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            
             TextField(
               controller: _searchController,
               autofocus: true,
@@ -1355,7 +1382,8 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
               decoration: InputDecoration(
                 hintText: 'Search in chat...',
                 hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                prefixIcon: Icon(Icons.search, color: modernTheme.textSecondaryColor),
+                prefixIcon:
+                    Icon(Icons.search, color: modernTheme.textSecondaryColor),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: modernTheme.dividerColor!),
@@ -1367,9 +1395,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
               ),
               onChanged: _performSearch,
             ),
-            
             const SizedBox(height: 16),
-            
             Expanded(
               child: _isSearching
                   ? Center(
@@ -1400,15 +1426,16 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                _searchDateFormat.format(message.timestamp.toLocal()),
-                                style: TextStyle(color: modernTheme.textSecondaryColor),
+                                _searchDateFormat
+                                    .format(message.timestamp.toLocal()),
+                                style: TextStyle(
+                                    color: modernTheme.textSecondaryColor),
                               ),
                               onTap: () => widget.onMessageSelected(message),
                             );
                           },
                         ),
             ),
-            
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
@@ -1440,7 +1467,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: modernTheme.surfaceColor,
@@ -1457,7 +1484,6 @@ class _PinnedMessagesSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
@@ -1469,7 +1495,6 @@ class _PinnedMessagesSheet extends StatelessWidget {
               ),
             ),
           ),
-          
           Expanded(
             child: messages.isEmpty
                 ? Center(
@@ -1494,7 +1519,8 @@ class _PinnedMessagesSheet extends StatelessWidget {
                         ),
                         subtitle: Text(
                           _pinnedDateFormat.format(message.timestamp.toLocal()),
-                          style: TextStyle(color: modernTheme.textSecondaryColor),
+                          style:
+                              TextStyle(color: modernTheme.textSecondaryColor),
                         ),
                         trailing: IconButton(
                           onPressed: () => onUnpin(message),
@@ -1538,7 +1564,7 @@ class _FontSizeDialogState extends State<_FontSizeDialog> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return AlertDialog(
       backgroundColor: modernTheme.surfaceColor,
       title: Text(

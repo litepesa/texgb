@@ -44,7 +44,8 @@ class StatusModel {
   final bool isLikedByMe;
 
   // Duration (for video/auto-advance)
-  final int? durationSeconds; // null for text/image (uses default), specific for video
+  final int?
+      durationSeconds; // null for text/image (uses default), specific for video
 
   const StatusModel({
     required this.id,
@@ -75,36 +76,59 @@ class StatusModel {
       id: json['id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String,
       userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatar: json['userAvatar'] as String? ?? json['user_avatar'] as String,
+      userAvatar:
+          json['userAvatar'] as String? ?? json['user_avatar'] as String,
       content: json['content'] as String?,
       mediaUrl: json['mediaUrl'] as String? ?? json['media_url'] as String?,
       mediaType: StatusMediaTypeExtension.fromJson(
         json['mediaType'] as String? ?? json['media_type'] as String? ?? 'text',
       ),
-      thumbnailUrl: json['thumbnailUrl'] as String? ?? json['thumbnail_url'] as String?,
+      thumbnailUrl:
+          json['thumbnailUrl'] as String? ?? json['thumbnail_url'] as String?,
       textBackground: json['textBackground'] != null
-          ? TextStatusBackgroundExtension.fromJson(json['textBackground'] as String)
+          ? TextStatusBackgroundExtension.fromJson(
+              json['textBackground'] as String)
           : json['text_background'] != null
-              ? TextStatusBackgroundExtension.fromJson(json['text_background'] as String)
+              ? TextStatusBackgroundExtension.fromJson(
+                  json['text_background'] as String)
               : null,
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? json['created_at'] as String),
-      expiresAt: DateTime.parse(json['expiresAt'] as String? ?? json['expires_at'] as String),
-      isDeleted: json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? false,
+      createdAt: DateTime.parse(
+          json['createdAt'] as String? ?? json['created_at'] as String),
+      expiresAt: DateTime.parse(
+          json['expiresAt'] as String? ?? json['expires_at'] as String),
+      isDeleted:
+          json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? false,
       visibility: StatusVisibilityExtension.fromJson(
         json['visibility'] as String? ?? 'all',
       ),
-      visibleTo: (json['visibleTo'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          (json['visible_to'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      visibleTo: (json['visibleTo'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['visible_to'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
           const [],
-      hiddenFrom: (json['hiddenFrom'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-          (json['hidden_from'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      hiddenFrom: (json['hiddenFrom'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['hidden_from'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
           const [],
-      viewsCount: json['viewsCount'] as int? ?? json['views_count'] as int? ?? 0,
-      likesCount: json['likesCount'] as int? ?? json['likes_count'] as int? ?? 0,
-      giftsCount: json['giftsCount'] as int? ?? json['gifts_count'] as int? ?? 0,
-      isViewedByMe: json['isViewedByMe'] as bool? ?? json['is_viewed_by_me'] as bool? ?? false,
-      isLikedByMe: json['isLikedByMe'] as bool? ?? json['is_liked_by_me'] as bool? ?? false,
-      durationSeconds: json['durationSeconds'] as int? ?? json['duration_seconds'] as int?,
+      viewsCount:
+          json['viewsCount'] as int? ?? json['views_count'] as int? ?? 0,
+      likesCount:
+          json['likesCount'] as int? ?? json['likes_count'] as int? ?? 0,
+      giftsCount:
+          json['giftsCount'] as int? ?? json['gifts_count'] as int? ?? 0,
+      isViewedByMe: json['isViewedByMe'] as bool? ??
+          json['is_viewed_by_me'] as bool? ??
+          false,
+      isLikedByMe: json['isLikedByMe'] as bool? ??
+          json['is_liked_by_me'] as bool? ??
+          false,
+      durationSeconds:
+          json['durationSeconds'] as int? ?? json['duration_seconds'] as int?,
     );
   }
 
@@ -207,7 +231,8 @@ class StatusModel {
   int get hashCode => id.hashCode;
 
   @override
-  String toString() => 'StatusModel(id: $id, userId: $userId, mediaType: $mediaType)';
+  String toString() =>
+      'StatusModel(id: $id, userId: $userId, mediaType: $mediaType)';
 }
 
 // ===============================
@@ -237,7 +262,8 @@ class StatusGroup {
   // Get latest status
   StatusModel? get latestStatus {
     if (activeStatuses.isEmpty) return null;
-    return activeStatuses.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
+    return activeStatuses
+        .reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
   }
 
   // Check if any status is unviewed
@@ -259,11 +285,13 @@ class StatusGroup {
     return StatusGroup(
       userId: json['userId'] as String? ?? json['user_id'] as String,
       userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatar: json['userAvatar'] as String? ?? json['user_avatar'] as String,
+      userAvatar:
+          json['userAvatar'] as String? ?? json['user_avatar'] as String,
       statuses: (json['statuses'] as List<dynamic>)
           .map((e) => StatusModel.fromJson(e as Map<String, dynamic>))
           .toList(),
-      isMyStatus: json['isMyStatus'] as bool? ?? json['is_my_status'] as bool? ?? false,
+      isMyStatus:
+          json['isMyStatus'] as bool? ?? json['is_my_status'] as bool? ?? false,
     );
   }
 
@@ -332,14 +360,23 @@ class CreateStatusRequest {
     return CreateStatusRequest(
       content: json['content'] as String?,
       mediaUrl: json['mediaUrl'] as String?,
-      mediaType: StatusMediaTypeExtension.fromJson(json['mediaType'] as String? ?? 'text'),
+      mediaType: StatusMediaTypeExtension.fromJson(
+          json['mediaType'] as String? ?? 'text'),
       thumbnailUrl: json['thumbnailUrl'] as String?,
       textBackground: json['textBackground'] != null
-          ? TextStatusBackgroundExtension.fromJson(json['textBackground'] as String)
+          ? TextStatusBackgroundExtension.fromJson(
+              json['textBackground'] as String)
           : null,
-      visibility: StatusVisibilityExtension.fromJson(json['visibility'] as String? ?? 'all'),
-      visibleTo: (json['visibleTo'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
-      hiddenFrom: (json['hiddenFrom'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
+      visibility: StatusVisibilityExtension.fromJson(
+          json['visibility'] as String? ?? 'all'),
+      visibleTo: (json['visibleTo'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      hiddenFrom: (json['hiddenFrom'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
       durationSeconds: json['durationSeconds'] as int?,
     );
   }

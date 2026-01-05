@@ -19,7 +19,8 @@ class WalletScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<WalletScreenV2> createState() => _WalletScreenV2State();
 }
 
-class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTickerProviderStateMixin {
+class _WalletScreenV2State extends ConsumerState<WalletScreenV2>
+    with SingleTickerProviderStateMixin {
   bool _balanceVisible = true;
   bool _isInitialized = false;
   bool _isLoadingInitial = false;
@@ -92,7 +93,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
       }
 
       final cacheTime = DateTime.fromMillisecondsSinceEpoch(cacheTimestamp);
-      final isExpired = DateTime.now().difference(cacheTime) > _cacheValidityDuration;
+      final isExpired =
+          DateTime.now().difference(cacheTime) > _cacheValidityDuration;
 
       return !isExpired;
     } catch (e) {
@@ -115,11 +117,13 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
       if (transactionsJson != null) {
         final transactionsList = jsonDecode(transactionsJson) as List<dynamic>;
         _cachedTransactions = transactionsList
-            .map((json) => WalletTransaction.fromMap(json as Map<String, dynamic>))
+            .map((json) =>
+                WalletTransaction.fromMap(json as Map<String, dynamic>))
             .toList();
       }
 
-      debugPrint('Wallet: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
+      debugPrint(
+          'Wallet: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
     } catch (e) {
       debugPrint('Error loading cached data: $e');
       _cachedWallet = null;
@@ -127,7 +131,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     }
   }
 
-  Future<void> _saveCachedData(WalletModel? wallet, List<WalletTransaction> transactions) async {
+  Future<void> _saveCachedData(
+      WalletModel? wallet, List<WalletTransaction> transactions) async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -141,7 +146,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
       );
       await prefs.setString(_transactionsCacheKey, transactionsJson);
 
-      await prefs.setInt(_walletCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+          _walletCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
 
       debugPrint('Wallet: Saved data to cache');
     } catch (e) {
@@ -280,7 +286,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                       : RefreshIndicator(
                           onRefresh: _refreshWallet,
                           color: _primaryPurple,
-                          child: _buildWalletContent(_cachedWallet, _cachedTransactions, theme),
+                          child: _buildWalletContent(
+                              _cachedWallet, _cachedTransactions, theme),
                         ),
             ),
           ],
@@ -351,7 +358,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [_accentGold, _accentGold.withOpacity(0.8)],
@@ -402,7 +410,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildWalletContent(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 100),
@@ -429,7 +438,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildPremiumBalanceCard(WalletModel? wallet, ModernThemeExtension theme) {
+  Widget _buildPremiumBalanceCard(
+      WalletModel? wallet, ModernThemeExtension theme) {
     final balance = wallet?.coinsBalance ?? 0;
     final kesValue = _coinsToKES(balance);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -534,7 +544,9 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
+                          _balanceVisible
+                              ? CupertinoIcons.eye
+                              : CupertinoIcons.eye_slash,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -563,7 +575,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.only(bottom: isSmallScreen ? 6 : 8, left: 8),
+                      padding: EdgeInsets.only(
+                          bottom: isSmallScreen ? 6 : 8, left: 8),
                       child: Text(
                         'coins',
                         style: TextStyle(
@@ -577,7 +590,9 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _balanceVisible ? '≈ KES ${kesValue.toStringAsFixed(2)}' : '≈ KES •••',
+                  _balanceVisible
+                      ? '≈ KES ${kesValue.toStringAsFixed(2)}'
+                      : '≈ KES •••',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isSmallScreen ? 16 : 18,
@@ -587,7 +602,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: _accentGold.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -666,8 +682,11 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      tab == 'Overview' ? Icons.dashboard_rounded : Icons.card_giftcard_rounded,
-                      color: isSelected ? Colors.white : const Color(0xFF9CA3AF),
+                      tab == 'Overview'
+                          ? Icons.dashboard_rounded
+                          : Icons.card_giftcard_rounded,
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF9CA3AF),
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -675,9 +694,11 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                       tab,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF6B7280),
+                        color:
+                            isSelected ? Colors.white : const Color(0xFF6B7280),
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -690,14 +711,16 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildTabContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildTabContent(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     if (_selectedTab == 'Gifts') {
       return _buildGiftsTab(wallet, theme);
     }
     return _buildOverviewTab(wallet, transactions, theme);
   }
 
-  Widget _buildOverviewTab(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildOverviewTab(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return Column(
       children: [
         // Quick Actions
@@ -721,9 +744,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     final isSmallScreen = screenWidth < 360;
 
     // Get gift-related transactions
-    final giftTransactions = _cachedTransactions
-        .where((t) => t.type == 'gift_received')
-        .toList();
+    final giftTransactions =
+        _cachedTransactions.where((t) => t.type == 'gift_received').toList();
 
     return Column(
       children: [
@@ -751,7 +773,10 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                     padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [_accentGold.withOpacity(0.2), _accentGold.withOpacity(0.1)],
+                        colors: [
+                          _accentGold.withOpacity(0.2),
+                          _accentGold.withOpacity(0.1)
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -867,8 +892,10 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 _buildEmptyGifts(theme)
               else
                 Column(
-                  children: giftTransactions.take(5).map((transaction) =>
-                    _buildGiftItem(transaction, theme)).toList(),
+                  children: giftTransactions
+                      .take(5)
+                      .map((transaction) => _buildGiftItem(transaction, theme))
+                      .toList(),
                 ),
             ],
           ),
@@ -882,7 +909,10 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
           padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
+              colors: [
+                _primaryPurple.withOpacity(0.1),
+                _deepPurple.withOpacity(0.05)
+              ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
@@ -922,7 +952,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildGiftStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildGiftStatItem(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1000,7 +1031,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildGiftItem(WalletTransaction transaction, ModernThemeExtension theme) {
+  Widget _buildGiftItem(
+      WalletTransaction transaction, ModernThemeExtension theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -1016,7 +1048,10 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_accentGold.withOpacity(0.2), _accentGold.withOpacity(0.1)],
+                colors: [
+                  _accentGold.withOpacity(0.2),
+                  _accentGold.withOpacity(0.1)
+                ],
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1153,7 +1188,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                   icon: Icons.history_rounded,
                   label: 'History',
                   color: const Color(0xFF8B5CF6),
-                  onTap: () => _showTransactionHistory(context, _cachedTransactions, theme),
+                  onTap: () => _showTransactionHistory(
+                      context, _cachedTransactions, theme),
                 ),
               ),
             ],
@@ -1344,7 +1380,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildTransactionsSection(
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
 
@@ -1382,7 +1419,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 ),
                 if (transactions.isNotEmpty)
                   GestureDetector(
-                    onTap: () => _showTransactionHistory(context, transactions, theme),
+                    onTap: () =>
+                        _showTransactionHistory(context, transactions, theme),
                     child: Text(
                       'View All',
                       style: TextStyle(
@@ -1399,8 +1437,11 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
             _buildEmptyTransactions(theme)
           else
             Column(
-              children: transactions.take(5).map((transaction) =>
-                _buildTransactionItem(transaction, theme)).toList(),
+              children: transactions
+                  .take(5)
+                  .map((transaction) =>
+                      _buildTransactionItem(transaction, theme))
+                  .toList(),
             ),
         ],
       ),
@@ -1447,7 +1488,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension theme) {
+  Widget _buildTransactionItem(
+      WalletTransaction transaction, ModernThemeExtension theme) {
     final isCredit = transaction.isCredit;
 
     IconData icon;
@@ -1549,7 +1591,9 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  color: isCredit
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFEF4444),
                 ),
               ),
               const SizedBox(height: 2),
@@ -1568,7 +1612,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
     );
   }
 
-  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  void _showTransactionHistory(BuildContext context,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1933,7 +1978,7 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$feature will be available soon as part of the WemaChat wallet!',
+                '$feature will be available soon as part of the WemaShop wallet!',
                 style: const TextStyle(
                   fontSize: 16,
                   color: Color(0xFF6B7280),
@@ -1944,7 +1989,10 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
+                    colors: [
+                      _primaryPurple.withOpacity(0.1),
+                      _deepPurple.withOpacity(0.05)
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1991,7 +2039,8 @@ class _WalletScreenV2State extends ConsumerState<WalletScreenV2> with SingleTick
 
   String _formatTransactionDate(String timestamp) {
     try {
-      final dateTime = DateTime.fromMicrosecondsSinceEpoch(int.parse(timestamp));
+      final dateTime =
+          DateTime.fromMicrosecondsSinceEpoch(int.parse(timestamp));
       final now = DateTime.now();
       final difference = now.difference(dateTime);
 

@@ -1,5 +1,5 @@
 // lib/features/wallet/screens/wallet_screen.dart
-// VIRTUAL GIFTING WALLET: Premium gift system with 1.5 KES conversion rate
+// ESCROW WALLET: Secure escrow system for protected transactions with 1:1 KES conversion rate
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +23,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _isInitialized = false;
   bool _isLoadingInitial = false;
   String? _error;
-  String _selectedTab = 'Overview'; // Overview, Gifts
+  String _selectedTab = 'Overview'; // Overview, Escrow
 
   // Premium color scheme matching V2
   static const Color _primaryPurple = Color(0xFF6366F1);
@@ -31,7 +31,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   static const Color _accentGold = Color(0xFFFBBF24);
   static const Color _surfaceWhite = Color(0xFFFAFAFA);
   static const Color _cardWhite = Colors.white;
-  
+
   // Cached data
   WalletModel? _cachedWallet;
   List<WalletTransaction> _cachedTransactions = [];
@@ -65,9 +65,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         );
   }
 
-  // Conversion rate: 1 coin = 1.5 KES (matching V2)
+  // Conversion rate: 1 coin = 1 KES
   double _coinsToKES(int coins) {
-    return coins * 1.5;
+    return coins * 1.0;
   }
 
   Future<bool> get _hasCachedData async {
@@ -75,14 +75,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       final prefs = await SharedPreferences.getInstance();
       final walletData = prefs.getString(_walletCacheKey);
       final cacheTimestamp = prefs.getInt(_walletCacheTimestampKey);
-      
+
       if (walletData == null || cacheTimestamp == null) {
         return false;
       }
-      
+
       final cacheTime = DateTime.fromMillisecondsSinceEpoch(cacheTimestamp);
-      final isExpired = DateTime.now().difference(cacheTime) > _cacheValidityDuration;
-      
+      final isExpired =
+          DateTime.now().difference(cacheTime) > _cacheValidityDuration;
+
       return !isExpired;
     } catch (e) {
       debugPrint('Error checking cached data: $e');
@@ -93,22 +94,24 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Future<void> _loadCachedData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       final walletJson = prefs.getString(_walletCacheKey);
       if (walletJson != null) {
         final walletMap = jsonDecode(walletJson) as Map<String, dynamic>;
         _cachedWallet = WalletModel.fromMap(walletMap);
       }
-      
+
       final transactionsJson = prefs.getString(_transactionsCacheKey);
       if (transactionsJson != null) {
         final transactionsList = jsonDecode(transactionsJson) as List<dynamic>;
         _cachedTransactions = transactionsList
-            .map((json) => WalletTransaction.fromMap(json as Map<String, dynamic>))
+            .map((json) =>
+                WalletTransaction.fromMap(json as Map<String, dynamic>))
             .toList();
       }
-      
-      debugPrint('Gift wallet: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
+
+      debugPrint(
+          'Escrow wallet: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
     } catch (e) {
       debugPrint('Error loading cached data: $e');
       _cachedWallet = null;
@@ -116,23 +119,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     }
   }
 
-  Future<void> _saveCachedData(WalletModel? wallet, List<WalletTransaction> transactions) async {
+  Future<void> _saveCachedData(
+      WalletModel? wallet, List<WalletTransaction> transactions) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       if (wallet != null) {
         final walletJson = jsonEncode(wallet.toMap());
         await prefs.setString(_walletCacheKey, walletJson);
       }
-      
+
       final transactionsJson = jsonEncode(
         transactions.map((t) => t.toMap()).toList(),
       );
       await prefs.setString(_transactionsCacheKey, transactionsJson);
-      
-      await prefs.setInt(_walletCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
-      
-      debugPrint('Gift wallet: Saved data to cache');
+
+      await prefs.setInt(
+          _walletCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
+
+      debugPrint('Escrow wallet: Saved data to cache');
     } catch (e) {
       debugPrint('Error saving cached data: $e');
     }
@@ -144,7 +149,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       await prefs.remove(_walletCacheKey);
       await prefs.remove(_transactionsCacheKey);
       await prefs.remove(_walletCacheTimestampKey);
-      debugPrint('Gift wallet: Cache cleared');
+      debugPrint('Escrow wallet: Cache cleared');
     } catch (e) {
       debugPrint('Error clearing cache: $e');
     }
@@ -152,15 +157,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   void _initializeScreen() async {
     final hasCached = await _hasCachedData;
-    
+
     if (hasCached) {
       await _loadCachedData();
       setState(() {
         _isInitialized = true;
       });
-      debugPrint('Gift wallet: Using cached data');
+      debugPrint('Escrow wallet: Using cached data');
     } else {
-      debugPrint('Gift wallet: No valid cache found, loading initial data');
+      debugPrint('Escrow wallet: No valid cache found, loading initial data');
       _loadInitialData();
     }
   }
@@ -191,18 +196,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
       _cachedWallet = wallet;
       _cachedTransactions = transactions;
-      
+
       await _saveCachedData(wallet, transactions);
-      
+
       if (mounted) {
         setState(() {
           _isInitialized = true;
           _isLoadingInitial = false;
         });
-        debugPrint('Gift wallet: Initial data loaded and cached successfully');
+        debugPrint(
+            'Escrow wallet: Initial data loaded and cached successfully');
       }
     } catch (e) {
-      debugPrint('Gift wallet: Error loading initial data: $e');
+      debugPrint('Escrow wallet: Error loading initial data: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -217,7 +223,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     try {
       final currentUser = ref.read(currentUserProvider);
       if (currentUser == null) return;
-      
+
       final repository = ref.read(walletRepositoryProvider);
       final wallet = await repository.getUserWallet(currentUser.uid);
       final transactions = await repository.getWalletTransactions(
@@ -227,20 +233,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
       _cachedWallet = wallet;
       _cachedTransactions = transactions;
-      
+
       await _saveCachedData(wallet, transactions);
-      
+
       if (_error != null) {
         setState(() {
           _error = null;
         });
       }
-      
+
       setState(() {});
-      
-      debugPrint('Gift wallet: Data refreshed and cached successfully');
+
+      debugPrint('Escrow wallet: Data refreshed and cached successfully');
     } catch (e) {
-      debugPrint('Gift wallet: Error refreshing data: $e');
+      debugPrint('Escrow wallet: Error refreshing data: $e');
     }
   }
 
@@ -265,7 +271,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       : RefreshIndicator(
                           onRefresh: _refreshWallet,
                           color: _primaryPurple,
-                          child: _buildWalletContent(_cachedWallet, _cachedTransactions, theme),
+                          child: _buildWalletContent(
+                              _cachedWallet, _cachedTransactions, theme),
                         ),
             ),
           ],
@@ -298,7 +305,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       child: Row(
         children: [
           // Back Button
-          Container(
+          /*Container(
             decoration: BoxDecoration(
               color: _primaryPurple.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
@@ -312,7 +319,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 16),*/
 
           // Title Section
           Expanded(
@@ -336,7 +343,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [_accentGold, _accentGold.withOpacity(0.8)],
@@ -356,7 +364,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ],
                 ),
                 const Text(
-                  '1 coin = 1.5 KES',
+                  '1 coin = 1 KES',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -438,12 +446,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       theme: theme,
                     ),
                     _buildMenuItem(
-                      icon: CupertinoIcons.gift,
-                      title: 'Gift Shop',
-                      subtitle: 'Browse available virtual gifts',
+                      icon: CupertinoIcons.shield,
+                      title: 'Escrow Center',
+                      subtitle: 'Manage all your escrow transactions',
                       onTap: () {
                         context.pop();
-                        _showComingSoonDialog('Gift Shop');
+                        setState(() {
+                          _selectedTab = 'Escrow';
+                        });
                       },
                       theme: theme,
                     ),
@@ -649,7 +659,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildWalletContent(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 100),
@@ -748,7 +759,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
-                              Icons.card_giftcard_rounded,
+                              Icons.account_balance_wallet_rounded,
                               color: Colors.white,
                               size: 20,
                             ),
@@ -781,7 +792,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
+                          _balanceVisible
+                              ? CupertinoIcons.eye
+                              : CupertinoIcons.eye_slash,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -810,7 +823,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.only(bottom: isSmallScreen ? 6 : 8, left: 8),
+                      padding: EdgeInsets.only(
+                          bottom: isSmallScreen ? 6 : 8, left: 8),
                       child: Text(
                         'coins',
                         style: TextStyle(
@@ -824,7 +838,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _balanceVisible ? '≈ KES ${kesValue.toStringAsFixed(2)}' : '≈ KES •••',
+                  _balanceVisible
+                      ? '≈ KES ${kesValue.toStringAsFixed(2)}'
+                      : '≈ KES •••',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isSmallScreen ? 16 : 18,
@@ -834,7 +850,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: _accentGold.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -854,7 +871,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       const SizedBox(width: 8),
                       const Flexible(
                         child: Text(
-                          '100 coins = KES 150  •  Send gifts & earn',
+                          '100 coins = KES 100  •  Secure escrow payments',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -874,7 +891,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   Widget _buildTabSelector(ModernThemeExtension theme) {
-    final tabs = ['Overview', 'Gifts'];
+    final tabs = ['Overview', 'Escrow'];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -914,8 +931,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      tab == 'Overview' ? Icons.dashboard_rounded : Icons.card_giftcard_rounded,
-                      color: isSelected ? Colors.white : const Color(0xFF9CA3AF),
+                      tab == 'Overview'
+                          ? Icons.dashboard_rounded
+                          : Icons.shield_rounded,
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF9CA3AF),
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -923,9 +943,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       tab,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF6B7280),
+                        color:
+                            isSelected ? Colors.white : const Color(0xFF6B7280),
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -938,14 +960,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildTabContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
-    if (_selectedTab == 'Gifts') {
-      return _buildGiftsSection(wallet, transactions, theme);
+  Widget _buildTabContent(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
+    if (_selectedTab == 'Escrow') {
+      return _buildEscrowSection(wallet, transactions, theme);
     }
     return _buildOverviewSection(wallet, transactions, theme);
   }
 
-  Widget _buildOverviewSection(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildOverviewSection(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     return Column(
       children: [
         // Quick Actions
@@ -964,18 +988,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildGiftsSection(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildEscrowSection(WalletModel? wallet,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
 
-    // Get gift-related transactions
-    final giftTransactions = transactions
-        .where((t) => t.type == 'gift_received')
+    // Get escrow-related transactions (placeholder - will be updated with actual escrow logic)
+    final escrowTransactions = transactions
+        .where((t) =>
+            t.type == 'escrow' ||
+            t.type == 'escrow_created' ||
+            t.type == 'escrow_released' ||
+            t.type == 'escrow_refunded')
         .toList();
 
     return Column(
       children: [
-        // Gifts Stats Card
+        // Escrow Stats Card
         Container(
           margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 20),
           padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
@@ -999,13 +1028,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [_accentGold.withOpacity(0.2), _accentGold.withOpacity(0.1)],
+                        colors: [
+                          _primaryPurple.withOpacity(0.2),
+                          _primaryPurple.withOpacity(0.1)
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      Icons.card_giftcard_rounded,
-                      color: _accentGold,
+                      Icons.shield_rounded,
+                      color: _primaryPurple,
                       size: isSmallScreen ? 20 : 24,
                     ),
                   ),
@@ -1015,7 +1047,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Virtual Gifts Received',
+                          'Escrow Protection',
                           style: TextStyle(
                             fontSize: isSmallScreen ? 16 : 18,
                             fontWeight: FontWeight.w700,
@@ -1024,7 +1056,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          'Track gifts from your supporters',
+                          'Secure transactions with buyer protection',
                           style: TextStyle(
                             fontSize: isSmallScreen ? 12 : 13,
                             color: const Color(0xFF6B7280),
@@ -1040,22 +1072,42 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildGiftStatItem(
-                      'Total Gifts',
-                      giftTransactions.length.toString(),
-                      Icons.favorite_rounded,
-                      const Color(0xFFEF4444),
+                    child: _buildEscrowStatItem(
+                      'Active',
+                      '0',
+                      Icons.hourglass_top_rounded,
+                      const Color(0xFFF59E0B),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildGiftStatItem(
-                      'Coin Value',
-                      giftTransactions
-                          .fold(0, (sum, t) => sum + t.coinAmount)
-                          .toString(),
-                      Icons.monetization_on_rounded,
-                      _accentGold,
+                    child: _buildEscrowStatItem(
+                      'Completed',
+                      '0',
+                      Icons.check_circle_rounded,
+                      const Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildEscrowStatItem(
+                      'Protected',
+                      'KES 0',
+                      Icons.lock_rounded,
+                      _primaryPurple,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildEscrowStatItem(
+                      'Released',
+                      'KES 0',
+                      Icons.send_rounded,
+                      const Color(0xFF3B82F6),
                     ),
                   ),
                 ],
@@ -1066,7 +1118,73 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
         SizedBox(height: isSmallScreen ? 12 : 16),
 
-        // Received Gifts List
+        // Escrow Actions
+        Container(
+          margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 20),
+          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+          decoration: BoxDecoration(
+            color: _cardWhite,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Escrow Actions',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 16 : 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildEscrowActionButton(
+                      icon: Icons.add_circle_rounded,
+                      title: 'Create\nEscrow',
+                      color: const Color(0xFF10B981),
+                      onTap: () => _showComingSoonDialog('Create Escrow'),
+                      isSmallScreen: isSmallScreen,
+                    ),
+                  ),
+                  SizedBox(width: isSmallScreen ? 8 : 12),
+                  Expanded(
+                    child: _buildEscrowActionButton(
+                      icon: Icons.send_rounded,
+                      title: 'Release\nFunds',
+                      color: const Color(0xFF3B82F6),
+                      onTap: () => _showComingSoonDialog('Release Funds'),
+                      isSmallScreen: isSmallScreen,
+                    ),
+                  ),
+                  SizedBox(width: isSmallScreen ? 8 : 12),
+                  Expanded(
+                    child: _buildEscrowActionButton(
+                      icon: Icons.undo_rounded,
+                      title: 'Request\nRefund',
+                      color: const Color(0xFFEF4444),
+                      onTap: () => _showComingSoonDialog('Request Refund'),
+                      isSmallScreen: isSmallScreen,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: isSmallScreen ? 12 : 16),
+
+        // Active Escrows List
         Container(
           margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 20),
           decoration: BoxDecoration(
@@ -1090,7 +1208,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   children: [
                     Flexible(
                       child: Text(
-                        'Received Gifts',
+                        'Recent Escrows',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 16 : 18,
                           fontWeight: FontWeight.w700,
@@ -1099,9 +1217,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (giftTransactions.isNotEmpty)
+                    if (escrowTransactions.isNotEmpty)
                       Text(
-                        '${giftTransactions.length} gifts',
+                        '${escrowTransactions.length} escrows',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 12 : 14,
                           fontWeight: FontWeight.w600,
@@ -1111,12 +1229,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ],
                 ),
               ),
-              if (giftTransactions.isEmpty)
-                _buildEmptyGifts(theme)
+              if (escrowTransactions.isEmpty)
+                _buildEmptyEscrows(theme)
               else
                 Column(
-                  children: giftTransactions.take(5).map((transaction) =>
-                    _buildGiftItem(transaction, theme)).toList(),
+                  children: escrowTransactions
+                      .take(5)
+                      .map(
+                          (transaction) => _buildEscrowItem(transaction, theme))
+                      .toList(),
                 ),
             ],
           ),
@@ -1124,13 +1245,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
         SizedBox(height: isSmallScreen ? 12 : 16),
 
-        // Info Card
+        // How Escrow Works Info Card
         Container(
           margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 20),
           padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
+              colors: [
+                _primaryPurple.withOpacity(0.1),
+                _deepPurple.withOpacity(0.05)
+              ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
@@ -1138,31 +1262,48 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               width: 1,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-                decoration: BoxDecoration(
-                  color: _primaryPurple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.lightbulb_rounded,
-                  color: _primaryPurple,
-                  size: isSmallScreen ? 20 : 24,
-                ),
-              ),
-              SizedBox(width: isSmallScreen ? 12 : 16),
-              Expanded(
-                child: Text(
-                  'Create engaging content to receive more virtual gifts from your supporters!',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 12 : 13,
-                    color: const Color(0xFF4B5563),
-                    height: 1.5,
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                    decoration: BoxDecoration(
+                      color: _primaryPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.info_outline_rounded,
+                      color: _primaryPurple,
+                      size: isSmallScreen ? 20 : 24,
+                    ),
                   ),
-                ),
+                  SizedBox(width: isSmallScreen ? 12 : 16),
+                  Expanded(
+                    child: Text(
+                      'How Escrow Works',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              _buildEscrowStep(
+                  '1', 'Buyer creates escrow with payment', isSmallScreen),
+              SizedBox(height: isSmallScreen ? 8 : 10),
+              _buildEscrowStep(
+                  '2', 'Funds are held securely in escrow', isSmallScreen),
+              SizedBox(height: isSmallScreen ? 8 : 10),
+              _buildEscrowStep(
+                  '3', 'Seller delivers goods or services', isSmallScreen),
+              SizedBox(height: isSmallScreen ? 8 : 10),
+              _buildEscrowStep(
+                  '4', 'Buyer confirms and funds are released', isSmallScreen),
             ],
           ),
         ),
@@ -1170,7 +1311,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildGiftStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildEscrowStatItem(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1189,7 +1331,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -1208,7 +1350,53 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildEmptyGifts(ModernThemeExtension theme) {
+  Widget _buildEscrowActionButton({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isSmallScreen,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          vertical: isSmallScreen ? 12 : 16,
+          horizontal: isSmallScreen ? 8 : 12,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: color.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: isSmallScreen ? 24 : 28,
+            ),
+            SizedBox(height: isSmallScreen ? 6 : 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: isSmallScreen ? 10 : 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF4B5563),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyEscrows(ModernThemeExtension theme) {
     return Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
@@ -1216,18 +1404,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: _accentGold.withOpacity(0.1),
+              color: _primaryPurple.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.card_giftcard_rounded,
+              Icons.shield_rounded,
               size: 48,
-              color: _accentGold,
+              color: _primaryPurple,
             ),
           ),
           const SizedBox(height: 20),
           const Text(
-            'No Gifts Yet',
+            'No Escrows Yet',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -1236,7 +1424,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Gifts you receive will appear here',
+            'Your escrow transactions will appear here',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -1248,7 +1436,34 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildGiftItem(WalletTransaction transaction, ModernThemeExtension theme) {
+  Widget _buildEscrowItem(
+      WalletTransaction transaction, ModernThemeExtension theme) {
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+
+    switch (transaction.type) {
+      case 'escrow_created':
+        statusColor = const Color(0xFFF59E0B);
+        statusIcon = Icons.hourglass_top_rounded;
+        statusText = 'Active';
+        break;
+      case 'escrow_released':
+        statusColor = const Color(0xFF10B981);
+        statusIcon = Icons.check_circle_rounded;
+        statusText = 'Released';
+        break;
+      case 'escrow_refunded':
+        statusColor = const Color(0xFFEF4444);
+        statusIcon = Icons.undo_rounded;
+        statusText = 'Refunded';
+        break;
+      default:
+        statusColor = const Color(0xFF6B7280);
+        statusIcon = Icons.pending_rounded;
+        statusText = 'Pending';
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -1263,14 +1478,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_accentGold.withOpacity(0.2), _accentGold.withOpacity(0.1)],
-              ),
+              color: statusColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              Icons.card_giftcard_rounded,
-              color: _accentGold,
+              statusIcon,
+              color: statusColor,
               size: 24,
             ),
           ),
@@ -1290,22 +1503,33 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  transaction.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6B7280),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatTransactionDate(transaction.createdAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF9CA3AF),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatTransactionDate(transaction.createdAt),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1314,18 +1538,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '+${transaction.coinAmount}',
-                style: TextStyle(
-                  fontSize: 18,
+                'KES ${transaction.coinAmount}',
+                style: const TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: _accentGold,
+                  color: Color(0xFF1F2937),
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
-                'coins',
-                style: TextStyle(
-                  fontSize: 12,
+              Text(
+                '${transaction.coinAmount} coins',
+                style: const TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF6B7280),
                 ),
@@ -1334,6 +1558,41 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEscrowStep(String number, String text, bool isSmallScreen) {
+    return Row(
+      children: [
+        Container(
+          width: isSmallScreen ? 22 : 26,
+          height: isSmallScreen ? 22 : 26,
+          decoration: BoxDecoration(
+            color: _primaryPurple,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isSmallScreen ? 11 : 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: isSmallScreen ? 10 : 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 13,
+              color: const Color(0xFF4B5563),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1381,10 +1640,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               SizedBox(width: isSmallScreen ? 8 : 12),
               Expanded(
                 child: _buildQuickActionButton(
-                  icon: Icons.card_giftcard_rounded,
-                  title: 'Send Gift',
+                  icon: Icons.shield_rounded,
+                  title: 'Escrow',
                   color: _accentGold,
-                  onTap: () => _showComingSoonDialog('Send Gift'),
+                  onTap: () {
+                    setState(() {
+                      _selectedTab = 'Escrow';
+                    });
+                  },
                   isSmallScreen: isSmallScreen,
                 ),
               ),
@@ -1394,7 +1657,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   icon: Icons.history_rounded,
                   title: 'History',
                   color: _primaryPurple,
-                  onTap: () => _showTransactionHistory(context, _cachedTransactions, theme),
+                  onTap: () => _showTransactionHistory(
+                      context, _cachedTransactions, theme),
                   isSmallScreen: isSmallScreen,
                 ),
               ),
@@ -1489,8 +1753,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               SizedBox(width: isSmallScreen ? 8 : 12),
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.card_giftcard_rounded,
-                  title: 'Gifts Sent',
+                  icon: Icons.shield_rounded,
+                  title: 'Active Escrows',
                   value: '0',
                   color: const Color(0xFF8B5CF6),
                   isSmallScreen: isSmallScreen,
@@ -1503,8 +1767,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.favorite_rounded,
-                  title: 'Gifts Received',
+                  icon: Icons.check_circle_rounded,
+                  title: 'Completed',
                   value: '0',
                   color: _accentGold,
                   isSmallScreen: isSmallScreen,
@@ -1513,8 +1777,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               SizedBox(width: isSmallScreen ? 8 : 12),
               Expanded(
                 child: _buildStatItem(
-                  icon: Icons.account_balance_wallet_rounded,
-                  title: 'Total Earned',
+                  icon: Icons.lock_rounded,
+                  title: 'Protected',
                   value: '0 KES',
                   color: const Color(0xFF10B981),
                   isSmallScreen: isSmallScreen,
@@ -1582,7 +1846,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildTransactionsSection(List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  Widget _buildTransactionsSection(
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
 
@@ -1620,7 +1885,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 if (transactions.isNotEmpty)
                   GestureDetector(
-                    onTap: () => _showTransactionHistory(context, transactions, theme),
+                    onTap: () =>
+                        _showTransactionHistory(context, transactions, theme),
                     child: Text(
                       'View All',
                       style: TextStyle(
@@ -1637,8 +1903,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             _buildEmptyTransactions(theme)
           else
             Column(
-              children: transactions.take(5).map((transaction) =>
-                _buildTransactionItem(transaction, theme)).toList(),
+              children: transactions
+                  .take(5)
+                  .map((transaction) =>
+                      _buildTransactionItem(transaction, theme))
+                  .toList(),
             ),
         ],
       ),
@@ -1685,19 +1954,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension theme) {
+  Widget _buildTransactionItem(
+      WalletTransaction transaction, ModernThemeExtension theme) {
     final isCredit = transaction.isCredit;
 
     IconData icon;
     Color iconColor;
 
     switch (transaction.type) {
-      case 'gift_sent':
       case 'transfer_sent':
         icon = Icons.send_rounded;
         iconColor = const Color(0xFF3B82F6);
         break;
-      case 'gift_received':
       case 'transfer_received':
         icon = Icons.call_received_rounded;
         iconColor = const Color(0xFF10B981);
@@ -1714,6 +1982,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       case 'payment':
         icon = Icons.shopping_bag_rounded;
         iconColor = _accentGold;
+        break;
+      case 'escrow':
+      case 'escrow_created':
+        icon = Icons.shield_rounded;
+        iconColor = const Color(0xFFF59E0B);
+        break;
+      case 'escrow_released':
+        icon = Icons.check_circle_rounded;
+        iconColor = const Color(0xFF10B981);
+        break;
+      case 'escrow_refunded':
+        icon = Icons.undo_rounded;
+        iconColor = const Color(0xFFEF4444);
         break;
       default:
         icon = Icons.swap_horiz_rounded;
@@ -1787,7 +2068,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  color: isCredit
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFEF4444),
                 ),
               ),
               const SizedBox(height: 2),
@@ -1806,7 +2089,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  void _showTransactionHistory(BuildContext context, List<WalletTransaction> transactions, ModernThemeExtension theme) {
+  void _showTransactionHistory(BuildContext context,
+      List<WalletTransaction> transactions, ModernThemeExtension theme) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1909,7 +2193,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$feature will be available soon as part of the WemaChat wallet!',
+                '$feature will be available soon as part of the WemaShop wallet!',
                 style: const TextStyle(
                   fontSize: 16,
                   color: Color(0xFF6B7280),
@@ -1920,7 +2204,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [_primaryPurple.withOpacity(0.1), _deepPurple.withOpacity(0.05)],
+                    colors: [
+                      _primaryPurple.withOpacity(0.1),
+                      _deepPurple.withOpacity(0.05)
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1967,7 +2254,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   String _formatTransactionDate(String timestamp) {
     try {
-      final dateTime = DateTime.fromMicrosecondsSinceEpoch(int.parse(timestamp));
+      final dateTime =
+          DateTime.fromMicrosecondsSinceEpoch(int.parse(timestamp));
       final now = DateTime.now();
       final difference = now.difference(dateTime);
 

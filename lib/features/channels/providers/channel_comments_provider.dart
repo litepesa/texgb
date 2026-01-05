@@ -75,7 +75,8 @@ class PostComments extends _$PostComments {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
 
-    final updatedList = _addReplyRecursive(currentState, parentCommentId, reply);
+    final updatedList =
+        _addReplyRecursive(currentState, parentCommentId, reply);
     state = AsyncValue.data(updatedList);
   }
 
@@ -183,7 +184,8 @@ class CommentActions extends _$CommentActions {
 
       if (comment != null) {
         // Update comments list
-        final commentsNotifier = ref.read(postCommentsProvider(postId).notifier);
+        final commentsNotifier =
+            ref.read(postCommentsProvider(postId).notifier);
 
         if (parentCommentId == null) {
           // Top-level comment
@@ -212,7 +214,8 @@ class CommentActions extends _$CommentActions {
 
       if (success) {
         // Update comments list (soft delete)
-        final commentsNotifier = ref.read(postCommentsProvider(postId).notifier);
+        final commentsNotifier =
+            ref.read(postCommentsProvider(postId).notifier);
         commentsNotifier.removeComment(commentId);
       }
 

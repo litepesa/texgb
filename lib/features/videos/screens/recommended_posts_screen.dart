@@ -12,14 +12,16 @@ class RecommendedPostsScreen extends ConsumerStatefulWidget {
   const RecommendedPostsScreen({super.key});
 
   @override
-  ConsumerState<RecommendedPostsScreen> createState() => _RecommendedPostsScreenState();
+  ConsumerState<RecommendedPostsScreen> createState() =>
+      _RecommendedPostsScreenState();
 }
 
-class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen> {
+class _RecommendedPostsScreenState
+    extends ConsumerState<RecommendedPostsScreen> {
   final PageController _pageController = PageController(
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
-  
+
   // Cache for recommended videos to avoid reloading
   List<VideoModel> _recommendedVideos = [];
   bool _isLoadingRecommendations = false;
@@ -54,25 +56,25 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
+
       // Get current state
       final authState = ref.read(authenticationProvider);
       final currentAuthState = authState.valueOrNull;
-      
+
       // If no data and not forcing refresh, try to load it
       if (currentAuthState == null || currentAuthState.videos.isEmpty) {
         debugPrint('🔹 No videos in state, loading from backend...');
-        
+
         // Force refresh data if needed
         await authNotifier.loadVideos();
         await authNotifier.loadUsers();
-        
+
         // Get updated state after loading
         final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
         if (updatedAuthState == null) {
           throw Exception('Authentication state not available after loading');
         }
-        
+
         // Use updated state
         _processVideos(updatedAuthState.videos);
       } else {
@@ -81,7 +83,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           debugPrint('🔄 Force refreshing videos from backend...');
           await authNotifier.loadVideos();
           await authNotifier.loadUsers();
-          
+
           final updatedAuthState = ref.read(authenticationProvider).valueOrNull;
           if (updatedAuthState != null) {
             _processVideos(updatedAuthState.videos);
@@ -93,7 +95,6 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           _processVideos(currentAuthState.videos);
         }
       }
-
     } catch (e) {
       debugPrint('❌ Error loading recommendations: $e');
       setState(() {
@@ -114,12 +115,12 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     }
 
     // Filter featured videos
-    final featuredVideos = allVideos
-        .where((video) => video.isFeatured)
-        .toList();
+    final featuredVideos =
+        allVideos.where((video) => video.isFeatured).toList();
 
     // Sort by creation time (most recent first)
-    featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+    featuredVideos
+        .sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
 
     // Limit to 9 featured videos
     const maxTotalVideos = 9;
@@ -129,30 +130,31 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       _recommendedVideos = finalRecommendations;
       _isLoadingRecommendations = false;
     });
-    
+
     debugPrint('✅ Processed ${_recommendedVideos.length} featured videos');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
-    
+
     // Listen to authentication provider changes and reload when data becomes available
     ref.listen<AsyncValue<AuthenticationState>>(
       authenticationProvider,
       (previous, next) {
         next.whenData((authState) {
           // When auth state updates with new videos, reload recommendations if needed
-          if (authState.videos.isNotEmpty && 
-              _recommendedVideos.isEmpty && 
+          if (authState.videos.isNotEmpty &&
+              _recommendedVideos.isEmpty &&
               !_isLoadingRecommendations) {
-            debugPrint('🔄 Auth state updated with videos, reloading recommendations');
+            debugPrint(
+                '🔄 Auth state updated with videos, reloading recommendations');
             _loadRecommendedVideos();
           }
         });
       },
     );
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
@@ -163,7 +165,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   Widget _buildBody() {
     final theme = context.modernTheme;
-    
+
     if (_isLoadingRecommendations && _recommendedVideos.isEmpty) {
       return _buildLoadingState();
     }
@@ -184,7 +186,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         children: [
           // Page indicator dots with enhanced styling
           if (_recommendedVideos.isNotEmpty) _buildPageIndicator(),
-          
+
           // Main carousel with enhanced container
           Expanded(
             child: Container(
@@ -199,8 +201,10 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 itemCount: _recommendedVideos.length,
                 itemBuilder: (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-                    child: _buildVideoThumbnail(_recommendedVideos[index], index),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 20.0),
+                    child:
+                        _buildVideoThumbnail(_recommendedVideos[index], index),
                   );
                 },
               ),
@@ -213,7 +217,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   Widget _buildPageIndicator() {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -240,24 +244,26 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           _recommendedVideos.length,
           (index) {
             bool isActive = index == _currentIndex;
-            
+
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 4.0),
               height: 8.0,
               width: isActive ? 24.0 : 8.0,
               decoration: BoxDecoration(
-                color: isActive 
-                    ? theme.primaryColor 
+                color: isActive
+                    ? theme.primaryColor
                     : theme.textSecondaryColor!.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(4.0),
-                boxShadow: isActive ? [
-                  BoxShadow(
-                    color: theme.primaryColor!.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ] : null,
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: theme.primaryColor!.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
               ),
             );
           },
@@ -268,11 +274,12 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   Widget _buildVideoThumbnail(VideoModel video, int index) {
     final theme = context.modernTheme;
-    
+
     // Calculate scale based on current page position
     double scale = 1.0;
     if (_pageController.hasClients && _pageController.page != null) {
-      scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
+      scale =
+          1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
     }
 
     return Transform.scale(
@@ -332,7 +339,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                           height: double.infinity,
                           child: _buildThumbnailContent(video),
                         ),
-                        
+
                         // Enhanced gradient overlay
                         Positioned(
                           bottom: 0,
@@ -355,7 +362,9 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  video.caption.isNotEmpty ? video.caption : 'No caption',
+                                  video.caption.isNotEmpty
+                                      ? video.caption
+                                      : 'No caption',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -368,7 +377,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                                 ),
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(8),
@@ -391,7 +401,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                   ),
                 ),
               ),
-              
+
               // Enhanced User info section
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -437,16 +447,19 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                                       ? Image.network(
                                           video.userImage,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
                                             return Container(
                                               decoration: BoxDecoration(
-                                                color: theme.primaryColor!.withOpacity(0.15),
+                                                color: theme.primaryColor!
+                                                    .withOpacity(0.15),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: Center(
                                                 child: Text(
-                                                  video.userName.isNotEmpty 
-                                                      ? video.userName[0].toUpperCase()
+                                                  video.userName.isNotEmpty
+                                                      ? video.userName[0]
+                                                          .toUpperCase()
                                                       : "U",
                                                   style: TextStyle(
                                                     color: theme.primaryColor,
@@ -460,13 +473,15 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                                         )
                                       : Container(
                                           decoration: BoxDecoration(
-                                            color: theme.primaryColor!.withOpacity(0.15),
+                                            color: theme.primaryColor!
+                                                .withOpacity(0.15),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Center(
                                             child: Text(
-                                              video.userName.isNotEmpty 
-                                                  ? video.userName[0].toUpperCase()
+                                              video.userName.isNotEmpty
+                                                  ? video.userName[0]
+                                                      .toUpperCase()
                                                   : "U",
                                               style: TextStyle(
                                                 color: theme.primaryColor,
@@ -483,9 +498,9 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(width: 14),
-                    
+
                     // Enhanced user info with timestamp
                     Expanded(
                       child: Column(
@@ -555,7 +570,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         },
       );
     }
-    
+
     // Fallback: if no thumbnail, use first image for image posts
     if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
       return Image.network(
@@ -572,7 +587,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         },
       );
     }
-    
+
     // No valid content
     return _buildErrorThumbnail();
   }
@@ -608,7 +623,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   Widget _buildLoadingState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -660,7 +675,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   Widget _buildErrorState(String error) {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -722,7 +737,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 onTap: () => _loadRecommendedVideos(forceRefresh: true),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -764,7 +780,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   Widget _buildEmptyState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -829,7 +845,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),

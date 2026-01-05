@@ -1,17 +1,17 @@
-// lib/features/users/screens/my_profile_screen.dart (WeChat Style)
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
-import 'package:textgb/constants.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/core/router/app_router.dart';
+import 'package:textgb/core/router/route_paths.dart';
 import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/core/router/route_paths.dart';
 
 class MyProfileScreen extends ConsumerStatefulWidget {
   const MyProfileScreen({super.key});
@@ -20,21 +20,44 @@ class MyProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isRefreshing = false;
   UserModel? _user;
+  List<VideoModel> _userVideos = [];
   String? _error;
+  late TabController _tabController;
   bool _hasNoProfile = false;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh data when app returns to foreground (user returns from another screen)
+    if (state == AppLifecycleState.resumed && _isInitialized) {
+      debugPrint('🔄 App resumed, refreshing profile data...');
+      _refreshUserData();
+    }
+  }
+
+  // Initialize screen with cached data
   void _initializeScreen() {
     final currentUser = ref.read(currentUserProvider);
     final isAuthenticated = ref.read(isAuthenticatedProvider);
@@ -47,12 +70,28 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       return;
     }
 
+    final videos = ref.read(videosProvider);
+    final userVideos =
+        videos.where((video) => video.userId == currentUser.uid).toList();
+
     setState(() {
       _user = currentUser;
+      _userVideos = userVideos;
       _isInitialized = true;
     });
+
+    debugPrint('✅ Profile initialized from cache');
+    debugPrint('   - Name: ${currentUser.name}');
+    debugPrint('   - Videos: ${userVideos.length}');
+
+    // Automatically refresh in the background to get latest data
+    if (userVideos.isEmpty) {
+      debugPrint('📋 No cached videos found, triggering background refresh...');
+      Future.microtask(() => _refreshUserData());
+    }
   }
 
+  // Refresh data from backend
   Future<void> _refreshUserData() async {
     if (_isRefreshing) return;
 
@@ -76,9 +115,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       }
 
       final authNotifier = ref.read(authenticationProvider.notifier);
-      final freshUserProfile = await authNotifier.forceRefreshUserProfile();
+
+      debugPrint('🔄 Refreshing profile from backend...');
+
+      // Get fresh user profile from backend
+      final freshUserProfile = await authNotifier.getUserProfile();
 
       if (freshUserProfile == null) {
+        debugPrint('❌ User profile not found in backend');
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -88,9 +132,24 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
+      debugPrint('✅ Fresh user profile loaded: ${freshUserProfile.name}');
+      debugPrint('📸 Profile image URL: ${freshUserProfile.profileImage}');
+
+      // Refresh videos from backend
+      await authNotifier.loadVideos();
+      await authNotifier.loadUserVideos(freshUserProfile.uid);
+
+      final videos = ref.read(videosProvider);
+      final userVideos = videos
+          .where((video) => video.userId == freshUserProfile.uid)
+          .toList();
+
+      debugPrint('📹 User videos loaded: ${userVideos.length}');
+
       if (mounted) {
         setState(() {
           _user = freshUserProfile;
+          _userVideos = userVideos;
           _isRefreshing = false;
         });
       }
@@ -101,18 +160,153 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           _error = e.toString();
           _isRefreshing = false;
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Failed to refresh: ${e.toString()}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
       }
     }
   }
 
-  void _editProfile() {
+  Future<void> _editProfile() async {
     if (_user == null) return;
 
-    Navigator.pushNamed(
-      context,
-      Constants.editProfileScreen,
-      arguments: _user,
-    ).then((_) => _refreshUserData());
+    context.pushToEditProfile(_user!);
+    // Refresh data when returning from edit profile
+    _refreshUserData();
+  }
+
+  Future<void> _navigateToManagePosts() async {
+    context.pushToManagePosts();
+    // Refresh data when returning from manage posts
+    _refreshUserData();
+  }
+
+  Future<void> _navigateToCreatePost() async {
+    await context.push(RoutePaths.createMarketplaceListing);
+    // Refresh data when returning from create listing
+    _refreshUserData();
+  }
+
+  Future<void> _deleteVideo(String videoId) async {
+    try {
+      await ref.read(authenticationProvider.notifier).deleteVideo(
+        videoId,
+        (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      );
+
+      _refreshUserData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting video: ${e.toString()}'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _confirmDeleteVideo(VideoModel video) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.delete_outline,
+              color: Colors.red.shade600,
+            ),
+            const SizedBox(width: 8),
+            const Text('Delete Content'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${video.caption}"? This action cannot be undone.',
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              context.pop();
+              _deleteVideo(video.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openVideoDetails(VideoModel video) async {
+    context.pushToMyPost(video.id);
+    // Refresh data when returning from video details
+    _refreshUserData();
+  }
+
+  void _onProfileCreated() async {
+    debugPrint('🔄 Profile created, refreshing data...');
+
+    // Clear any cached network images
+    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
+      await CachedNetworkImage.evictFromCache(_user!.profileImage);
+    }
+
+    // Force refresh authentication state to get latest user data
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    await authNotifier.loadUserDataFromSharedPreferences();
+
+    // Reload the screen data after profile creation
+    await _refreshUserData();
+
+    debugPrint('✅ Profile data refreshed');
   }
 
   @override
@@ -120,7 +314,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     final modernTheme = context.modernTheme;
 
     return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
+      backgroundColor: modernTheme.backgroundColor,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       body: !_isInitialized
           ? _buildLoadingView(modernTheme)
           : _hasNoProfile
@@ -133,9 +329,22 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   Widget _buildLoadingView(ModernThemeExtension modernTheme) {
     return Center(
-      child: CircularProgressIndicator(
-        color: modernTheme.primaryColor,
-        strokeWidth: 3,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: modernTheme.primaryColor,
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading your profile...',
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -145,9 +354,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       backgroundColor: modernTheme.backgroundColor,
       body: const LoginRequiredWidget(
         title: 'Sign In Required',
-        subtitle: 'Please sign in to view your profile.',
+        subtitle:
+            'Please sign in to view your profile and manage your content.',
         actionText: 'Sign In',
-        icon: CupertinoIcons.person_circle,
+        icon: Icons.person,
       ),
     );
   }
@@ -159,18 +369,25 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              CupertinoIcons.exclamationmark_triangle,
-              color: Colors.red.shade600,
-              size: 64,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.red.shade600,
+                size: 64,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
               'Something went wrong',
               style: TextStyle(
                 color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
@@ -178,20 +395,30 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               _error!,
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
-                fontSize: 14,
+                fontSize: 16,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: _refreshUserData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
               ),
-              child: const Text('Try Again'),
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),
@@ -207,798 +434,955 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     return RefreshIndicator(
       onRefresh: _refreshUserData,
       color: modernTheme.primaryColor,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 20),
-          _buildProfileHeader(modernTheme),
-          const SizedBox(height: 20),
-          _buildMenuSection(modernTheme),
-          const SizedBox(height: 100),
-        ],
+      backgroundColor: modernTheme.surfaceColor,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                // Profile Header
+                _buildProfileHeader(modernTheme),
+
+                // Profile Info Card
+                _buildProfileInfoCard(modernTheme),
+
+                _buildQuickActionsSection(modernTheme),
+
+                // Tab Bar
+                Container(
+                  color: modernTheme.surfaceColor,
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: modernTheme.primaryColor,
+                    unselectedLabelColor: modernTheme.textSecondaryColor,
+                    indicatorColor: modernTheme.primaryColor,
+                    tabs: const [
+                      Tab(
+                        icon: Icon(Icons.grid_view),
+                        text: 'Posts',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.analytics),
+                        text: 'Analytics',
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Tab Content
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPostsTab(modernTheme),
+                      _buildAnalyticsTab(modernTheme),
+                    ],
+                  ),
+                ),
+
+                // Bottom padding
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+          extendBodyBehindAppBar: true,
+        ),
       ),
     );
   }
 
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
-    return GestureDetector(
-      onTap: _editProfile,
-      behavior: HitTestBehavior.translucent,
-      child: Container(
-        color: modernTheme.backgroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Row(
-          children: [
-            // Profile Image
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: modernTheme.dividerColor ?? Colors.grey[300]!,
-                  width: 0.5,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: _user!.profileImage.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: _user!.profileImage,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey[200],
-                          child: const Center(
-                            child: CupertinoActivityIndicator(),
-                          ),
-                        ),
-                        errorWidget: (context, error, stackTrace) => Container(
-                          color: Colors.grey[200],
-                          child: Icon(
-                            CupertinoIcons.person_fill,
-                            size: 35,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                      )
-                    : Container(
-                        color: Colors.grey[200],
-                        child: Icon(
-                          CupertinoIcons.person_fill,
-                          size: 35,
-                          color: Colors.grey[400],
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            
-            // Name and WeChat ID
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _user!.name,
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            modernTheme.primaryColor!,
+            modernTheme.primaryColor!.withOpacity(0.8),
+            modernTheme.primaryColor!.withOpacity(0.6),
+          ],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Add safe area padding at the top
+          SizedBox(height: MediaQuery.of(context).padding.top),
+
+          // App bar with theme switcher
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Left side - placeholder for symmetry
+                const SizedBox(width: 40),
+
+                // Center - Profile title
+                const Text(
+                  'Profile',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        'WeiBao ID: ',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 14,
+                ),
+
+                // Right side - Theme switcher
+                GestureDetector(
+                  onTap: () => showThemeSelector(context),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.brightness_6,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Profile Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            child: Column(
+              children: [
+                // Profile Image
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer glow effect
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.3),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
-                      Text(
-                        _user!.uid.substring(0, 8),
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 14,
+                    ),
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 4,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _user!.profileImage.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: _user!.profileImage,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: Colors.grey[300],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, error, stackTrace) {
+                                  debugPrint(
+                                      '❌ Failed to load profile image: ${_user!.profileImage}');
+                                  debugPrint('Error: $error');
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                },
+                                memCacheWidth: 110,
+                                memCacheHeight: 110,
+                                maxWidthDiskCache: 220,
+                                maxHeightDiskCache: 220,
+                                httpHeaders: const {
+                                  'User-Agent': 'WemaChat-App/1.0',
+                                },
+                                cacheKey: _user!.profileImage,
+                                imageBuilder: (context, imageProvider) {
+                                  debugPrint(
+                                      '✅ Profile image loaded successfully: ${_user!.profileImage}');
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      image: DecorationImage(
+                                        image: imageProvider,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // User name with enhanced styling
+                Text(
+                  _user!.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        offset: Offset(0, 2),
+                        blurRadius: 4,
                       ),
                     ],
                   ),
-                ],
-              ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+
+                // User description
+                if (_user!.bio.isNotEmpty)
+                  Text(
+                    _user!.bio,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: 20),
+
+                // Side-by-side buttons: Verification and Edit Profile
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Verification status button
+                    GestureDetector(
+                      onTap: () => VerificationInfoWidget.show(context),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: _user!.isVerified
+                              ? const LinearGradient(
+                                  colors: [
+                                    Color(0xFF1565C0),
+                                    Color(0xFF0D47A1),
+                                    Color(0xFF0A1E3D),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : const LinearGradient(
+                                  colors: [
+                                    Color(0xFF1976D2),
+                                    Color(0xFF1565C0),
+                                    Color(0xFF0D47A1),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _user!.isVerified
+                                  ? const Color(0xFF1565C0).withOpacity(0.4)
+                                  : const Color(0xFF1976D2).withOpacity(0.4),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 4),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _user!.isVerified
+                                  ? Icons.verified_rounded
+                                  : Icons.star_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _user!.isVerified ? 'Verified' : 'Get Verified',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black38,
+                                    blurRadius: 3,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 16),
+
+                    // Edit Profile Button
+                    GestureDetector(
+                      onTap: _editProfile,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'Edit Profile',
+                          style: TextStyle(
+                            color: modernTheme.primaryColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            
-            // QR Code Icon
-            Icon(
-              CupertinoIcons.qrcode,
-              color: modernTheme.textSecondaryColor,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            
-            // Arrow
-            Icon(
-              CupertinoIcons.right_chevron,
-              color: modernTheme.textSecondaryColor,
-              size: 16,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMenuSection(ModernThemeExtension modernTheme) {
+  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stats Row with 4 items
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                _user!.videosCount.toString(),
+                'Posts',
+                Icons.video_library,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.followers.toString(),
+                'Followers',
+                Icons.people,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.following.toString(),
+                'Following',
+                Icons.person_add,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.likesCount.toString(),
+                'Likes',
+                Icons.favorite,
+                modernTheme,
+              ),
+            ],
+          ),
+
+          // Tags
+          if (_user!.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 32,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _user!.tags.length,
+                itemBuilder: (context, index) {
+                  final tag = _user!.tags[index];
+                  return Container(
+                    margin: EdgeInsets.only(
+                        right: index < _user!.tags.length - 1 ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: modernTheme.primaryColor!.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      '#$tag',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(
+    String count,
+    String label,
+    IconData icon,
+    ModernThemeExtension modernTheme,
+  ) {
     return Column(
       children: [
-        _buildMenuGroup(modernTheme, [
-          _MenuItem(
-            icon: CupertinoIcons.money_dollar_circle,
-            title: 'Services',
-            iconColor: const Color(0xFF10B981), // Green - Financial
-            onTap: () {
-              context.push(RoutePaths.walletV2);
-            },
+        Icon(
+          icon,
+          color: modernTheme.primaryColor,
+          size: 24,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          count,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
-        ]),
-
-        const SizedBox(height: 10),
-
-        _buildMenuGroup(modernTheme, [
-          _MenuItem(
-            icon: CupertinoIcons.heart_fill,
-            title: 'Favorites',
-            iconColor: const Color(0xFFEC4899), // Pink - Love/Favorites
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Favorites - Coming Soon'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+            fontSize: 14,
           ),
-          _MenuItem(
-            icon: CupertinoIcons.square_stack_3d_up_fill,
-            title: 'My Posts',
-            iconColor: const Color(0xFF8B5CF6), // Purple - Content
-            onTap: () => _showMyPostsOptions(modernTheme),
-          ),
-          _MenuItem(
-            icon: CupertinoIcons.creditcard_fill,
-            title: 'Cards & Offers',
-            iconColor: const Color(0xFFF59E0B), // Orange - Promotional
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Cards & Offers - Coming Soon'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
-          _MenuItem(
-            icon: CupertinoIcons.smiley_fill,
-            title: 'Stickers',
-            iconColor: const Color(0xFFEAB308), // Yellow - Fun/Playful
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Stickers - Coming Soon'),
-                  backgroundColor: modernTheme.primaryColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
-        ]),
-
-        const SizedBox(height: 10),
-
-        _buildMenuGroup(modernTheme, [
-          _MenuItem(
-            icon: CupertinoIcons.gear_alt_fill,
-            title: 'Settings',
-            iconColor: const Color(0xFF6B7280), // Gray - System
-            onTap: () => _showSettingsSheet(modernTheme),
-          ),
-        ]),
+        ),
       ],
     );
   }
 
-  Widget _buildMenuGroup(ModernThemeExtension modernTheme, List<_MenuItem> items) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: modernTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          return Column(
-            children: [
-              _buildMenuItem(
-                icon: item.icon,
-                title: item.title,
-                onTap: item.onTap,
-                modernTheme: modernTheme,
-                iconColor: item.iconColor,
-              ),
-              if (index < items.length - 1)
-                Padding(
-                  padding: const EdgeInsets.only(left: 72),
-                  child: Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: modernTheme.dividerColor,
-                  ),
-                ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
-    Color? iconColor,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
+  Widget _buildPostsTab(ModernThemeExtension modernTheme) {
+    // Show loading indicator while refreshing if we have no videos
+    if (_isRefreshing && _userVideos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (iconColor ?? modernTheme.primaryColor)!.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor ?? modernTheme.primaryColor,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-            Icon(
-              CupertinoIcons.right_chevron,
-              color: modernTheme.textSecondaryColor,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showMyPostsOptions(ModernThemeExtension modernTheme) {
-    if (_user == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'My Posts',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // My Moments option
-              _buildPostsOptionItem(
-                icon: CupertinoIcons.photo_on_rectangle,
-                title: 'My Moments',
-                subtitle: 'Photos and text posts',
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push(
-                    RoutePaths.userMoments(_user!.uid),
-                    extra: {
-                      'userName': _user!.name,
-                      'userAvatar': _user!.profileImage,
-                    },
-                  );
-                },
-                modernTheme: modernTheme,
-              ),
-
-              // My Videos option
-              _buildPostsOptionItem(
-                icon: CupertinoIcons.play_rectangle,
-                title: 'My Videos',
-                subtitle: 'Manage your short videos',
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push(RoutePaths.managePosts);
-                },
-                modernTheme: modernTheme,
-              ),
-
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPostsOptionItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor?.withValues(alpha: 0.1) ?? Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: modernTheme.primaryColor ?? Colors.blue,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: modernTheme.textSecondaryColor,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              CupertinoIcons.right_chevron,
-              color: modernTheme.textSecondaryColor,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSettingsSheet(ModernThemeExtension modernTheme) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Settings',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.person_circle,
-                title: 'Edit Profile',
-                onTap: () {
-                  Navigator.pop(context);
-                  _editProfile();
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.paintbrush,
-                title: 'Theme',
-                onTap: () {
-                  Navigator.pop(context);
-                  showThemeSelector(context);
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.lock_shield,
-                title: 'Privacy',
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Privacy Settings - Coming Soon'),
-                      backgroundColor: modernTheme.primaryColor,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.bell,
-                title: 'Notifications',
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Notification Settings - Coming Soon'),
-                      backgroundColor: modernTheme.primaryColor,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.info_circle,
-                title: 'About',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAboutDialog(modernTheme);
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.arrow_2_squarepath,
-                title: 'Switch Account',
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Switch Account - Coming Soon'),
-                      backgroundColor: modernTheme.primaryColor,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              _buildSettingsItem(
-                icon: CupertinoIcons.wifi_slash,
-                title: 'Go Offline',
-                subtitle: 'Disconnect from messages and calls',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showOfflineConfirmation(modernTheme);
-                },
-                modernTheme: modernTheme,
-              ),
-              
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
-    String? subtitle,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: modernTheme.textColor,
-              size: 24,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Icon(
-              CupertinoIcons.right_chevron,
-              color: modernTheme.textSecondaryColor,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAboutDialog(ModernThemeExtension modernTheme) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: modernTheme.backgroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF07C160),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                CupertinoIcons.chat_bubble_2_fill,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'WeiBao',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Version 1.0.0',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 14,
-              ),
+            CircularProgressIndicator(
+              color: modernTheme.primaryColor,
+              strokeWidth: 3,
             ),
             const SizedBox(height: 16),
             Text(
-              'WeiBao is a social marketplace connecting buyers and sellers through chat.',
+              'Loading your content...',
               style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 14,
-                height: 1.5,
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'OK',
-              style: TextStyle(
+      );
+    }
+
+    if (_userVideos.isEmpty) {
+      return _buildEmptyState(modernTheme);
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.only(
+        left: 4,
+        right: 4,
+        top: 4,
+        bottom: 20,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+        childAspectRatio: 9 / 16,
+      ),
+      itemCount: _userVideos.length,
+      itemBuilder: (context, index) {
+        final video = _userVideos[index];
+        return _buildVideoCard(video, modernTheme);
+      },
+    );
+  }
+
+  Widget _buildVideoCard(VideoModel video, ModernThemeExtension modernTheme) {
+    return GestureDetector(
+      onTap: () => _openVideoDetails(video),
+      onLongPress: () => _confirmDeleteVideo(video),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Thumbnail covering the entire tile
+          if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: video.imageUrls.first,
+              fit: BoxFit.cover,
+              memCacheHeight: 600,
+              maxHeightDiskCache: 600,
+              cacheKey: 'thumb_img_${video.id}',
+              placeholder: (context, url) => Container(
+                color: modernTheme.surfaceColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      modernTheme.primaryColor!,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) {
+                debugPrint('❌ Failed to load image thumbnail: $url');
+                return Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  child: Icon(
+                    Icons.photo_library,
+                    color: modernTheme.primaryColor,
+                    size: 48,
+                  ),
+                );
+              },
+            )
+          else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: video.thumbnailUrl,
+              fit: BoxFit.cover,
+              memCacheHeight: 600,
+              maxHeightDiskCache: 600,
+              cacheKey: 'thumb_vid_${video.id}',
+              placeholder: (context, url) => Container(
+                color: modernTheme.surfaceColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      modernTheme.primaryColor!,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) {
+                debugPrint('❌ Failed to load video thumbnail: $url');
+                debugPrint('Error: $error');
+                return Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    color: modernTheme.primaryColor,
+                    size: 48,
+                  ),
+                );
+              },
+            )
+          else
+            Container(
+              color: modernTheme.primaryColor!.withOpacity(0.1),
+              child: Icon(
+                video.isMultipleImages
+                    ? Icons.photo_library
+                    : Icons.play_circle_fill,
                 color: modernTheme.primaryColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                size: 48,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _showOfflineConfirmation(ModernThemeExtension modernTheme) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: modernTheme.backgroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
+          // Gradient overlay at bottom
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 60,
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                CupertinoIcons.wifi_slash,
-                color: Colors.orange,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Go Offline',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'When offline, you will:',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildOfflineFeature(
-              '• Not receive new messages or calls',
-              modernTheme,
-            ),
-            const SizedBox(height: 6),
-            _buildOfflineFeature(
-              '• Appear offline to your contacts',
-              modernTheme,
-            ),
-            const SizedBox(height: 6),
-            _buildOfflineFeature(
-              '• Still browse saved content',
-              modernTheme,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'You can go back online anytime from settings.',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(CupertinoIcons.wifi_slash, color: Colors.white, size: 20),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text('Offline Mode - Coming Soon'),
+
+          // View count at bottom left
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatViewCount(video.views),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        offset: Offset(0, 1),
+                        blurRadius: 3,
                       ),
                     ],
                   ),
-                  backgroundColor: Colors.orange,
-                  behavior: SnackBarBehavior.floating,
                 ),
-              );
-            },
-            child: const Text(
-              'Go Offline',
-              style: TextStyle(
-                color: Colors.orange,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              ],
+            ),
+          ),
+
+          // Multiple images indicator
+          if (video.isMultipleImages && video.imageUrls.length > 1)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.photo_library,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${video.imageUrls.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatViewCount(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K';
+    }
+    return views.toString();
+  }
+
+  Widget _buildEmptyState(ModernThemeExtension modernTheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.video_library_outlined,
+                color: modernTheme.primaryColor,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No content yet',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your posts will appear here when you start sharing content',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            // Add refresh button
+            ElevatedButton.icon(
+              onPressed: _isRefreshing ? null : _refreshUserData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+              icon: _isRefreshing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(
+                _isRefreshing ? 'Refreshing...' : 'Refresh',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab(ModernThemeExtension modernTheme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Overview Stats
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Profile Overview',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Total Views',
+                        _userVideos
+                            .fold<int>(0, (sum, video) => sum + video.views)
+                            .toString(),
+                        Icons.visibility,
+                        modernTheme,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Total Likes',
+                        _userVideos
+                            .fold<int>(0, (sum, video) => sum + video.likes)
+                            .toString(),
+                        Icons.favorite,
+                        modernTheme,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Comments',
+                        _userVideos
+                            .fold<int>(0, (sum, video) => sum + video.comments)
+                            .toString(),
+                        Icons.comment,
+                        modernTheme,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Engagement',
+                        '${_calculateEngagementRate().toStringAsFixed(1)}%',
+                        Icons.trending_up,
+                        modernTheme,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Performance Tips
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: modernTheme.primaryColor!.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: modernTheme.primaryColor!.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline,
+                      color: modernTheme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Performance Tips',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildTipItem(
+                  'Post consistently to keep your audience engaged',
+                  Icons.schedule,
+                  modernTheme,
+                ),
+                const SizedBox(height: 12),
+                _buildTipItem(
+                  'Use trending hashtags to increase visibility',
+                  Icons.tag,
+                  modernTheme,
+                ),
+                const SizedBox(height: 12),
+                _buildTipItem(
+                  'Respond to comments to boost engagement',
+                  Icons.chat_bubble_outline,
+                  modernTheme,
+                ),
+              ],
             ),
           ),
         ],
@@ -1006,28 +1390,190 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  Widget _buildOfflineFeature(String text, ModernThemeExtension modernTheme) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: modernTheme.textColor,
-        fontSize: 14,
-        height: 1.4,
+  Widget _buildAnalyticsCard(
+    String title,
+    String value,
+    IconData icon,
+    ModernThemeExtension modernTheme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: modernTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: modernTheme.primaryColor!.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: modernTheme.primaryColor,
+            size: 28,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
-}
 
-class _MenuItem {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-  final Color iconColor;
+  Widget _buildTipItem(
+      String text, IconData icon, ModernThemeExtension modernTheme) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: modernTheme.primaryColor,
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-  _MenuItem({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    required this.iconColor,
-  });
+  double _calculateEngagementRate() {
+    if (_userVideos.isEmpty) return 0.0;
+
+    final totalEngagement = _userVideos.fold<int>(
+      0,
+      (sum, video) => sum + video.likes + video.comments,
+    );
+    final totalViews = _userVideos.fold<int>(
+      0,
+      (sum, video) => sum + video.views,
+    );
+
+    if (totalViews == 0) return 0.0;
+    return (totalEngagement / totalViews) * 100;
+  }
+
+  Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Manage My Posts Button (larger)
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: _navigateToManagePosts,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: modernTheme.primaryColor!.withOpacity(0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.dashboard,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Manage Your Posts',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Post Button (smaller) - navigates to create post screen
+              Expanded(
+                flex: 1,
+                child: GestureDetector(
+                  onTap: _navigateToCreatePost,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFFE2C55),
+                          const Color(0xFFFE2C55).withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFE2C55).withOpacity(0.4),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_circle_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Post',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
 }

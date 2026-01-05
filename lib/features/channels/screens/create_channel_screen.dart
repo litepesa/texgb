@@ -15,7 +15,8 @@ class CreateChannelScreen extends ConsumerStatefulWidget {
   const CreateChannelScreen({super.key});
 
   @override
-  ConsumerState<CreateChannelScreen> createState() => _CreateChannelScreenState();
+  ConsumerState<CreateChannelScreen> createState() =>
+      _CreateChannelScreenState();
 }
 
 class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
@@ -213,9 +214,11 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                   borderSide: BorderSide(color: modernTheme.dividerColor!),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: modernTheme.primaryColor!, width: 2),
+                  borderSide:
+                      BorderSide(color: modernTheme.primaryColor!, width: 2),
                 ),
-                prefixIcon: Icon(Icons.tv, color: modernTheme.textSecondaryColor),
+                prefixIcon:
+                    Icon(Icons.tv, color: modernTheme.textSecondaryColor),
                 suffixIcon: _buildNameAvailabilityIcon(modernTheme),
                 filled: true,
                 fillColor: modernTheme.surfaceColor,
@@ -261,9 +264,11 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                   borderSide: BorderSide(color: modernTheme.dividerColor!),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: modernTheme.primaryColor!, width: 2),
+                  borderSide:
+                      BorderSide(color: modernTheme.primaryColor!, width: 2),
                 ),
-                prefixIcon: Icon(Icons.description, color: modernTheme.textSecondaryColor),
+                prefixIcon: Icon(Icons.description,
+                    color: modernTheme.textSecondaryColor),
                 alignLabelWithHint: true,
                 filled: true,
                 fillColor: modernTheme.surfaceColor,
@@ -349,7 +354,8 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                           'Premium Channel Settings',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.amber[300] : Colors.amber[900],
+                            color:
+                                isDark ? Colors.amber[300] : Colors.amber[900],
                           ),
                         ),
                       ],
@@ -360,19 +366,24 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                       style: TextStyle(color: modernTheme.textColor),
                       decoration: InputDecoration(
                         labelText: 'Subscription Price (Coins)',
-                        labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                        labelStyle:
+                            TextStyle(color: modernTheme.textSecondaryColor),
                         hintText: 'e.g., 100',
-                        hintStyle: TextStyle(color: modernTheme.textTertiaryColor),
+                        hintStyle:
+                            TextStyle(color: modernTheme.textTertiaryColor),
                         border: OutlineInputBorder(
-                          borderSide: BorderSide(color: modernTheme.dividerColor!),
+                          borderSide:
+                              BorderSide(color: modernTheme.dividerColor!),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: modernTheme.dividerColor!),
+                          borderSide:
+                              BorderSide(color: modernTheme.dividerColor!),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.amber, width: 2),
                         ),
-                        prefixIcon: Icon(Icons.attach_money, color: modernTheme.textSecondaryColor),
+                        prefixIcon: Icon(Icons.attach_money,
+                            color: modernTheme.textSecondaryColor),
                         filled: true,
                         fillColor: modernTheme.backgroundColor,
                       ),
@@ -416,10 +427,12 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
             // Guidelines
             Container(
               decoration: BoxDecoration(
-                color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(isDark ? 0.2 : 0.1),
+                color: (modernTheme.primaryColor ?? Colors.blue)
+                    .withOpacity(isDark ? 0.2 : 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.5),
+                  color: (modernTheme.primaryColor ?? Colors.blue)
+                      .withOpacity(0.5),
                 ),
               ),
               padding: const EdgeInsets.all(16),
@@ -428,7 +441,8 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.lightbulb_outline, color: modernTheme.primaryColor),
+                      Icon(Icons.lightbulb_outline,
+                          color: modernTheme.primaryColor),
                       const SizedBox(width: 8),
                       Text(
                         'Channel Guidelines',
@@ -440,11 +454,16 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildGuideline('You can add up to 8 admins/moderators', modernTheme),
-                  _buildGuideline('Regular posts: ≤5 minutes or ≤100MB', modernTheme),
-                  _buildGuideline('Premium posts: up to 2GB supported', modernTheme),
-                  _buildGuideline('Multi-threaded comments enabled', modernTheme),
-                  _buildGuideline('All notifications are silent by default', modernTheme),
+                  _buildGuideline(
+                      'You can add up to 8 admins/moderators', modernTheme),
+                  _buildGuideline(
+                      'Regular posts: ≤5 minutes or ≤100MB', modernTheme),
+                  _buildGuideline(
+                      'Premium posts: up to 2GB supported', modernTheme),
+                  _buildGuideline(
+                      'Multi-threaded comments enabled', modernTheme),
+                  _buildGuideline(
+                      'All notifications are silent by default', modernTheme),
                 ],
               ),
             ),
@@ -671,9 +690,8 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         type: _selectedType,
-        subscriptionPriceCoins: _selectedType == ChannelType.premium
-            ? _subscriptionPrice
-            : null,
+        subscriptionPriceCoins:
+            _selectedType == ChannelType.premium ? _subscriptionPrice : null,
         avatar: _avatarImage,
       );
 
@@ -692,7 +710,8 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
           context.goToChannelDetail(channel.id);
         } else {
           // Failed - show specific error message
-          final errorMessage = result['error'] as String? ?? 'Failed to create channel. Please try again.';
+          final errorMessage = result['error'] as String? ??
+              'Failed to create channel. Please try again.';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMessage),

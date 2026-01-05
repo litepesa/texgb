@@ -22,7 +22,7 @@ class VideoInfo {
   final double fileSizeMB;
   final int? currentBitrate;
   final double frameRate;
-  
+
   VideoInfo({
     required this.duration,
     required this.resolution,
@@ -30,12 +30,12 @@ class VideoInfo {
     this.currentBitrate,
     required this.frameRate,
   });
-  
+
   @override
   String toString() {
     return 'Duration: ${duration.inSeconds}s, Resolution: ${resolution.width}x${resolution.height}, '
-           'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
-           'FPS: ${frameRate.toStringAsFixed(1)}';
+        'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
+        'FPS: ${frameRate.toStringAsFixed(1)}';
   }
 }
 
@@ -49,7 +49,7 @@ class CreatePostScreen extends ConsumerStatefulWidget {
 class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
-  
+
   // Cache manager for efficient file handling
   static final CacheManager _cacheManager = CacheManager(
     Config(
@@ -58,25 +58,25 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       maxNrOfCacheObjects: 20,
     ),
   );
-  
+
   // Video selection
   File? _videoFile;
   VideoInfo? _videoInfo;
   VideoPlayerController? _videoPlayerController;
   bool _isVideoPlaying = false;
-  
+
   // Processing state
   bool _isProcessing = false;
   double _processingProgress = 0.0;
-  
+
   // Upload simulation state
   bool _isSimulatingUpload = false;
   double _simulatedUploadProgress = 0.0;
   Timer? _uploadSimulationTimer;
-  
+
   // Wakelock state tracking
   bool _wakelockActive = false;
-  
+
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -123,14 +123,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   Future<void> _initializeVideoPlayer() async {
     if (_videoFile == null) return;
-    
+
     try {
       _videoPlayerController?.dispose();
       _videoPlayerController = VideoPlayerController.file(_videoFile!);
-      
+
       await _videoPlayerController!.initialize();
       _videoPlayerController!.setLooping(true);
-      
+
       setState(() {});
     } catch (e) {
       _showError('Failed to initialize video player');
@@ -140,15 +140,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   Future<void> _pickVideoFromGallery() async {
     try {
       await _enableWakelock();
-      
+
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
       );
-      
+
       if (video != null) {
         final videoFile = File(video.path);
-        
+
         if (await videoFile.exists()) {
           await _processAndSetVideo(videoFile);
         } else {
@@ -170,16 +170,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   Future<void> _processAndSetVideo(File videoFile) async {
     await _enableWakelock();
-    
+
     final videoInfo = await _analyzeVideo(videoFile);
-    
+
     // Check if video is longer than 5 minutes
     if (videoInfo.duration.inSeconds > 300) {
       _showError('Video must be under 5 minutes');
       await _disableWakelock();
       return;
     }
-    
+
     // Set video directly without trim dialog
     await _setVideoDirectly(videoFile, videoInfo);
   }
@@ -200,19 +200,20 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     try {
       final controller = VideoPlayerController.file(videoFile);
       await controller.initialize();
-      
+
       final duration = controller.value.duration;
       final size = controller.value.size;
       final fileSizeBytes = await videoFile.length();
       final fileSizeMB = fileSizeBytes / (1024 * 1024);
-      
+
       int? currentBitrate;
       if (duration.inSeconds > 0) {
-        currentBitrate = ((fileSizeBytes * 8) / duration.inSeconds / 1000).round();
+        currentBitrate =
+            ((fileSizeBytes * 8) / duration.inSeconds / 1000).round();
       }
-      
+
       await controller.dispose();
-      
+
       return VideoInfo(
         duration: duration,
         resolution: size,
@@ -240,7 +241,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   String _getOptimalPreset(VideoInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
     final duration = info.duration.inSeconds;
-    
+
     if (totalPixels >= 1920 * 1080 || duration > 180) {
       return 'slow';
     } else if (totalPixels >= 1280 * 720) {
@@ -253,7 +254,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Get optimal profile based on resolution
   String _getOptimalProfile(VideoInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
-    
+
     if (totalPixels >= 1920 * 1080) {
       return 'high';
     } else {
@@ -264,18 +265,20 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Build video filters for enhancement
   String _buildVideoFilters(VideoInfo info) {
     List<String> filters = [];
-    
+
     if (info.currentBitrate != null && info.currentBitrate! > 1000) {
       // Subtle sharpening for better perceived quality
-      filters.add('unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
-      
+      filters.add(
+          'unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
+
       // Slight saturation boost for more vivid colors
       filters.add('eq=saturation=1.1');
-      
+
       // Noise reduction for cleaner image
-      filters.add('hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
+      filters.add(
+          'hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
     }
-    
+
     return filters.join(',');
   }
 
@@ -285,13 +288,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   }
 
   // Modified video processing - enhanced audio for all videos
-  Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
+  Future<File?> _optimizeVideoQualitySize(
+      File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
-      final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
-      
+      final outputPath =
+          '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
       await _enableWakelock();
-      
+
       setState(() {
         _isProcessing = true;
         _processingProgress = 0.0;
@@ -339,24 +344,25 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
       final videoDurationMs = info.duration.inMilliseconds;
       final Completer<void> processingCompleter = Completer<void>();
-      
+
       FFmpegKit.executeAsync(
         command,
         (session) async {
           final returnCode = await session.getReturnCode();
-          
+
           if (mounted) {
             setState(() {
               _isProcessing = false;
-              _processingProgress = ReturnCode.isSuccess(returnCode) ? 1.0 : 0.0;
+              _processingProgress =
+                  ReturnCode.isSuccess(returnCode) ? 1.0 : 0.0;
             });
           }
-          
+
           final authProvider = ref.read(authenticationProvider.notifier);
           if (!authProvider.isLoading) {
             await _disableWakelock();
           }
-          
+
           if (!processingCompleter.isCompleted) {
             processingCompleter.complete();
           }
@@ -365,16 +371,20 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           // Silent processing - no debug logs
         },
         (statistics) {
-          if (mounted && _isProcessing && statistics.getTime() > 0 && videoDurationMs > 0) {
-            final encodingProgress = (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
-            
+          if (mounted &&
+              _isProcessing &&
+              statistics.getTime() > 0 &&
+              videoDurationMs > 0) {
+            final encodingProgress =
+                (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
+
             setState(() {
               _processingProgress = encodingProgress.clamp(0.0, 1.0);
             });
           }
         },
       );
-      
+
       await processingCompleter.future;
 
       // 1. Small delay for OS to flush file buffers to disk
@@ -417,14 +427,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       }
 
       // 5. Compare to expected size (warning if too small)
-      final expectedMinSize = info.fileSizeMB * 0.3 * 1024 * 1024; // At least 30% of original
+      final expectedMinSize =
+          info.fileSizeMB * 0.3 * 1024 * 1024; // At least 30% of original
       if (fileSize < expectedMinSize) {
-        debugPrint('⚠️ Warning: Processed file (${fileSize / (1024 * 1024)}MB) is much smaller than expected');
+        debugPrint(
+            '⚠️ Warning: Processed file (${fileSize / (1024 * 1024)}MB) is much smaller than expected');
       }
 
       debugPrint('✅ Verified processed file: ${fileSize / (1024 * 1024)}MB');
       return outputFile;
-      
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -440,22 +451,23 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Simulate upload progress
   void _startUploadSimulation() {
     _uploadSimulationTimer?.cancel();
-    
+
     setState(() {
       _isSimulatingUpload = true;
       _simulatedUploadProgress = 0.0;
     });
-    
+
     // Simulate varying upload speeds
     const updateInterval = Duration(milliseconds: 100);
     const totalDuration = Duration(seconds: 180); // Total simulated upload time
-    final totalSteps = totalDuration.inMilliseconds / updateInterval.inMilliseconds;
-    
+    final totalSteps =
+        totalDuration.inMilliseconds / updateInterval.inMilliseconds;
+
     int currentStep = 0;
-    
+
     _uploadSimulationTimer = Timer.periodic(updateInterval, (timer) {
       currentStep++;
-      
+
       if (currentStep >= totalSteps) {
         timer.cancel();
         setState(() {
@@ -464,10 +476,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         });
         return;
       }
-      
+
       // Create realistic upload progress with some variation
       double baseProgress = currentStep / totalSteps;
-      
+
       // Add some realistic upload behavior (slower start, faster middle, slower end)
       double adjustedProgress;
       if (baseProgress < 0.1) {
@@ -475,9 +487,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       } else if (baseProgress < 0.8) {
         adjustedProgress = 0.05 + (baseProgress - 0.1) * 1.2; // Faster middle
       } else {
-        adjustedProgress = 0.05 + 0.7 * 1.2 + (baseProgress - 0.8) * 0.6; // Slower end
+        adjustedProgress =
+            0.05 + 0.7 * 1.2 + (baseProgress - 0.8) * 0.6; // Slower end
       }
-      
+
       setState(() {
         _simulatedUploadProgress = adjustedProgress.clamp(0.0, 1.0);
       });
@@ -491,7 +504,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
     _videoFile = null;
     _videoInfo = null;
-    
+
     final authProvider = ref.read(authenticationProvider.notifier);
     if (!_isProcessing && !authProvider.isLoading) {
       _disableWakelock();
@@ -500,7 +513,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   void _togglePlayPause() {
     if (_videoPlayerController == null) return;
-    
+
     setState(() {
       if (_isVideoPlaying) {
         _videoPlayerController!.pause();
@@ -516,17 +529,17 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       _videoFile = videoFile;
       _videoInfo = videoInfo;
     });
-    
+
     await _initializeVideoPlayer();
   }
 
   Future<bool> _checkUserAuthentication() async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (isAuthenticated) {
       return true;
     }
-    
+
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -543,7 +556,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
       ),
     );
-    
+
     return result ?? false;
   }
 
@@ -553,34 +566,35 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       if (!isAuthenticated) {
         return;
       }
-      
+
       final authProvider = ref.read(authenticationProvider.notifier);
       final currentUser = ref.read(currentUserProvider);
-      
+
       if (currentUser == null) {
         _showError('User not found. Please try again.');
         return;
       }
-      
+
       if (_videoFile == null) {
         _showError('Please select a video');
         return;
       }
-      
+
       await _enableWakelock();
-      
+
       // Parse tags
       List<String> tags = [];
       if (_tagsController.text.isNotEmpty) {
-        tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
+        tags =
+            _tagsController.text.split(',').map((tag) => tag.trim()).toList();
       }
-      
+
       // Parse price
       double price = 0.0;
       if (_priceController.text.isNotEmpty) {
         price = double.tryParse(_priceController.text) ?? 0.0;
       }
-      
+
       // STEP 1: Generate thumbnail FIRST from the original, unprocessed video
       debugPrint('🎬 Step 1: Generating thumbnail from original video...');
       File? thumbnailFile;
@@ -592,24 +606,27 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           maxHeight: 600,
           quality: 85,
         );
-        
+
         if (thumbnailFile == null) {
-          debugPrint('⚠️ Warning: Failed to generate thumbnail, continuing without it');
+          debugPrint(
+              '⚠️ Warning: Failed to generate thumbnail, continuing without it');
         } else {
-          debugPrint('✅ Thumbnail generated successfully from original video: ${thumbnailFile.path}');
+          debugPrint(
+              '✅ Thumbnail generated successfully from original video: ${thumbnailFile.path}');
         }
       } catch (e) {
         debugPrint('❌ Error generating thumbnail: $e');
         // Continue without thumbnail
       }
-      
+
       // STEP 2: Process video (audio enhancement, etc.) AFTER thumbnail generation
       debugPrint('🔧 Step 2: Processing video (audio enhancement)...');
       File videoToUpload = _videoFile!;
-      
+
       if (_videoInfo != null) {
-        final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
-        
+        final processedVideo =
+            await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
+
         if (processedVideo != null) {
           videoToUpload = processedVideo;
           debugPrint('✅ Video processed successfully');
@@ -617,10 +634,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           debugPrint('⚠️ Video processing failed, using original video');
         }
       }
-      
+
       // Start upload simulation
       _startUploadSimulation();
-      
+
       // STEP 3: Upload with pre-generated thumbnail
       debugPrint('☁️ Step 3: Uploading video and thumbnail...');
       authProvider.createVideo(
@@ -678,7 +695,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   // Helper method to get upload state
   bool get _isUploading {
-    final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
+    final authState =
+        ref.read(authenticationProvider).value ?? const AuthenticationState();
     return authState.isUploading || _isSimulatingUpload;
   }
 
@@ -687,7 +705,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     if (_isSimulatingUpload) {
       return _simulatedUploadProgress;
     }
-    final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
+    final authState =
+        ref.read(authenticationProvider).value ?? const AuthenticationState();
     return authState.uploadProgress;
   }
 
@@ -700,7 +719,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final uploadProgress = _uploadProgress;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final modernTheme = context.modernTheme;
-    
+
     if (!isAuthenticated) {
       return Scaffold(
         backgroundColor: modernTheme.backgroundColor,
@@ -727,11 +746,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
         body: const InlineLoginRequiredWidget(
           title: 'Sign In to Create',
-          subtitle: 'You need to sign in before you can upload videos. Join WemaChat to share your content with the world!',
+          subtitle:
+              'You need to sign in before you can upload videos. Join WemaShop to share your content with the world!',
         ),
       );
     }
-    
+
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
       appBar: AppBar(
@@ -757,12 +777,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         actions: [
           if (_videoFile != null)
             TextButton(
-              onPressed: (isLoading || _isProcessing || isUploading) ? null : _submitForm,
+              onPressed: (isLoading || _isProcessing || isUploading)
+                  ? null
+                  : _submitForm,
               child: Text(
-                _isProcessing ? 'Processing...' : (isUploading ? 'Uploading...' : 'Post'),
+                _isProcessing
+                    ? 'Processing...'
+                    : (isUploading ? 'Uploading...' : 'Post'),
                 style: TextStyle(
-                  color: (isLoading || _isProcessing || isUploading) 
-                      ? modernTheme.textSecondaryColor 
+                  color: (isLoading || _isProcessing || isUploading)
+                      ? modernTheme.textSecondaryColor
                       : modernTheme.primaryColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -782,9 +806,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               _videoFile == null
                   ? _buildVideoPickerPlaceholder(modernTheme)
                   : _buildVideoPreview(modernTheme),
-                
+
               const SizedBox(height: 24),
-              
+
               // Processing progress
               if (_isProcessing)
                 Column(
@@ -810,7 +834,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                                  _videoInfo != null &&
+                                          _videoInfo!.fileSizeMB < 50.0
                                       ? 'Processing...'
                                       : 'Processing...',
                                   style: const TextStyle(
@@ -825,7 +850,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           LinearProgressIndicator(
                             value: _processingProgress,
                             backgroundColor: modernTheme.borderColor,
-                            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                modernTheme.primaryColor!),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -841,7 +867,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     const SizedBox(height: 16),
                   ],
                 ),
-              
+
               // Upload progress indicator with simulated percentage
               if (isUploading)
                 Column(
@@ -888,7 +914,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           LinearProgressIndicator(
                             value: uploadProgress,
                             backgroundColor: modernTheme.borderColor,
-                            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                modernTheme.primaryColor!),
                           ),
                         ],
                       ),
@@ -896,7 +923,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     const SizedBox(height: 16),
                   ],
                 ),
-              
+
               // Caption
               TextFormField(
                 controller: _captionController,
@@ -904,7 +931,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   labelText: 'Caption *',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                    borderSide: BorderSide(
+                        color:
+                            modernTheme.textSecondaryColor!.withOpacity(0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.primaryColor!),
@@ -925,9 +954,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 },
                 enabled: !isLoading && !_isProcessing && !isUploading,
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Price field (Required temporarily)
               /*TextFormField(
                 controller: _priceController,
@@ -979,7 +1008,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ),
               
               const SizedBox(height: 16),*/
-              
+
               // Tags (Optional)
               TextFormField(
                 controller: _tagsController,
@@ -987,7 +1016,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   labelText: 'Tags (Comma separated, Optional)',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                    borderSide: BorderSide(
+                        color:
+                            modernTheme.textSecondaryColor!.withOpacity(0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.primaryColor!),
@@ -999,33 +1030,36 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 style: TextStyle(color: modernTheme.textColor),
                 enabled: !isLoading && !_isProcessing && !isUploading,
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Submit Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (!isLoading && !_isProcessing && !isUploading) ? _submitForm : null,
+                  onPressed: (!isLoading && !_isProcessing && !isUploading)
+                      ? _submitForm
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: modernTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                    disabledBackgroundColor:
+                        modernTheme.primaryColor!.withOpacity(0.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: _isProcessing
-                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
-                          ? 'Processing...' 
+                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0
+                          ? 'Processing...'
                           : 'Processing...')
                       : (isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Video')),
                 ),
               ),
-              
+
               const SizedBox(height: 40),
             ],
           ),
@@ -1070,12 +1104,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _pickVideoFromGallery : null,
+              onPressed: (!_isProcessing && !_isUploading)
+                  ? _pickVideoFromGallery
+                  : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                disabledBackgroundColor:
+                    modernTheme.primaryColor!.withOpacity(0.5),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1092,12 +1130,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
+              onPressed:
+                  (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                disabledBackgroundColor:
+                    modernTheme.primaryColor!.withOpacity(0.5),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1128,7 +1169,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             aspectRatio: _videoPlayerController!.value.aspectRatio,
             child: VideoPlayer(_videoPlayerController!),
           ),
-          
           GestureDetector(
             onTap: _togglePlayPause,
             child: Container(
@@ -1144,12 +1184,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ),
             ),
           ),
-          
           Positioned(
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: (!_isProcessing && !_isUploading) ? _pickVideoFromGallery : null,
+              onPressed: (!_isProcessing && !_isUploading)
+                  ? _pickVideoFromGallery
+                  : null,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -1158,7 +1199,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
                 child: Icon(
                   Icons.edit,
-                  color: (!_isProcessing && !_isUploading) ? Colors.white : Colors.grey,
+                  color: (!_isProcessing && !_isUploading)
+                      ? Colors.white
+                      : Colors.grey,
                   size: 20,
                 ),
               ),

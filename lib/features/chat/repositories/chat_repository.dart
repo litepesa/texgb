@@ -167,7 +167,8 @@ class HttpChatRepository implements ChatRepository {
         debugPrint('✅ Chat created/retrieved: $returnedChatId');
         return returnedChatId;
       } else {
-        debugPrint('❌ Chat creation failed: ${response.statusCode} - ${response.body}');
+        debugPrint(
+            '❌ Chat creation failed: ${response.statusCode} - ${response.body}');
         throw ChatRepositoryException(
             'Failed to create or get chat: ${response.body}');
       }
@@ -178,20 +179,24 @@ class HttpChatRepository implements ChatRepository {
   }
 
   /// Transform backend chat response to frontend ChatModel format
-  Map<String, dynamic> _transformChatData(Map<String, dynamic> backendData, String currentUserId) {
+  Map<String, dynamic> _transformChatData(
+      Map<String, dynamic> backendData, String currentUserId) {
     // Backend returns: {id, user1_id, user2_id, unread_count, last_message_text, last_message_at, is_active}
     // Frontend expects: {chatId, participants, unreadCounts, isPinned, isMuted, isArchived, lastMessage, lastMessageTime}
 
     final user1Id = backendData['user1_id'] ?? backendData['user1Id'] ?? '';
     final user2Id = backendData['user2_id'] ?? backendData['user2Id'] ?? '';
-    final unreadCount = backendData['unread_count'] ?? backendData['unreadCount'] ?? 0;
-    final lastMessageText = backendData['last_message_text'] ?? backendData['lastMessageText'] ?? '';
+    final unreadCount =
+        backendData['unread_count'] ?? backendData['unreadCount'] ?? 0;
+    final lastMessageText = backendData['last_message_text'] ??
+        backendData['lastMessageText'] ??
+        '';
 
     // Parse backend timestamp properly - try multiple field names
     final lastMessageAt = backendData['last_message_at'] ??
-                         backendData['lastMessageAt'] ??
-                         backendData['updated_at'] ??
-                         backendData['updatedAt'];
+        backendData['lastMessageAt'] ??
+        backendData['updated_at'] ??
+        backendData['updatedAt'];
 
     // Build participants array
     final participants = [user1Id, user2Id];
@@ -210,15 +215,19 @@ class HttpChatRepository implements ChatRepository {
     return {
       'chatId': backendData['id'] ?? '',
       'participants': participants,
-      'lastMessage': lastMessageText.isNotEmpty ? lastMessageText : 'No messages yet',
+      'lastMessage':
+          lastMessageText.isNotEmpty ? lastMessageText : 'No messages yet',
       'lastMessageType': 'text', // Backend doesn't return type yet
-      'lastMessageSender': user1Id, // Default to user1, will be updated with actual messages
+      'lastMessageSender':
+          user1Id, // Default to user1, will be updated with actual messages
       'lastMessageTime': lastMessageAt ?? defaultTimestamp,
       'unreadCounts': unreadCounts,
       'isArchived': isArchived,
       'isPinned': isPinned,
       'isMuted': isMuted,
-      'createdAt': backendData['created_at'] ?? backendData['createdAt'] ?? DateTime.now().toIso8601String(),
+      'createdAt': backendData['created_at'] ??
+          backendData['createdAt'] ??
+          DateTime.now().toIso8601String(),
     };
   }
 
@@ -510,8 +519,8 @@ class HttpChatRepository implements ChatRepository {
         'isEdited': message.isEdited,
         'editedAt': message.editedAt?.toUtc().toIso8601String(),
         'isPinned': message.isPinned,
-        'readBy':
-            message.readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+        'readBy': message.readBy
+            ?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
         'deliveredTo': message.deliveredTo
             ?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
       });
@@ -683,12 +692,16 @@ class HttpChatRepository implements ChatRepository {
     // Backend returns: {message_id, chat_id, sender_id, message_text, media_url, media_type, created_at, is_delivered, delivered_at, is_read, read_at}
     // Frontend expects: {messageId, chatId, senderId, content, type, mediaUrl, timestamp, status}
 
-    final messageText = backendData['message_text'] ?? backendData['messageText'] ?? '';
+    final messageText =
+        backendData['message_text'] ?? backendData['messageText'] ?? '';
     final mediaType = backendData['media_type'] ?? backendData['mediaType'];
     final mediaUrl = backendData['media_url'] ?? backendData['mediaUrl'];
-    final createdAt = backendData['created_at'] ?? backendData['createdAt'] ?? DateTime.now().toIso8601String();
+    final createdAt = backendData['created_at'] ??
+        backendData['createdAt'] ??
+        DateTime.now().toIso8601String();
     final isRead = backendData['is_read'] ?? backendData['isRead'] ?? false;
-    final isDelivered = backendData['is_delivered'] ?? backendData['isDelivered'] ?? false;
+    final isDelivered =
+        backendData['is_delivered'] ?? backendData['isDelivered'] ?? false;
 
     // Determine message status
     String status = 'sending';
@@ -715,7 +728,8 @@ class HttpChatRepository implements ChatRepository {
       'status': status,
       'timestamp': createdAt,
       'mediaUrl': mediaUrl,
-      'mediaMetadata': backendData['media_metadata'] ?? backendData['mediaMetadata'],
+      'mediaMetadata':
+          backendData['media_metadata'] ?? backendData['mediaMetadata'],
       'isEdited': false,
       'isPinned': false,
     };
@@ -734,7 +748,8 @@ class HttpChatRepository implements ChatRepository {
           final List<dynamic> messagesData = data['messages'] ?? [];
 
           return messagesData
-              .map((messageData) => _transformMessageData(messageData as Map<String, dynamic>))
+              .map((messageData) =>
+                  _transformMessageData(messageData as Map<String, dynamic>))
               .map((transformedData) => MessageModel.fromMap(transformedData))
               .toList();
         } else {

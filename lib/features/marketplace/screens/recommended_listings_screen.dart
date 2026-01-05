@@ -14,14 +14,16 @@ class RecommendedListingsScreen extends ConsumerStatefulWidget {
   const RecommendedListingsScreen({super.key});
 
   @override
-  ConsumerState<RecommendedListingsScreen> createState() => _RecommendedListingsScreenState();
+  ConsumerState<RecommendedListingsScreen> createState() =>
+      _RecommendedListingsScreenState();
 }
 
-class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsScreen> {
+class _RecommendedListingsScreenState
+    extends ConsumerState<RecommendedListingsScreen> {
   final PageController _pageController = PageController(
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
-  
+
   // Cache for recommended marketplaceVideos to avoid reloading
   List<MarketplaceVideoModel> _recommendedMarketplaceItems = [];
   bool _isLoadingRecommendations = false;
@@ -45,7 +47,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
   /// Load recommended marketplaceVideos efficiently
   /// This method loads featured marketplaceVideos from the backend
-  Future<void> _loadRecommendedMarketplaceItems({bool forceRefresh = false}) async {
+  Future<void> _loadRecommendedMarketplaceItems(
+      {bool forceRefresh = false}) async {
     if (_isLoadingRecommendations && !forceRefresh) return;
 
     setState(() {
@@ -95,7 +98,6 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
           _processVideos(allVideos);
         }
       }
-
     } catch (e) {
       debugPrint('❌ Error loading recommendations: $e');
       setState(() {
@@ -121,7 +123,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         .toList();
 
     // Sort by creation time (most recent first)
-    featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+    featuredVideos
+        .sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
 
     // Limit to 9 featured marketplaceVideos
     const maxTotalVideos = 9;
@@ -131,14 +134,15 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
       _recommendedMarketplaceItems = finalRecommendations;
       _isLoadingRecommendations = false;
     });
-    
-    debugPrint('✅ Processed ${_recommendedMarketplaceItems.length} featured marketplaceVideos');
+
+    debugPrint(
+        '✅ Processed ${_recommendedMarketplaceItems.length} featured marketplaceVideos');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
-    
+
     // Listen to marketplace videos provider changes and reload when data becomes available
     ref.listen<List<MarketplaceVideoModel>>(
       marketplaceVideosProvider,
@@ -147,12 +151,13 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         if (next.isNotEmpty &&
             _recommendedMarketplaceItems.isEmpty &&
             !_isLoadingRecommendations) {
-          debugPrint('🔄 Marketplace videos updated, reloading recommendations');
+          debugPrint(
+              '🔄 Marketplace videos updated, reloading recommendations');
           _loadRecommendedMarketplaceItems();
         }
       },
     );
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
@@ -163,7 +168,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
   Widget _buildBody() {
     final theme = context.modernTheme;
-    
+
     if (_isLoadingRecommendations && _recommendedMarketplaceItems.isEmpty) {
       return _buildLoadingState();
     }
@@ -184,7 +189,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         children: [
           // Page indicator dots with enhanced styling
           if (_recommendedMarketplaceItems.isNotEmpty) _buildPageIndicator(),
-          
+
           // Main carousel with enhanced container
           Expanded(
             child: Container(
@@ -199,8 +204,10 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                 itemCount: _recommendedMarketplaceItems.length,
                 itemBuilder: (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-                    child: _buildVideoThumbnail(_recommendedMarketplaceItems[index], index),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 20.0),
+                    child: _buildVideoThumbnail(
+                        _recommendedMarketplaceItems[index], index),
                   );
                 },
               ),
@@ -213,7 +220,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
   Widget _buildPageIndicator() {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -240,24 +247,26 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
           _recommendedMarketplaceItems.length,
           (index) {
             bool isActive = index == _currentIndex;
-            
+
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 4.0),
               height: 8.0,
               width: isActive ? 24.0 : 8.0,
               decoration: BoxDecoration(
-                color: isActive 
-                    ? theme.primaryColor 
+                color: isActive
+                    ? theme.primaryColor
                     : theme.textSecondaryColor!.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(4.0),
-                boxShadow: isActive ? [
-                  BoxShadow(
-                    color: theme.primaryColor!.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ] : null,
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: theme.primaryColor!.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
               ),
             );
           },
@@ -266,13 +275,15 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     );
   }
 
-  Widget _buildVideoThumbnail(MarketplaceVideoModel marketplaceVideo, int index) {
+  Widget _buildVideoThumbnail(
+      MarketplaceVideoModel marketplaceVideo, int index) {
     final theme = context.modernTheme;
-    
+
     // Calculate scale based on current page position
     double scale = 1.0;
     if (_pageController.hasClients && _pageController.page != null) {
-      scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
+      scale =
+          1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
     }
 
     return Transform.scale(
@@ -332,7 +343,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                           height: double.infinity,
                           child: _buildThumbnailContent(marketplaceVideo),
                         ),
-                        
+
                         // Enhanced gradient overlay
                         Positioned(
                           bottom: 0,
@@ -355,7 +366,9 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  marketplaceVideo.caption.isNotEmpty ? marketplaceVideo.caption : 'No caption',
+                                  marketplaceVideo.caption.isNotEmpty
+                                      ? marketplaceVideo.caption
+                                      : 'No caption',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -368,7 +381,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                                 ),
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(8),
@@ -391,7 +405,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                   ),
                 ),
               ),
-              
+
               // Enhanced User info section
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -427,13 +441,15 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
                                         decoration: BoxDecoration(
-                                          color: theme.primaryColor!.withOpacity(0.15),
+                                          color: theme.primaryColor!
+                                              .withOpacity(0.15),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            marketplaceVideo.userName.isNotEmpty 
-                                                ? marketplaceVideo.userName[0].toUpperCase()
+                                            marketplaceVideo.userName.isNotEmpty
+                                                ? marketplaceVideo.userName[0]
+                                                    .toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -447,13 +463,15 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                                   )
                                 : Container(
                                     decoration: BoxDecoration(
-                                      color: theme.primaryColor!.withOpacity(0.15),
+                                      color:
+                                          theme.primaryColor!.withOpacity(0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
                                       child: Text(
-                                        marketplaceVideo.userName.isNotEmpty 
-                                            ? marketplaceVideo.userName[0].toUpperCase()
+                                        marketplaceVideo.userName.isNotEmpty
+                                            ? marketplaceVideo.userName[0]
+                                                .toUpperCase()
                                             : "U",
                                         style: TextStyle(
                                           color: theme.primaryColor,
@@ -467,9 +485,9 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(width: 14),
-                    
+
                     // Enhanced user info with bio
                     Expanded(
                       child: Column(
@@ -514,7 +532,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
     final authState = ref.read(authenticationProvider);
     final currentAuthState = authState.valueOrNull;
     if (currentAuthState == null) return 'No bio available';
-    
+
     try {
       final user = currentAuthState.users.firstWhere(
         (user) => user.uid == userId,
@@ -539,7 +557,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         },
         errorBuilder: (context, error, stackTrace) {
           // Fallback to first image if thumbnail fails and it's an image listing
-          if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty) {
+          if (marketplaceVideo.isMultipleImages &&
+              marketplaceVideo.imageUrls.isNotEmpty) {
             return Image.network(
               marketplaceVideo.imageUrls.first,
               fit: BoxFit.cover,
@@ -554,9 +573,10 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         },
       );
     }
-    
+
     // Fallback: if no thumbnail, use first image for image listings
-    if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty) {
+    if (marketplaceVideo.isMultipleImages &&
+        marketplaceVideo.imageUrls.isNotEmpty) {
       return Image.network(
         marketplaceVideo.imageUrls.first,
         fit: BoxFit.cover,
@@ -571,7 +591,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
         },
       );
     }
-    
+
     // No valid content
     return _buildErrorThumbnail();
   }
@@ -607,7 +627,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
   Widget _buildLoadingState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -659,7 +679,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
   Widget _buildErrorState(String error) {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -718,10 +738,12 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
-                onTap: () => _loadRecommendedMarketplaceItems(forceRefresh: true),
+                onTap: () =>
+                    _loadRecommendedMarketplaceItems(forceRefresh: true),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -763,7 +785,7 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
 
   Widget _buildEmptyState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -828,7 +850,8 @@ class _RecommendedListingsScreenState extends ConsumerState<RecommendedListingsS
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),

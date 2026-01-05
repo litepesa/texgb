@@ -22,20 +22,19 @@ class ChatListScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends ConsumerState<ChatListScreen> 
+class _ChatListScreenState extends ConsumerState<ChatListScreen>
     with AutomaticKeepAliveClientMixin {
-  
   @override
   bool get wantKeepAlive => true;
 
   // Cache manager for profile images
   static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
-  
+
   // In-memory cache for current session
   List<ChatListItemModel>? _cachedChats;
   DateTime? _lastCacheUpdate;
   bool _isInitialLoad = true;
-  
+
   // Search functionality
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -45,7 +44,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   void initState() {
     super.initState();
     _loadCachedData();
-    
+
     // Listen to search focus changes
     _searchFocusNode.addListener(() {
       setState(() {
@@ -105,22 +104,23 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final modernTheme = context.modernTheme;
-    
+
     // Watch the current user using new auth system
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated || currentUser == null) {
       return _buildNotAuthenticatedState(modernTheme);
     }
-    
+
     // User is authenticated, show the chat list
     return _buildAuthenticatedChatList(currentUser, modernTheme);
   }
 
-  Widget _buildAuthenticatedChatList(UserModel user, ModernThemeExtension modernTheme) {
+  Widget _buildAuthenticatedChatList(
+      UserModel user, ModernThemeExtension modernTheme) {
     final chatListState = ref.watch(chatListProvider);
-    
+
     return GestureDetector(
       onTap: () {
         // Dismiss keyboard when tapping outside
@@ -131,119 +131,125 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       },
       child: Scaffold(
         backgroundColor: modernTheme.surfaceColor,
-        body: Column(
-          children: [
-            // Search bar
-            _buildSearchBar(modernTheme),
-            
-            // Chat list
-            Expanded(
-              child: chatListState.when(
-                loading: () {
-                  // Show cached data while loading if available
-                  if (_cachedChats != null && _cachedChats!.isNotEmpty) {
-                    return Column(
-                      children: [
-                        // Loading indicator at top
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    modernTheme.primaryColor ?? const Color(0xFF07C160),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Search bar
+              _buildSearchBar(modernTheme),
+              // Chat list
+              Expanded(
+                child: chatListState.when(
+                  loading: () {
+                    // Show cached data while loading if available
+                    if (_cachedChats != null && _cachedChats!.isNotEmpty) {
+                      return Column(
+                        children: [
+                          // Loading indicator at top
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      modernTheme.primaryColor ??
+                                          const Color(0xFF07C160),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Updating...',
-                                style: TextStyle(
-                                  color: modernTheme.textSecondaryColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Cached chat list
-                        Expanded(
-                          child: _buildChatListFromCache(_cachedChats!, modernTheme, user.uid),
-                        ),
-                      ],
-                    );
-                  }
-                  return _buildLoadingState(modernTheme);
-                },
-                error: (error, stack) {
-                  debugPrint('Chat list error: $error');
-                  // Show cached data with error indicator if available
-                  if (_cachedChats != null && _cachedChats!.isNotEmpty) {
-                    return Column(
-                      children: [
-                        // Error indicator at top
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          color: Colors.red.withOpacity(0.1),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                size: 16,
-                                color: Colors.red,
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Failed to update. Showing cached data.',
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Updating...',
                                   style: TextStyle(
-                                    color: Colors.red,
+                                    color: modernTheme.textSecondaryColor,
                                     fontSize: 12,
                                   ),
                                 ),
-                              ),
-                              TextButton(
-                                onPressed: () => ref.refresh(chatListProvider),
-                                child: const Text(
-                                  'Retry',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                              ],
+                            ),
+                          ),
+                          // Cached chat list
+                          Expanded(
+                            child: _buildChatListFromCache(
+                                _cachedChats!, modernTheme, user.uid),
+                          ),
+                        ],
+                      );
+                    }
+                    return _buildLoadingState(modernTheme);
+                  },
+                  error: (error, stack) {
+                    debugPrint('Chat list error: $error');
+                    // Show cached data with error indicator if available
+                    if (_cachedChats != null && _cachedChats!.isNotEmpty) {
+                      return Column(
+                        children: [
+                          // Error indicator at top
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            color: Colors.red.withOpacity(0.1),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 16,
+                                  color: Colors.red,
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Failed to update. Showing cached data.',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                                TextButton(
+                                  onPressed: () =>
+                                      ref.refresh(chatListProvider),
+                                  child: const Text(
+                                    'Retry',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        // Cached chat list
-                        Expanded(
-                          child: _buildChatListFromCache(_cachedChats!, modernTheme, user.uid),
-                        ),
-                      ],
-                    );
-                  }
-                  return _buildErrorState(modernTheme, error.toString());
-                },
-                data: (state) {
-                  // Cache the new data
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _cacheChatList(state.chats);
-                    _preloadContactImages(state.chats);
-                  });
-                  
-                  return _buildChatList(state, user.uid, modernTheme);
-                },
+                          // Cached chat list
+                          Expanded(
+                            child: _buildChatListFromCache(
+                                _cachedChats!, modernTheme, user.uid),
+                          ),
+                        ],
+                      );
+                    }
+                    return _buildErrorState(modernTheme, error.toString());
+                  },
+                  data: (state) {
+                    // Cache the new data
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _cacheChatList(state.chats);
+                      _preloadContactImages(state.chats);
+                    });
+
+                    return _buildChatList(state, user.uid, modernTheme);
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -251,7 +257,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   Widget _buildSearchBar(ModernThemeExtension modernTheme) {
     final chatListNotifier = ref.read(chatListProvider.notifier);
-    
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
@@ -284,7 +290,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               onChanged: (query) => chatListNotifier.setSearchQuery(query),
             ),
@@ -324,7 +331,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
+                color: (modernTheme.primaryColor ?? const Color(0xFF07C160))
+                    .withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -359,9 +367,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 (route) => false,
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor ?? const Color(0xFF07C160),
+                backgroundColor:
+                    modernTheme.primaryColor ?? const Color(0xFF07C160),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -472,7 +482,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             icon: const Icon(CupertinoIcons.refresh, size: 18),
             label: const Text('Try Again'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor ?? const Color(0xFF07C160),
+              backgroundColor:
+                  modernTheme.primaryColor ?? const Color(0xFF07C160),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -486,7 +497,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Widget _buildChatListFromCache(List<ChatListItemModel> chats, ModernThemeExtension modernTheme, String currentUserId) {
+  Widget _buildChatListFromCache(List<ChatListItemModel> chats,
+      ModernThemeExtension modernTheme, String currentUserId) {
     if (chats.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
@@ -496,23 +508,24 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       itemCount: chats.length,
       itemBuilder: (context, index) {
         final chatItem = chats[index];
-        
+
         return _buildChatItem(
-          chatItem, 
-          currentUserId, 
+          chatItem,
+          currentUserId,
           modernTheme,
         );
       },
     );
   }
 
-  Widget _buildChatList(ChatListState state, String currentUserId, ModernThemeExtension modernTheme) {
+  Widget _buildChatList(ChatListState state, String currentUserId,
+      ModernThemeExtension modernTheme) {
     if (state.chats.isEmpty && state.searchQuery.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
 
     final filteredChats = state.filteredChats;
-    
+
     if (filteredChats.isEmpty && state.searchQuery.isNotEmpty) {
       return _buildNoSearchResultsState(modernTheme, state.searchQuery);
     }
@@ -534,24 +547,24 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           // Pinned chats
           if (index < pinnedChats.length) {
             return _buildChatItem(
-              pinnedChats[index], 
-              currentUserId, 
+              pinnedChats[index],
+              currentUserId,
               modernTheme,
               isPinned: true,
             );
           }
-          
+
           // Regular chats
           final chatIndex = index - pinnedChats.length;
-          
+
           if (chatIndex < regularChats.length) {
             return _buildChatItem(
-              regularChats[chatIndex], 
-              currentUserId, 
+              regularChats[chatIndex],
+              currentUserId,
               modernTheme,
             );
           }
-          
+
           return const SizedBox.shrink();
         },
       ),
@@ -566,7 +579,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
+              color: (modernTheme.primaryColor ?? const Color(0xFF07C160))
+                  .withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -603,7 +617,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
             label: const Text('View Contacts'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor ?? const Color(0xFF07C160),
+              backgroundColor:
+                  modernTheme.primaryColor ?? const Color(0xFF07C160),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -617,7 +632,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Widget _buildNoSearchResultsState(ModernThemeExtension modernTheme, String query) {
+  Widget _buildNoSearchResultsState(
+      ModernThemeExtension modernTheme, String query) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -649,16 +665,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Widget _buildChatItem(
-    ChatListItemModel chatItem, 
-    String currentUserId, 
-    ModernThemeExtension modernTheme,
-    {bool isPinned = false}
-  ) {
+  Widget _buildChatItem(ChatListItemModel chatItem, String currentUserId,
+      ModernThemeExtension modernTheme,
+      {bool isPinned = false}) {
     final unreadCount = chatItem.chat.getUnreadCount(currentUserId);
     final hasUnread = unreadCount > 0;
     final isMuted = chatItem.chat.isMutedForUser(currentUserId);
-    
+
     return InkWell(
       onTap: () => _openChat(chatItem),
       onLongPress: () => _showChatOptions(chatItem),
@@ -678,7 +691,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             // Avatar
             _buildCachedAvatar(chatItem, modernTheme),
             const SizedBox(width: 12),
-            
+
             // Chat info
             Expanded(
               child: Column(
@@ -691,7 +704,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                           chatItem.contactName,
                           style: TextStyle(
                             color: modernTheme.textColor,
-                            fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight:
+                                hasUnread ? FontWeight.w600 : FontWeight.w500,
                             fontSize: 16,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -720,7 +734,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                         ),
                       Expanded(
                         child: Text(
-                          chatItem.getLastMessagePreview(currentUserId: currentUserId),
+                          chatItem.getLastMessagePreview(
+                              currentUserId: currentUserId),
                           style: TextStyle(
                             color: modernTheme.textSecondaryColor,
                             fontSize: 14,
@@ -732,11 +747,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       if (hasUnread)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: isMuted 
-                              ? modernTheme.textSecondaryColor 
-                              : Colors.red,
+                            color: isMuted
+                                ? modernTheme.textSecondaryColor
+                                : Colors.red,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -759,13 +775,15 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Widget _buildCachedAvatar(ChatListItemModel chatItem, ModernThemeExtension modernTheme) {
+  Widget _buildCachedAvatar(
+      ChatListItemModel chatItem, ModernThemeExtension modernTheme) {
     if (chatItem.contactImage.isEmpty) {
       return Container(
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.2),
+          color: (modernTheme.primaryColor ?? const Color(0xFF07C160))
+              .withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -798,7 +816,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.2),
+          color: (modernTheme.primaryColor ?? const Color(0xFF07C160))
+              .withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Center(
@@ -809,7 +828,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: (modernTheme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.2),
+          color: (modernTheme.primaryColor ?? const Color(0xFF07C160))
+              .withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -876,28 +896,31 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       }
 
       // Create UserModel with available data
-      final contact = contactUser ?? UserModel(
-        uid: otherUserId,
-        phoneNumber: chatItem.contactPhone,
-        name: chatItem.contactName.isNotEmpty ? chatItem.contactName : 'Unknown User',
-        bio: '',
-        profileImage: chatItem.contactImage,
-        coverImage: '',
-        followers: 0,
-        following: 0,
-        videosCount: 0,
-        likesCount: 0,
-        isVerified: false,
-        tags: [],
-        followerUIDs: [],
-        followingUIDs: [],
-        likedVideos: [],
-        createdAt: DateTime.now().toIso8601String(),
-        updatedAt: DateTime.now().toIso8601String(),
-        lastSeen: DateTime.now().toIso8601String(),
-        isActive: true,
-        isFeatured: false,
-      );
+      final contact = contactUser ??
+          UserModel(
+            uid: otherUserId,
+            phoneNumber: chatItem.contactPhone,
+            name: chatItem.contactName.isNotEmpty
+                ? chatItem.contactName
+                : 'Unknown User',
+            bio: '',
+            profileImage: chatItem.contactImage,
+            coverImage: '',
+            followers: 0,
+            following: 0,
+            videosCount: 0,
+            likesCount: 0,
+            isVerified: false,
+            tags: [],
+            followerUIDs: [],
+            followingUIDs: [],
+            likedVideos: [],
+            createdAt: DateTime.now().toIso8601String(),
+            updatedAt: DateTime.now().toIso8601String(),
+            lastSeen: DateTime.now().toIso8601String(),
+            isActive: true,
+            isFeatured: false,
+          );
 
       debugPrint('🔵 Final contact name: ${contact.name}');
       debugPrint('🔵 Navigating to ChatScreen...');
@@ -935,7 +958,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
     final isPinned = chatItem.chat.isPinnedForUser(currentUser.uid);
     final isMuted = chatItem.chat.isMutedForUser(currentUser.uid);
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -956,7 +979,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Contact info header
             ListTile(
               leading: _buildCachedAvatar(chatItem, modernTheme),
@@ -976,9 +999,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 ),
               ),
             ),
-            
+
             const Divider(height: 1),
-            
+
             ListTile(
               leading: Icon(
                 isPinned ? CupertinoIcons.pin_slash : CupertinoIcons.pin,
@@ -993,7 +1016,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 _togglePinChat(chatItem.chat.chatId);
               },
             ),
-            
+
             ListTile(
               leading: Icon(
                 isMuted ? CupertinoIcons.speaker_2 : CupertinoIcons.bell_slash,
@@ -1008,7 +1031,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 _toggleMuteChat(chatItem.chat.chatId);
               },
             ),
-            
+
             ListTile(
               leading: const Icon(
                 CupertinoIcons.delete,
@@ -1023,7 +1046,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 _confirmDeleteChat(chatItem.chat.chatId, chatItem.contactName);
               },
             ),
-            
+
             const SizedBox(height: 16),
           ],
         ),
@@ -1035,7 +1058,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
       await chatListNotifier.togglePinChat(chatId);
-      
+
       if (mounted) {
         showSnackBar(context, 'Chat updated');
       }
@@ -1051,7 +1074,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
       await chatListNotifier.toggleMuteChat(chatId);
-      
+
       if (mounted) {
         showSnackBar(context, 'Chat updated');
       }
@@ -1065,7 +1088,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   void _confirmDeleteChat(String chatId, String contactName) {
     final modernTheme = context.modernTheme;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1109,7 +1132,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
       await chatListNotifier.deleteChat(chatId, deleteForEveryone: false);
-      
+
       if (mounted) {
         showSnackBar(context, 'Chat deleted');
       }

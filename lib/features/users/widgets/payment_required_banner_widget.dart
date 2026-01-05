@@ -10,13 +10,13 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 class PaymentRequiredBannerWidget extends ConsumerStatefulWidget {
   /// Whether to show the banner even if user has paid
   final bool forceShow;
-  
+
   /// Custom vertical position (0.0 to 1.0 of screen height)
   final double? verticalPosition;
-  
+
   /// Horizontal margin
   final double horizontalMargin;
-  
+
   /// Custom callback when banner is tapped (optional)
   final VoidCallback? onTap;
 
@@ -29,10 +29,12 @@ class PaymentRequiredBannerWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<PaymentRequiredBannerWidget> createState() => _PaymentRequiredBannerWidgetState();
+  ConsumerState<PaymentRequiredBannerWidget> createState() =>
+      _PaymentRequiredBannerWidgetState();
 }
 
-class _PaymentRequiredBannerWidgetState extends ConsumerState<PaymentRequiredBannerWidget>
+class _PaymentRequiredBannerWidgetState
+    extends ConsumerState<PaymentRequiredBannerWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _bannerAnimationController;
   late Animation<double> _bannerAnimation;
@@ -40,7 +42,7 @@ class _PaymentRequiredBannerWidgetState extends ConsumerState<PaymentRequiredBan
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize banner animation
     _bannerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -310,7 +312,7 @@ class _PaymentRequiredBannerWidgetState extends ConsumerState<PaymentRequiredBan
 class PaymentRequiredBannerCard extends ConsumerStatefulWidget {
   /// Whether to show the banner even if user has paid
   final bool forceShow;
-  
+
   /// Custom callback when banner is tapped (optional)
   final VoidCallback? onTap;
 
@@ -321,10 +323,12 @@ class PaymentRequiredBannerCard extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<PaymentRequiredBannerCard> createState() => _PaymentRequiredBannerCardState();
+  ConsumerState<PaymentRequiredBannerCard> createState() =>
+      _PaymentRequiredBannerCardState();
 }
 
-class _PaymentRequiredBannerCardState extends ConsumerState<PaymentRequiredBannerCard>
+class _PaymentRequiredBannerCardState
+    extends ConsumerState<PaymentRequiredBannerCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _bannerAnimationController;
   late Animation<double> _bannerAnimation;
@@ -332,7 +336,7 @@ class _PaymentRequiredBannerCardState extends ConsumerState<PaymentRequiredBanne
   @override
   void initState() {
     super.initState();
-    
+
     _bannerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,

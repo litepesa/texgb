@@ -7,15 +7,15 @@ enum CallType {
 }
 
 enum CallStatus {
-  ringing,      // Call initiated, waiting for answer
-  connecting,   // Peer connection being established
-  connected,    // Call in progress
-  ended,        // Call ended normally
-  declined,     // Call was declined by receiver
-  missed,       // Call was not answered
-  failed,       // Call failed due to error
-  busy,         // Callee is already on another call
-  timeout,      // Call timed out (no answer after 60s)
+  ringing, // Call initiated, waiting for answer
+  connecting, // Peer connection being established
+  connected, // Call in progress
+  ended, // Call ended normally
+  declined, // Call was declined by receiver
+  missed, // Call was not answered
+  failed, // Call failed due to error
+  busy, // Callee is already on another call
+  timeout, // Call timed out (no answer after 60s)
 }
 
 enum CallDirection {
@@ -82,11 +82,16 @@ class CallModel {
         (e) => e.name == map['direction'],
         orElse: () => CallDirection.outgoing,
       ),
-      startedAt: DateTime.parse(map['startedAt'] ?? DateTime.now().toIso8601String()),
-      connectedAt: map['connectedAt'] != null ? DateTime.parse(map['connectedAt']) : null,
+      startedAt:
+          DateTime.parse(map['startedAt'] ?? DateTime.now().toIso8601String()),
+      connectedAt: map['connectedAt'] != null
+          ? DateTime.parse(map['connectedAt'])
+          : null,
       endedAt: map['endedAt'] != null ? DateTime.parse(map['endedAt']) : null,
       duration: map['duration'],
-      metadata: map['metadata'] != null ? Map<String, dynamic>.from(map['metadata']) : null,
+      metadata: map['metadata'] != null
+          ? Map<String, dynamic>.from(map['metadata'])
+          : null,
     );
   }
 
@@ -156,11 +161,12 @@ class CallModel {
   bool get isOutgoing => direction == CallDirection.outgoing;
   bool get isActive => status == CallStatus.connected;
   bool get isRinging => status == CallStatus.ringing;
-  bool get isEnded => status == CallStatus.ended ||
-                      status == CallStatus.declined ||
-                      status == CallStatus.missed ||
-                      status == CallStatus.failed ||
-                      status == CallStatus.timeout;
+  bool get isEnded =>
+      status == CallStatus.ended ||
+      status == CallStatus.declined ||
+      status == CallStatus.missed ||
+      status == CallStatus.failed ||
+      status == CallStatus.timeout;
 
   String get formattedDuration {
     if (duration == null) return '00:00';

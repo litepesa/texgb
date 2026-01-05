@@ -68,7 +68,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             );
             break;
           case 'Verified':
-            filteredList = channels.where((channel) => channel.isVerified).toList();
+            filteredList =
+                channels.where((channel) => channel.isVerified).toList();
             break;
           default: // 'All'
             filteredList = channels;
@@ -156,7 +157,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
               ),
             ),
@@ -281,7 +283,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: isSelected
@@ -578,7 +581,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                 )
                               : Container(
                                   decoration: BoxDecoration(
-                                    color: theme.primaryColor!.withOpacity(0.15),
+                                    color:
+                                        theme.primaryColor!.withOpacity(0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
@@ -608,8 +612,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                           decoration: BoxDecoration(
                             color: Colors.blue,
                             shape: BoxShape.circle,
-                            border:
-                                Border.all(color: theme.surfaceColor!, width: 2),
+                            border: Border.all(
+                                color: theme.surfaceColor!, width: 2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.blue.withOpacity(0.3),
@@ -746,7 +750,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                   final actionsNotifier =
                                       ref.read(channelActionsProvider.notifier);
                                   if (isSubscribed) {
-                                    await actionsNotifier.unsubscribe(channel.id);
+                                    await actionsNotifier
+                                        .unsubscribe(channel.id);
                                   } else {
                                     await actionsNotifier.subscribe(channel.id);
                                   }
@@ -755,7 +760,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                 borderRadius: BorderRadius.circular(6),
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: isSubscribed
                                         ? theme.primaryColor!.withOpacity(0.15)
@@ -782,7 +788,9 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                       ),
                                       const SizedBox(width: 3),
                                       Text(
-                                        isSubscribed ? 'Subscribed' : 'Subscribe',
+                                        isSubscribed
+                                            ? 'Subscribed'
+                                            : 'Subscribe',
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: isSubscribed

@@ -9,10 +9,12 @@ class ActivationPaymentScreen extends ConsumerStatefulWidget {
   const ActivationPaymentScreen({super.key});
 
   @override
-  ConsumerState<ActivationPaymentScreen> createState() => _ActivationPaymentScreenState();
+  ConsumerState<ActivationPaymentScreen> createState() =>
+      _ActivationPaymentScreenState();
 }
 
-class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScreen> {
+class _ActivationPaymentScreenState
+    extends ConsumerState<ActivationPaymentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   bool _isProcessing = false;
@@ -32,8 +34,10 @@ class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScree
           primaryColor: const Color(0xFF07C160), // WeChat green for Kenya
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          textColor:
+              Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor:
+              Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
           dividerColor: Theme.of(context).dividerColor,
           textTertiaryColor: Colors.grey[400],
           surfaceVariantColor: Colors.grey[100],
@@ -91,9 +95,10 @@ class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScree
     final phone = _formatPhoneNumber(_phoneController.text);
 
     try {
-      final checkoutRequestId = await ref.read(paymentProvider.notifier).initiateActivation(
-        phoneNumber: phone,
-      );
+      final checkoutRequestId =
+          await ref.read(paymentProvider.notifier).initiateActivation(
+                phoneNumber: phone,
+              );
 
       if (!mounted) return;
 
@@ -184,7 +189,7 @@ class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScree
 
                 // Welcome message
                 Text(
-                  'Welcome to WemaChat!',
+                  'Welcome to WemaShop!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 24,
@@ -213,7 +218,8 @@ class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScree
                   decoration: BoxDecoration(
                     color: theme.surfaceColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.dividerColor ?? Colors.grey[300]!),
+                    border: Border.all(
+                        color: theme.dividerColor ?? Colors.grey[300]!),
                   ),
                   child: Column(
                     children: [
@@ -242,7 +248,8 @@ class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScree
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Icon(Icons.info_outline, color: theme.primaryColor, size: 20),
+                          Icon(Icons.info_outline,
+                              color: theme.primaryColor, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -314,7 +321,8 @@ class _ActivationPaymentScreenState extends ConsumerState<ActivationPaymentScree
                             width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Text(

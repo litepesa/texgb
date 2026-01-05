@@ -22,8 +22,10 @@ class CallSignalingService {
   final _stateController = StreamController<SignalingState>.broadcast();
   final _offerController = StreamController<Map<String, dynamic>>.broadcast();
   final _answerController = StreamController<Map<String, dynamic>>.broadcast();
-  final _iceCandidateController = StreamController<Map<String, dynamic>>.broadcast();
-  final _incomingCallController = StreamController<Map<String, dynamic>>.broadcast();
+  final _iceCandidateController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final _incomingCallController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _callEndController = StreamController<String>.broadcast();
   final _callDeclinedController = StreamController<String>.broadcast();
   final _callBusyController = StreamController<String>.broadcast();
@@ -31,8 +33,10 @@ class CallSignalingService {
   Stream<SignalingState> get stateStream => _stateController.stream;
   Stream<Map<String, dynamic>> get offerStream => _offerController.stream;
   Stream<Map<String, dynamic>> get answerStream => _answerController.stream;
-  Stream<Map<String, dynamic>> get iceCandidateStream => _iceCandidateController.stream;
-  Stream<Map<String, dynamic>> get incomingCallStream => _incomingCallController.stream;
+  Stream<Map<String, dynamic>> get iceCandidateStream =>
+      _iceCandidateController.stream;
+  Stream<Map<String, dynamic>> get incomingCallStream =>
+      _incomingCallController.stream;
   Stream<String> get callEndStream => _callEndController.stream;
   Stream<String> get callDeclinedStream => _callDeclinedController.stream;
   Stream<String> get callBusyStream => _callBusyController.stream;

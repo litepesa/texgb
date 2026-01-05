@@ -19,25 +19,24 @@ class ContactsScreen extends ConsumerStatefulWidget {
   ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-class _ContactsScreenState extends ConsumerState<ContactsScreen> 
+class _ContactsScreenState extends ConsumerState<ContactsScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _contactsScrollController = ScrollController();
-  
+
   String _searchQuery = '';
   bool _isSearching = false;
   bool _isInitializing = true;
-  
+
   // Performance optimizations
   late AnimationController _refreshAnimationController;
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey();
-  
+
   // Cached filtered lists for better performance
   List<SyncedContact> _filteredRegisteredContacts = [];
   List<Contact> _filteredUnregisteredContacts = [];
-  
+
   @override
   bool get wantKeepAlive => true;
 
@@ -46,7 +45,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     super.initState();
     _setupAnimations();
     _setupListeners();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeContacts();
     });
@@ -100,8 +99,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       _filteredUnregisteredContacts = contactsState.unregisteredContacts
           .where((contact) =>
               contact.displayName.toLowerCase().contains(_searchQuery) ||
-              contact.phones.any((phone) =>
-                  phone.number.toLowerCase().contains(_searchQuery)))
+              contact.phones.any(
+                  (phone) => phone.number.toLowerCase().contains(_searchQuery)))
           .toList();
     }
   }
@@ -120,24 +119,24 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     setState(() {
       _isInitializing = true;
     });
-    
+
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-      
+
       await ref.read(contactsNotifierProvider.future);
-      
+
       if (mounted) {
         setState(() {
           _isInitializing = false;
           _updateFilteredContacts();
         });
       }
-      
+
       final syncInfo = contactsNotifier.getSyncInfo();
       if (syncInfo['backgroundSyncAvailable'] == true) {
         _performBackgroundSync();
       }
-      
+
       await contactsNotifier.loadBlockedContacts();
     } catch (e) {
       debugPrint('Error initializing contacts: $e');
@@ -154,7 +153,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
       await contactsNotifier.performBackgroundSync();
-      
+
       if (mounted) {
         _updateFilteredContacts();
       }
@@ -165,11 +164,11 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   Future<void> _forceSyncContacts() async {
     _refreshAnimationController.repeat();
-    
+
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
       await contactsNotifier.syncContacts(forceSync: true);
-      
+
       if (mounted) {
         _updateFilteredContacts();
         _showSuccessSnackBar('Contacts synced successfully');
@@ -206,9 +205,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     final theme = context.modernTheme;
-    
+
     return GestureDetector(
       onTap: () {
         if (_isSearching) {
@@ -243,46 +242,48 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
           centerTitle: false,
           systemOverlayStyle: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-                ? Brightness.light 
-                : Brightness.dark,
+            statusBarIconBrightness:
+                Theme.of(context).brightness == Brightness.dark
+                    ? Brightness.light
+                    : Brightness.dark,
             statusBarBrightness: Theme.of(context).brightness,
           ),
         ),
         body: Column(
           children: [
             _buildWeChatHeader(theme),
-            
             Expanded(
               child: Container(
                 color: theme.surfaceColor,
                 child: Consumer(
                   builder: (context, ref, child) {
                     final contactsState = ref.watch(contactsNotifierProvider);
-                    
+
                     return contactsState.when(
                       data: (state) {
                         if (state.syncStatus == SyncStatus.permissionDenied) {
-                          return ContactsEmptyStatesWidget.buildPermissionScreen(
+                          return ContactsEmptyStatesWidget
+                              .buildPermissionScreen(
                             context,
                             () async {
-                              final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+                              final contactsNotifier =
+                                  ref.read(contactsNotifierProvider.notifier);
                               await contactsNotifier.requestPermission();
                             },
                           );
                         }
-                        
+
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           _updateFilteredContacts();
                         });
-                        
+
                         return _buildWeChatContactsList(state);
                       },
-                      loading: () => ContactsEmptyStatesWidget.buildLoadingState(
-                        context, 
-                        'Loading contacts...'
-                      ),
-                      error: (error, stackTrace) => ContactsEmptyStatesWidget.buildErrorState(
+                      loading: () =>
+                          ContactsEmptyStatesWidget.buildLoadingState(
+                              context, 'Loading contacts...'),
+                      error: (error, stackTrace) =>
+                          ContactsEmptyStatesWidget.buildErrorState(
                         context,
                         error.toString(),
                         _forceSyncContacts,
@@ -344,7 +345,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   ),
                 ),
               ),
-              
               if (_isSearching && _searchController.text.isNotEmpty)
                 Positioned(
                   right: 8,
@@ -368,7 +368,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                 ),
             ],
           ),
-          
           if (_isSearching) ...[
             const SizedBox(height: 8),
             Text(
@@ -387,12 +386,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   Widget _buildWeChatContactsList(ContactsState state) {
     final theme = context.modernTheme;
-    
+
     if (state.isLoading && _isInitializing) {
       return ContactsEmptyStatesWidget.buildLoadingState(
-        context, 
-        'Loading contacts...'
-      );
+          context, 'Loading contacts...');
     }
 
     final allContacts = [
@@ -460,7 +457,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
     for (final letter in sortedLetters) {
       // Sort by displayName (local contact name)
-      final contactsInGroup = groupedContacts[letter]!..sort((a, b) => a.displayName.compareTo(b.displayName));
+      final contactsInGroup = groupedContacts[letter]!
+        ..sort((a, b) => a.displayName.compareTo(b.displayName));
 
       sections.add(
         Container(
@@ -521,10 +519,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       ..._filteredUnregisteredContacts.asMap().entries.map((entry) {
         final index = entry.key;
         final contact = entry.value;
-        final phoneNumber = contact.phones.isNotEmpty 
-            ? contact.phones.first.number 
+        final phoneNumber = contact.phones.isNotEmpty
+            ? contact.phones.first.number
             : 'No phone number';
-        
+
         return _buildWeChatContactItem(
           icon: Icons.person_outline_rounded,
           title: contact.displayName.isEmpty ? 'Unknown' : contact.displayName,
@@ -572,14 +570,16 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
           ),
           child: Row(
             children: [
-              if (isContact && profileImageUrl != null && profileImageUrl.isNotEmpty)
+              if (isContact &&
+                  profileImageUrl != null &&
+                  profileImageUrl.isNotEmpty)
                 _buildProfileAvatar(profileImageUrl, theme)
               else
                 Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isInvite 
+                    color: isInvite
                         ? theme.primaryColor!.withOpacity(0.1)
                         : isSpecialSection
                             ? theme.primaryColor!.withOpacity(0.1)
@@ -588,8 +588,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   ),
                   child: Icon(
                     icon ?? Icons.person_rounded,
-                    color: isInvite 
-                        ? theme.primaryColor 
+                    color: isInvite
+                        ? theme.primaryColor
                         : isSpecialSection
                             ? theme.primaryColor
                             : theme.textSecondaryColor,
@@ -597,7 +597,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   ),
                 ),
               const SizedBox(width: 12),
-              
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,10 +626,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   ],
                 ),
               ),
-              
               if (isInvite)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -693,10 +692,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   void _showInviteDialog(Contact contact) {
     final theme = context.modernTheme;
-    final phoneNumber = contact.phones.isNotEmpty 
-        ? contact.phones.first.number 
+    final phoneNumber = contact.phones.isNotEmpty
+        ? contact.phones.first.number
         : 'Unknown number';
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -716,7 +715,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: theme.textSecondaryColor)),
+            child: Text('Cancel',
+                style: TextStyle(color: theme.textSecondaryColor)),
           ),
           ElevatedButton(
             onPressed: () {

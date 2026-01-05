@@ -125,7 +125,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
               loading: () => Center(
                 child: CircularProgressIndicator(color: theme.primaryColor),
               ),
-              error: (error, stack) => _buildErrorState(error.toString(), theme),
+              error: (error, stack) =>
+                  _buildErrorState(error.toString(), theme),
             ),
           ),
           floatingActionButton: isAdmin
@@ -147,7 +148,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(ChannelModel channel, ModernThemeExtension theme) {
+  PreferredSizeWidget _buildAppBar(
+      ChannelModel channel, ModernThemeExtension theme) {
     final isAdmin = channel.isAdmin == true || channel.isOwner == true;
 
     return AppBar(
@@ -418,7 +420,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
                   bottom: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.black87,
                       borderRadius: BorderRadius.circular(4),
@@ -519,7 +522,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
     );
   }
 
-  Widget _buildEmptyPostsState(ChannelModel channel, ModernThemeExtension theme) {
+  Widget _buildEmptyPostsState(
+      ChannelModel channel, ModernThemeExtension theme) {
     final canPost = channel.isAdmin == true || channel.isOwner == true;
 
     return Center(
@@ -747,7 +751,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen> {
     );
   }
 
-  Widget _buildStatColumn(String value, String label, ModernThemeExtension theme) {
+  Widget _buildStatColumn(
+      String value, String label, ModernThemeExtension theme) {
     return Column(
       children: [
         Text(

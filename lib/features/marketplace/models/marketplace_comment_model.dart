@@ -1,7 +1,7 @@
 // ===============================
 // lib/features/marketplace/models/marketplace_comment_model.dart
 // Twitter-Style Comment/Reply Model
-// 
+//
 // FEATURES:
 // 1. Nested replies (reply to reply to reply...)
 // 2. Like comments
@@ -11,7 +11,7 @@
 // 6. Edit tracking
 // 7. Pin comments (thread author can pin)
 // 8. Sort options (Top, Latest, Oldest)
-// 
+//
 // ANTI-SPAM MEASURES:
 // - Character limit: 150 characters (TikTok-style)
 // - Image limit: 0-1 image per comment (single image only)
@@ -23,8 +23,8 @@ import 'dart:convert';
 class MarketplaceCommentModel {
   // Core identification
   final String id;
-  final String threadId;              // Which thread this comment belongs to
-  final String userId;                // Comment author
+  final String threadId; // Which thread this comment belongs to
+  final String userId; // Comment author
   final String userName;
   final String userImage;
   final bool isVerified;
@@ -33,34 +33,36 @@ class MarketplaceCommentModel {
   final String content;
 
   // Media (optional - comments can have images like Twitter)
-  final List<String> imageUrls;      // 0-1 image for comments (single image only)
+  final List<String> imageUrls; // 0-1 image for comments (single image only)
 
   // Engagement metrics
   final int likes;
-  final int replies;                 // Number of replies to this comment
+  final int replies; // Number of replies to this comment
 
   // Reply properties (nested threading)
-  final bool isReply;                // Is this a reply to another comment?
-  final String? parentCommentId;     // Comment being replied to
+  final bool isReply; // Is this a reply to another comment?
+  final String? parentCommentId; // Comment being replied to
   final String? replyToUserId;
   final String? replyToUserName;
 
   // Comment properties
-  final bool isPinned;               // Thread author can pin comment
+  final bool isPinned; // Thread author can pin comment
   final bool isEdited;
   final String? editedAt;
-  final bool isActive;               // Soft delete support
+  final bool isActive; // Soft delete support
 
   // Timestamps
-  final String createdAt;            // RFC3339 format
+  final String createdAt; // RFC3339 format
   final String updatedAt;
 
   // Runtime state (not stored in DB)
-  final bool isLiked;                // Did current user like this?
-  final bool isAuthor;               // Is current user the comment author?
-  final bool isThreadAuthor;         // Is current user the thread author?
-  final int depth;                   // Reply depth (0 = top-level, 1 = reply, 2 = reply to reply, etc.)
-  final List<MarketplaceCommentModel> replyList; // Nested replies (for UI tree building)
+  final bool isLiked; // Did current user like this?
+  final bool isAuthor; // Is current user the comment author?
+  final bool isThreadAuthor; // Is current user the thread author?
+  final int
+      depth; // Reply depth (0 = top-level, 1 = reply, 2 = reply to reply, etc.)
+  final List<MarketplaceCommentModel>
+      replyList; // Nested replies (for UI tree building)
 
   const MarketplaceCommentModel({
     required this.id,
@@ -102,27 +104,29 @@ class MarketplaceCommentModel {
         userId: _parseString(json['userId'] ?? json['user_id']),
         userName: _parseString(json['userName'] ?? json['user_name']),
         userImage: _parseString(json['userImage'] ?? json['user_image']),
-        isVerified: _parseBool(json['isVerified'] ?? json['is_verified'] ?? false),
-        
+        isVerified:
+            _parseBool(json['isVerified'] ?? json['is_verified'] ?? false),
         content: _parseString(json['content']),
         imageUrls: _parseStringList(json['imageUrls'] ?? json['image_urls']),
-        
-        likes: _parseCount(json['likes'] ?? json['likesCount'] ?? json['likes_count'] ?? 0),
-        replies: _parseCount(json['replies'] ?? json['repliesCount'] ?? json['replies_count'] ?? 0),
-        
+        likes: _parseCount(
+            json['likes'] ?? json['likesCount'] ?? json['likes_count'] ?? 0),
+        replies: _parseCount(json['replies'] ??
+            json['repliesCount'] ??
+            json['replies_count'] ??
+            0),
         isReply: _parseBool(json['isReply'] ?? json['is_reply'] ?? false),
-        parentCommentId: _parseStringOrNull(json['parentCommentId'] ?? json['parent_comment_id']),
-        replyToUserId: _parseStringOrNull(json['replyToUserId'] ?? json['reply_to_user_id']),
-        replyToUserName: _parseStringOrNull(json['replyToUserName'] ?? json['reply_to_user_name']),
-        
+        parentCommentId: _parseStringOrNull(
+            json['parentCommentId'] ?? json['parent_comment_id']),
+        replyToUserId: _parseStringOrNull(
+            json['replyToUserId'] ?? json['reply_to_user_id']),
+        replyToUserName: _parseStringOrNull(
+            json['replyToUserName'] ?? json['reply_to_user_name']),
         isPinned: _parseBool(json['isPinned'] ?? json['is_pinned'] ?? false),
         isEdited: _parseBool(json['isEdited'] ?? json['is_edited'] ?? false),
         editedAt: _parseStringOrNull(json['editedAt'] ?? json['edited_at']),
         isActive: _parseBool(json['isActive'] ?? json['is_active'] ?? true),
-        
         createdAt: _parseTimestamp(json['createdAt'] ?? json['created_at']),
         updatedAt: _parseTimestamp(json['updatedAt'] ?? json['updated_at']),
-        
         isLiked: _parseBool(json['isLiked'] ?? false),
         isAuthor: _parseBool(json['isAuthor'] ?? false),
         isThreadAuthor: _parseBool(json['isThreadAuthor'] ?? false),
@@ -132,7 +136,7 @@ class MarketplaceCommentModel {
     } catch (e) {
       print('❌ Error parsing MarketplaceCommentModel from JSON: $e');
       print('📄 JSON data: $json');
-      
+
       // Return safe default
       return MarketplaceCommentModel(
         id: _parseString(json['id'] ?? ''),
@@ -230,25 +234,25 @@ class MarketplaceCommentModel {
 
   static List<String> _parseStringList(dynamic value) {
     if (value == null) return [];
-    
+
     if (value is List) {
       final parsed = value
           .map((e) => e?.toString() ?? '')
           .where((s) => s.isNotEmpty)
           .toList();
-      
+
       // Enforce single image limit
       return parsed.isEmpty ? [] : [parsed.first];
     }
-    
+
     if (value is String && value.isNotEmpty) {
       final trimmed = value.trim();
-      
+
       // PostgreSQL array format
       if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
         final content = trimmed.substring(1, trimmed.length - 1);
         if (content.isEmpty) return [];
-        
+
         final images = content
             .split(',')
             .map((item) {
@@ -264,7 +268,7 @@ class MarketplaceCommentModel {
         // Enforce single image limit
         return images.isEmpty ? [] : [images.first];
       }
-      
+
       // JSON array format
       if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
         try {
@@ -274,7 +278,7 @@ class MarketplaceCommentModel {
                 .map((e) => e?.toString() ?? '')
                 .where((s) => s.isNotEmpty)
                 .toList();
-            
+
             // Enforce single image limit
             return parsed.isEmpty ? [] : [parsed.first];
           }
@@ -282,11 +286,11 @@ class MarketplaceCommentModel {
           print('⚠️ Warning: Could not parse JSON array: $trimmed');
         }
       }
-      
+
       // Single string - treat as single image URL
       return [trimmed];
     }
-    
+
     return [];
   }
 
@@ -331,11 +335,11 @@ class MarketplaceCommentModel {
 
   static String _parseTimestamp(dynamic value) {
     if (value == null) return DateTime.now().toIso8601String();
-    
+
     if (value is String) {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return DateTime.now().toIso8601String();
-      
+
       try {
         final dateTime = DateTime.parse(trimmed);
         return dateTime.toIso8601String();
@@ -343,11 +347,11 @@ class MarketplaceCommentModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     if (value is DateTime) {
       return value.toIso8601String();
     }
-    
+
     return DateTime.now().toIso8601String();
   }
 
@@ -447,14 +451,14 @@ class MarketplaceCommentModel {
 
   bool get hasImages => imageUrls.isNotEmpty;
   int get imageCount => imageUrls.length;
-  
+
   bool get isTopLevel => !isReply; // Top-level comment (not a reply)
   bool get hasReplies => replies > 0;
   bool get isNested => depth > 0;
   bool get canReply => depth < 5; // Limit reply depth to 5 levels
-  
+
   int get characterCount => content.length;
-  
+
   // Extract mentions from content
   List<String> get mentionsInContent {
     final regex = RegExp(r'@(\w+)');
@@ -574,7 +578,8 @@ class MarketplaceCommentModel {
 
   // Add reply to reply list
   MarketplaceCommentModel addReply(MarketplaceCommentModel reply) {
-    final updatedReplyList = List<MarketplaceCommentModel>.from(replyList)..add(reply);
+    final updatedReplyList = List<MarketplaceCommentModel>.from(replyList)
+      ..add(reply);
     return copyWith(
       replyList: updatedReplyList,
       replies: replies + 1,
@@ -588,18 +593,18 @@ class MarketplaceCommentModel {
 
   bool get isValid {
     return id.isNotEmpty &&
-           threadId.isNotEmpty &&
-           userId.isNotEmpty &&
-           userName.isNotEmpty &&
-           content.isNotEmpty &&
-           content.length <= 150 &&
-           imageUrls.length <= 1 &&
-           depth <= 5;
+        threadId.isNotEmpty &&
+        userId.isNotEmpty &&
+        userName.isNotEmpty &&
+        content.isNotEmpty &&
+        content.length <= 150 &&
+        imageUrls.length <= 1 &&
+        depth <= 5;
   }
 
   List<String> get validationErrors {
     final errors = <String>[];
-    
+
     if (id.isEmpty) errors.add('ID is required');
     if (threadId.isEmpty) errors.add('Thread ID is required');
     if (userId.isEmpty) errors.add('User ID is required');
@@ -608,8 +613,9 @@ class MarketplaceCommentModel {
     if (content.length > 150) errors.add('Content exceeds 150 characters');
     if (imageUrls.length > 1) errors.add('Maximum 1 image allowed per comment');
     if (depth > 5) errors.add('Maximum reply depth is 5 levels');
-    if (isReply && parentCommentId == null) errors.add('Parent comment ID required for replies');
-    
+    if (isReply && parentCommentId == null)
+      errors.add('Parent comment ID required for replies');
+
     return errors;
   }
 
@@ -619,7 +625,8 @@ class MarketplaceCommentModel {
 
   @override
   String toString() {
-    final contentPreview = content.length > 30 ? "${content.substring(0, 30)}..." : content;
+    final contentPreview =
+        content.length > 30 ? "${content.substring(0, 30)}..." : content;
     return 'MarketplaceCommentModel(id: $id, user: $userName, content: "$contentPreview", likes: $likes, replies: $replies, depth: $depth)';
   }
 
@@ -639,24 +646,33 @@ class MarketplaceCommentModel {
 
 extension MarketplaceCommentModelList on List<MarketplaceCommentModel> {
   // Filter by type
-  List<MarketplaceCommentModel> get activeComments => where((c) => c.isActive).toList();
-  List<MarketplaceCommentModel> get pinnedComments => where((c) => c.isPinned).toList();
-  List<MarketplaceCommentModel> get topLevelComments => where((c) => c.isTopLevel).toList();
+  List<MarketplaceCommentModel> get activeComments =>
+      where((c) => c.isActive).toList();
+  List<MarketplaceCommentModel> get pinnedComments =>
+      where((c) => c.isPinned).toList();
+  List<MarketplaceCommentModel> get topLevelComments =>
+      where((c) => c.isTopLevel).toList();
   List<MarketplaceCommentModel> get replies => where((c) => c.isReply).toList();
-  List<MarketplaceCommentModel> get verifiedComments => where((c) => c.isVerified).toList();
-  List<MarketplaceCommentModel> get commentsWithImages => where((c) => c.hasImages).toList();
-  List<MarketplaceCommentModel> get commentsWithReplies => where((c) => c.hasReplies).toList();
+  List<MarketplaceCommentModel> get verifiedComments =>
+      where((c) => c.isVerified).toList();
+  List<MarketplaceCommentModel> get commentsWithImages =>
+      where((c) => c.hasImages).toList();
+  List<MarketplaceCommentModel> get commentsWithReplies =>
+      where((c) => c.hasReplies).toList();
 
   // Sorting
   List<MarketplaceCommentModel> sortByLikes({bool descending = true}) {
     final sorted = List<MarketplaceCommentModel>.from(this);
-    sorted.sort((a, b) => descending ? b.likes.compareTo(a.likes) : a.likes.compareTo(b.likes));
+    sorted.sort((a, b) =>
+        descending ? b.likes.compareTo(a.likes) : a.likes.compareTo(b.likes));
     return sorted;
   }
 
   List<MarketplaceCommentModel> sortByReplies({bool descending = true}) {
     final sorted = List<MarketplaceCommentModel>.from(this);
-    sorted.sort((a, b) => descending ? b.replies.compareTo(a.replies) : a.replies.compareTo(b.replies));
+    sorted.sort((a, b) => descending
+        ? b.replies.compareTo(a.replies)
+        : a.replies.compareTo(b.replies));
     return sorted;
   }
 
@@ -669,9 +685,12 @@ extension MarketplaceCommentModelList on List<MarketplaceCommentModel> {
   }
 
   // Twitter-style sorting
-  List<MarketplaceCommentModel> get sortedByTop => sortByLikes(descending: true);
-  List<MarketplaceCommentModel> get sortedByLatest => sortByDate(descending: true);
-  List<MarketplaceCommentModel> get sortedByOldest => sortByDate(descending: false);
+  List<MarketplaceCommentModel> get sortedByTop =>
+      sortByLikes(descending: true);
+  List<MarketplaceCommentModel> get sortedByLatest =>
+      sortByDate(descending: true);
+  List<MarketplaceCommentModel> get sortedByOldest =>
+      sortByDate(descending: false);
 
   // Filtering
   List<MarketplaceCommentModel> filterByUser(String userId) {
@@ -686,11 +705,11 @@ extension MarketplaceCommentModelList on List<MarketplaceCommentModel> {
     if (parentCommentId == null) return topLevelComments;
     return where((c) => c.parentCommentId == parentCommentId).toList();
   }
-  
+
   // Metrics
   int get totalLikes => fold<int>(0, (sum, c) => sum + c.likes);
   int get totalReplies => fold<int>(0, (sum, c) => sum + c.replies);
-  
+
   // Build threaded comment tree
   List<MarketplaceCommentModel> buildTree() {
     // Get all top-level comments
@@ -702,11 +721,12 @@ extension MarketplaceCommentModelList on List<MarketplaceCommentModel> {
     }).toList();
   }
 
-  static MarketplaceCommentModel _buildReplyTree(MarketplaceCommentModel comment, List<MarketplaceCommentModel> allComments) {
+  static MarketplaceCommentModel _buildReplyTree(
+      MarketplaceCommentModel comment,
+      List<MarketplaceCommentModel> allComments) {
     // Find direct replies to this comment
-    final directReplies = allComments
-        .where((c) => c.parentCommentId == comment.id)
-        .toList();
+    final directReplies =
+        allComments.where((c) => c.parentCommentId == comment.id).toList();
 
     // Recursively build reply tree for each reply
     final replyTree = directReplies.map((reply) {

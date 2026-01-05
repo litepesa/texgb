@@ -268,11 +268,13 @@ class _CreateChannelPostScreenState
             child: ElevatedButton(
               onPressed: _isUploading ? null : _createPost,
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    _isUploading ? theme.textSecondaryColor : theme.primaryColor,
+                backgroundColor: _isUploading
+                    ? theme.textSecondaryColor
+                    : theme.primaryColor,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -517,7 +519,8 @@ class _CreateChannelPostScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border.all(color: theme.dividerColor ?? Colors.grey[300]!),
+              border:
+                  Border.all(color: theme.dividerColor ?? Colors.grey[300]!),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(

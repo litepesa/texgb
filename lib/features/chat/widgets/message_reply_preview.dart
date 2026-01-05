@@ -23,7 +23,7 @@ class MessageReplyPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     // Determine padding based on context
     final intrinsicPadding = onCancel != null
         ? const EdgeInsets.all(10)
@@ -31,14 +31,16 @@ class MessageReplyPreview extends StatelessWidget {
 
     // Determine decoration color based on context
     final decorationColor = onCancel != null
-        ? modernTheme.textColor?.withOpacity(0.1) ?? Colors.grey.withOpacity(0.1)
-        : modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.blue.withOpacity(0.2);
+        ? modernTheme.textColor?.withOpacity(0.1) ??
+            Colors.grey.withOpacity(0.1)
+        : modernTheme.primaryColor?.withOpacity(0.2) ??
+            Colors.blue.withOpacity(0.2);
 
     return IntrinsicHeight(
       child: Container(
-        margin: onCancel != null 
-          ? const EdgeInsets.symmetric(horizontal: 12)
-          : EdgeInsets.zero,
+        margin: onCancel != null
+            ? const EdgeInsets.symmetric(horizontal: 12)
+            : EdgeInsets.zero,
         padding: intrinsicPadding,
         decoration: BoxDecoration(
           color: decorationColor,
@@ -61,21 +63,21 @@ class MessageReplyPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            
+
             // Name and message content
             Expanded(
               child: _buildNameAndMessage(context, modernTheme),
             ),
-            
+
             // Media thumbnail (if applicable)
             if (_hasMediaThumbnail()) ...[
               const SizedBox(width: 8),
               _buildMediaThumbnail(context, modernTheme),
             ],
-            
+
             // Spacer for input context
             onCancel != null ? const SizedBox(width: 8) : const SizedBox(),
-            
+
             // Close button for input context
             onCancel != null
                 ? _buildCloseButton(context, modernTheme)
@@ -87,13 +89,14 @@ class MessageReplyPreview extends StatelessWidget {
   }
 
   bool _hasMediaThumbnail() {
-    return (replyToMessage.type == MessageEnum.image || 
-            replyToMessage.type == MessageEnum.video) && 
-           replyToMessage.mediaUrl != null && 
-           replyToMessage.mediaUrl!.isNotEmpty;
+    return (replyToMessage.type == MessageEnum.image ||
+            replyToMessage.type == MessageEnum.video) &&
+        replyToMessage.mediaUrl != null &&
+        replyToMessage.mediaUrl!.isNotEmpty;
   }
 
-  Widget _buildMediaThumbnail(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildMediaThumbnail(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return Container(
       width: 40,
       height: 40,
@@ -140,7 +143,7 @@ class MessageReplyPreview extends StatelessWidget {
                 showPlayButton: false, // No play button in small thumbnail
                 enableGestures: false, // No gestures in reply preview
               ),
-            
+
             // Small play icon overlay for video thumbnails only
             if (replyToMessage.type == MessageEnum.video)
               Positioned.fill(
@@ -166,12 +169,14 @@ class MessageReplyPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildCloseButton(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildCloseButton(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return InkWell(
       onTap: onCancel,
       child: Container(
         decoration: BoxDecoration(
-          color: modernTheme.textColor?.withOpacity(0.1) ?? Colors.grey.withOpacity(0.1),
+          color: modernTheme.textColor?.withOpacity(0.1) ??
+              Colors.grey.withOpacity(0.1),
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
             color: modernTheme.textColor ?? Colors.grey,
@@ -188,7 +193,8 @@ class MessageReplyPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildNameAndMessage(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildNameAndMessage(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -210,7 +216,8 @@ class MessageReplyPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildMessageContent(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildMessageContent(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return _buildDisplayMessageType(
       message: replyToMessage.content,
       type: replyToMessage.type,
@@ -242,7 +249,7 @@ class MessageReplyPreview extends StatelessWidget {
           maxLines: maxLines,
           overflow: overflow,
         );
-        
+
       case MessageEnum.image:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -266,7 +273,7 @@ class MessageReplyPreview extends StatelessWidget {
             ),
           ],
         );
-        
+
       case MessageEnum.video:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -290,9 +297,10 @@ class MessageReplyPreview extends StatelessWidget {
             ),
           ],
         );
-        
+
       case MessageEnum.file:
-        final fileName = replyToMessage.mediaMetadata?['fileName'] ?? 'Document';
+        final fileName =
+            replyToMessage.mediaMetadata?['fileName'] ?? 'Document';
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -315,7 +323,7 @@ class MessageReplyPreview extends StatelessWidget {
             ),
           ],
         );
-        
+
       case MessageEnum.audio:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -337,7 +345,7 @@ class MessageReplyPreview extends StatelessWidget {
             ),
           ],
         );
-        
+
       case MessageEnum.location:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -359,7 +367,7 @@ class MessageReplyPreview extends StatelessWidget {
             ),
           ],
         );
-        
+
       case MessageEnum.contact:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -381,7 +389,7 @@ class MessageReplyPreview extends StatelessWidget {
             ),
           ],
         );
-        
+
       default:
         return Text(
           replyToMessage.getDisplayContent(),

@@ -9,10 +9,12 @@ import 'package:textgb/shared/services/http_client.dart';
 abstract class WalletRepository {
   // Wallet operations
   Future<WalletModel?> getUserWallet(String userId);
-  Future<void> createWallet(String userId, String userPhoneNumber, String userName);
+  Future<void> createWallet(
+      String userId, String userPhoneNumber, String userName);
 
   // Transaction operations
-  Future<List<WalletTransaction>> getWalletTransactions(String userId, {
+  Future<List<WalletTransaction>> getWalletTransactions(
+    String userId, {
     int limit = 50,
     String? lastTransactionId,
   });
@@ -22,7 +24,8 @@ abstract class WalletRepository {
   Stream<List<WalletTransaction>> transactionsStream(String userId);
 
   // Coin operations
-  Future<bool> transferCoins(String fromUserId, String toUserId, int amount, String description);
+  Future<bool> transferCoins(
+      String fromUserId, String toUserId, int amount, String description);
   Future<bool> earnCoins(String userId, int amount, String description);
   Future<bool> spendCoins(String userId, int amount, String description);
 }
@@ -62,7 +65,8 @@ class HttpWalletRepository implements WalletRepository {
       } else if (response.statusCode == 404) {
         return null;
       } else {
-        throw WalletRepositoryException('Failed to get user wallet: ${response.body}');
+        throw WalletRepositoryException(
+            'Failed to get user wallet: ${response.body}');
       }
     } catch (e) {
       if (e is NotFoundException) return null;
@@ -71,7 +75,8 @@ class HttpWalletRepository implements WalletRepository {
   }
 
   @override
-  Future<void> createWallet(String userId, String userPhoneNumber, String userName) async {
+  Future<void> createWallet(
+      String userId, String userPhoneNumber, String userName) async {
     // Elixir backend automatically creates wallet on first access via get_or_create_wallet
     // No manual creation needed
     return;
@@ -82,7 +87,8 @@ class HttpWalletRepository implements WalletRepository {
   // ===============================
 
   @override
-  Future<List<WalletTransaction>> getWalletTransactions(String userId, {
+  Future<List<WalletTransaction>> getWalletTransactions(
+    String userId, {
     int limit = 50,
     String? lastTransactionId,
   }) async {
@@ -91,7 +97,8 @@ class HttpWalletRepository implements WalletRepository {
       final page = 1; // For now, always get first page
       final perPage = limit;
 
-      final response = await _httpClient.get('/wallet/transactions?page=$page&per_page=$perPage');
+      final response = await _httpClient
+          .get('/wallet/transactions?page=$page&per_page=$perPage');
 
       if (response.statusCode == 200) {
         final responseBody = response.body.trim();
@@ -107,7 +114,8 @@ class HttpWalletRepository implements WalletRepository {
         }
 
         // Elixir backend returns: {transactions: [...], page: 1, per_page: 20}
-        if (decodedData is Map<String, dynamic> && decodedData.containsKey('transactions')) {
+        if (decodedData is Map<String, dynamic> &&
+            decodedData.containsKey('transactions')) {
           final transactionsData = decodedData['transactions'];
           if (transactionsData == null || transactionsData is! List) {
             return <WalletTransaction>[];
@@ -115,16 +123,17 @@ class HttpWalletRepository implements WalletRepository {
 
           return (transactionsData)
               .where((item) => item != null)
-              .map((data) => _convertElixirTransactionToModel(data as Map<String, dynamic>))
+              .map((data) => _convertElixirTransactionToModel(
+                  data as Map<String, dynamic>))
               .toList();
         }
 
         return <WalletTransaction>[];
-
       } else if (response.statusCode == 404) {
         return <WalletTransaction>[];
       } else {
-        throw WalletRepositoryException('Failed to get wallet transactions: ${response.body}');
+        throw WalletRepositoryException(
+            'Failed to get wallet transactions: ${response.body}');
       }
     } catch (e) {
       if (e is FormatException || e.toString().contains('subtype')) {
@@ -140,7 +149,8 @@ class HttpWalletRepository implements WalletRepository {
   // ===============================
 
   @override
-  Future<bool> transferCoins(String fromUserId, String toUserId, int amount, String description) async {
+  Future<bool> transferCoins(String fromUserId, String toUserId, int amount,
+      String description) async {
     try {
       // POST /api/v1/wallet/transfer
       final response = await _httpClient.post('/wallet/transfer', body: {
@@ -200,16 +210,21 @@ class HttpWalletRepository implements WalletRepository {
       userPhoneNumber: '', // Not provided by Elixir backend
       userName: '', // Not provided by Elixir backend
       coinsBalance: (data['balance'] ?? 0) as int,
-      lastUpdated: data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '',
-      createdAt: data['createdAt']?.toString() ?? data['created_at']?.toString() ?? '',
+      lastUpdated:
+          data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '',
+      createdAt:
+          data['createdAt']?.toString() ?? data['created_at']?.toString() ?? '',
       transactions: const [],
     );
   }
 
   /// Convert Elixir backend transaction format to Flutter model format
-  WalletTransaction _convertElixirTransactionToModel(Map<String, dynamic> data) {
+  WalletTransaction _convertElixirTransactionToModel(
+      Map<String, dynamic> data) {
     // Determine transaction type based on backend transaction_type
-    String flutterType = data['transactionType']?.toString() ?? data['transaction_type']?.toString() ?? 'unknown';
+    String flutterType = data['transactionType']?.toString() ??
+        data['transaction_type']?.toString() ??
+        'unknown';
 
     // Map Elixir types to Flutter types
     switch (flutterType) {
@@ -231,17 +246,21 @@ class HttpWalletRepository implements WalletRepository {
 
     return WalletTransaction(
       transactionId: data['id']?.toString() ?? '',
-      walletId: data['walletId']?.toString() ?? data['wallet_id']?.toString() ?? '',
+      walletId:
+          data['walletId']?.toString() ?? data['wallet_id']?.toString() ?? '',
       userId: '', // Not directly provided
       userPhoneNumber: '', // Not provided by Elixir backend
       userName: '', // Not provided by Elixir backend
       type: flutterType,
       coinAmount: amount.abs(),
-      balanceBefore: (data['balanceBefore'] ?? data['balance_before'] ?? 0) as int,
+      balanceBefore:
+          (data['balanceBefore'] ?? data['balance_before'] ?? 0) as int,
       balanceAfter: (data['balanceAfter'] ?? data['balance_after'] ?? 0) as int,
       description: data['description']?.toString() ?? '',
-      referenceId: data['relatedId']?.toString() ?? data['related_id']?.toString(),
-      createdAt: data['createdAt']?.toString() ?? data['created_at']?.toString() ?? '',
+      referenceId:
+          data['relatedId']?.toString() ?? data['related_id']?.toString(),
+      createdAt:
+          data['createdAt']?.toString() ?? data['created_at']?.toString() ?? '',
       metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
     );
   }
@@ -252,12 +271,14 @@ class HttpWalletRepository implements WalletRepository {
 
   @override
   Stream<WalletModel?> walletStream(String userId) {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
+    throw UnsupportedError(
+        'Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
   }
 
   @override
   Stream<List<WalletTransaction>> transactionsStream(String userId) {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
+    throw UnsupportedError(
+        'Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
   }
 }
 

@@ -214,7 +214,8 @@ class ChannelCard extends StatelessWidget {
           // Will be handled by parent widget
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSubscribed ? Colors.grey[300] : Theme.of(context).primaryColor,
+          backgroundColor:
+              isSubscribed ? Colors.grey[300] : Theme.of(context).primaryColor,
           foregroundColor: isSubscribed ? Colors.black : Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           shape: RoundedRectangleBorder(

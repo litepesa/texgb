@@ -18,7 +18,7 @@ class EditTabWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -33,7 +33,7 @@ class EditTabWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Edit Options
           _buildEditOption(
             'Add Banner Text',
@@ -86,9 +86,9 @@ class EditTabWidget extends StatelessWidget {
             },
             modernTheme,
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Post Activity Status
           Container(
             padding: const EdgeInsets.all(16),

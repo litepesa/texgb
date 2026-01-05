@@ -79,12 +79,14 @@ class Call extends _$Call {
     });
 
     // Listen for ICE candidates
-    _iceCandidateSubscription = _signalingService!.iceCandidateStream.listen((data) async {
+    _iceCandidateSubscription =
+        _signalingService!.iceCandidateStream.listen((data) async {
       await _handleIceCandidate(data);
     });
 
     // Listen for incoming calls
-    _incomingCallSubscription = _signalingService!.incomingCallStream.listen((data) async {
+    _incomingCallSubscription =
+        _signalingService!.incomingCallStream.listen((data) async {
       await _handleIncomingCall(data);
     });
 
@@ -94,7 +96,8 @@ class Call extends _$Call {
     });
 
     // Listen for call declined
-    _callDeclinedSubscription = _signalingService!.callDeclinedStream.listen((callId) {
+    _callDeclinedSubscription =
+        _signalingService!.callDeclinedStream.listen((callId) {
       _handleCallDeclined(callId);
     });
 
@@ -116,7 +119,8 @@ class Call extends _$Call {
     required bool isVideoCall,
   }) async {
     try {
-      debugPrint('Call: Starting ${isVideoCall ? 'video' : 'voice'} call to $receiverName');
+      debugPrint(
+          'Call: Starting ${isVideoCall ? 'video' : 'voice'} call to $receiverName');
 
       // Create call model
       final callId = const Uuid().v4();
@@ -226,7 +230,8 @@ class Call extends _$Call {
       state = state!.copyWith(status: CallStatus.connecting);
 
       // Initialize local media stream
-      await _webrtcService!.initializeLocalStream(isVideoCall: state!.isVideoCall);
+      await _webrtcService!
+          .initializeLocalStream(isVideoCall: state!.isVideoCall);
 
       // Create peer connection
       await _webrtcService!.setupPeerConnection();
@@ -385,7 +390,8 @@ class Call extends _$Call {
 
       if (state != null) {
         // Send end call signal
-        final otherUserId = state!.isIncoming ? state!.callerId : state!.receiverId;
+        final otherUserId =
+            state!.isIncoming ? state!.callerId : state!.receiverId;
         await _signalingService!.endCall(
           callId: state!.callId,
           otherUserId: otherUserId,
@@ -441,10 +447,12 @@ class Call extends _$Call {
   MediaStream? get remoteStream => _webrtcService?.remoteStream;
 
   // Get local stream stream
-  Stream<MediaStream?>? get localStreamStream => _webrtcService?.localStreamStream;
+  Stream<MediaStream?>? get localStreamStream =>
+      _webrtcService?.localStreamStream;
 
   // Get remote stream stream
-  Stream<MediaStream?>? get remoteStreamStream => _webrtcService?.remoteStreamStream;
+  Stream<MediaStream?>? get remoteStreamStream =>
+      _webrtcService?.remoteStreamStream;
 
   // Start call duration timer
   void _startCallDurationTimer() {

@@ -15,7 +15,8 @@ class OtpScreen extends ConsumerStatefulWidget {
   ConsumerState<OtpScreen> createState() => _OTPScreenState();
 }
 
-class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProviderStateMixin {
+class _OTPScreenState extends ConsumerState<OtpScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   String? _otpCode;
@@ -35,7 +36,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     super.initState();
     _initAnimations();
     _startResendTimer();
-    
+
     // Request focus after the frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -45,7 +46,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Get arguments from go_router
     // go_router passes arguments via state.extra
     if (_verificationId == null || _phoneNumber == null) {
@@ -84,7 +85,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
         timer.cancel();
         return;
       }
-      
+
       if (_resendTimer > 0) {
         setState(() {
           _resendTimer--;
@@ -104,7 +105,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
       _resendTimer = 60;
     });
     _startResendTimer();
-    
+
     // Optimized snackbar with shorter duration
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -120,37 +121,36 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     required String otpCode,
   }) async {
     final authNotifier = ref.read(authenticationProvider.notifier);
-    
+
     authNotifier.verifyOTPCode(
       verificationId: verificationId,
       otpCode: otpCode,
       context: context,
       onSuccess: () async {
         if (!mounted) return;
-        
+
         try {
           // Check if user exists in Go backend
           final userExists = await authNotifier.checkUserExists();
-          
+
           bool hasCompleteProfile = false;
-          
+
           if (userExists) {
             // Get user data from backend
             final userData = await authNotifier.getUserDataFromBackend();
-            
+
             // Check if user has complete profile
-            if (userData != null && 
-                userData.name.isNotEmpty && 
+            if (userData != null &&
+                userData.name.isNotEmpty &&
                 userData.name.trim().isNotEmpty) {
               // User has complete profile, save to shared preferences
               await authNotifier.saveUserDataToSharedPreferences();
               hasCompleteProfile = true;
             }
           }
-          
+
           // Navigate based on profile completeness using go_router
           _navigate(hasCompleteProfile: hasCompleteProfile);
-          
         } catch (e) {
           debugPrint('Error during OTP verification: $e');
           if (mounted) {
@@ -168,7 +168,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
 
   void _navigate({required bool hasCompleteProfile}) {
     if (!mounted) return;
-    
+
     // THE MAGIC: Use go_router for navigation
     if (hasCompleteProfile) {
       // User has profile, go to home
@@ -235,11 +235,12 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
                     focusNode: _focusNode,
                     onCompleted: (pin) {
                       _otpCode = pin;
-                      _verifyOTPCode(verificationId: _verificationId!, otpCode: pin);
+                      _verifyOTPCode(
+                          verificationId: _verificationId!, otpCode: pin);
                     },
                   ),
                   const SizedBox(height: 36),
-                  
+
                   // Using Consumer for localized rebuilds
                   Consumer(
                     builder: (context, ref, _) {
@@ -259,7 +260,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
                     },
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Using Consumer for the timer to isolate rebuilds
                   _ResendCodeWidget(
                     resendEnabled: _resendEnabled,
@@ -429,7 +430,8 @@ class _PinInputField extends StatelessWidget {
       focusedPinTheme: focusedPinTheme,
       submittedPinTheme: submittedPinTheme,
       errorPinTheme: errorPinTheme,
-      pinAnimationType: PinAnimationType.none, // Disable animations for performance
+      pinAnimationType:
+          PinAnimationType.none, // Disable animations for performance
       closeKeyboardWhenCompleted: true,
       onCompleted: onCompleted,
     );
@@ -451,7 +453,7 @@ class _VerificationStatusIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     // Cache widgets to avoid recreating them
     const loadingWidget = CircularProgressIndicator(color: Color(0xFF09BB07));
-    
+
     final successWidget = Container(
       key: const ValueKey('success'),
       height: 60,
@@ -489,18 +491,16 @@ class _ResendCodeWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cache text styles 
-    final regularStyle = GoogleFonts.poppins(
-      fontSize: 15, 
-      color: Colors.black54
-    );
-    
+    // Cache text styles
+    final regularStyle =
+        GoogleFonts.poppins(fontSize: 15, color: Colors.black54);
+
     final resendStyle = GoogleFonts.poppins(
       fontSize: 15,
       fontWeight: FontWeight.w600,
       color: const Color(0xFF09BB07),
     );
-    
+
     final timerStyle = GoogleFonts.poppins(
       fontSize: 15,
       fontWeight: FontWeight.w500,

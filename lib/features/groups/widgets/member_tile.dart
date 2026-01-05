@@ -80,7 +80,8 @@ class MemberTile extends StatelessWidget {
             children: [
               if (member.isAdmin)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: modernTheme.warningColor?.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10),
@@ -147,9 +148,11 @@ class MemberTile extends StatelessWidget {
                     value: 'promote',
                     child: Row(
                       children: [
-                        Icon(Icons.arrow_upward, size: 18, color: modernTheme.textColor),
+                        Icon(Icons.arrow_upward,
+                            size: 18, color: modernTheme.textColor),
                         const SizedBox(width: 8),
-                        Text('Promote to Admin', style: TextStyle(color: modernTheme.textColor)),
+                        Text('Promote to Admin',
+                            style: TextStyle(color: modernTheme.textColor)),
                       ],
                     ),
                   ),
@@ -158,9 +161,11 @@ class MemberTile extends StatelessWidget {
                     value: 'demote',
                     child: Row(
                       children: [
-                        Icon(Icons.arrow_downward, size: 18, color: modernTheme.textColor),
+                        Icon(Icons.arrow_downward,
+                            size: 18, color: modernTheme.textColor),
                         const SizedBox(width: 8),
-                        Text('Demote to Member', style: TextStyle(color: modernTheme.textColor)),
+                        Text('Demote to Member',
+                            style: TextStyle(color: modernTheme.textColor)),
                       ],
                     ),
                   ),
@@ -169,9 +174,11 @@ class MemberTile extends StatelessWidget {
                     value: 'remove',
                     child: Row(
                       children: [
-                        Icon(Icons.person_remove, size: 18, color: modernTheme.errorColor),
+                        Icon(Icons.person_remove,
+                            size: 18, color: modernTheme.errorColor),
                         const SizedBox(width: 8),
-                        Text('Remove', style: TextStyle(color: modernTheme.errorColor)),
+                        Text('Remove',
+                            style: TextStyle(color: modernTheme.errorColor)),
                       ],
                     ),
                   ),

@@ -85,8 +85,10 @@ class PaymentInitiationResponse {
 
   factory PaymentInitiationResponse.fromJson(Map<String, dynamic> json) {
     return PaymentInitiationResponse(
-      transaction: MpesaTransaction.fromJson(json['transaction'] as Map<String, dynamic>),
-      stkResponse: StkPushResponse.fromJson(json['stk_response'] as Map<String, dynamic>),
+      transaction: MpesaTransaction.fromJson(
+          json['transaction'] as Map<String, dynamic>),
+      stkResponse: StkPushResponse.fromJson(
+          json['stk_response'] as Map<String, dynamic>),
     );
   }
 }

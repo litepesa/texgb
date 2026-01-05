@@ -15,7 +15,8 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
   ConsumerState<IncomingCallScreen> createState() => _IncomingCallScreenState();
 }
 
-class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> with SingleTickerProviderStateMixin {
+class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -68,7 +69,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> with Si
                 children: [
                   // Call type indicator
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -83,7 +85,9 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> with Si
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          call.isVideoCall ? 'Incoming Video Call' : 'Incoming Voice Call',
+                          call.isVideoCall
+                              ? 'Incoming Video Call'
+                              : 'Incoming Voice Call',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,

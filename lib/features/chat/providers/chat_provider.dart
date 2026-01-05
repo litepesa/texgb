@@ -54,30 +54,34 @@ class ChatListState {
 
   List<ChatListItemModel> get filteredChats {
     if (searchQuery.isEmpty) return chats;
-    
+
     return chats.where((chatItem) {
       final query = searchQuery.toLowerCase();
       return chatItem.contactName.toLowerCase().contains(query) ||
-             chatItem.chat.lastMessage.toLowerCase().contains(query);
+          chatItem.chat.lastMessage.toLowerCase().contains(query);
     }).toList();
   }
 
   List<ChatListItemModel> get pinnedChats {
-    final currentUser = chats.isNotEmpty ? chats.first.chat.participants.firstWhere(
-      (id) => id != chats.first.chat.participants.first, 
-      orElse: () => chats.first.chat.participants.first
-    ) : '';
-    return filteredChats.where((chat) => 
-        chat.chat.isPinnedForUser(currentUser)).toList();
+    final currentUser = chats.isNotEmpty
+        ? chats.first.chat.participants.firstWhere(
+            (id) => id != chats.first.chat.participants.first,
+            orElse: () => chats.first.chat.participants.first)
+        : '';
+    return filteredChats
+        .where((chat) => chat.chat.isPinnedForUser(currentUser))
+        .toList();
   }
 
   List<ChatListItemModel> get regularChats {
-    final currentUser = chats.isNotEmpty ? chats.first.chat.participants.firstWhere(
-      (id) => id != chats.first.chat.participants.first, 
-      orElse: () => chats.first.chat.participants.first
-    ) : '';
-    return filteredChats.where((chat) => 
-        !chat.chat.isPinnedForUser(currentUser)).toList();
+    final currentUser = chats.isNotEmpty
+        ? chats.first.chat.participants.firstWhere(
+            (id) => id != chats.first.chat.participants.first,
+            orElse: () => chats.first.chat.participants.first)
+        : '';
+    return filteredChats
+        .where((chat) => !chat.chat.isPinnedForUser(currentUser))
+        .toList();
   }
 }
 
@@ -109,7 +113,8 @@ class ChatList extends _$ChatList {
       final localChats = await _databaseService.getChats(userId);
 
       if (localChats.isNotEmpty) {
-        debugPrint('ChatProvider: Loaded ${localChats.length} chats from SQLite');
+        debugPrint(
+            'ChatProvider: Loaded ${localChats.length} chats from SQLite');
 
         // Build chat list items from local chats
         final chatItems = await _buildChatListItems(localChats, userId);
@@ -192,18 +197,23 @@ class ChatList extends _$ChatList {
           // User found - use full details
           chatItems.add(ChatListItemModel(
             chat: chat,
-            contactName: contact.name.isNotEmpty ? contact.name : contact.phoneNumber,
-            contactImage: contact.profileImage, // Use profileImage from UserModel
+            contactName:
+                contact.name.isNotEmpty ? contact.name : contact.phoneNumber,
+            contactImage:
+                contact.profileImage, // Use profileImage from UserModel
             contactPhone: contact.phoneNumber,
             isOnline: _isUserOnline(contact.lastSeen),
             lastSeen: _parseLastSeen(contact.lastSeen),
           ));
         } else {
           // User not found - create fallback chat item
-          debugPrint('Could not find user details for ID: $otherUserId - using fallback');
+          debugPrint(
+              'Could not find user details for ID: $otherUserId - using fallback');
           chatItems.add(ChatListItemModel(
             chat: chat,
-            contactName: otherUserId.length > 10 ? otherUserId.substring(0, 10) : otherUserId, // Truncate long IDs
+            contactName: otherUserId.length > 10
+                ? otherUserId.substring(0, 10)
+                : otherUserId, // Truncate long IDs
             contactImage: '', // No image available
             contactPhone: otherUserId, // Use user ID as phone fallback
             isOnline: false,
@@ -216,7 +226,8 @@ class ChatList extends _$ChatList {
         final otherUserId = chat.getOtherParticipant(currentUserId);
         chatItems.add(ChatListItemModel(
           chat: chat,
-          contactName: 'User ${otherUserId.substring(0, 8)}...', // Show partial ID
+          contactName:
+              'User ${otherUserId.substring(0, 8)}...', // Show partial ID
           contactImage: '',
           contactPhone: otherUserId,
           isOnline: false,
@@ -226,7 +237,8 @@ class ChatList extends _$ChatList {
     }
 
     // Sort by last message time (most recent first)
-    chatItems.sort((a, b) => b.chat.lastMessageTime.compareTo(a.chat.lastMessageTime));
+    chatItems.sort(
+        (a, b) => b.chat.lastMessageTime.compareTo(a.chat.lastMessageTime));
 
     return chatItems;
   }
@@ -314,20 +326,22 @@ class ChatList extends _$ChatList {
   }
 
   // Delete chat functionality
-  Future<void> deleteChat(String chatId, {bool deleteForEveryone = false}) async {
+  Future<void> deleteChat(String chatId,
+      {bool deleteForEveryone = false}) async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
 
     try {
-      await _repository.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
-      
+      await _repository.deleteChat(chatId, userId,
+          deleteForEveryone: deleteForEveryone);
+
       // Remove from local state immediately for better UX
       final currentState = state.valueOrNull;
       if (currentState != null) {
         final updatedChats = currentState.chats
             .where((chatItem) => chatItem.chat.chatId != chatId)
             .toList();
-        
+
         state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
       }
     } catch (e) {
@@ -362,18 +376,20 @@ class ChatList extends _$ChatList {
   }
 
   // Create new chat with optional video reaction
-  Future<String?> createChat(String otherUserId, {VideoReactionModel? videoReaction}) async {
+  Future<String?> createChat(String otherUserId,
+      {VideoReactionModel? videoReaction}) async {
     final currentUserId = ref.read(currentUserIdProvider);
     if (currentUserId == null) return null;
 
     try {
-      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
-      
+      final chatId =
+          await _repository.createOrGetChat(currentUserId, otherUserId);
+
       // If video reaction is provided, send it as the first message
       if (videoReaction != null) {
         await _sendVideoReactionMessage(chatId, currentUserId, videoReaction);
       }
-      
+
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat: $e');
@@ -382,7 +398,8 @@ class ChatList extends _$ChatList {
   }
 
   // Send video reaction message
-  Future<void> _sendVideoReactionMessage(String chatId, String senderId, VideoReactionModel videoReaction) async {
+  Future<void> _sendVideoReactionMessage(
+      String chatId, String senderId, VideoReactionModel videoReaction) async {
     try {
       await _repository.sendVideoReactionMessage(
         chatId: chatId,
@@ -410,8 +427,9 @@ class ChatList extends _$ChatList {
 
     try {
       // Create or get existing chat
-      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
-      
+      final chatId =
+          await _repository.createOrGetChat(currentUserId, otherUserId);
+
       // Create video reaction data
       final videoReaction = VideoReactionModel(
         videoId: videoId,
@@ -429,7 +447,7 @@ class ChatList extends _$ChatList {
         senderId: currentUserId,
         videoReaction: videoReaction,
       );
-          
+
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat with video reaction: $e');
@@ -447,15 +465,16 @@ class ChatList extends _$ChatList {
 
     try {
       // Create or get existing chat
-      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
-      
+      final chatId =
+          await _repository.createOrGetChat(currentUserId, otherUserId);
+
       // Send moment reaction message
       await _repository.sendMomentReactionMessage(
         chatId: chatId,
         senderId: currentUserId,
         momentReaction: momentReaction,
       );
-          
+
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat with moment reaction: $e');
@@ -548,7 +567,7 @@ class ChatList extends _$ChatList {
       return currentState.chats.where((chatItem) {
         final searchQuery = query.toLowerCase();
         return chatItem.contactName.toLowerCase().contains(searchQuery) ||
-               chatItem.chat.lastMessage.toLowerCase().contains(searchQuery);
+            chatItem.chat.lastMessage.toLowerCase().contains(searchQuery);
       }).toList();
     }
 
@@ -560,8 +579,9 @@ class ChatList extends _$ChatList {
     final currentState = state.valueOrNull;
     if (currentState == null || currentUserId == null) return [];
 
-    return currentState.chats.where((chatItem) => 
-        chatItem.chat.isPinnedForUser(currentUserId!)).toList();
+    return currentState.chats
+        .where((chatItem) => chatItem.chat.isPinnedForUser(currentUserId!))
+        .toList();
   }
 
   // Get regular (non-pinned) chats
@@ -569,8 +589,9 @@ class ChatList extends _$ChatList {
     final currentState = state.valueOrNull;
     if (currentState == null || currentUserId == null) return [];
 
-    return currentState.chats.where((chatItem) => 
-        !chatItem.chat.isPinnedForUser(currentUserId!)).toList();
+    return currentState.chats
+        .where((chatItem) => !chatItem.chat.isPinnedForUser(currentUserId!))
+        .toList();
   }
 
   // Get unread chats count
@@ -578,8 +599,9 @@ class ChatList extends _$ChatList {
     final currentState = state.valueOrNull;
     if (currentState == null || currentUserId == null) return 0;
 
-    return currentState.chats.where((chatItem) => 
-        chatItem.chat.getUnreadCount(currentUserId!) > 0).length;
+    return currentState.chats
+        .where((chatItem) => chatItem.chat.getUnreadCount(currentUserId!) > 0)
+        .length;
   }
 
   // Get total unread messages count
@@ -587,8 +609,10 @@ class ChatList extends _$ChatList {
     final currentState = state.valueOrNull;
     if (currentState == null || currentUserId == null) return 0;
 
-    return currentState.chats.fold<int>(0, (total, chatItem) => 
-        total + chatItem.chat.getUnreadCount(currentUserId!));
+    return currentState.chats.fold<int>(
+        0,
+        (total, chatItem) =>
+            total + chatItem.chat.getUnreadCount(currentUserId!));
   }
 
   // Mark all chats as read
@@ -599,7 +623,8 @@ class ChatList extends _$ChatList {
     try {
       final futures = currentState.chats
           .where((chatItem) => chatItem.chat.getUnreadCount(currentUserId!) > 0)
-          .map((chatItem) => _repository.markChatAsRead(chatItem.chat.chatId, currentUserId!));
+          .map((chatItem) =>
+              _repository.markChatAsRead(chatItem.chat.chatId, currentUserId!));
 
       await Future.wait(futures);
     } catch (e) {
@@ -613,8 +638,8 @@ class ChatList extends _$ChatList {
     if (currentUserId == null) return;
 
     try {
-      final futures = chatIds.map((chatId) => 
-          _repository.toggleChatArchive(chatId, currentUserId!));
+      final futures = chatIds.map(
+          (chatId) => _repository.toggleChatArchive(chatId, currentUserId!));
 
       await Future.wait(futures);
 
@@ -624,7 +649,7 @@ class ChatList extends _$ChatList {
         final updatedChats = currentState.chats
             .where((chatItem) => !chatIds.contains(chatItem.chat.chatId))
             .toList();
-        
+
         state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
       }
     } catch (e) {
@@ -634,12 +659,14 @@ class ChatList extends _$ChatList {
   }
 
   // Delete multiple chats
-  Future<void> deleteMultipleChats(List<String> chatIds, {bool deleteForEveryone = false}) async {
+  Future<void> deleteMultipleChats(List<String> chatIds,
+      {bool deleteForEveryone = false}) async {
     if (currentUserId == null) return;
 
     try {
-      final futures = chatIds.map((chatId) => 
-          _repository.deleteChat(chatId, currentUserId!, deleteForEveryone: deleteForEveryone));
+      final futures = chatIds.map((chatId) => _repository.deleteChat(
+          chatId, currentUserId!,
+          deleteForEveryone: deleteForEveryone));
 
       await Future.wait(futures);
 
@@ -649,7 +676,7 @@ class ChatList extends _$ChatList {
         final updatedChats = currentState.chats
             .where((chatItem) => !chatIds.contains(chatItem.chat.chatId))
             .toList();
-        
+
         state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
       }
     } catch (e) {
@@ -676,12 +703,13 @@ class ChatList extends _$ChatList {
     final pinnedChats = getPinnedChats().length;
     final unreadChats = getUnreadChatsCount();
     final totalUnreadMessages = getTotalUnreadMessagesCount();
-    final mutedChats = currentUserId != null 
-        ? currentState.chats.where((chatItem) => 
-            chatItem.chat.isMutedForUser(currentUserId!)).length
+    final mutedChats = currentUserId != null
+        ? currentState.chats
+            .where((chatItem) => chatItem.chat.isMutedForUser(currentUserId!))
+            .length
         : 0;
-    final onlineContacts = currentState.chats.where((chatItem) => 
-        chatItem.isOnline).length;
+    final onlineContacts =
+        currentState.chats.where((chatItem) => chatItem.isOnline).length;
 
     return {
       'totalChats': totalChats,
@@ -698,11 +726,11 @@ class ChatList extends _$ChatList {
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
       final users = await authNotifier.searchUsers(searchQuery);
-      
+
       if (users.isNotEmpty) {
         return users.first.uid;
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('Error finding user for chat: $e');
@@ -715,7 +743,7 @@ class ChatList extends _$ChatList {
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
       final user = await authNotifier.getUserById(userId);
-      
+
       if (user != null) {
         return {
           'uid': user.uid,
@@ -726,7 +754,7 @@ class ChatList extends _$ChatList {
           'lastSeen': user.lastSeen,
         };
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('Error getting user details for chat: $e');
@@ -751,7 +779,8 @@ class ChatList extends _$ChatList {
             futures.add(_repository.toggleChatArchive(chatId, currentUserId!));
             break;
           case 'delete':
-            futures.add(_repository.deleteChat(chatId, currentUserId!, deleteForEveryone: deleteForEveryone));
+            futures.add(_repository.deleteChat(chatId, currentUserId!,
+                deleteForEveryone: deleteForEveryone));
             break;
           case 'pin':
             futures.add(_repository.toggleChatPin(chatId, currentUserId!));
@@ -773,7 +802,7 @@ class ChatList extends _$ChatList {
         final updatedChats = currentState.chats
             .where((chatItem) => !chatIds.contains(chatItem.chat.chatId))
             .toList();
-        
+
         state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
       }
     } catch (e) {

@@ -20,7 +20,8 @@ class MomentsMediaService {
   // ===============================
 
   /// Pick images from gallery (up to 9)
-  Future<List<File>> pickImages({int maxImages = MomentConstants.maxImages}) async {
+  Future<List<File>> pickImages(
+      {int maxImages = MomentConstants.maxImages}) async {
     try {
       final pickedFiles = await _picker.pickMultiImage(
         imageQuality: MomentConstants.imageQuality,
@@ -127,7 +128,8 @@ class MomentsMediaService {
     try {
       final XFile? video = await _picker.pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(seconds: MomentConstants.maxVideoDurationSeconds),
+        maxDuration:
+            const Duration(seconds: MomentConstants.maxVideoDurationSeconds),
       );
 
       if (video == null) return null;
@@ -143,7 +145,8 @@ class MomentsMediaService {
     try {
       final XFile? video = await _picker.pickVideo(
         source: ImageSource.camera,
-        maxDuration: const Duration(seconds: MomentConstants.maxVideoDurationSeconds),
+        maxDuration:
+            const Duration(seconds: MomentConstants.maxVideoDurationSeconds),
       );
 
       if (video == null) return null;
@@ -186,7 +189,8 @@ class MomentsMediaService {
         if (duration.inSeconds > MomentConstants.maxVideoDurationSeconds) {
           return VideoValidationResult(
             isValid: false,
-            error: 'Video duration exceeds ${MomentConstants.maxVideoDurationSeconds} seconds',
+            error:
+                'Video duration exceeds ${MomentConstants.maxVideoDurationSeconds} seconds',
             durationSeconds: duration.inSeconds,
             fileSizeMB: fileSizeInMB,
           );
@@ -247,7 +251,8 @@ class MomentsMediaService {
   }
 
   bool _isImageExtension(String extension) {
-    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].contains(extension);
+    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic']
+        .contains(extension);
   }
 
   // ===============================

@@ -11,7 +11,7 @@ class VideoStateIndicator extends StatelessWidget {
   final bool showBackground;
   final Color backgroundColor;
   final Color foregroundColor;
-  
+
   const VideoStateIndicator({
     super.key,
     required this.state,
@@ -22,7 +22,7 @@ class VideoStateIndicator extends StatelessWidget {
     this.backgroundColor = Colors.black54,
     this.foregroundColor = Colors.white,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -34,7 +34,7 @@ class VideoStateIndicator extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildStateContent() {
     switch (state) {
       case VideoState.loading:
@@ -55,7 +55,7 @@ class VideoStateIndicator extends StatelessWidget {
         return _buildBufferingIndicator();
     }
   }
-  
+
   Widget _buildLoadingIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -76,7 +76,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildErrorIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -118,7 +118,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildNetworkErrorIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -152,7 +152,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildFormatErrorIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -182,7 +182,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildEmptyIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -204,7 +204,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildRetryingIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -222,7 +222,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildPausedIndicator() {
     return Icon(
       CupertinoIcons.play_circle,
@@ -230,7 +230,7 @@ class VideoStateIndicator extends StatelessWidget {
       size: 64,
     );
   }
-  
+
   Widget _buildBufferingIndicator() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -248,7 +248,7 @@ class VideoStateIndicator extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildProgressIndicator() {
     return SizedBox(
       width: 40,
@@ -261,7 +261,7 @@ class VideoStateIndicator extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildSpinningIndicator() {
     return SizedBox(
       width: 32,
@@ -272,7 +272,7 @@ class VideoStateIndicator extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildRetryButton() {
     return ElevatedButton.icon(
       onPressed: onRetry,
@@ -315,7 +315,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator error({
     required String message,
     VoidCallback? onRetry,
@@ -328,7 +328,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator networkError({
     VoidCallback? onRetry,
     bool showBackground = true,
@@ -339,7 +339,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator formatError({
     bool showBackground = true,
   }) {
@@ -348,7 +348,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator empty({
     bool showBackground = false,
   }) {
@@ -357,7 +357,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator retrying({
     bool showBackground = true,
   }) {
@@ -366,7 +366,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator paused({
     bool showBackground = false,
   }) {
@@ -375,7 +375,7 @@ extension VideoStateIndicatorFactory on VideoStateIndicator {
       showBackground: showBackground,
     );
   }
-  
+
   static VideoStateIndicator buffering({
     bool showBackground = false,
   }) {

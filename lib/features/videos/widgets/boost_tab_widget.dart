@@ -8,7 +8,8 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 class BoostTabWidget extends ConsumerStatefulWidget {
   final AnimationController rocketAnimationController;
   final Animation<double> rocketAnimation;
-  final Function(String boostTier) onBoostPost; // Now accepts boost tier parameter
+  final Function(String boostTier)
+      onBoostPost; // Now accepts boost tier parameter
 
   const BoostTabWidget({
     super.key,
@@ -28,12 +29,12 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     // Watch wallet balance
     final walletState = ref.watch(walletProvider);
     final coinsBalance = walletState.value?.wallet?.coinsBalance ?? 0;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -111,7 +112,7 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
             ),
             const SizedBox(height: 24),
           ],
-          
+
           // Enhanced Boost Header
           Container(
             padding: const EdgeInsets.all(32),
@@ -181,7 +182,8 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(25),
@@ -209,9 +211,9 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           Text(
             'Choose Your Boost Package',
             style: TextStyle(
@@ -221,7 +223,7 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Boost Options with CORRECT pricing and view ranges
           _buildBoostOption(
             tier: 'basic',
@@ -259,9 +261,9 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
             coinsBalance: coinsBalance,
             isPopular: false,
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Benefits Section
           Container(
             padding: const EdgeInsets.all(20),
@@ -322,9 +324,9 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Payment secured notice
           Container(
             padding: const EdgeInsets.all(16),
@@ -426,7 +428,7 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
     final priceValue = int.parse(price.replaceAll(RegExp(r'[^0-9]'), ''));
     final canAfford = coinsBalance >= priceValue;
     final isSelected = _selectedTier == tier;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Stack(
@@ -437,16 +439,16 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
               color: modernTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected 
+                color: isSelected
                     ? color.withOpacity(0.5)
-                    : isPopular 
+                    : isPopular
                         ? color.withOpacity(0.3)
                         : Colors.transparent,
                 width: isSelected ? 2 : (isPopular ? 2 : 1),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: isPopular 
+                  color: isPopular
                       ? color.withOpacity(0.2)
                       : Colors.black.withOpacity(0.05),
                   blurRadius: isPopular ? 15 : 8,
@@ -470,7 +472,7 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
                       child: Icon(icon, color: color, size: 24),
                     ),
                     const SizedBox(width: 12),
-                    
+
                     // Text content
                     Expanded(
                       child: Column(
@@ -544,7 +546,7 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Insufficient balance warning
                 if (!canAfford)
                   Container(
@@ -577,7 +579,7 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
                       ],
                     ),
                   ),
-                
+
                 // Select button
                 SizedBox(
                   width: double.infinity,
@@ -588,15 +590,17 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
                               _selectedTier = tier;
                               _isProcessing = true;
                             });
-                            
+
                             // Trigger rocket animation
-                            widget.rocketAnimationController.forward().then((_) {
+                            widget.rocketAnimationController
+                                .forward()
+                                .then((_) {
                               widget.rocketAnimationController.reset();
                             });
-                            
+
                             // Call the boost function
                             widget.onBoostPost(tier);
-                            
+
                             // Reset processing state after a delay
                             Future.delayed(const Duration(seconds: 2), () {
                               if (mounted) {
@@ -626,11 +630,14 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : Text(
-                            canAfford ? 'Select & Boost' : 'Insufficient Balance',
+                            canAfford
+                                ? 'Select & Boost'
+                                : 'Insufficient Balance',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                   ),
@@ -638,14 +645,15 @@ class _BoostTabWidgetState extends ConsumerState<BoostTabWidget> {
               ],
             ),
           ),
-          
+
           // Popular badge
           if (isPopular)
             Positioned(
               top: -5,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(12),

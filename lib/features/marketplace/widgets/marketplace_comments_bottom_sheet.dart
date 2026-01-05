@@ -62,7 +62,7 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkIfNeedsExpansion();
     });
@@ -80,9 +80,9 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
       maxLines: widget.maxLines,
       textDirection: TextDirection.ltr,
     );
-    
+
     textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120);
-    
+
     if (textPainter.didExceedMaxLines) {
       setState(() {
         _needsExpansion = true;
@@ -94,26 +94,26 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
     setState(() {
       _isExpanded = !_isExpanded;
     });
-    
+
     if (_isExpanded) {
       _animationController.forward();
     } else {
       _animationController.reverse();
     }
-    
+
     HapticFeedback.lightImpact();
   }
 
   String _getTruncatedText() {
     if (!_needsExpansion || _isExpanded) return widget.text;
-    
+
     final words = widget.text.split(' ');
     if (words.length <= 20) return widget.text;
-    
+
     final targetLength = widget.isMainComment ? 120 : 100;
     int currentLength = 0;
     int wordIndex = 0;
-    
+
     for (int i = 0; i < words.length; i++) {
       currentLength += words[i].length + 1;
       if (currentLength > targetLength) {
@@ -121,16 +121,16 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
         break;
       }
     }
-    
+
     if (wordIndex == 0) wordIndex = words.length ~/ 2;
-    
+
     return '${words.take(wordIndex).join(' ')}...';
   }
 
   @override
   Widget build(BuildContext context) {
     final displayText = _getTruncatedText();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -143,12 +143,11 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
             widget.text,
             style: widget.style,
           ),
-          crossFadeState: _isExpanded 
-              ? CrossFadeState.showSecond 
+          crossFadeState: _isExpanded
+              ? CrossFadeState.showSecond
               : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 300),
         ),
-        
         if (_needsExpansion) ...[
           const SizedBox(height: 4),
           GestureDetector(
@@ -183,26 +182,28 @@ class MarketplaceCommentsBottomSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MarketplaceCommentsBottomSheet> createState() => _MarketplaceCommentsBottomSheetState();
+  ConsumerState<MarketplaceCommentsBottomSheet> createState() =>
+      _MarketplaceCommentsBottomSheetState();
 }
 
-class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceCommentsBottomSheet>
+class _MarketplaceCommentsBottomSheetState
+    extends ConsumerState<MarketplaceCommentsBottomSheet>
     with TickerProviderStateMixin {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
-  
+
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
-  
+
   String? _replyingToCommentId;
   String? _replyingToAuthorName;
   bool _isExpanded = false;
   List<MarketplaceCommentModel> _comments = [];
   bool _isLoadingComments = false;
   CommentSortOption _sortOption = CommentSortOption.top;
-  
+
   // 🆕 Media state
   final List<File> _selectedImages = [];
   bool _isUploadingMedia = false;
@@ -231,7 +232,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
@@ -272,7 +273,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
     try {
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-      final comments = await marketplaceNotifier.getMarketplaceVideoComments(widget.marketplaceVideo.id);
+      final comments = await marketplaceNotifier
+          .getMarketplaceVideoComments(widget.marketplaceVideo.id);
 
       if (mounted) {
         setState(() {
@@ -290,7 +292,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     }
   }
 
-  List<MarketplaceCommentModel> _sortComments(List<MarketplaceCommentModel> comments) {
+  List<MarketplaceCommentModel> _sortComments(
+      List<MarketplaceCommentModel> comments) {
     switch (_sortOption) {
       case CommentSortOption.top:
         return comments.sortByLikes(descending: true);
@@ -320,7 +323,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
   Future<void> _closeSheet() async {
     await _slideController.reverse();
-    
+
     if (mounted) {
       widget.onClose?.call();
       Navigator.of(context).pop();
@@ -342,14 +345,18 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
       if (images.isNotEmpty) {
         final remainingSlots = 2 - _selectedImages.length;
-        final imagesToAdd = images.take(remainingSlots).map((xFile) => File(xFile.path)).toList();
-        
+        final imagesToAdd = images
+            .take(remainingSlots)
+            .map((xFile) => File(xFile.path))
+            .toList();
+
         setState(() {
           _selectedImages.addAll(imagesToAdd);
         });
-        
+
         if (images.length > remainingSlots) {
-          showSnackBar(context, 'Only $remainingSlots image(s) added (max 2 total)');
+          showSnackBar(
+              context, 'Only $remainingSlots image(s) added (max 2 total)');
         }
       }
     } catch (e) {
@@ -458,7 +465,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
     final sheetHeight = _isExpanded ? screenHeight * 0.9 : screenHeight * 0.6;
-    
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -490,7 +497,6 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                   ),
                 ),
               ),
-              
               SlideTransition(
                 position: _slideAnimation,
                 child: Align(
@@ -551,9 +557,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
           const SizedBox(height: 16),
-          
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -568,7 +572,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                     ),
                   ),
                 ),
-                
+
                 // Sort dropdown
                 PopupMenuButton<CommentSortOption>(
                   icon: const Icon(Icons.sort, color: _mediumGray, size: 20),
@@ -606,9 +610,9 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 GestureDetector(
                   onTap: _closeSheet,
                   child: Container(
@@ -654,7 +658,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
             backgroundColor: _lightGray,
             child: widget.marketplaceVideo.userImage.isEmpty
                 ? Text(
-                    widget.marketplaceVideo.userName.isNotEmpty 
+                    widget.marketplaceVideo.userName.isNotEmpty
                         ? widget.marketplaceVideo.userName[0].toUpperCase()
                         : "U",
                     style: const TextStyle(
@@ -722,7 +726,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     );
   }
 
-  List<CommentGroup> _groupCommentsByReplies(List<MarketplaceCommentModel> comments) {
+  List<CommentGroup> _groupCommentsByReplies(
+      List<MarketplaceCommentModel> comments) {
     final Map<String, CommentGroup> groups = {};
     final List<CommentGroup> result = [];
 
@@ -765,12 +770,13 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
           Padding(
             padding: const EdgeInsets.only(left: 48),
             child: Column(
-              children: group.replies.take(2).map((reply) => 
-                _buildEnhancedCommentItem(reply, isReply: true)
-              ).toList(),
+              children: group.replies
+                  .take(2)
+                  .map((reply) =>
+                      _buildEnhancedCommentItem(reply, isReply: true))
+                  .toList(),
             ),
           ),
-          
           if (group.replies.length > 2) ...[
             _buildViewMoreReplies(group),
           ],
@@ -863,7 +869,6 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
               ],
             ),
           ),
-          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: const BoxDecoration(
@@ -909,7 +914,6 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
               ],
             ),
           ),
-          
           Expanded(
             child: Container(
               color: _pureWhite,
@@ -917,7 +921,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: group.replies.length,
                 itemBuilder: (context, index) {
-                  return _buildEnhancedCommentItem(group.replies[index], isReply: true);
+                  return _buildEnhancedCommentItem(group.replies[index],
+                      isReply: true);
                 },
               ),
             ),
@@ -927,14 +932,18 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
     );
   }
 
-  Widget _buildEnhancedCommentItem(MarketplaceCommentModel comment, {bool isReply = false}) {
+  Widget _buildEnhancedCommentItem(MarketplaceCommentModel comment,
+      {bool isReply = false}) {
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
-    
-    final isLiked = currentUserId != null && comment.likes > 0; // Simplified like check
+
+    final isLiked =
+        currentUserId != null && comment.likes > 0; // Simplified like check
     final isOwn = currentUserId != null && comment.userId == currentUserId;
-    final isVideoCreator = currentUserId != null && widget.marketplaceVideo.userId == currentUserId;
-    final canPin = isVideoCreator && !isReply; // Only video creator can pin top-level comments
+    final isVideoCreator = currentUserId != null &&
+        widget.marketplaceVideo.userId == currentUserId;
+    final canPin = isVideoCreator &&
+        !isReply; // Only video creator can pin top-level comments
 
     return Container(
       padding: EdgeInsets.only(
@@ -955,7 +964,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
             backgroundColor: _lightGray,
             child: comment.userImage.isEmpty
                 ? Text(
-                    comment.userName.isNotEmpty 
+                    comment.userName.isNotEmpty
                         ? comment.userName[0].toUpperCase()
                         : "U",
                     style: TextStyle(
@@ -976,7 +985,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                   decoration: BoxDecoration(
                     color: isReply ? _lightGray : const Color(0xFFEBEBF0),
                     borderRadius: BorderRadius.circular(isReply ? 14 : 16),
-                    border: comment.isReply && comment.replyToUserName != null 
+                    border: comment.isReply && comment.replyToUserName != null
                         ? Border.all(
                             color: _iosBlue.withOpacity(0.3),
                             width: 1,
@@ -998,7 +1007,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                               ),
                             ),
                           ),
-                          
+
                           // 🆕 Pin indicator
                           if (comment.isPinned) ...[
                             const Icon(
@@ -1010,8 +1019,9 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                           ],
                         ],
                       ),
-                      
-                      if (comment.isReply && comment.replyToUserName != null) ...[
+
+                      if (comment.isReply &&
+                          comment.replyToUserName != null) ...[
                         const SizedBox(height: 3),
                         Row(
                           children: [
@@ -1033,9 +1043,9 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                           ],
                         ),
                       ],
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       ExpandableCommentText(
                         text: comment.content,
                         style: TextStyle(
@@ -1046,7 +1056,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                         maxLines: isReply ? 2 : 3,
                         isMainComment: !isReply,
                       ),
-                      
+
                       // 🆕 Display comment images
                       if (comment.imageUrls.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -1055,9 +1065,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                     ],
                   ),
                 ),
-                
                 const SizedBox(height: 8),
-                
                 Row(
                   children: [
                     Text(
@@ -1068,16 +1076,19 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-                    
+
                     const SizedBox(width: 16),
-                    
+
                     GestureDetector(
                       onTap: () => _likeComment(comment),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isLiked ? _iosRed.withOpacity(0.1) : Colors.transparent,
+                          color: isLiked
+                              ? _iosRed.withOpacity(0.1)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -1086,7 +1097,9 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 200),
                               child: Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                isLiked
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
                                 key: ValueKey(isLiked),
                                 color: isLiked ? _iosRed : _mediumGray,
                                 size: 14,
@@ -1102,7 +1115,9 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                                   style: TextStyle(
                                     color: isLiked ? _iosRed : _mediumGray,
                                     fontSize: 11,
-                                    fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
+                                    fontWeight: isLiked
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ),
@@ -1111,13 +1126,14 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                         ),
                       ),
                     ),
-                    
+
                     if (!isReply) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _replyToComment(comment),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
@@ -1133,27 +1149,32 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                         ),
                       ),
                     ],
-                    
+
                     // 🆕 Pin/Unpin button (video creator only)
                     if (canPin) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _togglePinComment(comment),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                comment.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                                color: comment.isPinned ? _iosBlue : _mediumGray,
+                                comment.isPinned
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                                color:
+                                    comment.isPinned ? _iosBlue : _mediumGray,
                                 size: 12,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 comment.isPinned ? 'Unpin' : 'Pin',
                                 style: TextStyle(
-                                  color: comment.isPinned ? _iosBlue : _mediumGray,
+                                  color:
+                                      comment.isPinned ? _iosBlue : _mediumGray,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1163,13 +1184,14 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                         ),
                       ),
                     ],
-                    
+
                     if (isOwn) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _deleteComment(comment),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
@@ -1198,7 +1220,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
   // 🆕 Build comment images widget
   Widget _buildCommentImages(List<String> imageUrls) {
     if (imageUrls.isEmpty) return const SizedBox.shrink();
-    
+
     if (imageUrls.length == 1) {
       return GestureDetector(
         onTap: () => _showFullscreenImage(imageUrls, 0),
@@ -1233,16 +1255,17 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
         ),
       );
     }
-    
+
     // Two images side by side
     return Row(
       children: imageUrls.asMap().entries.map((entry) {
         final index = entry.key;
         final url = entry.value;
-        
+
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: index == 0 ? 4 : 0, left: index == 1 ? 4 : 0),
+            padding: EdgeInsets.only(
+                right: index == 0 ? 4 : 0, left: index == 1 ? 4 : 0),
             child: GestureDetector(
               onTap: () => _showFullscreenImage(imageUrls, index),
               child: ClipRRect(
@@ -1346,8 +1369,9 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
   Widget _buildCommentInput(double bottomInset, double systemBottomPadding) {
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    final hasContent = _commentController.text.trim().isNotEmpty || _selectedImages.isNotEmpty;
-    
+    final hasContent =
+        _commentController.text.trim().isNotEmpty || _selectedImages.isNotEmpty;
+
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -1374,10 +1398,10 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
       child: Column(
         children: [
           if (_replyingToCommentId != null) _buildReplyingIndicator(),
-          
+
           // 🆕 Image preview
           if (_selectedImages.isNotEmpty) _buildImagePreview(),
-          
+
           if (!isAuthenticated) ...[
             _buildGuestCommentPrompt(),
           ] else ...[
@@ -1410,7 +1434,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                         ),
                 ),
                 const SizedBox(width: 12),
-                
+
                 Expanded(
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 100),
@@ -1418,7 +1442,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                       color: _lightGray,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _commentFocusNode.hasFocus 
+                        color: _commentFocusNode.hasFocus
                             ? _iosBlue.withOpacity(0.5)
                             : Colors.transparent,
                         width: 1,
@@ -1428,7 +1452,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                       controller: _commentController,
                       focusNode: _commentFocusNode,
                       decoration: InputDecoration(
-                        hintText: _replyingToCommentId != null 
+                        hintText: _replyingToCommentId != null
                             ? 'Reply to $_replyingToAuthorName...'
                             : 'Add a comment...',
                         hintStyle: const TextStyle(
@@ -1448,7 +1472,10 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                       ),
                       maxLines: null,
                       maxLength: 500,
-                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                      buildCounter: (context,
+                          {required currentLength,
+                          required isFocused,
+                          maxLength}) {
                         return null;
                       },
                       textCapitalization: TextCapitalization.sentences,
@@ -1457,25 +1484,28 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                   ),
                 ),
                 const SizedBox(width: 8),
-                
+
                 // 🆕 Media picker button
                 GestureDetector(
                   onTap: _showImagePickerOptions,
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: _selectedImages.isNotEmpty ? _iosBlue.withOpacity(0.1) : _borderGray,
+                      color: _selectedImages.isNotEmpty
+                          ? _iosBlue.withOpacity(0.1)
+                          : _borderGray,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.image,
-                      color: _selectedImages.isNotEmpty ? _iosBlue : _mediumGray,
+                      color:
+                          _selectedImages.isNotEmpty ? _iosBlue : _mediumGray,
                       size: 16,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                
+
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   child: GestureDetector(
@@ -1483,16 +1513,12 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: hasContent
-                            ? _iosBlue
-                            : _borderGray,
+                        color: hasContent ? _iosBlue : _borderGray,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.send,
-                        color: hasContent
-                            ? _pureWhite
-                            : _mediumGray,
+                        color: hasContent ? _pureWhite : _mediumGray,
                         size: 16,
                       ),
                     ),
@@ -1500,7 +1526,6 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                 ),
               ],
             ),
-            
             if (_commentController.text.length > 400) ...[
               const SizedBox(height: 4),
               Align(
@@ -1615,7 +1640,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                     Navigator.of(context).pushNamed(Constants.landingScreen);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: _iosBlue,
                       borderRadius: BorderRadius.circular(16),
@@ -1692,7 +1718,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
   void _likeComment(MarketplaceCommentModel comment) async {
     final currentUserId = ref.read(currentUserIdProvider);
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated || currentUserId == null) {
       await requireLogin(
         context,
@@ -1703,7 +1729,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
       );
       return;
     }
-    
+
     try {
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
 
@@ -1727,7 +1753,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
   void _replyToComment(MarketplaceCommentModel comment) {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated) {
       requireLogin(
         context,
@@ -1738,7 +1764,7 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
       );
       return;
     }
-    
+
     setState(() {
       _replyingToCommentId = comment.id;
       _replyingToAuthorName = comment.userName;
@@ -1757,20 +1783,22 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
   // 🆕 Pin/Unpin comment (video creator only)
   void _togglePinComment(MarketplaceCommentModel comment) async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated) return;
-    
+
     try {
       final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
 
       if (comment.isPinned) {
-        await marketplaceNotifier.unpinMarketplaceComment(comment.id, widget.marketplaceVideo.id, (error) {
+        await marketplaceNotifier.unpinMarketplaceComment(
+            comment.id, widget.marketplaceVideo.id, (error) {
           if (mounted) {
             showSnackBar(context, error);
           }
         });
       } else {
-        await marketplaceNotifier.pinMarketplaceComment(comment.id, widget.marketplaceVideo.id, (error) {
+        await marketplaceNotifier.pinMarketplaceComment(
+            comment.id, widget.marketplaceVideo.id, (error) {
           if (mounted) {
             showSnackBar(context, error);
           }
@@ -1827,7 +1855,8 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
                 Navigator.pop(context);
 
                 try {
-                  await ref.read(marketplaceProvider.notifier)
+                  await ref
+                      .read(marketplaceProvider.notifier)
                       .deleteMarketplaceComment(comment.id, (error) {
                     if (mounted) {
                       showSnackBar(context, error);
@@ -1889,51 +1918,53 @@ class _MarketplaceCommentsBottomSheetState extends ConsumerState<MarketplaceComm
 
       // 🔧 FIXED: Pass imageFiles directly to provider, which will handle the upload
       await ref.read(marketplaceProvider.notifier).addMarketplaceComment(
-        videoId: widget.marketplaceVideo.id,
-        content: content,
-        imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null, // 🔧 Changed from imageUrls to imageFiles
-        repliedToCommentId: _replyingToCommentId,
-        repliedToAuthorName: _replyingToAuthorName,
-        onSuccess: (message) async {
-          setState(() {
-            _isUploadingMedia = false;
-          });
-          
-          if (mounted) {
-            _commentController.clear();
-            _selectedImages.clear();
-            _cancelReply();
-            
-            _loadComments();
-            
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(
-                  _scrollController.position.maxScrollExtent,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                );
+            videoId: widget.marketplaceVideo.id,
+            content: content,
+            imageFiles: _selectedImages.isNotEmpty
+                ? _selectedImages
+                : null, // 🔧 Changed from imageUrls to imageFiles
+            repliedToCommentId: _replyingToCommentId,
+            repliedToAuthorName: _replyingToAuthorName,
+            onSuccess: (message) async {
+              setState(() {
+                _isUploadingMedia = false;
+              });
+
+              if (mounted) {
+                _commentController.clear();
+                _selectedImages.clear();
+                _cancelReply();
+
+                _loadComments();
+
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+
+                showSnackBar(context, Constants.commentAdded);
               }
-            });
-            
-            showSnackBar(context, Constants.commentAdded);
-          }
-        },
-        onError: (error) {
-          setState(() {
-            _isUploadingMedia = false;
-          });
-          
-          if (mounted) {
-            showSnackBar(context, error);
-          }
-        },
-      );
+            },
+            onError: (error) {
+              setState(() {
+                _isUploadingMedia = false;
+              });
+
+              if (mounted) {
+                showSnackBar(context, error);
+              }
+            },
+          );
     } catch (e) {
       setState(() {
         _isUploadingMedia = false;
       });
-      
+
       if (mounted) {
         showSnackBar(context, 'Failed to send comment: $e');
       }

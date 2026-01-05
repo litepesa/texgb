@@ -19,7 +19,7 @@ import 'package:intl/intl.dart';
 
 class MyListingScreen extends ConsumerStatefulWidget {
   final String videoId;
-  
+
   const MyListingScreen({
     super.key,
     required this.videoId,
@@ -54,7 +54,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    
+
     // Initialize rocket animation
     _rocketAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -67,7 +67,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
       parent: _rocketAnimationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _loadVideoData();
   }
 
@@ -92,7 +92,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
         (v) => v.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
-      
+
       if (mounted) {
         setState(() {
           _marketplaceItem = marketplaceVideo;
@@ -100,7 +100,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
         });
 
         // Generate thumbnail if it's a video
-        if (!marketplaceVideo.isMultipleImages && marketplaceVideo.videoUrl.isNotEmpty) {
+        if (!marketplaceVideo.isMultipleImages &&
+            marketplaceVideo.videoUrl.isNotEmpty) {
           _generateVideoThumbnail();
         }
       }
@@ -160,10 +161,13 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   }
 
   Future<void> _initializeVideoPlayer() async {
-    if (_marketplaceItem == null || _marketplaceItem!.isMultipleImages || _marketplaceItem!.videoUrl.isEmpty) return;
+    if (_marketplaceItem == null ||
+        _marketplaceItem!.isMultipleImages ||
+        _marketplaceItem!.videoUrl.isEmpty) return;
 
     try {
-      _videoController = VideoPlayerController.network(_marketplaceItem!.videoUrl);
+      _videoController =
+          VideoPlayerController.network(_marketplaceItem!.videoUrl);
       await _videoController!.initialize();
       if (mounted) {
         setState(() {});
@@ -200,100 +204,104 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
 
   void _boostPost(String boostTier) async {
     if (_marketplaceItem == null) return;
-    
+
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final tierInfo = _getBoostTierInfo(boostTier);
-        final modernTheme = context.modernTheme;
-        
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                Icons.rocket_launch,
-                color: modernTheme.primaryColor,
+          context: context,
+          builder: (context) {
+            final tierInfo = _getBoostTierInfo(boostTier);
+            final modernTheme = context.modernTheme;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(width: 8),
-              const Text('Confirm Boost'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Boost this listing with ${tierInfo['name']}?',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.rocket_launch,
+                    color: modernTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Confirm Boost'),
+                ],
               ),
-              const SizedBox(height: 16),
-              _buildInfoRow('View Target:', tierInfo['viewRange'], Icons.visibility),
-              _buildInfoRow('Duration:', tierInfo['duration'], Icons.schedule),
-              _buildInfoRow('Cost:', 'KES ${tierInfo['price']}', Icons.payments),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: modernTheme.primaryColor,
-                      size: 20,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Boost this listing with ${tierInfo['name']}?',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Coins will be deducted from your wallet',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 12,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoRow(
+                      'View Target:', tierInfo['viewRange'], Icons.visibility),
+                  _buildInfoRow(
+                      'Duration:', tierInfo['duration'], Icons.schedule),
+                  _buildInfoRow(
+                      'Cost:', 'KES ${tierInfo['price']}', Icons.payments),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: modernTheme.primaryColor,
+                          size: 20,
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Coins will be deducted from your wallet',
+                            style: TextStyle(
+                              color: modernTheme.textColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: modernTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Boost Now'),
                 ),
-              ),
-              child: const Text('Boost Now'),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
-    
+              ],
+            );
+          },
+        ) ??
+        false;
+
     if (!confirmed) return;
-    
+
     // Show loading
     showDialog(
       context: context,
@@ -319,38 +327,38 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
 
     // Call boost function
     await ref.read(marketplaceProvider.notifier).boostMarketplaceVideo(
-      videoId: _marketplaceItem!.id,
-      boostTier: boostTier,
-      onSuccess: (message) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        // Reload marketplaceVideo data
-        _loadVideoData();
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
+          videoId: _marketplaceItem!.id,
+          boostTier: boostTier,
+          onSuccess: (message) {
+            Navigator.of(context).pop(); // Close loading dialog
+
+            // Reload marketplaceVideo data
+            _loadVideoData();
+
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.green.shade600,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          },
+          onError: (error) {
+            Navigator.of(context).pop(); // Close loading dialog
+
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(error),
+                backgroundColor: Colors.red.shade600,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          },
         );
-      },
-      onError: (error) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      },
-    );
   }
 
   // Helper method for info rows in dialog
@@ -437,7 +445,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
 
   Future<void> _deletePost() async {
     if (_marketplaceItem == null) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -473,7 +481,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
               Navigator.of(context).pop();
 
               try {
-                await ref.read(marketplaceProvider.notifier).deleteMarketplaceVideo(
+                await ref
+                    .read(marketplaceProvider.notifier)
+                    .deleteMarketplaceVideo(
                   _marketplaceItem!.id,
                   (error) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -485,10 +495,10 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                     );
                   },
                 );
-                
+
                 // Go back to previous screen after successful deletion
                 Navigator.of(context).pop();
-                
+
                 // Show success message
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -527,7 +537,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
       final dateTime = DateTime.parse(timestamp);
       final now = DateTime.now();
       final difference = now.difference(dateTime);
-      
+
       if (difference.inDays > 0) {
         return DateFormat('MMM d, y').format(dateTime);
       } else if (difference.inHours > 0) {
@@ -555,7 +565,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
       appBar: _isLoading || _error != null || _marketplaceItem == null
@@ -598,7 +608,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                         children: [
                           Icon(Icons.delete, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Delete Post', style: TextStyle(color: Colors.red)),
+                          Text('Delete Post',
+                              style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -719,7 +730,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _error ?? 'The listing you\'re looking for doesn\'t exist.',
+                      _error ??
+                          'The listing you\'re looking for doesn\'t exist.',
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
                         fontSize: 16,
@@ -784,7 +796,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
             ],
           ),
         ),
-        
+
         // Tab Views
         Expanded(
           child: TabBarView(
@@ -807,7 +819,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                 ),
               ),
               // Analytics Tab
-              MarketplaceAnalyticsTabWidget(marketplaceVideo: _marketplaceItem!),
+              MarketplaceAnalyticsTabWidget(
+                  marketplaceVideo: _marketplaceItem!),
               // Edit Tab
               MarketplaceEditTabWidget(
                 marketplaceVideo: _marketplaceItem,
@@ -821,7 +834,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     );
   }
 
-  Widget _buildPostPreviewCard(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
+  Widget _buildPostPreviewCard(MarketplaceVideoModel marketplaceVideo,
+      ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -843,7 +857,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
             fit: StackFit.expand,
             children: [
               // Media Content - Full coverage
-              if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty)
+              if (marketplaceVideo.isMultipleImages &&
+                  marketplaceVideo.imageUrls.isNotEmpty)
                 PageView.builder(
                   itemCount: marketplaceVideo.imageUrls.length,
                   itemBuilder: (context, index) => CachedNetworkImage(
@@ -870,17 +885,21 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                     ),
                   ),
                 )
-              else if (!marketplaceVideo.isMultipleImages && _videoController != null && _videoController!.value.isInitialized)
+              else if (!marketplaceVideo.isMultipleImages &&
+                  _videoController != null &&
+                  _videoController!.value.isInitialized)
                 AspectRatio(
                   aspectRatio: _videoController!.value.aspectRatio,
                   child: VideoPlayer(_videoController!),
                 )
-              else if (!marketplaceVideo.isMultipleImages && _videoThumbnail != null)
+              else if (!marketplaceVideo.isMultipleImages &&
+                  _videoThumbnail != null)
                 Image.file(
                   File(_videoThumbnail!),
                   fit: BoxFit.cover,
                 )
-              else if (!marketplaceVideo.isMultipleImages && marketplaceVideo.thumbnailUrl.isNotEmpty)
+              else if (!marketplaceVideo.isMultipleImages &&
+                  marketplaceVideo.thumbnailUrl.isNotEmpty)
                 CachedNetworkImage(
                   imageUrl: marketplaceVideo.thumbnailUrl,
                   fit: BoxFit.cover,
@@ -908,12 +927,14 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                 Container(
                   color: modernTheme.primaryColor!.withOpacity(0.1),
                   child: Icon(
-                    marketplaceVideo.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    marketplaceVideo.isMultipleImages
+                        ? Icons.photo_library
+                        : Icons.play_circle_fill,
                     color: modernTheme.primaryColor,
                     size: 64,
                   ),
                 ),
-              
+
               // Gradient overlay
               Positioned.fill(
                 child: Container(
@@ -931,7 +952,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                   ),
                 ),
               ),
-              
+
               // Play/Pause button for videos
               if (!marketplaceVideo.isMultipleImages)
                 Center(
@@ -955,7 +976,7 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                     ),
                   ),
                 ),
-              
+
               // Post Info Overlay
               Positioned(
                 bottom: 0,
@@ -974,13 +995,16 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                             backgroundColor: Colors.white,
                             child: CircleAvatar(
                               radius: 15,
-                              backgroundImage: marketplaceVideo.userImage.isNotEmpty
-                                  ? CachedNetworkImageProvider(marketplaceVideo.userImage)
-                                  : null,
+                              backgroundImage:
+                                  marketplaceVideo.userImage.isNotEmpty
+                                      ? CachedNetworkImageProvider(
+                                          marketplaceVideo.userImage)
+                                      : null,
                               child: marketplaceVideo.userImage.isEmpty
                                   ? Text(
                                       marketplaceVideo.userName.isNotEmpty
-                                          ? marketplaceVideo.userName[0].toUpperCase()
+                                          ? marketplaceVideo.userName[0]
+                                              .toUpperCase()
                                           : 'U',
                                       style: TextStyle(
                                         color: Colors.white,
@@ -1011,7 +1035,8 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                                   ),
                                 ),
                                 Text(
-                                  _formatTimeAgo(marketplaceVideo.createdAt), // UPDATED: Pass string directly
+                                  _formatTimeAgo(marketplaceVideo
+                                      .createdAt), // UPDATED: Pass string directly
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -1029,9 +1054,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // Caption
                       Text(
                         marketplaceVideo.caption,
@@ -1050,9 +1075,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // Tags
                       if (marketplaceVideo.tags.isNotEmpty)
                         Wrap(
@@ -1082,9 +1107,9 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                             );
                           }).toList(),
                         ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // Stats
                       Row(
                         children: [
@@ -1121,14 +1146,16 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
                   ),
                 ),
               ),
-              
+
               // Page indicator for multiple images
-              if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.length > 1)
+              if (marketplaceVideo.isMultipleImages &&
+                  marketplaceVideo.imageUrls.length > 1)
                 Positioned(
                   top: 16,
                   right: 16,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(12),
@@ -1149,17 +1176,18 @@ class _MyListingScreenState extends ConsumerState<MyListingScreen>
     );
   }
 
-  Widget _buildStatChip(IconData icon, String value, ModernThemeExtension modernTheme, {bool isOverlay = false}) {
+  Widget _buildStatChip(
+      IconData icon, String value, ModernThemeExtension modernTheme,
+      {bool isOverlay = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isOverlay 
+        color: isOverlay
             ? Colors.white.withOpacity(0.2)
             : modernTheme.backgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: isOverlay 
-            ? Border.all(color: Colors.white.withOpacity(0.3))
-            : null,
+        border:
+            isOverlay ? Border.all(color: Colors.white.withOpacity(0.3)) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

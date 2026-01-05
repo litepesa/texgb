@@ -271,7 +271,9 @@ class PostCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasUnlocked ? 'Premium Content (Unlocked)' : 'Premium Content',
+                  hasUnlocked
+                      ? 'Premium Content (Unlocked)'
+                      : 'Premium Content',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.amber,
@@ -317,7 +319,8 @@ class PostCard extends ConsumerWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.amber,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text('Unlock'),
             ),
@@ -339,7 +342,8 @@ class PostCard extends ConsumerWidget {
             onPressed: () => _toggleLike(ref),
             icon: Icon(
               isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-              color: isLiked ? Theme.of(context).primaryColor : Colors.grey[600],
+              color:
+                  isLiked ? Theme.of(context).primaryColor : Colors.grey[600],
             ),
           ),
           Text(

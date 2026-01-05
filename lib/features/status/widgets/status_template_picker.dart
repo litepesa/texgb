@@ -80,9 +80,11 @@ class _StatusTemplatePickerState extends State<StatusTemplatePicker>
           TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+            labelColor:
+                modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
-            indicatorColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+            indicatorColor:
+                modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             tabs: StatusTemplates.categories
                 .map((category) => Tab(text: category))
                 .toList(),
@@ -139,7 +141,9 @@ class _TemplateCard extends StatelessWidget {
         height: 120,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: template.background.colors.map((hex) => _hexToColor(hex)).toList(),
+            colors: template.background.colors
+                .map((hex) => _hexToColor(hex))
+                .toList(),
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

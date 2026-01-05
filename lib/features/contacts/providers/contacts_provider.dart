@@ -74,7 +74,8 @@ class ContactsState {
       hasPermission: hasPermission ?? this.hasPermission,
       syncVersion: syncVersion ?? this.syncVersion,
       contactsMap: contactsMap ?? this.contactsMap,
-      backgroundSyncAvailable: backgroundSyncAvailable ?? this.backgroundSyncAvailable,
+      backgroundSyncAvailable:
+          backgroundSyncAvailable ?? this.backgroundSyncAvailable,
     );
   }
 
@@ -103,19 +104,19 @@ enum SyncStatus {
 @riverpod
 class ContactsNotifier extends _$ContactsNotifier {
   late ContactsRepository _contactsRepository;
-  
+
   @override
   FutureOr<ContactsState> build() async {
     _contactsRepository = ref.read(contactsRepositoryProvider);
-    
+
     // Initialize with empty state
     final initialState = const ContactsState(
       syncStatus: SyncStatus.unknown,
     );
-    
+
     // Check permissions first
     final hasPermission = await _checkPermissions();
-    
+
     if (!hasPermission) {
       return initialState.copyWith(
         syncStatus: SyncStatus.permissionDenied,
@@ -123,7 +124,7 @@ class ContactsNotifier extends _$ContactsNotifier {
         error: 'Contacts permission required',
       );
     }
-    
+
     // Try to load cached contacts first
     return _loadCachedContacts(initialState.copyWith(hasPermission: true));
   }
@@ -151,7 +152,7 @@ class ContactsNotifier extends _$ContactsNotifier {
       // Check if we need to sync based on time threshold
       final syncNeeded = await _contactsRepository.isSyncNeeded();
       final cachedData = await _contactsRepository.loadContactsFromStorage();
-      
+
       if (cachedData == null) {
         // No cached data, we need a full sync
         return currentState.copyWith(
@@ -159,7 +160,7 @@ class ContactsNotifier extends _$ContactsNotifier {
           backgroundSyncAvailable: true,
         );
       }
-      
+
       // Determine sync status
       final syncStatus = syncNeeded ? SyncStatus.stale : SyncStatus.upToDate;
 
@@ -192,14 +193,15 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Enhanced device contacts loading with caching
   Future<void> loadDeviceContacts({bool useCache = true}) async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
     ));
 
     try {
-      final contacts = await _contactsRepository.getDeviceContacts(useCache: useCache);
+      final contacts =
+          await _contactsRepository.getDeviceContacts(useCache: useCache);
       state = AsyncValue.data(state.value!.copyWith(
         deviceContacts: contacts,
         isLoading: false,
@@ -232,24 +234,26 @@ class ContactsNotifier extends _$ContactsNotifier {
     bool isBackground = false,
   }) async {
     if (!state.hasValue) return;
-    
+
     // Don't sync if no permission
     if (!state.value!.hasPermission) {
       await requestPermission();
       return;
     }
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       syncInProgress: true,
       error: null,
-      syncStatus: isBackground ? SyncStatus.backgroundSyncing : SyncStatus.pending,
+      syncStatus:
+          isBackground ? SyncStatus.backgroundSyncing : SyncStatus.pending,
     ));
 
     try {
       // Load device contacts if not already loaded or if forced
       List<Contact> deviceContacts = state.value!.deviceContacts;
       if (deviceContacts.isEmpty || forceSync) {
-        deviceContacts = await _contactsRepository.getDeviceContacts(useCache: !forceSync);
+        deviceContacts =
+            await _contactsRepository.getDeviceContacts(useCache: !forceSync);
         state = AsyncValue.data(state.value!.copyWith(
           deviceContacts: deviceContacts,
         ));
@@ -262,25 +266,26 @@ class ContactsNotifier extends _$ContactsNotifier {
       }
 
       // Check if we need to sync
-      final syncNeeded = forceSync || 
-                         state.value!.syncStatus == SyncStatus.stale || 
-                         state.value!.syncStatus == SyncStatus.neverSynced ||
-                         state.value!.syncStatus == SyncStatus.failed;
-      
+      final syncNeeded = forceSync ||
+          state.value!.syncStatus == SyncStatus.stale ||
+          state.value!.syncStatus == SyncStatus.neverSynced ||
+          state.value!.syncStatus == SyncStatus.failed;
+
       // If no sync needed and not forced, use cached data
-      if (!syncNeeded && !forceSync && 
-          state.value!.registeredContacts.isNotEmpty && 
+      if (!syncNeeded &&
+          !forceSync &&
+          state.value!.registeredContacts.isNotEmpty &&
           state.value!.lastSyncTime != null) {
-        
-        debugPrint('Using cached contacts data from ${state.value!.lastSyncTime}');
-        
+        debugPrint(
+            'Using cached contacts data from ${state.value!.lastSyncTime}');
+
         state = AsyncValue.data(state.value!.copyWith(
           syncInProgress: false,
           syncStatus: SyncStatus.upToDate,
           isSuccessful: true,
           backgroundSyncAvailable: false,
         ));
-        
+
         return;
       }
 
@@ -293,8 +298,7 @@ class ContactsNotifier extends _$ContactsNotifier {
 
       // Create contacts map for efficient lookups (using user.uid as key)
       final contactsMap = {
-        for (var contact in result.registeredContacts)
-          contact.user.uid: contact
+        for (var contact in result.registeredContacts) contact.user.uid: contact
       };
 
       // Update state with results
@@ -329,15 +333,15 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Background sync method for better UX
   Future<void> performBackgroundSync() async {
     if (!state.hasValue || !state.value!.hasPermission) return;
-    
+
     try {
       final authState = ref.read(authenticationProvider).value;
       if (authState?.currentUser == null) return;
-      
+
       final success = await _contactsRepository.performBackgroundSync(
         currentUser: authState!.currentUser!,
       );
-      
+
       if (success) {
         // Reload the cached data
         final updatedState = await _loadCachedContacts(state.value!);
@@ -351,7 +355,7 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Request permissions
   Future<void> requestPermission() async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
@@ -359,14 +363,14 @@ class ContactsNotifier extends _$ContactsNotifier {
 
     try {
       final hasPermission = await _checkPermissions();
-      
+
       if (hasPermission) {
         state = AsyncValue.data(state.value!.copyWith(
           hasPermission: true,
           isLoading: false,
           syncStatus: SyncStatus.unknown,
         ));
-        
+
         // Auto-load contacts after permission granted
         await syncContacts();
       } else {
@@ -388,16 +392,16 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Enhanced sync status checking
   Future<bool> checkSyncStatus() async {
     if (!state.hasValue) return true;
-    
+
     try {
       final syncNeeded = await _contactsRepository.isSyncNeeded();
-      
+
       // Update sync status based on check
       state = AsyncValue.data(state.value!.copyWith(
         syncStatus: syncNeeded ? SyncStatus.stale : SyncStatus.upToDate,
         backgroundSyncAvailable: syncNeeded,
       ));
-      
+
       return syncNeeded;
     } catch (e) {
       debugPrint('Error checking sync status: $e');
@@ -416,7 +420,9 @@ class ContactsNotifier extends _$ContactsNotifier {
 
     try {
       // Use the authentication provider's follow user method instead
-      await ref.read(authenticationProvider.notifier).followUser(contactUser.uid);
+      await ref
+          .read(authenticationProvider.notifier)
+          .followUser(contactUser.uid);
 
       // Create SyncedContact with local name (or use registered name as fallback)
       final syncedContact = SyncedContact(
@@ -425,13 +431,16 @@ class ContactsNotifier extends _$ContactsNotifier {
       );
 
       // Optimistic update - add to local state immediately
-      final updatedContacts = List<SyncedContact>.from(state.value!.registeredContacts);
-      if (!updatedContacts.any((contact) => contact.user.uid == contactUser.uid)) {
+      final updatedContacts =
+          List<SyncedContact>.from(state.value!.registeredContacts);
+      if (!updatedContacts
+          .any((contact) => contact.user.uid == contactUser.uid)) {
         updatedContacts.add(syncedContact);
       }
 
       // Update contacts map
-      final updatedMap = Map<String, SyncedContact>.from(state.value!.contactsMap);
+      final updatedMap =
+          Map<String, SyncedContact>.from(state.value!.contactsMap);
       updatedMap[contactUser.uid] = syncedContact;
 
       state = AsyncValue.data(state.value!.copyWith(
@@ -467,13 +476,17 @@ class ContactsNotifier extends _$ContactsNotifier {
 
     try {
       // Use the authentication provider's unfollow user method
-      await ref.read(authenticationProvider.notifier).followUser(contactUser.uid);
+      await ref
+          .read(authenticationProvider.notifier)
+          .followUser(contactUser.uid);
 
       // Optimistic update - remove from local state immediately
-      final updatedContacts = List<SyncedContact>.from(state.value!.registeredContacts)
-        ..removeWhere((contact) => contact.user.uid == contactUser.uid);
+      final updatedContacts =
+          List<SyncedContact>.from(state.value!.registeredContacts)
+            ..removeWhere((contact) => contact.user.uid == contactUser.uid);
 
-      final updatedMap = Map<String, SyncedContact>.from(state.value!.contactsMap);
+      final updatedMap =
+          Map<String, SyncedContact>.from(state.value!.contactsMap);
       updatedMap.remove(contactUser.uid);
 
       state = AsyncValue.data(state.value!.copyWith(
@@ -511,16 +524,20 @@ class ContactsNotifier extends _$ContactsNotifier {
       await _contactsRepository.blockContact(contactUser.uid);
 
       // Update blocked contacts list
-      final updatedBlockedContacts = List<UserModel>.from(state.value!.blockedContacts);
-      if (!updatedBlockedContacts.any((contact) => contact.uid == contactUser.uid)) {
+      final updatedBlockedContacts =
+          List<UserModel>.from(state.value!.blockedContacts);
+      if (!updatedBlockedContacts
+          .any((contact) => contact.uid == contactUser.uid)) {
         updatedBlockedContacts.add(contactUser);
       }
 
       // Remove from regular contacts if present
-      final updatedContacts = List<SyncedContact>.from(state.value!.registeredContacts)
-        ..removeWhere((contact) => contact.user.uid == contactUser.uid);
+      final updatedContacts =
+          List<SyncedContact>.from(state.value!.registeredContacts)
+            ..removeWhere((contact) => contact.user.uid == contactUser.uid);
 
-      final updatedMap = Map<String, SyncedContact>.from(state.value!.contactsMap);
+      final updatedMap =
+          Map<String, SyncedContact>.from(state.value!.contactsMap);
       updatedMap.remove(contactUser.uid);
 
       state = AsyncValue.data(state.value!.copyWith(
@@ -546,7 +563,7 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Enhanced contact unblocking
   Future<void> unblockContact(UserModel contactUser) async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
@@ -557,8 +574,9 @@ class ContactsNotifier extends _$ContactsNotifier {
       await _contactsRepository.unblockContact(contactUser.uid);
 
       // Remove from blocked contacts
-      final updatedBlockedContacts = List<UserModel>.from(state.value!.blockedContacts)
-        ..removeWhere((contact) => contact.uid == contactUser.uid);
+      final updatedBlockedContacts =
+          List<UserModel>.from(state.value!.blockedContacts)
+            ..removeWhere((contact) => contact.uid == contactUser.uid);
 
       state = AsyncValue.data(state.value!.copyWith(
         blockedContacts: updatedBlockedContacts,
@@ -581,7 +599,7 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Enhanced blocked contacts loading
   Future<void> loadBlockedContacts() async {
     if (!state.hasValue) return;
-    
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
@@ -639,10 +657,11 @@ class ContactsNotifier extends _$ContactsNotifier {
     if (query.isEmpty) return state.value!.registeredContacts;
 
     final lowerQuery = query.toLowerCase();
-    return state.value!.registeredContacts.where((contact) =>
-      contact.displayName.toLowerCase().contains(lowerQuery) ||
-      contact.user.phoneNumber.toLowerCase().contains(lowerQuery)
-    ).toList();
+    return state.value!.registeredContacts
+        .where((contact) =>
+            contact.displayName.toLowerCase().contains(lowerQuery) ||
+            contact.user.phoneNumber.toLowerCase().contains(lowerQuery))
+        .toList();
   }
 
   // Check if contact exists
@@ -655,13 +674,13 @@ class ContactsNotifier extends _$ContactsNotifier {
   Future<void> clearCache() async {
     try {
       await _contactsRepository.clearCache();
-      
+
       // Reset state to initial
       state = AsyncValue.data(const ContactsState(
         syncStatus: SyncStatus.neverSynced,
         hasPermission: true,
       ));
-      
+
       debugPrint('Contacts cache cleared');
     } catch (e) {
       debugPrint('Error clearing cache: $e');
@@ -671,16 +690,17 @@ class ContactsNotifier extends _$ContactsNotifier {
   // Helper method to update local storage
   Future<void> _updateLocalStorage() async {
     if (!state.hasValue || !state.value!.isSuccessful) return;
-    
+
     try {
       final result = ContactSyncResult(
         registeredContacts: state.value!.registeredContacts,
         unregisteredContacts: state.value!.unregisteredContacts,
         syncTime: state.value!.lastSyncTime ?? DateTime.now(),
-        syncVersion: state.value!.syncVersion ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        syncVersion: state.value!.syncVersion ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         contactHashes: {},
       );
-      
+
       await _contactsRepository.saveContactsToStorage(result);
     } catch (e) {
       debugPrint('Error updating local storage: $e');
@@ -689,14 +709,14 @@ class ContactsNotifier extends _$ContactsNotifier {
 
   // Enhanced invite message generation
   String generateInviteMessage({String? customMessage}) {
-    return customMessage ?? 
-           'Hey! I\'m using TexGB to chat. It\'s a secure messaging app with great features. Download it here: [App Store Link]';
+    return customMessage ??
+        'Hey! I\'m using TexGB to chat. It\'s a secure messaging app with great features. Download it here: [App Store Link]';
   }
 
   // Get sync status info for UI
   Map<String, dynamic> getSyncInfo() {
     if (!state.hasValue) return {};
-    
+
     final currentState = state.value!;
     return {
       'lastSyncTime': currentState.lastSyncTime,
@@ -729,7 +749,8 @@ List<SyncedContact> registeredContacts(RegisteredContactsRef ref) {
 @riverpod
 List<UserModel> registeredContactUsers(RegisteredContactUsersRef ref) {
   final contactsState = ref.watch(contactsNotifierProvider);
-  return contactsState.value?.registeredContacts.map((c) => c.user).toList() ?? [];
+  return contactsState.value?.registeredContacts.map((c) => c.user).toList() ??
+      [];
 }
 
 // Convenience provider to get unregistered contacts
@@ -830,29 +851,34 @@ bool isContactBlocked(IsContactBlockedRef ref, String uid) {
 
 // Filtered contacts provider for search (uses displayName which is the local contact name)
 @riverpod
-List<SyncedContact> filteredRegisteredContacts(FilteredRegisteredContactsRef ref, String query) {
+List<SyncedContact> filteredRegisteredContacts(
+    FilteredRegisteredContactsRef ref, String query) {
   final contacts = ref.watch(registeredContactsProvider);
 
   if (query.isEmpty) return contacts;
 
   final lowerQuery = query.toLowerCase();
-  return contacts.where((contact) =>
-    contact.displayName.toLowerCase().contains(lowerQuery) ||
-    contact.user.phoneNumber.toLowerCase().contains(lowerQuery)
-  ).toList();
+  return contacts
+      .where((contact) =>
+          contact.displayName.toLowerCase().contains(lowerQuery) ||
+          contact.user.phoneNumber.toLowerCase().contains(lowerQuery))
+      .toList();
 }
 
 @riverpod
-List<Contact> filteredUnregisteredContacts(FilteredUnregisteredContactsRef ref, String query) {
+List<Contact> filteredUnregisteredContacts(
+    FilteredUnregisteredContactsRef ref, String query) {
   final contacts = ref.watch(unregisteredContactsProvider);
-  
+
   if (query.isEmpty) return contacts;
-  
+
   final lowerQuery = query.toLowerCase();
-  return contacts.where((contact) =>
-    contact.displayName.toLowerCase().contains(lowerQuery) ||
-    contact.phones.any((phone) => phone.number.toLowerCase().contains(lowerQuery))
-  ).toList();
+  return contacts
+      .where((contact) =>
+          contact.displayName.toLowerCase().contains(lowerQuery) ||
+          contact.phones
+              .any((phone) => phone.number.toLowerCase().contains(lowerQuery)))
+      .toList();
 }
 
 // Counts providers
@@ -878,9 +904,9 @@ int blockedContactsCount(BlockedContactsCountRef ref) {
 @riverpod
 Map<String, dynamic> contactsSyncInfo(ContactsSyncInfoRef ref) {
   final contactsState = ref.watch(contactsNotifierProvider);
-  
+
   if (contactsState.value == null) return {};
-  
+
   final state = contactsState.value!;
   return {
     'lastSyncTime': state.lastSyncTime,
@@ -905,7 +931,7 @@ Map<String, dynamic> contactsSyncInfo(ContactsSyncInfoRef ref) {
 class ContactsRepositoryException implements Exception {
   final String message;
   const ContactsRepositoryException(this.message);
-  
+
   @override
   String toString() => 'ContactsRepositoryException: $message';
 }
@@ -913,7 +939,7 @@ class ContactsRepositoryException implements Exception {
 // Permission related exceptions
 class ContactsPermissionException extends ContactsRepositoryException {
   const ContactsPermissionException(super.message);
-  
+
   @override
   String toString() => 'ContactsPermissionException: $message';
 }
@@ -921,7 +947,7 @@ class ContactsPermissionException extends ContactsRepositoryException {
 // Sync related exceptions
 class ContactsSyncException extends ContactsRepositoryException {
   const ContactsSyncException(super.message);
-  
+
   @override
   String toString() => 'ContactsSyncException: $message';
 }
@@ -929,7 +955,7 @@ class ContactsSyncException extends ContactsRepositoryException {
 // Network related exceptions
 class ContactsNetworkException extends ContactsRepositoryException {
   const ContactsNetworkException(super.message);
-  
+
   @override
   String toString() => 'ContactsNetworkException: $message';
 }
@@ -937,7 +963,7 @@ class ContactsNetworkException extends ContactsRepositoryException {
 // Cache related exceptions
 class ContactsCacheException extends ContactsRepositoryException {
   const ContactsCacheException(super.message);
-  
+
   @override
   String toString() => 'ContactsCacheException: $message';
 }
@@ -945,7 +971,7 @@ class ContactsCacheException extends ContactsRepositoryException {
 // Device contacts related exceptions
 class DeviceContactsException extends ContactsRepositoryException {
   const DeviceContactsException(super.message);
-  
+
   @override
   String toString() => 'DeviceContactsException: $message';
 }
@@ -953,7 +979,7 @@ class DeviceContactsException extends ContactsRepositoryException {
 // Search related exceptions
 class ContactsSearchException extends ContactsRepositoryException {
   const ContactsSearchException(super.message);
-  
+
   @override
   String toString() => 'ContactsSearchException: $message';
 }
@@ -961,7 +987,7 @@ class ContactsSearchException extends ContactsRepositoryException {
 // Block/Unblock related exceptions
 class ContactsBlockException extends ContactsRepositoryException {
   const ContactsBlockException(super.message);
-  
+
   @override
   String toString() => 'ContactsBlockException: $message';
 }

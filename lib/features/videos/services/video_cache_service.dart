@@ -14,16 +14,16 @@ class VideoCacheService {
 
   // Initialization state
   bool _isInitialized = false;
-  
+
   // Store the proxy port (default is 0, which auto-assigns)
   int _proxyPort = 45678; // Default port, will be set during init
-  
+
   // Track which videos are currently being precached
   final Set<String> _cachingVideos = {};
-  
+
   // Cache for converted local URIs
   final Map<String, Uri> _localUriCache = {};
-  
+
   // Track all cached video URLs for management
   final Set<String> _cachedVideoUrls = {};
 
@@ -60,7 +60,8 @@ class VideoCacheService {
       }
 
       _isInitialized = true;
-      debugPrint('VideoCacheService: Initialized successfully on port $_proxyPort');
+      debugPrint(
+          'VideoCacheService: Initialized successfully on port $_proxyPort');
     } catch (e) {
       debugPrint('VideoCacheService: Initialization failed - $e');
       rethrow;
@@ -71,7 +72,8 @@ class VideoCacheService {
   /// This enables caching through the local proxy server
   Uri getLocalUri(String videoUrl) {
     if (!_isInitialized) {
-      debugPrint('VideoCacheService: Warning - not initialized, returning original URL');
+      debugPrint(
+          'VideoCacheService: Warning - not initialized, returning original URL');
       return Uri.parse(videoUrl);
     }
 
@@ -83,16 +85,16 @@ class VideoCacheService {
     try {
       // Parse the URL string to Uri
       final uri = Uri.parse(videoUrl);
-      
+
       // Use the package's built-in extension method to convert to local proxy URI
       // This should handle the proxy port and URL format correctly
       final localUri = videoUrl.toLocalUri();
-      
+
       // Cache the conversion
       _localUriCache[videoUrl] = localUri;
-      
+
       debugPrint('VideoCacheService: Converted $videoUrl to $localUri');
-      
+
       return localUri;
     } catch (e) {
       debugPrint('VideoCacheService: Failed to convert URL - $e');
@@ -106,11 +108,13 @@ class VideoCacheService {
   /// Returns true if precaching started successfully
   Future<bool> precacheVideo(
     String videoUrl, {
-    int cacheSegments = 3, // Cache first 3 segments (6MB with default 2MB segments)
+    int cacheSegments =
+        3, // Cache first 3 segments (6MB with default 2MB segments)
     bool downloadImmediately = true,
   }) async {
     if (!_isInitialized) {
-      debugPrint('VideoCacheService: Not initialized. Call initialize() first.');
+      debugPrint(
+          'VideoCacheService: Not initialized. Call initialize() first.');
       return false;
     }
 
@@ -121,7 +125,7 @@ class VideoCacheService {
 
     try {
       _cachingVideos.add(videoUrl);
-      
+
       // Start silent background precaching - no progress tracking
       await VideoCaching.precache(
         videoUrl,
@@ -161,13 +165,13 @@ class VideoCacheService {
     // Process videos in chunks to avoid overwhelming the system
     for (var i = 0; i < videoUrls.length; i += maxConcurrent) {
       final chunk = videoUrls.skip(i).take(maxConcurrent).toList();
-      
+
       await Future.wait(
         chunk.map((url) => precacheVideo(
-          url,
-          cacheSegments: cacheSegmentsPerVideo,
-          downloadImmediately: false, // Queue for background download
-        )),
+              url,
+              cacheSegments: cacheSegmentsPerVideo,
+              downloadImmediately: false, // Queue for background download
+            )),
       );
     }
   }
@@ -203,7 +207,8 @@ class VideoCacheService {
 
     if (videosToPreload.isEmpty) return;
 
-    debugPrint('VideoCacheService: Intelligent preload - current: $currentIndex, preloading ${videosToPreload.length} videos');
+    debugPrint(
+        'VideoCacheService: Intelligent preload - current: $currentIndex, preloading ${videosToPreload.length} videos');
 
     // Preload in background
     await precacheMultiple(
@@ -234,7 +239,7 @@ class VideoCacheService {
     _cachingVideos.remove(videoUrl);
     _localUriCache.remove(videoUrl);
     _cachedVideoUrls.remove(videoUrl);
-    
+
     debugPrint('VideoCacheService: Cleared tracking for $videoUrl');
   }
 
@@ -243,7 +248,7 @@ class VideoCacheService {
     _cachingVideos.clear();
     _localUriCache.clear();
     _cachedVideoUrls.clear();
-    
+
     debugPrint('VideoCacheService: Cleared all cache tracking');
   }
 
@@ -262,7 +267,7 @@ class VideoCacheService {
     _cachingVideos.clear();
     _localUriCache.clear();
     _cachedVideoUrls.clear();
-    
+
     debugPrint('VideoCacheService: Disposed');
   }
 }
@@ -273,7 +278,7 @@ extension VideoCachingStringExtension on String {
   Uri toLocalCacheUri() {
     return VideoCacheService().getLocalUri(this);
   }
-  
+
   /// Precache this video URL
   Future<bool> precache({
     int cacheSegments = 2,

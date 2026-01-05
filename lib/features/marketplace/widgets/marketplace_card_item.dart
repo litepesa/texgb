@@ -33,7 +33,8 @@ class MarketplaceCardItem extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MarketplaceCardItem> createState() => _MarketplaceCardItemState();
+  ConsumerState<MarketplaceCardItem> createState() =>
+      _MarketplaceCardItemState();
 }
 
 class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
@@ -61,7 +62,8 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
     if (widget.item.videoUrl.isEmpty) return;
 
     try {
-      final cachedUri = MarketplaceCacheService().getLocalUri(widget.item.videoUrl);
+      final cachedUri =
+          MarketplaceCacheService().getLocalUri(widget.item.videoUrl);
       _videoController = VideoPlayerController.networkUrl(
         cachedUri,
         videoPlayerOptions: VideoPlayerOptions(
@@ -213,7 +215,8 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
             videoUrl: widget.item.videoUrl,
             thumbnailUrl: widget.item.thumbnailUrl.isNotEmpty
                 ? widget.item.thumbnailUrl
-                : (widget.item.isMultipleImages && widget.item.imageUrls.isNotEmpty
+                : (widget.item.isMultipleImages &&
+                        widget.item.imageUrls.isNotEmpty
                     ? widget.item.imageUrls.first
                     : ''),
             userName: widget.item.userName,
@@ -223,13 +226,15 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
 
           if (chatId != null && mounted) {
             final authNotifier = ref.read(authenticationProvider.notifier);
-            final listingOwner = await authNotifier.getUserById(widget.item.userId);
+            final listingOwner =
+                await authNotifier.getUserById(widget.item.userId);
 
-            final contact = listingOwner ?? UserModel.fromMap({
-              'uid': widget.item.userId,
-              'name': widget.item.userName,
-              'profileImage': widget.item.userImage,
-            });
+            final contact = listingOwner ??
+                UserModel.fromMap({
+                  'uid': widget.item.userId,
+                  'name': widget.item.userName,
+                  'profileImage': widget.item.userImage,
+                });
 
             if (mounted) {
               Navigator.of(context).push(
@@ -384,7 +389,9 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
                 child: Text(
                   widget.item.caption,
                   maxLines: _showFullCaption ? null : 3,
-                  overflow: _showFullCaption ? TextOverflow.visible : TextOverflow.ellipsis,
+                  overflow: _showFullCaption
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.black87,
@@ -427,12 +434,14 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
     final safePadding = MediaQuery.of(context).padding;
 
     // Reserve space for: header ~100, actions ~50, card margin 16, safe areas, bottom nav ~80
-    final otherElementsHeight = 166.0 + safePadding.top + safePadding.bottom + 80.0 + 38.0;
+    final otherElementsHeight =
+        166.0 + safePadding.top + safePadding.bottom + 80.0 + 38.0;
     final maxImageHeight = screenHeight - otherElementsHeight;
 
     // For images, use 4:3 aspect ratio (standard social media)
     final calculatedHeight = screenWidth * 0.75;
-    final imageHeight = calculatedHeight > maxImageHeight ? maxImageHeight : calculatedHeight;
+    final imageHeight =
+        calculatedHeight > maxImageHeight ? maxImageHeight : calculatedHeight;
 
     return ClipRect(
       child: SizedBox(
@@ -463,7 +472,8 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
                       return Container(
                         color: Colors.grey[300],
                         child: const Center(
-                          child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                          child: Icon(Icons.broken_image,
+                              size: 64, color: Colors.grey),
                         ),
                       );
                     },
@@ -507,7 +517,8 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
     final safePadding = MediaQuery.of(context).padding;
 
     // Reserve space for: header ~100, actions ~50, card margin 16, safe areas, bottom nav ~80
-    final otherElementsHeight = 166.0 + safePadding.top + safePadding.bottom + 80.0 + 38.0;
+    final otherElementsHeight =
+        166.0 + safePadding.top + safePadding.bottom + 80.0 + 38.0;
     final maxVideoHeight = screenHeight - otherElementsHeight;
 
     double videoHeight;
@@ -519,7 +530,9 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
         // Vertical video (TikTok-style 9:16 or similar)
         // Constrain to available space so full card is visible
         final calculatedHeight = screenWidth / aspectRatio;
-        videoHeight = calculatedHeight > maxVideoHeight ? maxVideoHeight : calculatedHeight;
+        videoHeight = calculatedHeight > maxVideoHeight
+            ? maxVideoHeight
+            : calculatedHeight;
       } else if (aspectRatio > 1.5) {
         // Horizontal video (landscape)
         // Use 16:9 aspect ratio
@@ -527,7 +540,9 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
       } else {
         // Square-ish video (1:1 or close)
         final calculatedHeight = screenWidth;
-        videoHeight = calculatedHeight > maxVideoHeight ? maxVideoHeight : calculatedHeight;
+        videoHeight = calculatedHeight > maxVideoHeight
+            ? maxVideoHeight
+            : calculatedHeight;
       }
     } else {
       // Default height while loading
@@ -559,7 +574,8 @@ class _MarketplaceCardItemState extends ConsumerState<MarketplaceCardItem> {
                       ),
                     ),
             ),
-            if (_isVideoInitialized && !(_videoController?.value.isPlaying ?? false))
+            if (_isVideoInitialized &&
+                !(_videoController?.value.isPlaying ?? false))
               Positioned.fill(
                 child: Container(
                   color: Colors.black26,

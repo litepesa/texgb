@@ -23,7 +23,8 @@ class UsersListScreen extends ConsumerStatefulWidget {
   ConsumerState<UsersListScreen> createState() => _UsersListScreenState();
 }
 
-class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTickerProviderStateMixin {
+class _UsersListScreenState extends ConsumerState<UsersListScreen>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   String _selectedCategory = 'All';
   bool _isInitialized = false;
@@ -32,7 +33,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   bool _showMarketplaceBanner = true;
   late AnimationController _bannerAnimationController;
   late Animation<double> _bannerAnimation;
-  
+
   final List<String> categories = ['All', 'Following', 'Live'];
 
   @override
@@ -46,7 +47,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
       parent: _bannerAnimationController,
       curve: Curves.elasticOut,
     );
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
       _checkBannerStatus();
@@ -83,13 +84,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   }
 
   ModernThemeExtension _getSafeTheme(BuildContext context) {
-    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+    return Theme.of(context).extension<ModernThemeExtension>() ??
         ModernThemeExtension(
           primaryColor: const Color(0xFFFE2C55),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          textColor:
+              Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor:
+              Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
           dividerColor: Theme.of(context).dividerColor,
           textTertiaryColor: Colors.grey[400],
           surfaceVariantColor: Colors.grey[100],
@@ -121,7 +124,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
 
     try {
       await ref.read(authenticationProvider.notifier).loadUsers();
-      
+
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -165,14 +168,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
 
     switch (_selectedCategory) {
       case 'Following':
-        filteredList = users
-            .where((user) => followedUsers.contains(user.id))
-            .toList();
+        filteredList =
+            users.where((user) => followedUsers.contains(user.id)).toList();
         break;
       case 'Live':
-        filteredList = users
-            .where((user) => user.isLive)
-            .toList();
+        filteredList = users.where((user) => user.isLive).toList();
         break;
       default:
         filteredList = users;
@@ -188,7 +188,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     if (marketplaceVideos.isNotEmpty) {
       // Filter out users who have no marketplace videos
       filteredList.removeWhere((user) {
-        final userMarketplaceVideos = marketplaceVideos.where((video) => video.userId == user.id);
+        final userMarketplaceVideos =
+            marketplaceVideos.where((video) => video.userId == user.id);
         return userMarketplaceVideos.isEmpty;
       });
     }
@@ -218,7 +219,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     try {
       HapticFeedback.lightImpact();
 
-      final userVideos = ref.read(marketplaceVideosProvider).where((video) => video.userId == user.id).toList();
+      final userVideos = ref
+          .read(marketplaceVideosProvider)
+          .where((video) => video.userId == user.id)
+          .toList();
 
       if (userVideos.isNotEmpty) {
         // Navigate to single marketplace video with user context
@@ -251,7 +255,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     final theme = _getSafeTheme(context);
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
@@ -262,17 +266,20 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                 // Enhanced Custom App Bar
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   decoration: BoxDecoration(
                     color: theme.surfaceColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                      color: (theme.dividerColor ?? Colors.grey[300]!)
+                          .withOpacity(0.15),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                        color: (theme.primaryColor ?? const Color(0xFFFE2C55))
+                            .withOpacity(0.08),
                         blurRadius: 20,
                         offset: const Offset(0, 4),
                         spreadRadius: -4,
@@ -300,18 +307,21 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                              color: (theme.primaryColor ??
+                                      const Color(0xFFFE2C55))
+                                  .withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               CupertinoIcons.gear,
-                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                              color:
+                                  theme.primaryColor ?? const Color(0xFFFE2C55),
                               size: 20,
                             ),
                           ),
                         ),
                       ),
-                      
+
                       Expanded(
                         child: Center(
                           child: Material(
@@ -321,7 +331,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                               onTap: _navigateToMarketplace,
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 32, vertical: 10),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
@@ -336,7 +347,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFFE2C55).withOpacity(0.4),
+                                      color: const Color(0xFFFE2C55)
+                                          .withOpacity(0.4),
                                       blurRadius: 12,
                                       offset: const Offset(0, 4),
                                     ),
@@ -380,7 +392,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           ),
                         ),
                       ),
-                      
+
                       // Search Button
                       Material(
                         color: Colors.transparent,
@@ -397,12 +409,15 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                              color: (theme.primaryColor ??
+                                      const Color(0xFFFE2C55))
+                                  .withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               Icons.search_rounded,
-                              color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                              color:
+                                  theme.primaryColor ?? const Color(0xFFFE2C55),
                               size: 20,
                             ),
                           ),
@@ -411,21 +426,21 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                     ],
                   ),
                 ),
-                
+
                 // Users List with integrated filter tabs
                 Expanded(
                   child: Container(
                     color: theme.surfaceColor,
-                    child: !_isInitialized 
-                      ? _buildInitialLoadingView(theme)
-                      : _error != null
-                          ? _buildErrorView(theme)
-                          : _buildUsersListWithTabs(),
+                    child: !_isInitialized
+                        ? _buildInitialLoadingView(theme)
+                        : _error != null
+                            ? _buildErrorView(theme)
+                            : _buildUsersListWithTabs(),
                   ),
                 ),
               ],
             ),
-            
+
             // Eye-catching Marketplace Banner
             if (_showMarketplaceBanner)
               Positioned(
@@ -514,7 +529,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                     ),
                   ),
                 ),
-                
+
                 // Banner content
                 Padding(
                   padding: const EdgeInsets.only(right: 24),
@@ -549,9 +564,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           );
                         },
                       ),
-                      
+
                       const SizedBox(width: 16),
-                      
+
                       // Text content
                       Expanded(
                         child: Column(
@@ -570,7 +585,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.3),
                                     borderRadius: BorderRadius.circular(8),
@@ -599,7 +615,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                             ),
                             const SizedBox(height: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
@@ -617,7 +634,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   Text(
                                     'Check Out',
                                     style: TextStyle(
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                      color: theme.primaryColor ??
+                                          const Color(0xFFFE2C55),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -625,7 +643,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   const SizedBox(width: 4),
                                   Icon(
                                     Icons.arrow_forward,
-                                    color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                    color: theme.primaryColor ??
+                                        const Color(0xFFFE2C55),
                                     size: 14,
                                   ),
                                 ],
@@ -795,9 +814,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                               context.push(RoutePaths.createProfile);
                             },
                             icon: const Icon(Icons.person_add),
-                            label: const Text('Join WemaChat'),
+                            label: const Text('Join WemaShop'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.primaryColor ?? const Color(0xFFFE2C55),
+                              backgroundColor:
+                                  theme.primaryColor ?? const Color(0xFFFE2C55),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -861,7 +881,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
         ),
         boxShadow: [
           BoxShadow(
-            color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+            color: (theme.primaryColor ?? const Color(0xFFFE2C55))
+                .withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: -4,
@@ -886,15 +907,19 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: isSelected ? Border(
-                    bottom: BorderSide(
-                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
-                      width: 3,
-                    ),
-                  ) : null,
+                  border: isSelected
+                      ? Border(
+                          bottom: BorderSide(
+                            color:
+                                theme.primaryColor ?? const Color(0xFFFE2C55),
+                            width: 3,
+                          ),
+                        )
+                      : null,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -904,16 +929,18 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: isSelected 
-                          ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
-                          : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                        color: isSelected
+                            ? (theme.primaryColor ?? const Color(0xFFFE2C55))
+                                .withOpacity(0.15)
+                            : (theme.primaryColor ?? const Color(0xFFFE2C55))
+                                .withOpacity(0.08),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Icon(
                         _getCategoryIcon(category),
-                        color: isSelected 
-                          ? theme.primaryColor ?? const Color(0xFFFE2C55)
-                          : theme.textSecondaryColor ?? Colors.grey[600],
+                        color: isSelected
+                            ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                            : theme.textSecondaryColor ?? Colors.grey[600],
                         size: 14,
                       ),
                     ),
@@ -922,12 +949,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
-                          color: isSelected 
-                            ? theme.primaryColor ?? const Color(0xFFFE2C55)
-                            : theme.textSecondaryColor ?? Colors.grey[600],
-                          fontWeight: isSelected 
-                            ? FontWeight.w700 
-                            : FontWeight.w500,
+                          color: isSelected
+                              ? theme.primaryColor ?? const Color(0xFFFE2C55)
+                              : theme.textSecondaryColor ?? Colors.grey[600],
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
                           fontSize: 12,
                           letterSpacing: 0.1,
                         ),
@@ -977,7 +1003,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
       case 'Live':
         return 'No one is currently live streaming';
       default:
-        return 'Users will appear here when they join WemaChat';
+        return 'Users will appear here when they join WemaShop';
     }
   }
 
@@ -996,8 +1022,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
           color: user.isLive
               ? kChineseRed.withOpacity(0.4)
               : user.isVerified
-                ? Colors.blue.withOpacity(0.3)
-                : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                  ? Colors.blue.withOpacity(0.3)
+                  : (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
           width: user.isLive ? 2 : (user.isVerified ? 1.5 : 1),
         ),
         boxShadow: [
@@ -1005,8 +1031,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
             color: user.isLive
                 ? kChineseRed.withOpacity(0.2)
                 : user.isVerified
-                  ? Colors.blue.withOpacity(0.12)
-                  : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                    ? Colors.blue.withOpacity(0.12)
+                    : (theme.primaryColor ?? const Color(0xFFFE2C55))
+                        .withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: -4,
@@ -1064,16 +1091,23 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         shape: BoxShape.circle,
                         gradient: user.isLive
                             ? LinearGradient(
-                                colors: [kChineseRed, kChineseRed.withOpacity(0.7)],
+                                colors: [
+                                  kChineseRed,
+                                  kChineseRed.withOpacity(0.7)
+                                ],
                               )
                             : user.isVerified
                                 ? LinearGradient(
-                                    colors: [Colors.blue.shade300, Colors.indigo.shade400],
+                                    colors: [
+                                      Colors.blue.shade300,
+                                      Colors.indigo.shade400
+                                    ],
                                   )
                                 : null,
                         border: !user.isLive && !user.isVerified
                             ? Border.all(
-                                color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                                color: (theme.dividerColor ?? Colors.grey[300]!)
+                                    .withOpacity(0.2),
                                 width: 1,
                               )
                             : null,
@@ -1083,7 +1117,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                     ? kChineseRed
                                     : user.isVerified
                                         ? Colors.blue
-                                        : (theme.primaryColor ?? const Color(0xFFFE2C55)))
+                                        : (theme.primaryColor ??
+                                            const Color(0xFFFE2C55)))
                                 .withOpacity(0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -1100,27 +1135,36 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
                                     decoration: BoxDecoration(
-                                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                                      color: (theme.primaryColor ??
+                                              const Color(0xFFFE2C55))
+                                          .withOpacity(0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       Icons.person,
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                      color: theme.primaryColor ??
+                                          const Color(0xFFFE2C55),
                                       size: 22,
                                     ),
                                   ),
-                                  errorWidget: (context, url, error) => Container(
+                                  errorWidget: (context, url, error) =>
+                                      Container(
                                     decoration: BoxDecoration(
-                                      color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                      color: (theme.primaryColor ??
+                                              const Color(0xFFFE2C55))
+                                          .withOpacity(0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
                                       child: Text(
-                                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                        user.name.isNotEmpty
+                                            ? user.name[0].toUpperCase()
+                                            : 'U',
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
-                                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                          color: theme.primaryColor ??
+                                              const Color(0xFFFE2C55),
                                         ),
                                       ),
                                     ),
@@ -1128,16 +1172,21 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                 )
                               : Container(
                                   decoration: BoxDecoration(
-                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                    color: (theme.primaryColor ??
+                                            const Color(0xFFFE2C55))
+                                        .withOpacity(0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
                                     child: Text(
-                                      user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                      user.name.isNotEmpty
+                                          ? user.name[0].toUpperCase()
+                                          : 'U',
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w700,
-                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                        color: theme.primaryColor ??
+                                            const Color(0xFFFE2C55),
                                       ),
                                     ),
                                   ),
@@ -1156,7 +1205,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           decoration: BoxDecoration(
                             color: Colors.blue,
                             shape: BoxShape.circle,
-                            border: Border.all(color: theme.surfaceColor ?? Colors.white, width: 2),
+                            border: Border.all(
+                                color: theme.surfaceColor ?? Colors.white,
+                                width: 2),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.blue.withOpacity(0.3),
@@ -1183,7 +1234,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           decoration: BoxDecoration(
                             color: kChineseRed,
                             shape: BoxShape.circle,
-                            border: Border.all(color: theme.surfaceColor ?? Colors.white, width: 2),
+                            border: Border.all(
+                                color: theme.surfaceColor ?? Colors.white,
+                                width: 2),
                             boxShadow: [
                               BoxShadow(
                                 color: kChineseRed.withOpacity(0.5),
@@ -1225,7 +1278,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           if (user.isLive) ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: kChineseRed,
                                 borderRadius: BorderRadius.circular(8),
@@ -1292,21 +1346,31 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                               child: InkWell(
                                 onTap: () {
                                   HapticFeedback.lightImpact();
-                                  ref.read(authenticationProvider.notifier).followUser(user.id);
+                                  ref
+                                      .read(authenticationProvider.notifier)
+                                      .followUser(user.id);
                                 },
                                 borderRadius: BorderRadius.circular(6),
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: isFollowing
-                                        ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15)
-                                        : (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.9),
+                                        ? (theme.primaryColor ??
+                                                const Color(0xFFFE2C55))
+                                            .withOpacity(0.15)
+                                        : (theme.primaryColor ??
+                                                const Color(0xFFFE2C55))
+                                            .withOpacity(0.9),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
                                       color: isFollowing
-                                          ? (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.3)
-                                          : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                                          ? (theme.primaryColor ??
+                                                  const Color(0xFFFE2C55))
+                                              .withOpacity(0.3)
+                                          : (theme.primaryColor ??
+                                              const Color(0xFFFE2C55)),
                                       width: 1,
                                     ),
                                   ),
@@ -1314,10 +1378,13 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isFollowing ? Icons.check_rounded : Icons.add_rounded,
+                                        isFollowing
+                                            ? Icons.check_rounded
+                                            : Icons.add_rounded,
                                         size: 10,
                                         color: isFollowing
-                                            ? (theme.primaryColor ?? const Color(0xFFFE2C55))
+                                            ? (theme.primaryColor ??
+                                                const Color(0xFFFE2C55))
                                             : Colors.white,
                                       ),
                                       const SizedBox(width: 3),
@@ -1326,7 +1393,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: isFollowing
-                                              ? (theme.primaryColor ?? const Color(0xFFFE2C55))
+                                              ? (theme.primaryColor ??
+                                                  const Color(0xFFFE2C55))
                                               : Colors.white,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -1345,7 +1413,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                         children: [
                           if (user.isVerified) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.blue,
                                 borderRadius: BorderRadius.circular(6),
@@ -1382,9 +1451,12 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                           ],
                           Flexible(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.08),
+                                color: (theme.primaryColor ??
+                                        const Color(0xFFFE2C55))
+                                    .withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Row(
@@ -1393,17 +1465,19 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
                                   Icon(
                                     Icons.schedule_rounded,
                                     size: 10,
-                                    color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                    color: theme.primaryColor ??
+                                        const Color(0xFFFE2C55),
                                   ),
                                   const SizedBox(width: 3),
                                   Flexible(
                                     child: Text(
                                       user.lastPostAt != null
-                                        ? 'last Post ${user.lastPostTimeAgo}'
-                                        : 'No posts',
+                                          ? 'last Post ${user.lastPostTimeAgo}'
+                                          : 'No posts',
                                       style: TextStyle(
                                         fontSize: 10,
-                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                        color: theme.primaryColor ??
+                                            const Color(0xFFFE2C55),
                                         fontWeight: FontWeight.w600,
                                       ),
                                       overflow: TextOverflow.ellipsis,
@@ -1435,7 +1509,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> with SingleTi
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
+        color:
+            (theme.surfaceVariantColor ?? Colors.grey[100]!).withOpacity(0.7),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
@@ -1485,13 +1560,15 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
   String get searchFieldLabel => 'Search users...';
 
   ModernThemeExtension _getSafeTheme(BuildContext context) {
-    return Theme.of(context).extension<ModernThemeExtension>() ?? 
+    return Theme.of(context).extension<ModernThemeExtension>() ??
         ModernThemeExtension(
           primaryColor: const Color(0xFFFE2C55),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           surfaceColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-          textSecondaryColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
+          textColor:
+              Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
+          textSecondaryColor:
+              Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey[600],
           dividerColor: Theme.of(context).dividerColor,
           textTertiaryColor: Colors.grey[400],
           surfaceVariantColor: Colors.grey[100],
@@ -1545,7 +1622,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
   @override
   Widget buildSuggestions(BuildContext context) {
     final theme = _getSafeTheme(context);
-    
+
     if (query.isEmpty) {
       return Center(
         child: Column(
@@ -1567,7 +1644,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Find sellers and businesses on WemaChat',
+              'Find sellers and businesses on WemaShop',
               style: TextStyle(
                 fontSize: 14,
                 color: theme.textSecondaryColor ?? Colors.grey[600],
@@ -1664,7 +1741,7 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
               final user = filteredUsers[index];
               final followedUsers = ref.watch(followedUsersProvider);
               final isFollowing = followedUsers.contains(user.id);
-              
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
@@ -1672,7 +1749,8 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                   color: theme.surfaceColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                    color: (theme.dividerColor ?? Colors.grey[300]!)
+                        .withOpacity(0.2),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -1696,7 +1774,8 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.2),
+                            color: (theme.dividerColor ?? Colors.grey[300]!)
+                                .withOpacity(0.2),
                           ),
                         ),
                         child: ClipRRect(
@@ -1706,36 +1785,50 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                   imageUrl: user.profileImage,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(
-                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.1),
+                                    color: (theme.primaryColor ??
+                                            const Color(0xFFFE2C55))
+                                        .withOpacity(0.1),
                                     child: Icon(
                                       Icons.person,
-                                      color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                      color: theme.primaryColor ??
+                                          const Color(0xFFFE2C55),
                                       size: 24,
                                     ),
                                   ),
-                                  errorWidget: (context, url, error) => Container(
-                                    color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                  errorWidget: (context, url, error) =>
+                                      Container(
+                                    color: (theme.primaryColor ??
+                                            const Color(0xFFFE2C55))
+                                        .withOpacity(0.15),
                                     child: Center(
                                       child: Text(
-                                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                        user.name.isNotEmpty
+                                            ? user.name[0].toUpperCase()
+                                            : 'U',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                          color: theme.primaryColor ??
+                                              const Color(0xFFFE2C55),
                                         ),
                                       ),
                                     ),
                                   ),
                                 )
                               : Container(
-                                  color: (theme.primaryColor ?? const Color(0xFFFE2C55)).withOpacity(0.15),
+                                  color: (theme.primaryColor ??
+                                          const Color(0xFFFE2C55))
+                                      .withOpacity(0.15),
                                   child: Center(
                                     child: Text(
-                                      user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                      user.name.isNotEmpty
+                                          ? user.name[0].toUpperCase()
+                                          : 'U',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: theme.primaryColor ?? const Color(0xFFFE2C55),
+                                        color: theme.primaryColor ??
+                                            const Color(0xFFFE2C55),
                                       ),
                                     ),
                                   ),
@@ -1763,7 +1856,8 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                 if (user.isLive) ...[
                                   const SizedBox(width: 6),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: kChineseRed,
                                       borderRadius: BorderRadius.circular(8),
@@ -1796,7 +1890,8 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                               children: [
                                 if (user.isVerified) ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: Colors.blue,
                                       borderRadius: BorderRadius.circular(6),
@@ -1835,7 +1930,8 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                   child: Text(
                                     '${user.videosCount} posts • ${_formatCount(user.followers)} followers',
                                     style: TextStyle(
-                                      color: theme.textSecondaryColor ?? Colors.grey[600],
+                                      color: theme.textSecondaryColor ??
+                                          Colors.grey[600],
                                       fontSize: 14,
                                     ),
                                   ),
@@ -1847,7 +1943,8 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                               Text(
                                 user.bio,
                                 style: TextStyle(
-                                  color: theme.textSecondaryColor ?? Colors.grey[600],
+                                  color: theme.textSecondaryColor ??
+                                      Colors.grey[600],
                                   fontSize: 12,
                                 ),
                                 maxLines: 1,
@@ -1864,24 +1961,36 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                         child: InkWell(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            ref.read(authenticationProvider.notifier).followUser(user.id);
+                            ref
+                                .read(authenticationProvider.notifier)
+                                .followUser(user.id);
                           },
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isFollowing ? (theme.surfaceVariantColor ?? Colors.grey[100]) : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                              color: isFollowing
+                                  ? (theme.surfaceVariantColor ??
+                                      Colors.grey[100])
+                                  : (theme.primaryColor ??
+                                      const Color(0xFFFE2C55)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: isFollowing 
-                                  ? (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3)
-                                  : (theme.primaryColor ?? const Color(0xFFFE2C55)),
+                                color: isFollowing
+                                    ? (theme.dividerColor ?? Colors.grey[300]!)
+                                        .withOpacity(0.3)
+                                    : (theme.primaryColor ??
+                                        const Color(0xFFFE2C55)),
                               ),
                             ),
                             child: Text(
                               isFollowing ? 'Following' : 'Follow',
                               style: TextStyle(
-                                color: isFollowing ? (theme.primaryColor ?? const Color(0xFFFE2C55)) : Colors.white,
+                                color: isFollowing
+                                    ? (theme.primaryColor ??
+                                        const Color(0xFFFE2C55))
+                                    : Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),

@@ -64,36 +64,34 @@ class MessageModel {
         (e) => e.name == map['status'],
         orElse: () => MessageStatus.sending,
       ),
-      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
+      timestamp:
+          DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
       mediaUrl: map['mediaUrl'],
-      mediaMetadata: map['mediaMetadata'] != null 
-        ? Map<String, dynamic>.from(map['mediaMetadata']) 
-        : null,
+      mediaMetadata: map['mediaMetadata'] != null
+          ? Map<String, dynamic>.from(map['mediaMetadata'])
+          : null,
       replyToMessageId: map['replyToMessageId'],
       replyToContent: map['replyToContent'],
       replyToSender: map['replyToSender'],
-      reactions: map['reactions'] != null 
-        ? Map<String, String>.from(map['reactions']) 
-        : null,
+      reactions: map['reactions'] != null
+          ? Map<String, String>.from(map['reactions'])
+          : null,
       isEdited: map['isEdited'] ?? false,
-      editedAt: map['editedAt'] != null 
-        ? DateTime.parse(map['editedAt']) 
-        : null,
+      editedAt:
+          map['editedAt'] != null ? DateTime.parse(map['editedAt']) : null,
       isPinned: map['isPinned'] ?? false,
       readBy: map['readBy'] != null
-        ? Map<String, DateTime>.from(
-            (map['readBy'] as Map).map((k, v) =>
-              MapEntry(k.toString(), DateTime.parse(v))))
-        : null,
+          ? Map<String, DateTime>.from((map['readBy'] as Map)
+              .map((k, v) => MapEntry(k.toString(), DateTime.parse(v))))
+          : null,
       deliveredTo: map['deliveredTo'] != null
-        ? Map<String, DateTime>.from(
-            (map['deliveredTo'] as Map).map((k, v) =>
-              MapEntry(k.toString(), DateTime.parse(v))))
-        : null,
+          ? Map<String, DateTime>.from((map['deliveredTo'] as Map)
+              .map((k, v) => MapEntry(k.toString(), DateTime.parse(v))))
+          : null,
       fileName: map['fileName'],
       videoReactionData: map['videoReactionData'] != null
-        ? Map<String, dynamic>.from(map['videoReactionData'])
-        : null,
+          ? Map<String, dynamic>.from(map['videoReactionData'])
+          : null,
       isOriginalReaction: map['isOriginalReaction'],
     );
   }
@@ -117,7 +115,8 @@ class MessageModel {
       'editedAt': editedAt?.toUtc().toIso8601String(),
       'isPinned': isPinned,
       'readBy': readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
-      'deliveredTo': deliveredTo?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+      'deliveredTo':
+          deliveredTo?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
       if (fileName != null) 'fileName': fileName,
       if (videoReactionData != null) 'videoReactionData': videoReactionData,
       if (isOriginalReaction != null) 'isOriginalReaction': isOriginalReaction,

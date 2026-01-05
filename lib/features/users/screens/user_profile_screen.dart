@@ -17,7 +17,7 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String userId;
-  
+
   const UserProfileScreen({
     super.key,
     required this.userId,
@@ -35,7 +35,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _isFollowing = false;
   final ScrollController _scrollController = ScrollController();
   final Map<String, String> _videoThumbnails = {};
-  
+
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
@@ -65,25 +65,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
+
       // Get user profile
       final user = await authNotifier.getUserById(widget.userId);
-      
+
       if (user == null) {
         throw Exception('User not found');
       }
-      
+
       // Get user videos - filter from all videos
       final allVideos = ref.read(videosProvider);
-      final userVideos = allVideos.where((video) => video.userId == widget.userId).toList();
-      
+      final userVideos =
+          allVideos.where((video) => video.userId == widget.userId).toList();
+
       // Check if current user is following this user
       final currentUserId = ref.read(currentUserIdProvider);
       bool isFollowing = false;
       if (currentUserId != null && currentUserId != widget.userId) {
         isFollowing = ref.read(isUserFollowedProvider(widget.userId));
       }
-      
+
       if (mounted) {
         setState(() {
           _user = user;
@@ -91,7 +92,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           _isFollowing = isFollowing;
           _isLoading = false;
         });
-        
+
         // Generate thumbnails for video content
         _generateVideoThumbnails();
       }
@@ -111,8 +112,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         try {
           // Check if thumbnail is already cached
           final cacheKey = 'thumb_${video.id}';
-          final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
-          
+          final fileInfo =
+              await _thumbnailCacheManager.getFileFromCache(cacheKey);
+
           if (fileInfo != null && fileInfo.file.existsSync()) {
             // Use cached thumbnail
             if (mounted) {
@@ -129,7 +131,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               maxHeight: 400, // Higher quality for better display
               quality: 85,
             );
-            
+
             if (thumbnailPath != null && mounted) {
               // Cache the thumbnail
               final thumbnailFile = File(thumbnailPath);
@@ -139,7 +141,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   thumbnailFile.readAsBytesSync(),
                 );
               }
-              
+
               setState(() {
                 _videoThumbnails[video.id] = thumbnailPath;
               });
@@ -154,7 +156,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
   Future<void> _toggleFollow() async {
     if (_user == null) return;
-    
+
     // Check if user is authenticated
     final isAuthenticated = ref.read(isAuthenticatedProvider);
     if (!isAuthenticated) {
@@ -162,32 +164,34 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         context,
         ref,
         customTitle: 'Follow User',
-        customSubtitle: 'Sign in to follow ${_user!.name} and see their latest content.',
+        customSubtitle:
+            'Sign in to follow ${_user!.name} and see their latest content.',
         customIcon: Icons.person_add,
       );
-      
+
       if (shouldLogin) {
         // User signed in, reload data
         _loadUserData();
       }
       return;
     }
-    
+
     try {
       // Update local state first (optimistic update)
       setState(() {
         _isFollowing = !_isFollowing;
       });
-      
+
       // Update in provider
       await ref.read(authenticationProvider.notifier).followUser(_user!.id);
-      
+
       // Show feedback
       showSnackBar(
-        context, 
-        _isFollowing ? 'Following ${_user!.name}' : 'Unfollowed ${_user!.name}'
-      );
-      
+          context,
+          _isFollowing
+              ? 'Following ${_user!.name}'
+              : 'Unfollowed ${_user!.name}');
+
       // Refresh data to get updated counts
       _loadUserData();
     } catch (e) {
@@ -195,14 +199,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       setState(() {
         _isFollowing = !_isFollowing;
       });
-      
-      showSnackBar(context, 'Failed to ${_isFollowing ? 'follow' : 'unfollow'} user');
+
+      showSnackBar(
+          context, 'Failed to ${_isFollowing ? 'follow' : 'unfollow'} user');
     }
   }
 
   void _openVideoDetails(VideoModel video) {
     // Navigate to SingleVideoScreen using GoRouter with push to maintain back stack
-    context.push(RoutePaths.singleVideo(video.id), extra: {'userId': widget.userId});
+    context.push(RoutePaths.singleVideo(video.id),
+        extra: {'userId': widget.userId});
   }
 
   String _formatCount(int count) {
@@ -219,7 +225,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     final theme = context.modernTheme;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final isGuest = ref.watch(isGuestProvider);
-    
+
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       body: _isLoading
@@ -327,7 +333,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     );
   }
 
-  Widget _buildProfileView(ModernThemeExtension theme, bool isAuthenticated, bool isGuest) {
+  Widget _buildProfileView(
+      ModernThemeExtension theme, bool isAuthenticated, bool isGuest) {
     if (_user == null) {
       return Center(
         child: Text(
@@ -405,13 +412,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                       child: Center(
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
                                             theme.primaryColor!,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    errorWidget: (context, url, error) => Container(
+                                    errorWidget: (context, url, error) =>
+                                        Container(
                                       color: theme.surfaceColor,
                                       child: Center(
                                         child: Text(
@@ -447,9 +456,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                   ),
                                 ),
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // User Name and Verification
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -476,9 +485,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                             ],
                           ],
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Stats Row
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -500,9 +509,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Follow Button
                         Container(
                           width: double.infinity,
@@ -513,14 +522,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                               backgroundColor: _isFollowing
                                   ? theme.surfaceColor
                                   : theme.primaryColor,
-                              foregroundColor: _isFollowing
-                                  ? theme.textColor
-                                  : Colors.white,
+                              foregroundColor:
+                                  _isFollowing ? theme.textColor : Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                side: _isFollowing 
+                                side: _isFollowing
                                     ? BorderSide(color: theme.dividerColor!)
                                     : BorderSide.none,
                               ),
@@ -550,7 +558,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 ? _buildEmptyState(theme, isAuthenticated)
                 : GridView.builder(
                     padding: const EdgeInsets.all(1),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       crossAxisSpacing: 1,
                       mainAxisSpacing: 1,
@@ -559,7 +568,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     itemCount: _userVideos.length,
                     itemBuilder: (context, index) {
                       final video = _userVideos[index];
-                      
+
                       return GestureDetector(
                         onTap: () => _openVideoDetails(video),
                         child: Container(
@@ -580,7 +589,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     child: Center(
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
                                           theme.primaryColor!,
                                         ),
                                       ),
@@ -590,7 +600,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     return _buildThumbnailPlaceholder(theme);
                                   },
                                 )
-                              else if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+                              else if (video.isMultipleImages &&
+                                  video.imageUrls.isNotEmpty)
                                 CachedNetworkImage(
                                   imageUrl: video.imageUrls.first,
                                   fit: BoxFit.cover,
@@ -600,7 +611,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     child: Center(
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
                                           theme.primaryColor!,
                                         ),
                                       ),
@@ -610,16 +622,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     return _buildThumbnailPlaceholder(theme);
                                   },
                                 )
-                              else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
+                              else if (!video.isMultipleImages &&
+                                  _videoThumbnails.containsKey(video.id))
                                 Image.file(
                                   File(_videoThumbnails[video.id]!),
                                   fit: BoxFit.cover,
                                 )
                               else
                                 _buildThumbnailPlaceholder(theme),
-                              
+
                               // Multiple Images Indicator
-                              if (video.isMultipleImages && video.imageUrls.length > 1)
+                              if (video.isMultipleImages &&
+                                  video.imageUrls.length > 1)
                                 Positioned(
                                   top: 8,
                                   right: 8,
@@ -636,13 +650,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     ),
                                   ),
                                 ),
-                              
+
                               // View Count
                               Positioned(
                                 bottom: 4,
                                 left: 4,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withOpacity(0.7),
                                     borderRadius: BorderRadius.circular(4),
@@ -680,7 +695,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     );
   }
 
-  Widget _buildStatColumn(String count, String label, ModernThemeExtension theme) {
+  Widget _buildStatColumn(
+      String count, String label, ModernThemeExtension theme) {
     return Column(
       children: [
         Text(
@@ -731,13 +747,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           // Show sign-in prompt for guests
           if (!isAuthenticated) ...[
             const SizedBox(height: 24),
             const InlineLoginRequiredWidget(
               title: 'Join the Community',
-              subtitle: 'Sign in to follow creators and discover amazing content.',
+              subtitle:
+                  'Sign in to follow creators and discover amazing content.',
             ),
           ],
         ],

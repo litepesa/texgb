@@ -11,7 +11,8 @@ import 'package:textgb/shared/services/http_client.dart';
 abstract class MomentsRepository {
   // Feed operations
   Future<List<MomentModel>> getFeed({int page = 1, int limit = 20});
-  Future<List<MomentModel>> getUserMoments(String userId, {int page = 1, int limit = 30});
+  Future<List<MomentModel>> getUserMoments(String userId,
+      {int page = 1, int limit = 30});
   Future<MomentModel?> getMoment(String momentId);
 
   // Create/Update/Delete
@@ -21,14 +22,18 @@ abstract class MomentsRepository {
   // Interactions
   Future<bool> likeMoment(String momentId);
   Future<bool> unlikeMoment(String momentId);
-  Future<MomentCommentModel> commentOnMoment(String momentId, String content, {String? replyToUserId});
+  Future<MomentCommentModel> commentOnMoment(String momentId, String content,
+      {String? replyToUserId});
   Future<bool> deleteComment(String commentId);
-  Future<List<MomentCommentModel>> getComments(String momentId, {int page = 1, int limit = 50});
-  Future<List<MomentLikerModel>> getLikes(String momentId, {int page = 1, int limit = 50});
+  Future<List<MomentCommentModel>> getComments(String momentId,
+      {int page = 1, int limit = 50});
+  Future<List<MomentLikerModel>> getLikes(String momentId,
+      {int page = 1, int limit = 50});
 
   // Privacy settings
   Future<MomentPrivacySettings?> getPrivacySettings(String userId);
-  Future<MomentPrivacySettings> updatePrivacySettings(String userId, UpdatePrivacyRequest request);
+  Future<MomentPrivacySettings> updatePrivacySettings(
+      String userId, UpdatePrivacyRequest request);
 
   // Mutual contacts check (required for privacy)
   Future<bool> isMutualContact(String userId, String contactId);
@@ -62,7 +67,8 @@ class HttpMomentsRepository implements MomentsRepository {
             .toList();
         return moments ?? [];
       } else {
-        throw MomentsRepositoryException('Failed to get feed: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get feed: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to get feed: $e');
@@ -87,7 +93,8 @@ class HttpMomentsRepository implements MomentsRepository {
             .toList();
         return moments ?? [];
       } else {
-        throw MomentsRepositoryException('Failed to get user moments: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get user moments: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to get user moments: $e');
@@ -105,7 +112,8 @@ class HttpMomentsRepository implements MomentsRepository {
       } else if (response.statusCode == 404) {
         return null;
       } else {
-        throw MomentsRepositoryException('Failed to get moment: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get moment: ${response.body}');
       }
     } catch (e) {
       if (e is NotFoundException) return null;
@@ -138,7 +146,8 @@ class HttpMomentsRepository implements MomentsRepository {
         return moment;
       } else {
         print('[MOMENTS REPOSITORY] Failed with status ${response.statusCode}');
-        throw MomentsRepositoryException('Failed to create moment: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to create moment: ${response.body}');
       }
     } catch (e, stackTrace) {
       print('[MOMENTS REPOSITORY] ERROR: $e');
@@ -155,7 +164,8 @@ class HttpMomentsRepository implements MomentsRepository {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
       } else {
-        throw MomentsRepositoryException('Failed to delete moment: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to delete moment: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to delete moment: $e');
@@ -177,7 +187,8 @@ class HttpMomentsRepository implements MomentsRepository {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        throw MomentsRepositoryException('Failed to like moment: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to like moment: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to like moment: $e');
@@ -192,7 +203,8 @@ class HttpMomentsRepository implements MomentsRepository {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
       } else {
-        throw MomentsRepositoryException('Failed to unlike moment: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to unlike moment: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to unlike moment: $e');
@@ -233,7 +245,8 @@ class HttpMomentsRepository implements MomentsRepository {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
       } else {
-        throw MomentsRepositoryException('Failed to delete comment: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to delete comment: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to delete comment: $e');
@@ -254,11 +267,13 @@ class HttpMomentsRepository implements MomentsRepository {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final comments = (data['comments'] as List?)
-            ?.map((json) => MomentCommentModel.fromJson(json as Map<String, dynamic>))
+            ?.map((json) =>
+                MomentCommentModel.fromJson(json as Map<String, dynamic>))
             .toList();
         return comments ?? [];
       } else {
-        throw MomentsRepositoryException('Failed to get comments: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get comments: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to get comments: $e');
@@ -279,11 +294,13 @@ class HttpMomentsRepository implements MomentsRepository {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final likes = (data['likes'] as List?)
-            ?.map((json) => MomentLikerModel.fromJson(json as Map<String, dynamic>))
+            ?.map((json) =>
+                MomentLikerModel.fromJson(json as Map<String, dynamic>))
             .toList();
         return likes ?? [];
       } else {
-        throw MomentsRepositoryException('Failed to get likes: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get likes: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to get likes: $e');
@@ -301,11 +318,13 @@ class HttpMomentsRepository implements MomentsRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return MomentPrivacySettings.fromJson(data['settings'] as Map<String, dynamic>);
+        return MomentPrivacySettings.fromJson(
+            data['settings'] as Map<String, dynamic>);
       } else if (response.statusCode == 404) {
         return null;
       } else {
-        throw MomentsRepositoryException('Failed to get privacy settings: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get privacy settings: ${response.body}');
       }
     } catch (e) {
       if (e is NotFoundException) return null;
@@ -326,9 +345,11 @@ class HttpMomentsRepository implements MomentsRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return MomentPrivacySettings.fromJson(data['settings'] as Map<String, dynamic>);
+        return MomentPrivacySettings.fromJson(
+            data['settings'] as Map<String, dynamic>);
       } else {
-        throw MomentsRepositoryException('Failed to update privacy settings: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to update privacy settings: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to update privacy settings: $e');
@@ -369,7 +390,8 @@ class HttpMomentsRepository implements MomentsRepository {
             .toList();
         return contacts ?? [];
       } else {
-        throw MomentsRepositoryException('Failed to get mutual contacts: ${response.body}');
+        throw MomentsRepositoryException(
+            'Failed to get mutual contacts: ${response.body}');
       }
     } catch (e) {
       throw MomentsRepositoryException('Failed to get mutual contacts: $e');

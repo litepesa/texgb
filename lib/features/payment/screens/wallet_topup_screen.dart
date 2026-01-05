@@ -102,10 +102,11 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
     final phone = _formatPhoneNumber(_phoneController.text);
 
     try {
-      final checkoutRequestId = await ref.read(paymentProvider.notifier).initiateTopUp(
-        amount: amount,
-        phoneNumber: phone,
-      );
+      final checkoutRequestId =
+          await ref.read(paymentProvider.notifier).initiateTopUp(
+                amount: amount,
+                phoneNumber: phone,
+              );
 
       if (!mounted) return;
 
@@ -115,7 +116,8 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
         final isActivation = currentUser?.hasPaid == false;
 
         // Navigate to payment status screen with isActivation parameter
-        context.push('/payment-status/$checkoutRequestId?isActivation=$isActivation');
+        context.push(
+            '/payment-status/$checkoutRequestId?isActivation=$isActivation');
       } else {
         // Show error from provider state
         final error = ref.read(paymentProvider).error;
@@ -288,7 +290,8 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0F9FF),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF93C5FD).withOpacity(0.3)),
+                  border: Border.all(
+                      color: const Color(0xFF93C5FD).withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,7 +328,7 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                       '• Send virtual gifts to your favorite creators\n'
                       '• Unlock exclusive premium videos and content\n'
                       '• Boost your videos to reach more viewers\n'
-                      '• Support the WemaChat creator community\n'
+                      '• Support the WemaShop creator community\n'
                       '• Access special features and perks',
                       style: TextStyle(
                         color: Color(0xFF1E40AF),
@@ -354,23 +357,29 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                 runSpacing: 8,
                 children: _quickAmounts.map((amount) {
                   final isSelected = _selectedAmount == amount;
-                  final coins = (amount / 1.5).round(); // Calculate coins: 1 coin = 1.5 KES
+                  final coins = (amount / 1.5)
+                      .round(); // Calculate coins: 1 coin = 1.5 KES
                   return InkWell(
                     onTap: () => _selectQuickAmount(amount),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF6366F1) : Colors.white,
+                        color:
+                            isSelected ? const Color(0xFF6366F1) : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFE5E7EB),
+                          color: isSelected
+                              ? const Color(0xFF6366F1)
+                              : const Color(0xFFE5E7EB),
                           width: isSelected ? 2 : 1,
                         ),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF6366F1).withOpacity(0.2),
+                                  color:
+                                      const Color(0xFF6366F1).withOpacity(0.2),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -385,7 +394,9 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white : const Color(0xFF1F2937),
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF1F2937),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -393,7 +404,9 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                             '$coins coins',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6B7280),
+                              color: isSelected
+                                  ? Colors.white.withOpacity(0.9)
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                         ],
@@ -423,17 +436,23 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                   FilteringTextInputFormatter.digitsOnly,
                 ],
                 style: TextStyle(
-                  color: _selectedAmount == null ? const Color(0xFF1F2937) : const Color(0xFF9CA3AF),
+                  color: _selectedAmount == null
+                      ? const Color(0xFF1F2937)
+                      : const Color(0xFF9CA3AF),
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
                   labelText: 'Amount (KES)',
                   hintText: 'Enter amount (min KES 10)',
-                  hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
+                  hintStyle:
+                      const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
                   prefixText: 'KES ',
                   filled: true,
-                  fillColor: _selectedAmount != null ? const Color(0xFFF3F4F6) : Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  fillColor: _selectedAmount != null
+                      ? const Color(0xFFF3F4F6)
+                      : Colors.white,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -444,7 +463,8 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF6366F1), width: 2),
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -488,11 +508,13 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                 decoration: InputDecoration(
                   labelText: 'Phone Number',
                   hintText: '0712345678 or 254712345678',
-                  hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
+                  hintStyle:
+                      const TextStyle(color: Color(0xFF9CA3AF), fontSize: 16),
                   prefixIcon: const Icon(Icons.phone, color: Color(0xFF6366F1)),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -503,7 +525,8 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF6366F1), width: 2),
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -542,7 +565,8 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             ),
                             SizedBox(width: 12),
@@ -573,7 +597,8 @@ class _WalletTopUpScreenState extends ConsumerState<WalletTopUpScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFBBF24).withOpacity(0.3)),
+                  border: Border.all(
+                      color: const Color(0xFFFBBF24).withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [

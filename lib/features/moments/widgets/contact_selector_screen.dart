@@ -28,7 +28,8 @@ class ContactSelectorScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ContactSelectorScreen> createState() => _ContactSelectorScreenState();
+  ConsumerState<ContactSelectorScreen> createState() =>
+      _ContactSelectorScreenState();
 }
 
 class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
@@ -127,7 +128,8 @@ class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+                        Icon(Icons.people_outline,
+                            size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
                           _searchController.text.isEmpty
@@ -152,7 +154,9 @@ class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
                               ? CachedNetworkImageProvider(user.profileImage)
                               : null,
                           child: user.profileImage.isEmpty
-                              ? Text(contact.displayName.isNotEmpty ? contact.displayName[0].toUpperCase() : '?')
+                              ? Text(contact.displayName.isNotEmpty
+                                  ? contact.displayName[0].toUpperCase()
+                                  : '?')
                               : null,
                           radius: 24,
                         ),

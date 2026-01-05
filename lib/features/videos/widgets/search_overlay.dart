@@ -38,15 +38,15 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
   @override
   void initState() {
     super.initState();
-    
+
     _controller = TextEditingController(text: widget.initialQuery ?? '');
     _focusNode = FocusNode();
-    
+
     _animController = AnimationController(
       duration: const Duration(milliseconds: 250),
       vsync: this,
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
@@ -54,14 +54,16 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
       parent: _animController,
       curve: Curves.easeOut,
     ));
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _animController.forward();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           _focusNode.requestFocus();
           if (widget.initialQuery?.isNotEmpty == true) {
-            ref.read(videoSearchProvider.notifier).searchNow(widget.initialQuery!);
+            ref
+                .read(videoSearchProvider.notifier)
+                .searchNow(widget.initialQuery!);
           }
         }
       });
@@ -116,11 +118,10 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
                       ),
                       child: _buildSearchHeader(),
                     ),
-                    
+
                     // Filter chip
-                    if (_controller.text.isNotEmpty)
-                      _buildFilterChip(),
-                    
+                    if (_controller.text.isNotEmpty) _buildFilterChip(),
+
                     // Search results or empty state
                     Expanded(
                       child: _buildContent(searchState, bottomPadding),
@@ -164,7 +165,8 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
               decoration: InputDecoration(
                 hintText: 'Search',
                 hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-                prefixIcon: Icon(CupertinoIcons.search, color: Colors.grey[500], size: 20),
+                prefixIcon: Icon(CupertinoIcons.search,
+                    color: Colors.grey[500], size: 20),
                 suffixIcon: _controller.text.isNotEmpty
                     ? GestureDetector(
                         onTap: () {
@@ -172,24 +174,30 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
                           ref.read(videoSearchProvider.notifier).clear();
                           setState(() {});
                         },
-                        child: Icon(Icons.cancel, color: Colors.grey[500], size: 20),
+                        child: Icon(Icons.cancel,
+                            color: Colors.grey[500], size: 20),
                       )
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 isDense: true,
               ),
               onChanged: (value) {
                 setState(() {});
                 if (value.trim().isNotEmpty) {
-                  ref.read(videoSearchProvider.notifier).search(value, usernameOnly: _usernameOnly);
+                  ref
+                      .read(videoSearchProvider.notifier)
+                      .search(value, usernameOnly: _usernameOnly);
                 } else {
                   ref.read(videoSearchProvider.notifier).clear();
                 }
               },
               onSubmitted: (value) {
                 if (value.trim().isNotEmpty) {
-                  ref.read(videoSearchProvider.notifier).searchNow(value, usernameOnly: _usernameOnly);
+                  ref
+                      .read(videoSearchProvider.notifier)
+                      .searchNow(value, usernameOnly: _usernameOnly);
                 }
               },
               textInputAction: TextInputAction.search,
@@ -201,7 +209,10 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
           onTap: _close,
           child: const Text(
             'Cancel',
-            style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -226,7 +237,9 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _usernameOnly ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+                color: _usernameOnly
+                    ? Colors.blue.withOpacity(0.1)
+                    : Colors.grey[100],
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _usernameOnly ? Colors.blue : Colors.grey[300]!,
@@ -314,11 +327,13 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        itemCount: state.videos.length + (state.isLoading && state.hasResults ? 1 : 0),
+        itemCount:
+            state.videos.length + (state.isLoading && state.hasResults ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == state.videos.length) {
             return const Center(
-              child: CircularProgressIndicator(color: Colors.black87, strokeWidth: 2),
+              child: CircularProgressIndicator(
+                  color: Colors.black87, strokeWidth: 2),
             );
           }
 
@@ -356,20 +371,23 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
                       placeholder: (context, url) => Container(
                         color: Colors.grey[300],
                         child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.grey),
                         ),
                       ),
                       errorWidget: (context, url, error) => Container(
                         color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                        child:
+                            const Icon(Icons.broken_image, color: Colors.grey),
                       ),
                     )
                   : Container(
                       color: Colors.grey[300],
-                      child: const Icon(Icons.play_circle_outline, color: Colors.grey),
+                      child: const Icon(Icons.play_circle_outline,
+                          color: Colors.grey),
                     ),
             ),
-            
+
             // Gradient overlay
             Positioned.fill(
               child: Container(
@@ -387,7 +405,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
                 ),
               ),
             ),
-            
+
             // Stats overlay
             Positioned(
               bottom: 4,
@@ -412,11 +430,13 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
                   // Views
                   Row(
                     children: [
-                      const Icon(CupertinoIcons.eye, color: Colors.white, size: 10),
+                      const Icon(CupertinoIcons.eye,
+                          color: Colors.white, size: 10),
                       const SizedBox(width: 3),
                       Text(
                         _formatCount(video.views),
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 10),
                       ),
                     ],
                   ),
@@ -456,7 +476,10 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
             const SizedBox(height: 16),
             Text(
               'Something went wrong',
-              style: TextStyle(color: Colors.grey[800], fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -469,14 +492,17 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay>
               onPressed: () {
                 if (_controller.text.trim().isNotEmpty) {
                   ref.read(videoSearchProvider.notifier).searchNow(
-                    _controller.text,
-                    usernameOnly: _usernameOnly,
-                  );
+                        _controller.text,
+                        usernameOnly: _usernameOnly,
+                      );
                 }
               },
               child: const Text(
                 'Try Again',
-                style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ],

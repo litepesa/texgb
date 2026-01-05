@@ -265,10 +265,12 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         print('[CREATE MOMENT] Starting media upload...');
         try {
           mediaUrls = await _uploadMedia();
-          print('[CREATE MOMENT] Media uploaded successfully. URLs: $mediaUrls');
+          print(
+              '[CREATE MOMENT] Media uploaded successfully. URLs: $mediaUrls');
         } catch (uploadError) {
           print('[CREATE MOMENT] ERROR during upload: $uploadError');
-          print('[CREATE MOMENT] Upload error stacktrace: ${StackTrace.current}');
+          print(
+              '[CREATE MOMENT] Upload error stacktrace: ${StackTrace.current}');
           rethrow;
         }
       }
@@ -292,7 +294,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       // Post moment
       print('[CREATE MOMENT] Calling createMomentProvider.create...');
       try {
-        final result = await ref.read(createMomentProvider.notifier).create(request);
+        final result =
+            await ref.read(createMomentProvider.notifier).create(request);
         print('[CREATE MOMENT] Create returned: $result');
       } catch (createError) {
         print('[CREATE MOMENT] ERROR during create: $createError');
@@ -388,7 +391,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
                     : MomentsTheme.primaryBlue,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -650,7 +654,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         decoration: BoxDecoration(
           color: MomentsTheme.primaryBlue.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: MomentsTheme.primaryBlue.withValues(alpha: 0.3)),
+          border: Border.all(
+              color: MomentsTheme.primaryBlue.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

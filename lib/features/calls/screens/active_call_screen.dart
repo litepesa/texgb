@@ -93,7 +93,9 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
               _buildAvatarBackground(call),
 
             // Local video (picture-in-picture)
-            if (call.isVideoCall && _isVideoEnabled && _localRenderer.srcObject != null)
+            if (call.isVideoCall &&
+                _isVideoEnabled &&
+                _localRenderer.srcObject != null)
               Positioned(
                 top: 16,
                 right: 16,
@@ -117,7 +119,8 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
                     borderRadius: BorderRadius.circular(10),
                     child: RTCVideoView(
                       _localRenderer,
-                      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      objectFit:
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                       mirror: true,
                     ),
                   ),
@@ -210,7 +213,9 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
                               setState(() {
                                 _isMuted = !_isMuted;
                               });
-                              ref.read(callProvider.notifier).toggleAudio(!_isMuted);
+                              ref
+                                  .read(callProvider.notifier)
+                                  .toggleAudio(!_isMuted);
                             },
                           ),
 
@@ -229,14 +234,18 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
 
                           // Speaker
                           _buildControlButton(
-                            icon: _isSpeakerEnabled ? Icons.volume_up : Icons.volume_down,
+                            icon: _isSpeakerEnabled
+                                ? Icons.volume_up
+                                : Icons.volume_down,
                             label: _isSpeakerEnabled ? 'Speaker' : 'Earpiece',
                             isActive: _isSpeakerEnabled,
                             onTap: () {
                               setState(() {
                                 _isSpeakerEnabled = !_isSpeakerEnabled;
                               });
-                              ref.read(callProvider.notifier).toggleSpeaker(_isSpeakerEnabled);
+                              ref
+                                  .read(callProvider.notifier)
+                                  .toggleSpeaker(_isSpeakerEnabled);
                             },
                           ),
                         ],
@@ -250,14 +259,19 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
                           children: [
                             // Toggle video
                             _buildControlButton(
-                              icon: _isVideoEnabled ? Icons.videocam : Icons.videocam_off,
-                              label: _isVideoEnabled ? 'Camera On' : 'Camera Off',
+                              icon: _isVideoEnabled
+                                  ? Icons.videocam
+                                  : Icons.videocam_off,
+                              label:
+                                  _isVideoEnabled ? 'Camera On' : 'Camera Off',
                               isActive: _isVideoEnabled,
                               onTap: () {
                                 setState(() {
                                   _isVideoEnabled = !_isVideoEnabled;
                                 });
-                                ref.read(callProvider.notifier).toggleVideo(_isVideoEnabled);
+                                ref
+                                    .read(callProvider.notifier)
+                                    .toggleVideo(_isVideoEnabled);
                               },
                             ),
 
@@ -299,7 +313,8 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
 
   Widget _buildAvatarBackground(CallModel call) {
     final userName = call.isOutgoing ? call.receiverName : call.callerName;
-    final userAvatar = call.isOutgoing ? call.receiverAvatar : call.callerAvatar;
+    final userAvatar =
+        call.isOutgoing ? call.receiverAvatar : call.callerAvatar;
 
     return Container(
       decoration: BoxDecoration(
@@ -355,9 +370,10 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: backgroundColor ?? (isActive
-                  ? Colors.white.withOpacity(0.2)
-                  : Colors.white.withOpacity(0.1)),
+              color: backgroundColor ??
+                  (isActive
+                      ? Colors.white.withOpacity(0.2)
+                      : Colors.white.withOpacity(0.1)),
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white.withOpacity(0.3),

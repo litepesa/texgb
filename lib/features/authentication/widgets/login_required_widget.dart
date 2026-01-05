@@ -16,7 +16,8 @@ class LoginRequiredWidget extends ConsumerWidget {
   const LoginRequiredWidget({
     super.key,
     this.title = 'Sign In Required',
-    this.subtitle = 'Please sign in to access this feature and unlock the full Wemachat experience.',
+    this.subtitle =
+        'Please sign in to access this feature and unlock the full WemaShop experience.',
     this.actionText = 'Sign In',
     this.icon = Icons.login,
     this.showContinueBrowsing = true,
@@ -26,23 +27,23 @@ class LoginRequiredWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
-    
+
     // Watch authentication state using convenience providers
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final isLoading = ref.watch(isAuthLoadingProvider);
-    
+
     // Show loading if authentication is loading
     if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
-    
+
     // If user is authenticated, allow access
     if (isAuthenticated) {
       return const SizedBox.shrink();
     }
-    
+
     // User is not authenticated (guest), show login prompt
     return Center(
       child: Padding(
@@ -63,9 +64,9 @@ class LoginRequiredWidget extends ConsumerWidget {
                 color: modernTheme.primaryColor,
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             Text(
               title,
               style: TextStyle(
@@ -75,9 +76,9 @@ class LoginRequiredWidget extends ConsumerWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             Text(
               subtitle,
               style: TextStyle(
@@ -87,9 +88,9 @@ class LoginRequiredWidget extends ConsumerWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -112,9 +113,9 @@ class LoginRequiredWidget extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Show benefits for guest users
             Container(
               padding: const EdgeInsets.all(16),
@@ -122,14 +123,15 @@ class LoginRequiredWidget extends ConsumerWidget {
                 color: modernTheme.surfaceColor?.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
+                  color: modernTheme.primaryColor?.withOpacity(0.2) ??
+                      Colors.grey.withOpacity(0.2),
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Join WemaChat to:',
+                    'Join WemaShop to:',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -160,13 +162,14 @@ class LoginRequiredWidget extends ConsumerWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Continue browsing option for guest users
             if (showContinueBrowsing) ...[
               TextButton(
-                onPressed: onContinueBrowsing ?? () => Navigator.of(context).pop(),
+                onPressed:
+                    onContinueBrowsing ?? () => Navigator.of(context).pop(),
                 child: Text(
                   'Continue browsing as guest',
                   style: TextStyle(
@@ -194,7 +197,8 @@ class LoginRequiredWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildBenefitItem(ModernThemeExtension modernTheme, IconData icon, String text) {
+  Widget _buildBenefitItem(
+      ModernThemeExtension modernTheme, IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -236,12 +240,12 @@ Future<bool> requireLogin(
   VoidCallback? onContinueBrowsing,
 }) async {
   final isAuthenticated = ref.read(isAuthenticatedProvider);
-  
+
   // User is authenticated
   if (isAuthenticated) {
     return true;
   }
-  
+
   // User is guest, show login dialog
   final result = await showDialog<bool>(
     context: context,
@@ -261,7 +265,7 @@ Future<bool> requireLogin(
       ),
     ),
   );
-  
+
   return result ?? false;
 }
 
@@ -280,7 +284,8 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
   const InlineLoginRequiredWidget({
     super.key,
     this.title = 'Get Started',
-    this.subtitle = 'Sign in to start sharing content and connect with the community.',
+    this.subtitle =
+        'Sign in to start sharing content and connect with the community.',
     this.onSignIn,
     this.showGuestMode = true,
   });
@@ -289,12 +294,12 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    
+
     // Don't show if user is authenticated
     if (isAuthenticated) {
       return const SizedBox.shrink();
     }
-    
+
     // Show for guest users
     return Container(
       margin: const EdgeInsets.all(16),
@@ -303,7 +308,8 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
         color: modernTheme.surfaceColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
+          color: modernTheme.primaryColor?.withOpacity(0.2) ??
+              Colors.grey.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -313,9 +319,7 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
             size: 48,
             color: modernTheme.primaryColor,
           ),
-          
           const SizedBox(height: 16),
-          
           Text(
             title,
             style: TextStyle(
@@ -325,9 +329,7 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          
           const SizedBox(height: 8),
-          
           Text(
             subtitle,
             style: TextStyle(
@@ -337,13 +339,13 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          
           const SizedBox(height: 20),
-          
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: onSignIn ?? () => Navigator.of(context).pushNamed(Constants.landingScreen),
+              onPressed: onSignIn ??
+                  () =>
+                      Navigator.of(context).pushNamed(Constants.landingScreen),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -361,7 +363,6 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
               ),
             ),
           ),
-          
           if (showGuestMode) ...[
             const SizedBox(height: 12),
             TextButton(
@@ -398,10 +399,10 @@ class GuestModeBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    
+
     // Don't show banner if user is authenticated
     if (isAuthenticated) return const SizedBox.shrink();
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -430,7 +431,7 @@ class GuestModeBanner extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Join WemaChat!',
+                  'Join WemaShop!',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -447,13 +448,15 @@ class GuestModeBanner extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: onSignIn ?? () {
-                    Navigator.pushNamed(context, Constants.landingScreen);
-                  },
+                  onPressed: onSignIn ??
+                      () {
+                        Navigator.pushNamed(context, Constants.landingScreen);
+                      },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: modernTheme.primaryColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -508,7 +511,8 @@ class AuthRequiredActionButton extends ConsumerWidget {
           await requireLogin(
             context,
             ref,
-            customSubtitle: loginPrompt ?? 'Please sign in to access this feature.',
+            customSubtitle:
+                loginPrompt ?? 'Please sign in to access this feature.',
           );
         }
       },

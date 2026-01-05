@@ -94,7 +94,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           if (_showOverlay) _buildTopBar(),
 
           // Bottom indicator overlay
-          if (_showOverlay && widget.imageUrls.length > 1) _buildBottomIndicator(),
+          if (_showOverlay && widget.imageUrls.length > 1)
+            _buildBottomIndicator(),
         ],
       ),
     );
@@ -346,7 +347,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
       // Download image
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'moment_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          'moment_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final filePath = '${tempDir.path}/$fileName';
 
       await Dio().download(imageUrl, filePath);
@@ -384,8 +386,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       // For sharing, we can share the URL or download and share the file
       // Sharing URL is faster and simpler
       await Share.share(
-        'Check out this image on WemaChat!\n\n$imageUrl',
-        subject: 'Image from WemaChat',
+        'Check out this image on WemaShop!\n\n$imageUrl',
+        subject: 'Image from WemaShop',
       );
     } catch (e) {
       if (mounted) {

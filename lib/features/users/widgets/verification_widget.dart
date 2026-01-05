@@ -11,7 +11,7 @@ class VerificationInfoWidget extends StatelessWidget {
     final primaryColor = theme.colorScheme.primary;
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     return Container(
       height: screenHeight * 0.85,
       decoration: const BoxDecoration(
@@ -32,7 +32,7 @@ class VerificationInfoWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
@@ -93,7 +93,7 @@ class VerificationInfoWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Trust & Credibility Banner
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -182,9 +182,9 @@ class VerificationInfoWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // What you're missing section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -241,9 +241,9 @@ class VerificationInfoWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Benefits with enhanced messaging
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -262,7 +262,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.verified_user_rounded,
                           title: 'Blue Verified Badge',
-                          description: 'Stand out with an official verified checkmark that screams legitimacy and trust',
+                          description:
+                              'Stand out with an official verified checkmark that screams legitimacy and trust',
                           color: Colors.blue,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
@@ -272,7 +273,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.trending_up_rounded,
                           title: 'Priority Search Placement',
-                          description: 'Appear first in search results - verified sellers get premium visibility',
+                          description:
+                              'Appear first in search results - verified sellers get premium visibility',
                           color: Colors.green,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
@@ -282,7 +284,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.shopping_cart_rounded,
                           title: 'Higher Conversion Rates',
-                          description: 'Buyers are 3.5X more likely to purchase from verified sellers',
+                          description:
+                              'Buyers are 3.5X more likely to purchase from verified sellers',
                           color: Colors.purple,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
@@ -292,7 +295,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.storefront_rounded,
                           title: 'Physical Location Verified',
-                          description: 'Prove your shop is real with on-site verification by our team',
+                          description:
+                              'Prove your shop is real with on-site verification by our team',
                           color: Colors.orange,
                           gradient: const LinearGradient(
                             colors: [Color(0xFFE65100), Color(0xFFFB8C00)],
@@ -302,7 +306,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.support_agent_rounded,
                           title: 'Priority Support Access',
-                          description: 'Get faster response times and dedicated seller assistance',
+                          description:
+                              'Get faster response times and dedicated seller assistance',
                           color: Colors.teal,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF00695C), Color(0xFF26A69A)],
@@ -312,7 +317,8 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitCard(
                           icon: Icons.security_rounded,
                           title: 'Buyer Confidence Boost',
-                          description: 'Customers feel safe buying from you knowing you\'re legitimate',
+                          description:
+                              'Customers feel safe buying from you knowing you\'re legitimate',
                           color: Colors.indigo,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF283593), Color(0xFF5C6BC0)],
@@ -322,7 +328,7 @@ class VerificationInfoWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Competitive advantage section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -387,9 +393,9 @@ class VerificationInfoWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Important info
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -443,12 +449,13 @@ class VerificationInfoWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Action buttons
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     child: Column(
                       children: [
                         // Primary verify button
@@ -742,13 +749,15 @@ class VerificationInfoWidget extends StatelessWidget {
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Paybill number copied to clipboard!'),
+                                content:
+                                    Text('Paybill number copied to clipboard!'),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(4),
@@ -870,13 +879,15 @@ class VerificationInfoWidget extends StatelessWidget {
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('WhatsApp number copied to clipboard!'),
+                                  content: Text(
+                                      'WhatsApp number copied to clipboard!'),
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.orange.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),

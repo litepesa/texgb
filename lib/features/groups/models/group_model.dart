@@ -102,13 +102,15 @@ class GroupModel {
   // Helper methods
   bool get hasImage => groupImageUrl != null && groupImageUrl!.isNotEmpty;
 
-  bool get hasLastMessage => lastMessageText != null && lastMessageText!.isNotEmpty;
+  bool get hasLastMessage =>
+      lastMessageText != null && lastMessageText!.isNotEmpty;
 
   bool get isFull => memberCount >= maxMembers;
 
   String get displayName => name.isEmpty ? 'Unnamed Group' : name;
 
-  String get displayDescription => description.isEmpty ? 'No description' : description;
+  String get displayDescription =>
+      description.isEmpty ? 'No description' : description;
 
   // Time ago for last message
   String get lastMessageTimeAgo {

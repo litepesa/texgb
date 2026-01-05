@@ -123,7 +123,8 @@ class GroupSettingsScreen extends ConsumerWidget {
                   ),
                   if (isCreator)
                     ListTile(
-                      leading: Icon(Icons.delete, color: modernTheme.errorColor),
+                      leading:
+                          Icon(Icons.delete, color: modernTheme.errorColor),
                       title: Text(
                         'Delete Group',
                         style: TextStyle(color: modernTheme.errorColor),
@@ -137,7 +138,8 @@ class GroupSettingsScreen extends ConsumerWidget {
 
                 // Leave group
                 ListTile(
-                  leading: Icon(Icons.exit_to_app, color: modernTheme.warningColor),
+                  leading:
+                      Icon(Icons.exit_to_app, color: modernTheme.warningColor),
                   title: Text(
                     'Leave Group',
                     style: TextStyle(color: modernTheme.warningColor),
@@ -190,7 +192,9 @@ class GroupSettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               try {
-                await ref.read(groupDetailProvider(groupId).notifier).updateGroup(
+                await ref
+                    .read(groupDetailProvider(groupId).notifier)
+                    .updateGroup(
                       name: nameController.text.trim(),
                       description: descController.text.trim(),
                     );
@@ -215,7 +219,8 @@ class GroupSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showDeleteGroupDialog(BuildContext context, WidgetRef ref, String groupId) {
+  void _showDeleteGroupDialog(
+      BuildContext context, WidgetRef ref, String groupId) {
     final modernTheme = context.modernTheme;
     showDialog(
       context: context,
@@ -232,7 +237,9 @@ class GroupSettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               try {
-                await ref.read(groupsListProvider.notifier).deleteGroup(groupId);
+                await ref
+                    .read(groupsListProvider.notifier)
+                    .deleteGroup(groupId);
                 if (context.mounted) {
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context); // Close settings
@@ -250,7 +257,8 @@ class GroupSettingsScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: modernTheme.errorColor),
+            style:
+                TextButton.styleFrom(foregroundColor: modernTheme.errorColor),
             child: const Text('Delete'),
           ),
         ],
@@ -296,7 +304,8 @@ class GroupSettingsScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: modernTheme.warningColor),
+            style:
+                TextButton.styleFrom(foregroundColor: modernTheme.warningColor),
             child: const Text('Leave'),
           ),
         ],

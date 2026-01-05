@@ -103,14 +103,22 @@ class ChannelRepository {
         final channelData = Map<String, dynamic>.from(data['channel'] ?? data);
 
         // Add user relationship fields from the response
-        if (data.containsKey('isOwner')) channelData['is_owner'] = data['isOwner'];
-        if (data.containsKey('is_owner')) channelData['is_owner'] = data['is_owner'];
-        if (data.containsKey('isAdmin')) channelData['is_admin'] = data['isAdmin'];
-        if (data.containsKey('is_admin')) channelData['is_admin'] = data['is_admin'];
-        if (data.containsKey('isSubscribed')) channelData['is_subscribed'] = data['isSubscribed'];
-        if (data.containsKey('is_subscribed')) channelData['is_subscribed'] = data['is_subscribed'];
-        if (data.containsKey('unreadCount')) channelData['unread_count'] = data['unreadCount'];
-        if (data.containsKey('unread_count')) channelData['unread_count'] = data['unread_count'];
+        if (data.containsKey('isOwner'))
+          channelData['is_owner'] = data['isOwner'];
+        if (data.containsKey('is_owner'))
+          channelData['is_owner'] = data['is_owner'];
+        if (data.containsKey('isAdmin'))
+          channelData['is_admin'] = data['isAdmin'];
+        if (data.containsKey('is_admin'))
+          channelData['is_admin'] = data['is_admin'];
+        if (data.containsKey('isSubscribed'))
+          channelData['is_subscribed'] = data['isSubscribed'];
+        if (data.containsKey('is_subscribed'))
+          channelData['is_subscribed'] = data['is_subscribed'];
+        if (data.containsKey('unreadCount'))
+          channelData['unread_count'] = data['unreadCount'];
+        if (data.containsKey('unread_count'))
+          channelData['unread_count'] = data['unread_count'];
 
         return ChannelModel.fromJson(channelData);
       }
@@ -126,7 +134,8 @@ class ChannelRepository {
   Future<Map<String, dynamic>> checkNameAvailability(String name) async {
     try {
       final encodedName = Uri.encodeComponent(name.trim());
-      final response = await _httpClient.get('/channels/check-name?name=$encodedName');
+      final response =
+          await _httpClient.get('/channels/check-name?name=$encodedName');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -171,12 +180,14 @@ class ChannelRepository {
             additionalFields: {'type': 'channel_avatar'},
           );
 
-          if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+          if (uploadResponse.statusCode == 200 ||
+              uploadResponse.statusCode == 201) {
             final uploadData = jsonDecode(uploadResponse.body);
             avatarUrl = uploadData['url'] as String?;
             print('[CHANNEL] Avatar uploaded successfully: $avatarUrl');
           } else {
-            print('[CHANNEL] Avatar upload failed with status ${uploadResponse.statusCode}');
+            print(
+                '[CHANNEL] Avatar upload failed with status ${uploadResponse.statusCode}');
           }
         } catch (e) {
           print('[CHANNEL] Error uploading avatar: $e');
@@ -208,7 +219,8 @@ class ChannelRepository {
       }
 
       // Handle error response
-      print('[CHANNEL] Channel creation failed with status ${response.statusCode}');
+      print(
+          '[CHANNEL] Channel creation failed with status ${response.statusCode}');
       final errorData = jsonDecode(response.body);
       String errorMessage = 'Failed to create channel';
 
@@ -248,9 +260,11 @@ class ChannelRepository {
   }
 
   /// Update channel
-  Future<bool> updateChannel(String channelId, Map<String, dynamic> updates) async {
+  Future<bool> updateChannel(
+      String channelId, Map<String, dynamic> updates) async {
     try {
-      final response = await _httpClient.put('/channels/$channelId', body: updates);
+      final response =
+          await _httpClient.put('/channels/$channelId', body: updates);
       return response.statusCode == 200;
     } catch (e) {
       print('Error updating channel: $e');
@@ -287,7 +301,8 @@ class ChannelRepository {
   /// Unsubscribe from channel
   Future<bool> unsubscribeFromChannel(String channelId) async {
     try {
-      final response = await _httpClient.delete('/channels/$channelId/subscribe');
+      final response =
+          await _httpClient.delete('/channels/$channelId/subscribe');
       return response.statusCode == 200;
     } catch (e) {
       print('Error unsubscribing: $e');
@@ -391,7 +406,8 @@ class ChannelRepository {
           additionalFields: {'type': 'channel_post'},
         );
 
-        if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+        if (uploadResponse.statusCode == 200 ||
+            uploadResponse.statusCode == 201) {
           final uploadData = jsonDecode(uploadResponse.body);
           mediaUrl = uploadData['url'];
           mediaSizeBytes = await mediaFile.length();
@@ -419,7 +435,8 @@ class ChannelRepository {
             additionalFields: {'type': 'channel_post'},
           );
 
-          if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+          if (uploadResponse.statusCode == 200 ||
+              uploadResponse.statusCode == 201) {
             final uploadData = jsonDecode(uploadResponse.body);
             mediaUrls.add(uploadData['url']);
           }
@@ -462,10 +479,12 @@ class ChannelRepository {
         if (mediaUrls != null && mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
         if (thumbnailUrl != null) 'media_thumbnail_url': thumbnailUrl,
         if (mediaSizeBytes != null) 'media_size_bytes': mediaSizeBytes,
-        if (mediaDurationSeconds != null) 'media_duration_seconds': mediaDurationSeconds,
+        if (mediaDurationSeconds != null)
+          'media_duration_seconds': mediaDurationSeconds,
         'is_premium': isPremium,
         if (priceCoins != null) 'price_coins': priceCoins,
-        if (previewDuration != null) 'preview_duration_seconds': previewDuration,
+        if (previewDuration != null)
+          'preview_duration_seconds': previewDuration,
       };
 
       final response = await _httpClient.post('/channel-posts', body: body);
@@ -477,7 +496,8 @@ class ChannelRepository {
         return ChannelPost.fromJson(data['post'] ?? data);
       }
 
-      print('Create channel post failed: ${response.statusCode} - ${response.body}');
+      print(
+          'Create channel post failed: ${response.statusCode} - ${response.body}');
       return null;
     } catch (e, stackTrace) {
       print('Error creating post: $e');
@@ -559,7 +579,8 @@ class ChannelRepository {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return (data['comments'] as List? ?? [])
-            .map((json) => ChannelComment.fromJson(json as Map<String, dynamic>))
+            .map(
+                (json) => ChannelComment.fromJson(json as Map<String, dynamic>))
             .toList();
       }
 

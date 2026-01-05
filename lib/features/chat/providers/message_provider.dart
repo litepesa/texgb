@@ -68,8 +68,10 @@ class MessageState {
       messages: messages ?? this.messages,
       error: clearError ? null : (error ?? this.error),
       hasMore: hasMore ?? this.hasMore,
-      replyToMessageId: clearReply ? null : (replyToMessageId ?? this.replyToMessageId),
-      replyToMessage: clearReply ? null : (replyToMessage ?? this.replyToMessage),
+      replyToMessageId:
+          clearReply ? null : (replyToMessageId ?? this.replyToMessageId),
+      replyToMessage:
+          clearReply ? null : (replyToMessage ?? this.replyToMessage),
       pinnedMessages: pinnedMessages ?? this.pinnedMessages,
       isTyping: isTyping ?? this.isTyping,
       participantNames: participantNames ?? this.participantNames,
@@ -125,10 +127,12 @@ class MessageNotifier extends _$MessageNotifier {
   /// Load messages from local SQLite database (instant, offline-first)
   Future<void> _loadMessagesFromLocal(String chatId) async {
     try {
-      final localMessages = await _databaseService.getMessages(chatId, limit: _pageSize);
+      final localMessages =
+          await _databaseService.getMessages(chatId, limit: _pageSize);
 
       if (localMessages.isNotEmpty) {
-        debugPrint('MessageProvider: Loaded ${localMessages.length} messages from SQLite for chat $chatId');
+        debugPrint(
+            'MessageProvider: Loaded ${localMessages.length} messages from SQLite for chat $chatId');
 
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
@@ -150,18 +154,21 @@ class MessageNotifier extends _$MessageNotifier {
     try {
       if (messages.isEmpty) return;
       await _databaseService.upsertMessages(messages);
-      debugPrint('MessageProvider: Saved ${messages.length} messages to SQLite');
+      debugPrint(
+          'MessageProvider: Saved ${messages.length} messages to SQLite');
     } catch (e) {
       debugPrint('MessageProvider: Error saving to SQLite: $e');
     }
   }
 
   /// Update message status in local SQLite database
-  Future<void> _updateMessageStatusInLocal(String messageId, MessageStatus status) async {
+  Future<void> _updateMessageStatusInLocal(
+      String messageId, MessageStatus status) async {
     try {
       await _databaseService.updateMessageStatus(messageId, status.name);
     } catch (e) {
-      debugPrint('MessageProvider: Error updating message status in SQLite: $e');
+      debugPrint(
+          'MessageProvider: Error updating message status in SQLite: $e');
     }
   }
 
@@ -231,10 +238,14 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   /// Merge local and server messages, preserving optimistic messages
-  List<MessageModel> _mergeMessages(List<MessageModel> local, List<MessageModel> server) {
+  List<MessageModel> _mergeMessages(
+      List<MessageModel> local, List<MessageModel> server) {
     // Keep optimistic messages (sending/failed status) that haven't been confirmed by server
-    final optimisticMessages = local.where((msg) =>
-        msg.status == MessageStatus.sending || msg.status == MessageStatus.failed).toList();
+    final optimisticMessages = local
+        .where((msg) =>
+            msg.status == MessageStatus.sending ||
+            msg.status == MessageStatus.failed)
+        .toList();
 
     // Create a set of server message IDs for quick lookup
     final serverMessageIds = server.map((m) => m.messageId).toSet();
@@ -248,7 +259,8 @@ class MessageNotifier extends _$MessageNotifier {
     final merged = [...server];
     for (final msg in pendingOptimistic) {
       // Insert at the right position based on timestamp
-      final insertIndex = merged.indexWhere((m) => m.timestamp.isBefore(msg.timestamp));
+      final insertIndex =
+          merged.indexWhere((m) => m.timestamp.isBefore(msg.timestamp));
       if (insertIndex == -1) {
         merged.add(msg);
       } else {
@@ -265,7 +277,7 @@ class MessageNotifier extends _$MessageNotifier {
   Future<void> _loadPinnedMessages(String chatId) async {
     try {
       final pinnedMessages = await _repository.getPinnedMessages(chatId);
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         pinnedMessages: pinnedMessages,
@@ -278,17 +290,17 @@ class MessageNotifier extends _$MessageNotifier {
   // Helper method to build reply metadata
   Map<String, dynamic> _buildReplyMetadata(MessageModel? replyToMessage) {
     if (replyToMessage == null) return {};
-    
+
     final metadata = <String, dynamic>{};
-    
+
     // Store reply type
     metadata['replyToType'] = replyToMessage.type.name;
-    
+
     // Store reply media URL if it's a media message
     if (replyToMessage.hasMedia()) {
       metadata['replyToMediaUrl'] = replyToMessage.mediaUrl;
     }
-    
+
     return metadata;
   }
 
@@ -344,16 +356,17 @@ class MessageNotifier extends _$MessageNotifier {
       await _updateMessageStatusInLocal(message.messageId, MessageStatus.sent);
 
       // Update message status to sent
-      await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
+      await _repository.updateMessageStatus(
+          chatId, message.messageId, MessageStatus.sent);
 
       // Update state with sent status
       _updateMessageInState(message.messageId, MessageStatus.sent);
-
     } catch (e) {
       debugPrint('Error sending message: $e');
 
       // Update status to failed in SQLite
-      await _updateMessageStatusInLocal(message.messageId, MessageStatus.failed);
+      await _updateMessageStatusInLocal(
+          message.messageId, MessageStatus.failed);
 
       // Update state with failed status
       _updateMessageInState(message.messageId, MessageStatus.failed);
@@ -381,7 +394,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Send image message
-  Future<void> sendImageMessage(String chatId, File imageFile, {String? caption}) async {
+  Future<void> sendImageMessage(String chatId, File imageFile,
+      {String? caption}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       debugPrint('Cannot send image: user not authenticated');
@@ -399,7 +413,8 @@ class MessageNotifier extends _$MessageNotifier {
 
     // Check file size
     final fileSize = await imageFile.length();
-    if (fileSize > 50 * 1024 * 1024) { // 50MB limit
+    if (fileSize > 50 * 1024 * 1024) {
+      // 50MB limit
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Image size exceeds 50MB limit',
@@ -474,17 +489,19 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send final message
       await _repository.sendMessage(finalMessage);
-      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
+      await _repository.updateMessageStatus(
+          chatId, finalMessage.messageId, MessageStatus.sent);
 
       // Update SQLite status
-      await _updateMessageStatusInLocal(finalMessage.messageId, MessageStatus.sent);
+      await _updateMessageStatusInLocal(
+          finalMessage.messageId, MessageStatus.sent);
       _updateMessageInState(finalMessage.messageId, MessageStatus.sent);
-
     } catch (e) {
       debugPrint('Error sending image: $e');
 
       // Update SQLite status to failed
-      await _updateMessageStatusInLocal(tempMessage.messageId, MessageStatus.failed);
+      await _updateMessageStatusInLocal(
+          tempMessage.messageId, MessageStatus.failed);
       _updateMessageInState(tempMessage.messageId, MessageStatus.failed);
 
       final latestState = state.valueOrNull ?? const MessageState();
@@ -495,7 +512,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Send video message
-  Future<void> sendVideoMessage(String chatId, File videoFile, {String? caption}) async {
+  Future<void> sendVideoMessage(String chatId, File videoFile,
+      {String? caption}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       debugPrint('Cannot send video: user not authenticated');
@@ -514,7 +532,8 @@ class MessageNotifier extends _$MessageNotifier {
     try {
       // Check file size
       final fileSize = await videoFile.length();
-      if (fileSize > 100 * 1024 * 1024) { // 100MB limit for videos
+      if (fileSize > 100 * 1024 * 1024) {
+        // 100MB limit for videos
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'Video size exceeds 100MB limit',
@@ -524,10 +543,10 @@ class MessageNotifier extends _$MessageNotifier {
 
       final fileName = '${_uuid.v4()}.mp4';
       final currentState = state.valueOrNull ?? const MessageState();
-      
+
       // Build reply metadata if replying
       final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
-      
+
       // Merge with video metadata
       final videoMetadata = {
         'fileName': fileName,
@@ -537,7 +556,7 @@ class MessageNotifier extends _$MessageNotifier {
         'duration': 0, // Could be calculated if needed
         ...replyMetadata,
       };
-      
+
       // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
@@ -560,14 +579,14 @@ class MessageNotifier extends _$MessageNotifier {
         clearReply: true,
         clearError: true,
       ));
-      
+
       // Upload video via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final videoUrl = await authNotifier.storeFileToStorage(
         file: videoFile,
         reference: 'chat_media/$chatId/$fileName',
       );
-      
+
       // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: videoUrl,
@@ -584,11 +603,11 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send final message
       await _repository.sendMessage(finalMessage);
-      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
-      
+      await _repository.updateMessageStatus(
+          chatId, finalMessage.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error sending video: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send video: $e',
@@ -597,7 +616,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Send file message
-  Future<void> sendFileMessage(String chatId, File file, String fileName) async {
+  Future<void> sendFileMessage(
+      String chatId, File file, String fileName) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       debugPrint('Cannot send file: user not authenticated');
@@ -621,7 +641,8 @@ class MessageNotifier extends _$MessageNotifier {
     try {
       // Check file size
       final fileSize = await file.length();
-      if (fileSize > 50 * 1024 * 1024) { // 50MB limit
+      if (fileSize > 50 * 1024 * 1024) {
+        // 50MB limit
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'File size exceeds 50MB limit',
@@ -630,10 +651,10 @@ class MessageNotifier extends _$MessageNotifier {
       }
 
       final currentState = state.valueOrNull ?? const MessageState();
-      
+
       // Build reply metadata if replying
       final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
-      
+
       // Merge with file metadata
       final fileMetadata = {
         'fileName': fileName,
@@ -664,14 +685,14 @@ class MessageNotifier extends _$MessageNotifier {
         clearReply: true,
         clearError: true,
       ));
-      
+
       // Upload file via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final fileUrl = await authNotifier.storeFileToStorage(
         file: file,
         reference: 'chat_media/$chatId/$fileName',
       );
-      
+
       // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: fileUrl,
@@ -686,11 +707,11 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send final message
       await _repository.sendMessage(finalMessage);
-      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
-      
+      await _repository.updateMessageStatus(
+          chatId, finalMessage.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error sending file: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send file: $e',
@@ -699,7 +720,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Send audio message (voice note)
-  Future<void> sendAudioMessage(String chatId, File audioFile, {Duration? duration}) async {
+  Future<void> sendAudioMessage(String chatId, File audioFile,
+      {Duration? duration}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       debugPrint('Cannot send audio: user not authenticated');
@@ -718,7 +740,8 @@ class MessageNotifier extends _$MessageNotifier {
     try {
       // Check file size
       final fileSize = await audioFile.length();
-      if (fileSize > 25 * 1024 * 1024) { // 25MB limit for audio
+      if (fileSize > 25 * 1024 * 1024) {
+        // 25MB limit for audio
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'Audio size exceeds 25MB limit',
@@ -728,10 +751,10 @@ class MessageNotifier extends _$MessageNotifier {
 
       final fileName = '${_uuid.v4()}.m4a';
       final currentState = state.valueOrNull ?? const MessageState();
-      
+
       // Build reply metadata if replying
       final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
-      
+
       // Merge with audio metadata
       final audioMetadata = {
         'fileName': fileName,
@@ -742,7 +765,7 @@ class MessageNotifier extends _$MessageNotifier {
         'isVoiceNote': true,
         ...replyMetadata,
       };
-      
+
       // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
@@ -765,14 +788,14 @@ class MessageNotifier extends _$MessageNotifier {
         clearReply: true,
         clearError: true,
       ));
-      
+
       // Upload audio via R2 through Go backend (using auth repository)
       final authNotifier = ref.read(authenticationProvider.notifier);
       final audioUrl = await authNotifier.storeFileToStorage(
         file: audioFile,
         reference: 'chat_media/$chatId/$fileName',
       );
-      
+
       // Create final message with uploaded URL
       final finalMessage = tempMessage.copyWith(
         mediaUrl: audioUrl,
@@ -790,11 +813,11 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send final message
       await _repository.sendMessage(finalMessage);
-      await _repository.updateMessageStatus(chatId, finalMessage.messageId, MessageStatus.sent);
-      
+      await _repository.updateMessageStatus(
+          chatId, finalMessage.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error sending audio: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send audio: $e',
@@ -825,7 +848,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Edit message
-  Future<void> editMessage(String chatId, String messageId, String newContent) async {
+  Future<void> editMessage(
+      String chatId, String messageId, String newContent) async {
     if (newContent.trim().isEmpty) {
       debugPrint('Cannot edit message with empty content');
       return;
@@ -835,7 +859,7 @@ class MessageNotifier extends _$MessageNotifier {
       await _repository.editMessage(chatId, messageId, newContent.trim());
     } catch (e) {
       debugPrint('Error editing message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to edit message: $e',
@@ -844,12 +868,13 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Delete message
-  Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
+  Future<void> deleteMessage(
+      String chatId, String messageId, bool deleteForEveryone) async {
     try {
       await _repository.deleteMessage(chatId, messageId, deleteForEveryone);
     } catch (e) {
       debugPrint('Error deleting message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to delete message: $e',
@@ -858,7 +883,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Pin/Unpin message
-  Future<void> togglePinMessage(String chatId, String messageId, bool isPinned) async {
+  Future<void> togglePinMessage(
+      String chatId, String messageId, bool isPinned) async {
     try {
       if (isPinned) {
         await _repository.unpinMessage(chatId, messageId);
@@ -871,16 +897,15 @@ class MessageNotifier extends _$MessageNotifier {
           ));
           return;
         }
-        
+
         await _repository.pinMessage(chatId, messageId);
       }
-      
+
       // Reload pinned messages
       await _loadPinnedMessages(chatId);
-      
     } catch (e) {
       debugPrint('Error toggling pin message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to ${isPinned ? 'unpin' : 'pin'} message: $e',
@@ -889,13 +914,15 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Mark messages as delivered (not read - as per requirement)
-  Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds) async {
+  Future<void> markMessagesAsDelivered(
+      String chatId, List<String> messageIds) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null || messageIds.isEmpty) return;
 
     try {
       for (final messageId in messageIds) {
-        await _repository.markMessageAsDelivered(chatId, messageId, currentUser.uid);
+        await _repository.markMessageAsDelivered(
+            chatId, messageId, currentUser.uid);
       }
     } catch (e) {
       debugPrint('Error marking messages as delivered: $e');
@@ -912,12 +939,12 @@ class MessageNotifier extends _$MessageNotifier {
       return await _repository.searchMessages(chatId, query.trim());
     } catch (e) {
       debugPrint('Error searching messages: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to search messages: $e',
       ));
-      
+
       return [];
     }
   }
@@ -939,7 +966,8 @@ class MessageNotifier extends _$MessageNotifier {
     if (currentState == null) return;
 
     // Find the failed message
-    final messageIndex = currentState.messages.indexWhere((msg) => msg.messageId == messageId);
+    final messageIndex =
+        currentState.messages.indexWhere((msg) => msg.messageId == messageId);
     if (messageIndex == -1) return;
 
     final failedMessage = currentState.messages[messageIndex];
@@ -951,7 +979,8 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Update status to sending in state
       final updatedMessages = List<MessageModel>.from(currentState.messages);
-      updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.sending);
+      updatedMessages[messageIndex] =
+          failedMessage.copyWith(status: MessageStatus.sending);
 
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
@@ -959,13 +988,14 @@ class MessageNotifier extends _$MessageNotifier {
       ));
 
       // Retry sending
-      await _repository.sendMessage(failedMessage.copyWith(status: MessageStatus.sending));
-      await _repository.updateMessageStatus(chatId, messageId, MessageStatus.sent);
+      await _repository
+          .sendMessage(failedMessage.copyWith(status: MessageStatus.sending));
+      await _repository.updateMessageStatus(
+          chatId, messageId, MessageStatus.sent);
 
       // Update SQLite status to sent
       await _updateMessageStatusInLocal(messageId, MessageStatus.sent);
       _updateMessageInState(messageId, MessageStatus.sent);
-
     } catch (e) {
       debugPrint('Error retrying message: $e');
 
@@ -976,7 +1006,8 @@ class MessageNotifier extends _$MessageNotifier {
       if (latestState != null) {
         final updatedMessages = List<MessageModel>.from(latestState.messages);
         if (messageIndex < updatedMessages.length) {
-          updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.failed);
+          updatedMessages[messageIndex] =
+              failedMessage.copyWith(status: MessageStatus.failed);
         }
 
         state = AsyncValue.data(latestState.copyWith(
@@ -990,7 +1021,9 @@ class MessageNotifier extends _$MessageNotifier {
   // Load more messages (pagination) - loads from SQLite
   Future<void> loadMoreMessages(String chatId) async {
     final currentState = state.valueOrNull;
-    if (currentState == null || currentState.isLoadingMore || !currentState.hasMore) {
+    if (currentState == null ||
+        currentState.isLoadingMore ||
+        !currentState.hasMore) {
       return;
     }
 
@@ -1006,7 +1039,8 @@ class MessageNotifier extends _$MessageNotifier {
         offset: _currentPage * _pageSize,
       );
 
-      debugPrint('MessageProvider: Loaded ${olderMessages.length} more messages from SQLite (page $_currentPage)');
+      debugPrint(
+          'MessageProvider: Loaded ${olderMessages.length} more messages from SQLite (page $_currentPage)');
 
       // Check if there are more messages
       final hasMoreMessages = olderMessages.length >= _pageSize;
@@ -1019,7 +1053,6 @@ class MessageNotifier extends _$MessageNotifier {
         isLoadingMore: false,
         hasMore: hasMoreMessages,
       ));
-
     } catch (e) {
       debugPrint('Error loading more messages: $e');
 
@@ -1039,7 +1072,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // React to message (add emoji reaction)
-  Future<void> reactToMessage(String chatId, String messageId, String emoji) async {
+  Future<void> reactToMessage(
+      String chatId, String messageId, String emoji) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
@@ -1050,28 +1084,28 @@ class MessageNotifier extends _$MessageNotifier {
         final updatedMessages = currentState.messages.map((msg) {
           if (msg.messageId == messageId) {
             final reactions = Map<String, String>.from(msg.reactions ?? {});
-            
+
             // Toggle reaction - if user already reacted with this emoji, remove it
             if (reactions[currentUser.uid] == emoji) {
               reactions.remove(currentUser.uid);
             } else {
               reactions[currentUser.uid] = emoji;
             }
-            
+
             return msg.copyWith(reactions: reactions);
           }
           return msg;
         }).toList();
 
-        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+        state =
+            AsyncValue.data(currentState.copyWith(messages: updatedMessages));
       }
 
       // TODO: Send reaction to server when implemented
       // await _repository.addMessageReaction(chatId, messageId, currentUser.uid, emoji);
-      
     } catch (e) {
       debugPrint('Error reacting to message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to react to message: $e',
@@ -1105,11 +1139,11 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send forwarded message
       await _repository.sendMessage(forwardedMessage);
-      await _repository.updateMessageStatus(toChatId, forwardedMessage.messageId, MessageStatus.sent);
-      
+      await _repository.updateMessageStatus(
+          toChatId, forwardedMessage.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error forwarding message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to forward message: $e',
@@ -1118,7 +1152,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Add message reaction
-  Future<void> addMessageReaction(String chatId, String messageId, String emoji) async {
+  Future<void> addMessageReaction(
+      String chatId, String messageId, String emoji) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
@@ -1135,12 +1170,12 @@ class MessageNotifier extends _$MessageNotifier {
           return msg;
         }).toList();
 
-        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+        state =
+            AsyncValue.data(currentState.copyWith(messages: updatedMessages));
       }
 
       // TODO: Send reaction to server when implemented
       // await _repository.addMessageReaction(chatId, messageId, currentUser.uid, emoji);
-      
     } catch (e) {
       debugPrint('Error adding message reaction: $e');
     }
@@ -1164,12 +1199,12 @@ class MessageNotifier extends _$MessageNotifier {
           return msg;
         }).toList();
 
-        state = AsyncValue.data(currentState.copyWith(messages: updatedMessages));
+        state =
+            AsyncValue.data(currentState.copyWith(messages: updatedMessages));
       }
 
       // TODO: Send reaction removal to server when implemented
       // await _repository.removeMessageReaction(chatId, messageId, currentUser.uid);
-      
     } catch (e) {
       debugPrint('Error removing message reaction: $e');
     }
@@ -1188,7 +1223,9 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((msg) => msg.senderId == userId).toList();
+    return currentState.messages
+        .where((msg) => msg.senderId == userId)
+        .toList();
   }
 
   // Get failed messages
@@ -1196,7 +1233,9 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((msg) => msg.status == MessageStatus.failed).toList();
+    return currentState.messages
+        .where((msg) => msg.status == MessageStatus.failed)
+        .toList();
   }
 
   // Retry all failed messages
@@ -1221,9 +1260,10 @@ class MessageNotifier extends _$MessageNotifier {
     for (final message in sortedMessages) {
       final senderName = getParticipantName(message.senderId);
       final timestamp = message.timestamp.toLocal().toString().split('.')[0];
-      
-      buffer.writeln('[$timestamp] $senderName: ${message.getDisplayContent()}');
-      
+
+      buffer
+          .writeln('[$timestamp] $senderName: ${message.getDisplayContent()}');
+
       if (message.isReply() && message.replyToContent != null) {
         buffer.writeln('  └─ Replied to: ${message.replyToContent}');
       }
@@ -1252,7 +1292,8 @@ class MessageNotifier extends _$MessageNotifier {
 
     final counts = <MessageStatus, int>{};
     for (final status in MessageStatus.values) {
-      counts[status] = currentState.messages.where((msg) => msg.status == status).length;
+      counts[status] =
+          currentState.messages.where((msg) => msg.status == status).length;
     }
     return counts;
   }
@@ -1271,7 +1312,8 @@ class MessageNotifier extends _$MessageNotifier {
     if (currentState == null) return null;
 
     try {
-      return currentState.messages.firstWhere((msg) => msg.messageId == messageId);
+      return currentState.messages
+          .firstWhere((msg) => msg.messageId == messageId);
     } catch (e) {
       return null;
     }
@@ -1311,14 +1353,26 @@ class MessageNotifier extends _$MessageNotifier {
 
     final currentUserId = ref.read(currentUserIdProvider);
     final totalMessages = currentState.messages.length;
-    final textMessages = currentState.messages.where((msg) => msg.type == MessageEnum.text).length;
-    final imageMessages = currentState.messages.where((msg) => msg.type == MessageEnum.image).length;
-    final videoMessages = currentState.messages.where((msg) => msg.type == MessageEnum.video).length;
-    final audioMessages = currentState.messages.where((msg) => msg.type == MessageEnum.audio).length;
-    final fileMessages = currentState.messages.where((msg) => msg.type == MessageEnum.file).length;
+    final textMessages = currentState.messages
+        .where((msg) => msg.type == MessageEnum.text)
+        .length;
+    final imageMessages = currentState.messages
+        .where((msg) => msg.type == MessageEnum.image)
+        .length;
+    final videoMessages = currentState.messages
+        .where((msg) => msg.type == MessageEnum.video)
+        .length;
+    final audioMessages = currentState.messages
+        .where((msg) => msg.type == MessageEnum.audio)
+        .length;
+    final fileMessages = currentState.messages
+        .where((msg) => msg.type == MessageEnum.file)
+        .length;
     final pinnedMessages = currentState.pinnedMessages.length;
-    final myMessages = currentUserId != null 
-        ? currentState.messages.where((msg) => msg.senderId == currentUserId).length 
+    final myMessages = currentUserId != null
+        ? currentState.messages
+            .where((msg) => msg.senderId == currentUserId)
+            .length
         : 0;
     final otherMessages = totalMessages - myMessages;
 
@@ -1358,18 +1412,18 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Bulk message operations
-  Future<void> deleteMultipleMessages(String chatId, List<String> messageIds, bool deleteForEveryone) async {
+  Future<void> deleteMultipleMessages(
+      String chatId, List<String> messageIds, bool deleteForEveryone) async {
     if (messageIds.isEmpty) return;
 
     try {
-      final futures = messageIds.map((messageId) => 
+      final futures = messageIds.map((messageId) =>
           _repository.deleteMessage(chatId, messageId, deleteForEveryone));
 
       await Future.wait(futures);
-      
     } catch (e) {
       debugPrint('Error deleting multiple messages: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to delete messages: $e',
@@ -1390,10 +1444,10 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return false;
 
-    return currentState.messages.any((msg) => 
-        msg.type == MessageEnum.image || 
-        msg.type == MessageEnum.video || 
-        msg.type == MessageEnum.audio || 
+    return currentState.messages.any((msg) =>
+        msg.type == MessageEnum.image ||
+        msg.type == MessageEnum.video ||
+        msg.type == MessageEnum.audio ||
         msg.type == MessageEnum.file);
   }
 
@@ -1402,11 +1456,13 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((msg) => 
-        msg.type == MessageEnum.image || 
-        msg.type == MessageEnum.video || 
-        msg.type == MessageEnum.audio || 
-        msg.type == MessageEnum.file).toList();
+    return currentState.messages
+        .where((msg) =>
+            msg.type == MessageEnum.image ||
+            msg.type == MessageEnum.video ||
+            msg.type == MessageEnum.audio ||
+            msg.type == MessageEnum.file)
+        .toList();
   }
 
   // Get text messages only
@@ -1414,7 +1470,9 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((msg) => msg.type == MessageEnum.text).toList();
+    return currentState.messages
+        .where((msg) => msg.type == MessageEnum.text)
+        .toList();
   }
 
   // Get messages with reactions
@@ -1441,8 +1499,10 @@ class MessageNotifier extends _$MessageNotifier {
     final currentUserId = ref.read(currentUserIdProvider);
     if (currentUserId == null) return 0;
 
-    return currentState.messages.where((msg) => 
-        msg.senderId != currentUserId && !msg.isReadBy(currentUserId)).length;
+    return currentState.messages
+        .where((msg) =>
+            msg.senderId != currentUserId && !msg.isReadBy(currentUserId))
+        .length;
   }
 
   // Mark all messages as read
@@ -1453,14 +1513,17 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
 
-    final unreadMessages = currentState.messages.where((msg) => 
-        msg.senderId != currentUserId && !msg.isReadBy(currentUserId)).toList();
+    final unreadMessages = currentState.messages
+        .where((msg) =>
+            msg.senderId != currentUserId && !msg.isReadBy(currentUserId))
+        .toList();
 
     if (unreadMessages.isEmpty) return;
 
     try {
       // Mark messages as delivered (since we don't have read functionality)
-      await markMessagesAsDelivered(chatId, unreadMessages.map((msg) => msg.messageId).toList());
+      await markMessagesAsDelivered(
+          chatId, unreadMessages.map((msg) => msg.messageId).toList());
     } catch (e) {
       debugPrint('Error marking all messages as read: $e');
     }
@@ -1475,8 +1538,11 @@ class MessageNotifier extends _$MessageNotifier {
     final startOfDay = DateTime(today.year, today.month, today.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    return currentState.messages.where((msg) => 
-        msg.timestamp.isAfter(startOfDay) && msg.timestamp.isBefore(endOfDay)).toList();
+    return currentState.messages
+        .where((msg) =>
+            msg.timestamp.isAfter(startOfDay) &&
+            msg.timestamp.isBefore(endOfDay))
+        .toList();
   }
 
   // Get messages sent this week
@@ -1486,20 +1552,24 @@ class MessageNotifier extends _$MessageNotifier {
 
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final startOfWeekMidnight = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final startOfWeekMidnight =
+        DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
 
-    return currentState.messages.where((msg) => 
-        msg.timestamp.isAfter(startOfWeekMidnight)).toList();
+    return currentState.messages
+        .where((msg) => msg.timestamp.isAfter(startOfWeekMidnight))
+        .toList();
   }
 
   // Send location message
-  Future<void> sendLocationMessage(String chatId, double latitude, double longitude, {String? address}) async {
+  Future<void> sendLocationMessage(
+      String chatId, double latitude, double longitude,
+      {String? address}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
     try {
       final currentState = state.valueOrNull ?? const MessageState();
-      
+
       final message = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -1524,11 +1594,11 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send to server
       await _repository.sendMessage(message);
-      await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
-      
+      await _repository.updateMessageStatus(
+          chatId, message.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error sending location message: $e');
-      
+
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send location: $e',
@@ -1537,7 +1607,8 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // Send contact message
-  Future<void> sendContactMessage(String chatId, String contactName, String contactPhone) async {
+  Future<void> sendContactMessage(
+      String chatId, String contactName, String contactPhone) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
@@ -1567,8 +1638,8 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send to server
       await _repository.sendMessage(message);
-      await _repository.updateMessageStatus(chatId, message.messageId, MessageStatus.sent);
-
+      await _repository.updateMessageStatus(
+          chatId, message.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error sending contact message: $e');
 
@@ -1630,8 +1701,8 @@ class MessageNotifier extends _$MessageNotifier {
 
       // Send message to chat repository
       await _repository.sendMessage(tempMessage);
-      await _repository.updateMessageStatus(chatId, tempMessage.messageId, MessageStatus.sent);
-
+      await _repository.updateMessageStatus(
+          chatId, tempMessage.messageId, MessageStatus.sent);
     } catch (e) {
       debugPrint('Error sending gift message: $e');
 
@@ -1653,7 +1724,9 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return 0;
 
-    return currentState.messages.where((msg) => msg.status == MessageStatus.sending).length;
+    return currentState.messages
+        .where((msg) => msg.status == MessageStatus.sending)
+        .length;
   }
 
   // Get failed messages count
@@ -1661,7 +1734,9 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return 0;
 
-    return currentState.messages.where((msg) => msg.status == MessageStatus.failed).length;
+    return currentState.messages
+        .where((msg) => msg.status == MessageStatus.failed)
+        .length;
   }
 
   // Check if there are any failed messages
@@ -1675,8 +1750,10 @@ class MessageNotifier extends _$MessageNotifier {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
 
-    return currentState.messages.where((msg) => 
-        msg.timestamp.isAfter(start) && msg.timestamp.isBefore(end)).toList();
+    return currentState.messages
+        .where((msg) =>
+            msg.timestamp.isAfter(start) && msg.timestamp.isBefore(end))
+        .toList();
   }
 
   // Get messages containing specific text
@@ -1685,8 +1762,9 @@ class MessageNotifier extends _$MessageNotifier {
     if (currentState == null) return [];
 
     final searchText = text.toLowerCase();
-    return currentState.messages.where((msg) => 
-        msg.content.toLowerCase().contains(searchText)).toList();
+    return currentState.messages
+        .where((msg) => msg.content.toLowerCase().contains(searchText))
+        .toList();
   }
 
   // Dispose resources when provider is disposed

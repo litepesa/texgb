@@ -19,7 +19,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
       body: ListView(
@@ -56,7 +56,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             },
             modernTheme: modernTheme,
           ),
-          
+
           _buildListItem(
             icon: Icons.store_outlined,
             title: 'Marketplace',
@@ -72,7 +72,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             },
             modernTheme: modernTheme,
           ),
-          
+
           _buildComingSoonItem(
             icon: CupertinoIcons.square_grid_2x2,
             title: 'Mini Programs',
@@ -80,7 +80,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             iconColor: Colors.purple,
             modernTheme: modernTheme,
           ),
-          
+
           _buildComingSoonItem(
             icon: CupertinoIcons.game_controller,
             title: 'Games',
@@ -88,7 +88,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             iconColor: Colors.indigo,
             modernTheme: modernTheme,
           ),
-          
+
           _buildComingSoonItem(
             icon: CupertinoIcons.location,
             title: 'Nearby',
@@ -96,14 +96,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             iconColor: Colors.teal,
             modernTheme: modernTheme,
           ),
-          
+
           // Add some bottom padding
           const SizedBox(height: 20),
         ],
       ),
     );
   }
-  
+
   Widget _buildListItem({
     required IconData icon,
     required String title,
@@ -153,7 +153,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         Text(
                           subtitle,
                           style: TextStyle(
-                            color: modernTheme.textSecondaryColor?.withOpacity(0.8),
+                            color: modernTheme.textSecondaryColor
+                                ?.withOpacity(0.8),
                             fontSize: 13,
                           ),
                         ),
@@ -173,7 +174,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
       ),
     );
   }
-  
+
   Widget _buildComingSoonItem({
     required IconData icon,
     required String title,
@@ -210,14 +211,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       Text(
                         title,
                         style: TextStyle(
-                          color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+                          color:
+                              modernTheme.textSecondaryColor?.withOpacity(0.7),
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: modernTheme.primaryColor?.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
@@ -251,7 +254,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
       ),
     );
   }
-  
+
   Widget _buildDivider(ModernThemeExtension modernTheme) {
     return Container(
       height: 8,

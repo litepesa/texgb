@@ -25,10 +25,12 @@ class PaymentService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-        return PaymentInitiationResponse.fromJson(responseData as Map<String, dynamic>);
+        return PaymentInitiationResponse.fromJson(
+            responseData as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
-        throw PaymentException(error['error'] ?? 'Failed to initiate activation payment');
+        throw PaymentException(
+            error['error'] ?? 'Failed to initiate activation payment');
       }
     } catch (e) {
       if (e is PaymentException) rethrow;
@@ -55,7 +57,8 @@ class PaymentService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-        return PaymentInitiationResponse.fromJson(responseData as Map<String, dynamic>);
+        return PaymentInitiationResponse.fromJson(
+            responseData as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
         throw PaymentException(error['error'] ?? 'Failed to initiate payment');
@@ -70,14 +73,16 @@ class PaymentService {
   /// [checkoutRequestId] - The checkout request ID from STK push response
   Future<MpesaTransaction> queryPaymentStatus(String checkoutRequestId) async {
     try {
-      final response = await _httpClient.get('/payment/status/$checkoutRequestId');
+      final response =
+          await _httpClient.get('/payment/status/$checkoutRequestId');
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         return MpesaTransaction.fromJson(responseData as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
-        throw PaymentException(error['error'] ?? 'Failed to query payment status');
+        throw PaymentException(
+            error['error'] ?? 'Failed to query payment status');
       }
     } catch (e) {
       if (e is PaymentException) rethrow;

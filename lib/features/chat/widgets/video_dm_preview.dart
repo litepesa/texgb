@@ -21,15 +21,17 @@ class VideoDMPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: modernTheme.primaryColor?.withOpacity(0.1) ?? Colors.blue.withOpacity(0.1),
+        color: modernTheme.primaryColor?.withOpacity(0.1) ??
+            Colors.blue.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.blue.withOpacity(0.3),
+          color: modernTheme.primaryColor?.withOpacity(0.3) ??
+              Colors.blue.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -45,7 +47,7 @@ class VideoDMPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            
+
             // Video thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -57,7 +59,8 @@ class VideoDMPreview extends StatelessWidget {
                     // Video thumbnail
                     VideoThumbnailWidget(
                       videoUrl: videoMessage.mediaUrl ?? '',
-                      fallbackThumbnailUrl: videoMessage.mediaMetadata?['thumbnailUrl'] as String?,
+                      fallbackThumbnailUrl: videoMessage
+                          .mediaMetadata?['thumbnailUrl'] as String?,
                       width: 60,
                       height: 80,
                       borderRadius: BorderRadius.circular(8),
@@ -65,7 +68,7 @@ class VideoDMPreview extends StatelessWidget {
                       showPlayButton: false, // We'll add our own
                       enableGestures: false, // Disable default gestures
                     ),
-                    
+
                     // Custom play button overlay with tap handling
                     Positioned.fill(
                       child: Material(
@@ -107,9 +110,9 @@ class VideoDMPreview extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 12),
-            
+
             // Content info
             Expanded(
               child: Column(
@@ -136,25 +139,27 @@ class VideoDMPreview extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  
+
                   // Description
                   Text(
                     'Video will be sent to ${contactName ?? 'contact'}',
                     style: TextStyle(
-                      color: modernTheme.textColor?.withOpacity(0.7) ?? Colors.black.withOpacity(0.7),
+                      color: modernTheme.textColor?.withOpacity(0.7) ??
+                          Colors.black.withOpacity(0.7),
                       fontSize: 12,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   // Video info if available
                   if (videoMessage.content.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       videoMessage.content,
                       style: TextStyle(
-                        color: modernTheme.textColor?.withOpacity(0.6) ?? Colors.black.withOpacity(0.6),
+                        color: modernTheme.textColor?.withOpacity(0.6) ??
+                            Colors.black.withOpacity(0.6),
                         fontSize: 11,
                         fontStyle: FontStyle.italic,
                       ),
@@ -165,9 +170,9 @@ class VideoDMPreview extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(width: 8),
-            
+
             // Close button
             Material(
               color: Colors.transparent,
@@ -178,17 +183,20 @@ class VideoDMPreview extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: modernTheme.textColor?.withOpacity(0.1) ?? Colors.grey.withOpacity(0.1),
+                    color: modernTheme.textColor?.withOpacity(0.1) ??
+                        Colors.grey.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: modernTheme.textColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
+                      color: modernTheme.textColor?.withOpacity(0.3) ??
+                          Colors.grey.withOpacity(0.3),
                       width: 1,
                     ),
                   ),
                   child: Icon(
                     Icons.close,
                     size: 18,
-                    color: modernTheme.textColor?.withOpacity(0.8) ?? Colors.black.withOpacity(0.8),
+                    color: modernTheme.textColor?.withOpacity(0.8) ??
+                        Colors.black.withOpacity(0.8),
                   ),
                 ),
               ),

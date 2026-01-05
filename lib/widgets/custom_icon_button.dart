@@ -7,7 +7,7 @@ class CustomIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Container(
       width: 48,
       height: 48,
@@ -18,7 +18,8 @@ class CustomIconButton extends StatelessWidget {
             color: modernTheme.primaryColor!.withOpacity(0.3),
             blurRadius: 10,
             spreadRadius: 2,
-            offset: Offset(0, 4),)
+            offset: Offset(0, 4),
+          )
         ],
         gradient: LinearGradient(
           begin: Alignment.topLeft,

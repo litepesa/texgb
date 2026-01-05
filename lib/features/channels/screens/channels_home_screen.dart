@@ -47,7 +47,7 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
     if (!mounted) {
       return _getFallbackTheme();
     }
-    
+
     try {
       final extension = Theme.of(context).extension<ModernThemeExtension>();
       return extension ?? _getFallbackTheme();
@@ -58,8 +58,9 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
   }
 
   ModernThemeExtension _getFallbackTheme() {
-    final isDark = mounted ? Theme.of(context).brightness == Brightness.dark : false;
-    
+    final isDark =
+        mounted ? Theme.of(context).brightness == Brightness.dark : false;
+
     return ModernThemeExtension(
       primaryColor: const Color(0xFF07C160), // WeChat green
       surfaceColor: isDark ? Colors.grey[900] : Colors.grey[50],
@@ -74,7 +75,7 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
   @override
   Widget build(BuildContext context) {
     final theme = _getSafeTheme();
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Column(
@@ -120,7 +121,8 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ),
@@ -133,12 +135,14 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
               color: theme.surfaceColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
+                color:
+                    (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.15),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
+                  color: (theme.primaryColor ?? const Color(0xFF07C160))
+                      .withOpacity(0.08),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                   spreadRadius: -4,
@@ -185,8 +189,10 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: _tabController.index == 0
-                              ? (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.15)
-                              : (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
+                              ? (theme.primaryColor ?? const Color(0xFF07C160))
+                                  .withOpacity(0.15)
+                              : (theme.primaryColor ?? const Color(0xFF07C160))
+                                  .withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
@@ -217,8 +223,10 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: _tabController.index == 1
-                              ? (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.15)
-                              : (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
+                              ? (theme.primaryColor ?? const Color(0xFF07C160))
+                                  .withOpacity(0.15)
+                              : (theme.primaryColor ?? const Color(0xFF07C160))
+                                  .withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
@@ -249,8 +257,10 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: _tabController.index == 2
-                              ? (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.15)
-                              : (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.08),
+                              ? (theme.primaryColor ?? const Color(0xFF07C160))
+                                  .withOpacity(0.15)
+                              : (theme.primaryColor ?? const Color(0xFF07C160))
+                                  .withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
@@ -306,9 +316,8 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
         if (channels.isEmpty) {
           return _buildEmptyState(
             icon: Icons.explore_outlined,
-            title: _searchQuery.isEmpty
-                ? 'No channels yet'
-                : 'No channels found',
+            title:
+                _searchQuery.isEmpty ? 'No channels yet' : 'No channels found',
             subtitle: _searchQuery.isEmpty
                 ? 'Be the first to create a channel'
                 : 'Try a different search term',
@@ -323,7 +332,8 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
           color: theme.primaryColor ?? const Color(0xFF07C160),
           backgroundColor: theme.surfaceColor,
           child: ListView.builder(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80), // FAB clearance
+            padding: const EdgeInsets.only(
+                left: 16, right: 16, bottom: 80), // FAB clearance
             itemCount: channels.length,
             itemBuilder: (context, index) {
               final channel = channels[index];
@@ -479,7 +489,8 @@ class _ChannelsHomeScreenState extends ConsumerState<ChannelsHomeScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
+                color: (theme.primaryColor ?? const Color(0xFF07C160))
+                    .withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

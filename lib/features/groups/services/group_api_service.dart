@@ -269,8 +269,8 @@ class GroupApiService {
 
       if (response.statusCode != 200) {
         final error = jsonDecode(response.body);
-        throw HttpException(
-            error['error'] ?? 'Failed to demote member: ${response.statusCode}');
+        throw HttpException(error['error'] ??
+            'Failed to demote member: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('Error demoting member: $e');
@@ -297,9 +297,7 @@ class GroupApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is List) {
-          return data
-              .map((json) => GroupMessageModel.fromJson(json))
-              .toList();
+          return data.map((json) => GroupMessageModel.fromJson(json)).toList();
         } else if (data is Map && data['data'] is List) {
           return (data['data'] as List)
               .map((json) => GroupMessageModel.fromJson(json))

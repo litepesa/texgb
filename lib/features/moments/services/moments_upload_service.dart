@@ -61,8 +61,10 @@ class MomentsUploadService {
         print('[MOMENTS UPLOAD] Upload successful! URL: $url');
         return url;
       } else {
-        print('[MOMENTS UPLOAD] Upload failed with status ${response.statusCode}');
-        throw UploadException('Upload failed with status ${response.statusCode}: ${response.body}');
+        print(
+            '[MOMENTS UPLOAD] Upload failed with status ${response.statusCode}');
+        throw UploadException(
+            'Upload failed with status ${response.statusCode}: ${response.body}');
       }
     } catch (e, stackTrace) {
       print('[MOMENTS UPLOAD] ERROR uploading image: $e');
@@ -93,7 +95,8 @@ class MomentsUploadService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return data['url'] as String;
       } else {
-        throw UploadException('Upload failed with status ${response.statusCode}');
+        throw UploadException(
+            'Upload failed with status ${response.statusCode}');
       }
     } catch (e) {
       throw UploadException('Failed to upload video: $e');
@@ -116,7 +119,8 @@ class MomentsUploadService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return data['url'] as String;
       } else {
-        throw UploadException('Upload failed with status ${response.statusCode}');
+        throw UploadException(
+            'Upload failed with status ${response.statusCode}');
       }
     } catch (e) {
       throw UploadException('Failed to upload cover photo: $e');

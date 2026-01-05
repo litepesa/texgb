@@ -38,7 +38,7 @@ class VideoThumbnailWidget extends StatefulWidget {
 
 class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   final VideoThumbnailService _thumbnailService = VideoThumbnailService();
-  
+
   String? _generatedThumbnailPath;
   Uint8List? _thumbnailData;
   bool _isGenerating = false;
@@ -53,7 +53,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   @override
   void didUpdateWidget(VideoThumbnailWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Regenerate thumbnail if video URL changed
     if (oldWidget.videoUrl != widget.videoUrl) {
       _generateThumbnail();
@@ -77,8 +77,9 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
 
     try {
       // Try to generate thumbnail file first (better for caching)
-      final thumbnailPath = await _thumbnailService.generateThumbnail(widget.videoUrl);
-      
+      final thumbnailPath =
+          await _thumbnailService.generateThumbnail(widget.videoUrl);
+
       if (thumbnailPath != null && mounted) {
         setState(() {
           _generatedThumbnailPath = thumbnailPath;
@@ -88,8 +89,9 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
       }
 
       // If file generation failed, try data generation
-      final thumbnailData = await _thumbnailService.generateThumbnailData(widget.videoUrl);
-      
+      final thumbnailData =
+          await _thumbnailService.generateThumbnailData(widget.videoUrl);
+
       if (thumbnailData != null && mounted) {
         setState(() {
           _thumbnailData = thumbnailData;
@@ -124,7 +126,8 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+        errorBuilder:
+            (BuildContext context, Object error, StackTrace? stackTrace) {
           return _buildFallbackThumbnail(modernTheme);
         },
       );
@@ -137,21 +140,26 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+        errorBuilder:
+            (BuildContext context, Object error, StackTrace? stackTrace) {
           return _buildFallbackThumbnail(modernTheme);
         },
       );
     }
 
     // Priority 3: Fallback network thumbnail
-    if (!_generationFailed && widget.fallbackThumbnailUrl != null && widget.fallbackThumbnailUrl!.isNotEmpty) {
+    if (!_generationFailed &&
+        widget.fallbackThumbnailUrl != null &&
+        widget.fallbackThumbnailUrl!.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: widget.fallbackThumbnailUrl!,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        placeholder: (BuildContext context, String url) => _buildLoadingPlaceholder(modernTheme),
-        errorWidget: (BuildContext context, String url, dynamic error) => _buildErrorPlaceholder(modernTheme),
+        placeholder: (BuildContext context, String url) =>
+            _buildLoadingPlaceholder(modernTheme),
+        errorWidget: (BuildContext context, String url, dynamic error) =>
+            _buildErrorPlaceholder(modernTheme),
       );
     }
 
@@ -165,17 +173,20 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
 
   Widget _buildFallbackThumbnail(ModernThemeExtension modernTheme) {
     // Try fallback network thumbnail if available
-    if (widget.fallbackThumbnailUrl != null && widget.fallbackThumbnailUrl!.isNotEmpty) {
+    if (widget.fallbackThumbnailUrl != null &&
+        widget.fallbackThumbnailUrl!.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: widget.fallbackThumbnailUrl!,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        placeholder: (BuildContext context, String url) => _buildErrorPlaceholder(modernTheme),
-        errorWidget: (BuildContext context, String url, dynamic error) => _buildErrorPlaceholder(modernTheme),
+        placeholder: (BuildContext context, String url) =>
+            _buildErrorPlaceholder(modernTheme),
+        errorWidget: (BuildContext context, String url, dynamic error) =>
+            _buildErrorPlaceholder(modernTheme),
       );
     }
-    
+
     return _buildErrorPlaceholder(modernTheme);
   }
 
@@ -183,7 +194,8 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
     return Container(
       width: widget.width,
       height: widget.height,
-      color: modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey[300],
+      color:
+          modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey[300],
       child: Center(
         child: CircularProgressIndicator(
           color: modernTheme.primaryColor,
@@ -197,7 +209,8 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
     return Container(
       width: widget.width,
       height: widget.height,
-      color: modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey[300],
+      color:
+          modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey[300],
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -246,7 +259,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     Widget thumbnailWidget = ClipRRect(
       borderRadius: widget.borderRadius ?? BorderRadius.zero,
       child: SizedBox(
@@ -257,7 +270,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           children: [
             // Thumbnail content
             _buildThumbnailContent(modernTheme),
-            
+
             // Clean play button overlay (only when requested and not loading)
             if (widget.showPlayButton && !_isGenerating) ...[
               Container(
@@ -295,7 +308,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                 ),
               ),
             ],
-            
+
             // Custom overlay widget (for additional content if needed)
             if (widget.overlayWidget != null) widget.overlayWidget!,
           ],

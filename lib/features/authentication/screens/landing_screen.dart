@@ -64,27 +64,27 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
   Widget build(BuildContext context) {
     final isLoading = ref.watch(landingLoadingProvider);
     final size = MediaQuery.of(context).size;
-    
+
     // Refined color palette - extracted as constants to avoid recreation
     const wechatGreen = Color(0xFF07C160);
     const darkBackground = Color(0xFF0F0F0F);
-    
+
     if (isLoading) {
       return const _LoadingScreen();
     }
-    
+
     return Scaffold(
       backgroundColor: darkBackground,
       body: SafeArea(
         child: Column(
           children: [
             const Spacer(flex: 2),
-            
+
             // Extracted to a separate widget for better tree optimization
             const _AppLogo(),
-            
+
             const Spacer(flex: 1),
-            
+
             // Featured Lottie Animation
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -107,7 +107,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                         width: 80,
                         height: 80,
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(wechatGreen),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(wechatGreen),
                           strokeWidth: 2,
                         ),
                       ),
@@ -116,9 +117,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                 ),
               ),
             ),
-            
+
             const Spacer(flex: 2),
-            
+
             // Get Started Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -143,12 +144,12 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Legal text
             const _LegalText(),
-            
+
             const Spacer(flex: 1),
           ],
         ),
@@ -166,7 +167,7 @@ class _LoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const wechatGreen = Color(0xFF07C160);
     const darkBackground = Color(0xFF0F0F0F);
-    
+
     return const Scaffold(
       backgroundColor: darkBackground,
       body: Center(
@@ -184,7 +185,7 @@ class _AppLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const wechatGreen = Color(0xFF07C160);
-    
+
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: Stack(
@@ -202,7 +203,7 @@ class _AppLogo extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Clean, minimalist logo text
           RichText(
             text: const TextSpan(
@@ -226,7 +227,7 @@ class _AppLogo extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: "Chat",
+                  text: "Shop",
                   style: TextStyle(
                     color: Color(0xFFFE2C55),
                     fontWeight: FontWeight.w700,

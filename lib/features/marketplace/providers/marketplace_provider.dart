@@ -54,7 +54,8 @@ final marketplaceRepositoryProvider = Provider<MarketplaceRepository>((ref) {
 
 @riverpod
 class Marketplace extends _$Marketplace {
-  MarketplaceRepository get _repository => ref.read(marketplaceRepositoryProvider);
+  MarketplaceRepository get _repository =>
+      ref.read(marketplaceRepositoryProvider);
 
   @override
   FutureOr<MarketplaceState> build() async {
@@ -82,8 +83,8 @@ class Marketplace extends _$Marketplace {
         return video.copyWith(isLiked: isLiked);
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
-
+      state =
+          AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
     } catch (e) {
       debugPrint('❌ Error loading marketplace videos: $e');
       // Don't set error state - just log it to keep UI functional
@@ -110,10 +111,12 @@ class Marketplace extends _$Marketplace {
 
       if (isCurrentlyLiked) {
         likedVideos.remove(videoId);
-        await _repository.unlikeMarketplaceVideo(videoId, ''); // Pass actual userId
+        await _repository.unlikeMarketplaceVideo(
+            videoId, ''); // Pass actual userId
       } else {
         likedVideos.add(videoId);
-        await _repository.likeMarketplaceVideo(videoId, ''); // Pass actual userId
+        await _repository.likeMarketplaceVideo(
+            videoId, ''); // Pass actual userId
       }
 
       final updatedVideos = currentState.videos.map((video) {
@@ -188,7 +191,8 @@ class Marketplace extends _$Marketplace {
         try {
           thumbnailUrl = await _repository.storeFileToStorage(
             file: thumbnailFile,
-            reference: 'thumbnails/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg',
+            reference:
+                'thumbnails/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg',
           );
           debugPrint('✅ Thumbnail uploaded to R2: $thumbnailUrl');
 
@@ -215,7 +219,8 @@ class Marketplace extends _$Marketplace {
       debugPrint('🎹 Step 3/4: Uploading video to Cloudflare R2...');
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
-        reference: 'marketplace/$userId/${DateTime.now().millisecondsSinceEpoch}.mp4',
+        reference:
+            'marketplace/$userId/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
           final mappedProgress = 0.2 + (progress * 0.7);
           final currentState = state.value ?? const MarketplaceState();
@@ -232,7 +237,8 @@ class Marketplace extends _$Marketplace {
       ));
 
       // Create marketplace video record in database with price
-      debugPrint('💾 Step 4/4: Creating marketplace video record in database...');
+      debugPrint(
+          '💾 Step 4/4: Creating marketplace video record in database...');
       debugPrint('💰 Video price: ${price ?? 0.0} KES');
 
       final videoData = await _repository.createMarketplaceVideo(
@@ -245,7 +251,8 @@ class Marketplace extends _$Marketplace {
         tags: tags ?? [],
         price: price ?? 0.0,
       );
-      debugPrint('✅ Marketplace video record created in database with price: ${videoData.price}');
+      debugPrint(
+          '✅ Marketplace video record created in database with price: ${videoData.price}');
 
       List<MarketplaceVideoModel> updatedVideos = [
         videoData,
@@ -259,7 +266,8 @@ class Marketplace extends _$Marketplace {
         videos: updatedVideos,
       ));
 
-      debugPrint('✅ Marketplace video upload complete with thumbnail and price!');
+      debugPrint(
+          '✅ Marketplace video upload complete with thumbnail and price!');
       onSuccess('Marketplace video uploaded successfully');
     } catch (e) {
       debugPrint('❌ Error uploading marketplace video: $e');
@@ -308,7 +316,8 @@ class Marketplace extends _$Marketplace {
         final file = imageFiles[i];
         final imageUrl = await _repository.storeFileToStorage(
           file: file,
-          reference: 'marketplace/images/$userId/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+          reference:
+              'marketplace/images/$userId/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
         );
         imageUrls.add(imageUrl);
       }
@@ -394,13 +403,16 @@ class Marketplace extends _$Marketplace {
     );
   }
 
-  Future<void> deleteMarketplaceVideo(String videoId, Function(String) onError) async {
+  Future<void> deleteMarketplaceVideo(
+      String videoId, Function(String) onError) async {
     final currentState = state.value ?? const MarketplaceState();
 
     try {
-      await _repository.deleteMarketplaceVideo(videoId, ''); // Pass actual userId
+      await _repository.deleteMarketplaceVideo(
+          videoId, ''); // Pass actual userId
 
-      final updatedVideos = currentState.videos.where((video) => video.id != videoId).toList();
+      final updatedVideos =
+          currentState.videos.where((video) => video.id != videoId).toList();
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } catch (e) {
       debugPrint('Error deleting marketplace video: $e');
@@ -502,7 +514,6 @@ class Marketplace extends _$Marketplace {
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
 
       onSuccess('Marketplace video boosted successfully! 🚀');
-
     } catch (e) {
       debugPrint('❌ Boost purchase failed: $e');
 
@@ -616,7 +627,8 @@ class Marketplace extends _$Marketplace {
 
       debugPrint('💬 Adding marketplace comment to video: $videoId');
       if (imageFiles != null && imageFiles.isNotEmpty) {
-        debugPrint('📸 Marketplace comment includes ${imageFiles.length} image(s)');
+        debugPrint(
+            '📸 Marketplace comment includes ${imageFiles.length} image(s)');
       }
 
       // 🆕 Upload images if provided (max 2 images)
@@ -625,16 +637,19 @@ class Marketplace extends _$Marketplace {
         try {
           final filesToUpload = imageFiles.take(2).toList();
 
-          debugPrint('☁️ Uploading ${filesToUpload.length} marketplace comment images to R2...');
+          debugPrint(
+              '☁️ Uploading ${filesToUpload.length} marketplace comment images to R2...');
 
           imageUrls = await _repository.storeFilesToStorage(
             files: filesToUpload,
-            referencePrefix: 'marketplace/comments/$userId/${DateTime.now().millisecondsSinceEpoch}',
+            referencePrefix:
+                'marketplace/comments/$userId/${DateTime.now().millisecondsSinceEpoch}',
           );
 
           debugPrint('✅ Marketplace comment images uploaded successfully');
         } catch (e) {
-          debugPrint('⚠️ Warning: Failed to upload marketplace comment images: $e');
+          debugPrint(
+              '⚠️ Warning: Failed to upload marketplace comment images: $e');
           imageUrls = null;
         }
       }
@@ -659,7 +674,8 @@ class Marketplace extends _$Marketplace {
     }
   }
 
-  Future<List<MarketplaceCommentModel>> getMarketplaceVideoComments(String videoId) async {
+  Future<List<MarketplaceCommentModel>> getMarketplaceVideoComments(
+      String videoId) async {
     try {
       debugPrint('📥 Fetching marketplace comments for video: $videoId');
       final comments = await _repository.getMarketplaceVideoComments(videoId);
@@ -671,12 +687,14 @@ class Marketplace extends _$Marketplace {
     }
   }
 
-  Future<void> deleteMarketplaceComment(String commentId, Function(String) onError) async {
+  Future<void> deleteMarketplaceComment(
+      String commentId, Function(String) onError) async {
     final currentState = state.value ?? const MarketplaceState();
 
     try {
       debugPrint('🗑️ Deleting marketplace comment: $commentId');
-      await _repository.deleteMarketplaceComment(commentId, ''); // Pass actual userId
+      await _repository.deleteMarketplaceComment(
+          commentId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment deleted successfully');
     } catch (e) {
       debugPrint('❌ Error deleting marketplace comment: $e');
@@ -687,7 +705,8 @@ class Marketplace extends _$Marketplace {
   Future<void> likeMarketplaceComment(String commentId) async {
     try {
       debugPrint('❤️ Liking marketplace comment: $commentId');
-      await _repository.likeMarketplaceComment(commentId, ''); // Pass actual userId
+      await _repository.likeMarketplaceComment(
+          commentId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment liked successfully');
     } catch (e) {
       debugPrint('❌ Error liking marketplace comment: $e');
@@ -697,7 +716,8 @@ class Marketplace extends _$Marketplace {
   Future<void> unlikeMarketplaceComment(String commentId) async {
     try {
       debugPrint('💔 Unliking marketplace comment: $commentId');
-      await _repository.unlikeMarketplaceComment(commentId, ''); // Pass actual userId
+      await _repository.unlikeMarketplaceComment(
+          commentId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment unliked successfully');
     } catch (e) {
       debugPrint('❌ Error unliking marketplace comment: $e');
@@ -712,7 +732,8 @@ class Marketplace extends _$Marketplace {
   ) async {
     try {
       debugPrint('📌 Pinning marketplace comment: $commentId');
-      await _repository.pinMarketplaceComment(commentId, videoId, ''); // Pass actual userId
+      await _repository.pinMarketplaceComment(
+          commentId, videoId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment pinned successfully');
     } catch (e) {
       debugPrint('❌ Error pinning marketplace comment: $e');
@@ -728,7 +749,8 @@ class Marketplace extends _$Marketplace {
   ) async {
     try {
       debugPrint('📍 Unpinning marketplace comment: $commentId');
-      await _repository.unpinMarketplaceComment(commentId, videoId, ''); // Pass actual userId
+      await _repository.unpinMarketplaceComment(
+          commentId, videoId, ''); // Pass actual userId
       debugPrint('✅ Marketplace comment unpinned successfully');
     } catch (e) {
       debugPrint('❌ Error unpinning marketplace comment: $e');

@@ -50,7 +50,8 @@ class StatusRingsList extends ConsumerWidget {
           horizontal: 8,
           vertical: 8,
         ),
-        itemCount: (showMyStatus && myStatusGroup != null ? 1 : 0) + activeGroups.length,
+        itemCount: (showMyStatus && myStatusGroup != null ? 1 : 0) +
+            activeGroups.length,
         itemBuilder: (context, index) {
           // My status comes first
           if (showMyStatus && myStatusGroup != null && index == 0) {
@@ -62,7 +63,8 @@ class StatusRingsList extends ConsumerWidget {
           }
 
           // Other contacts' statuses
-          final groupIndex = (showMyStatus && myStatusGroup != null) ? index - 1 : index;
+          final groupIndex =
+              (showMyStatus && myStatusGroup != null) ? index - 1 : index;
           final group = activeGroups[groupIndex];
 
           return StatusRing(
@@ -135,7 +137,8 @@ class StatusRingsList extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                  color: modernTheme.primaryColor ??
+                      Theme.of(context).primaryColor,
                 ),
               ),
             ),

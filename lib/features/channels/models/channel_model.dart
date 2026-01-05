@@ -21,7 +21,8 @@ class ChannelModel {
   final int unreadCount; // Unread posts for current user
 
   // Premium channel settings
-  final int? subscriptionPriceCoins; // Monthly subscription price for premium channels
+  final int?
+      subscriptionPriceCoins; // Monthly subscription price for premium channels
 
   // Metadata
   final DateTime? createdAt;
@@ -61,19 +62,32 @@ class ChannelModel {
       description: json['description'] as String,
       avatarUrl: json['avatarUrl'] as String? ?? json['avatar_url'] as String?,
       type: _channelTypeFromString(json['type'] as String?),
-      isVerified: json['isVerified'] as bool? ?? json['is_verified'] as bool? ?? false,
-      subscriberCount: json['subscriberCount'] as int? ?? json['subscriber_count'] as int? ?? 0,
+      isVerified:
+          json['isVerified'] as bool? ?? json['is_verified'] as bool? ?? false,
+      subscriberCount: json['subscriberCount'] as int? ??
+          json['subscriber_count'] as int? ??
+          0,
       postCount: json['postCount'] as int? ?? json['post_count'] as int? ?? 0,
-      unreadCount: json['unreadCount'] as int? ?? json['unread_count'] as int? ?? 0,
-      subscriptionPriceCoins: json['subscriptionPriceCoins'] as int? ?? json['subscription_price_coins'] as int?,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) :
-                 (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) :
-                 (json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null),
-      isSubscribed: json['isSubscribed'] as bool? ?? json['is_subscribed'] as bool?,
+      unreadCount:
+          json['unreadCount'] as int? ?? json['unread_count'] as int? ?? 0,
+      subscriptionPriceCoins: json['subscriptionPriceCoins'] as int? ??
+          json['subscription_price_coins'] as int?,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : (json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : null),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : (json['updated_at'] != null
+              ? DateTime.parse(json['updated_at'] as String)
+              : null),
+      isSubscribed:
+          json['isSubscribed'] as bool? ?? json['is_subscribed'] as bool?,
       isAdmin: json['isAdmin'] as bool? ?? json['is_admin'] as bool?,
       isOwner: json['isOwner'] as bool? ?? json['is_owner'] as bool?,
-      hasNotificationsEnabled: json['hasNotificationsEnabled'] as bool? ?? json['has_notifications_enabled'] as bool?,
+      hasNotificationsEnabled: json['hasNotificationsEnabled'] as bool? ??
+          json['has_notifications_enabled'] as bool?,
     );
   }
 
@@ -129,13 +143,15 @@ class ChannelModel {
       subscriberCount: subscriberCount ?? this.subscriberCount,
       postCount: postCount ?? this.postCount,
       unreadCount: unreadCount ?? this.unreadCount,
-      subscriptionPriceCoins: subscriptionPriceCoins ?? this.subscriptionPriceCoins,
+      subscriptionPriceCoins:
+          subscriptionPriceCoins ?? this.subscriptionPriceCoins,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isSubscribed: isSubscribed ?? this.isSubscribed,
       isAdmin: isAdmin ?? this.isAdmin,
       isOwner: isOwner ?? this.isOwner,
-      hasNotificationsEnabled: hasNotificationsEnabled ?? this.hasNotificationsEnabled,
+      hasNotificationsEnabled:
+          hasNotificationsEnabled ?? this.hasNotificationsEnabled,
     );
   }
 }
@@ -170,12 +186,19 @@ class ChannelMember {
       channelId: json['channelId'] as String? ?? json['channel_id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String,
       userName: json['userName'] as String? ?? json['user_name'] as String,
-      userAvatarUrl: json['userAvatarUrl'] as String? ?? json['user_avatar_url'] as String?,
+      userAvatarUrl: json['userAvatarUrl'] as String? ??
+          json['user_avatar_url'] as String?,
       role: _memberRoleFromString(json['role'] as String?),
-      addedAt: json['addedAt'] != null ? DateTime.parse(json['addedAt'] as String) :
-               (json['added_at'] != null ? DateTime.parse(json['added_at'] as String) : null),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) :
-                 (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null),
+      addedAt: json['addedAt'] != null
+          ? DateTime.parse(json['addedAt'] as String)
+          : (json['added_at'] != null
+              ? DateTime.parse(json['added_at'] as String)
+              : null),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : (json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : null),
       addedBy: json['addedBy'] as String? ?? json['added_by'] as String?,
     );
   }
@@ -206,15 +229,19 @@ enum MemberRole {
 extension MemberRoleExtension on MemberRole {
   bool get canPost => this == MemberRole.owner || this == MemberRole.admin;
 
-  bool get canDeletePosts => this == MemberRole.owner || this == MemberRole.admin;
+  bool get canDeletePosts =>
+      this == MemberRole.owner || this == MemberRole.admin;
 
-  bool get canDeleteComments => this == MemberRole.owner || this == MemberRole.admin;
+  bool get canDeleteComments =>
+      this == MemberRole.owner || this == MemberRole.admin;
 
   bool get canBanUsers => this == MemberRole.owner || this == MemberRole.admin;
 
-  bool get canManageMembers => this == MemberRole.owner || this == MemberRole.admin;
+  bool get canManageMembers =>
+      this == MemberRole.owner || this == MemberRole.admin;
 
-  bool get canEditChannel => this == MemberRole.owner || this == MemberRole.admin;
+  bool get canEditChannel =>
+      this == MemberRole.owner || this == MemberRole.admin;
 
   bool get canDeleteChannel => this == MemberRole.owner;
 

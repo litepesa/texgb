@@ -153,7 +153,8 @@ class PrivacySelector extends StatelessWidget {
         ),
         child: Icon(
           Icons.visibility_off,
-          color: hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.grey[600],
+          color:
+              hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.grey[600],
           size: 20,
         ),
       ),
@@ -170,7 +171,8 @@ class PrivacySelector extends StatelessWidget {
             : 'Select contacts who cannot see this',
         style: TextStyle(
           fontSize: 12,
-          color: hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.grey[600],
+          color:
+              hasHiddenContacts ? MomentsTheme.primaryBlue : Colors.grey[600],
         ),
       ),
       trailing: hasHiddenContacts

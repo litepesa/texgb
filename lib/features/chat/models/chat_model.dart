@@ -50,7 +50,8 @@ class ChatModel {
       if (value == null) return {};
       if (value is Map<String, int>) return value;
       if (value is Map<String, dynamic>) {
-        return value.map((k, v) => MapEntry(k, v is int ? v : (v is num ? v.toInt() : 0)));
+        return value.map(
+            (k, v) => MapEntry(k, v is int ? v : (v is num ? v.toInt() : 0)));
       }
       return {};
     }
@@ -60,7 +61,8 @@ class ChatModel {
       if (value == null) return {};
       if (value is Map<String, bool>) return value;
       if (value is Map<String, dynamic>) {
-        return value.map((k, v) => MapEntry(k, v is bool ? v : (v == true || v == 'true')));
+        return value.map(
+            (k, v) => MapEntry(k, v is bool ? v : (v == true || v == 'true')));
       }
       return {};
     }
@@ -99,23 +101,25 @@ class ChatModel {
         orElse: () => MessageEnum.text,
       ),
       lastMessageSender: map['lastMessageSender'] ?? '',
-      lastMessageTime: DateTime.parse(map['lastMessageTime'] ?? DateTime(2000, 1, 1).toIso8601String()),
+      lastMessageTime: DateTime.parse(
+          map['lastMessageTime'] ?? DateTime(2000, 1, 1).toIso8601String()),
       unreadCounts: parseIntMap(map['unreadCounts']),
       isArchived: parseBoolMap(map['isArchived']),
       isPinned: parseBoolMap(map['isPinned']),
       isMuted: parseBoolMap(map['isMuted']),
-      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
+      createdAt:
+          DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
       chatWallpapers: map['chatWallpapers'] != null
-        ? parseStringMap(map['chatWallpapers'])
-        : null,
-      fontSizes: map['fontSizes'] != null
-        ? parseDoubleMap(map['fontSizes'])
-        : null,
+          ? parseStringMap(map['chatWallpapers'])
+          : null,
+      fontSizes:
+          map['fontSizes'] != null ? parseDoubleMap(map['fontSizes']) : null,
       originalVideoId: map['originalVideoId'],
       originalVideoUrl: map['originalVideoUrl'],
       originalVideoThumbnail: map['originalVideoThumbnail'],
       originalVideoCaption: map['originalVideoCaption'],
-      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      updatedAt:
+          map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
     );
   }
 
@@ -136,8 +140,10 @@ class ChatModel {
       'fontSizes': fontSizes,
       if (originalVideoId != null) 'originalVideoId': originalVideoId,
       if (originalVideoUrl != null) 'originalVideoUrl': originalVideoUrl,
-      if (originalVideoThumbnail != null) 'originalVideoThumbnail': originalVideoThumbnail,
-      if (originalVideoCaption != null) 'originalVideoCaption': originalVideoCaption,
+      if (originalVideoThumbnail != null)
+        'originalVideoThumbnail': originalVideoThumbnail,
+      if (originalVideoCaption != null)
+        'originalVideoCaption': originalVideoCaption,
       if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
     };
   }
@@ -178,7 +184,8 @@ class ChatModel {
       fontSizes: fontSizes ?? this.fontSizes,
       originalVideoId: originalVideoId ?? this.originalVideoId,
       originalVideoUrl: originalVideoUrl ?? this.originalVideoUrl,
-      originalVideoThumbnail: originalVideoThumbnail ?? this.originalVideoThumbnail,
+      originalVideoThumbnail:
+          originalVideoThumbnail ?? this.originalVideoThumbnail,
       originalVideoCaption: originalVideoCaption ?? this.originalVideoCaption,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -224,10 +231,10 @@ class ChatModel {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-  
+
     return other is ChatModel &&
-      other.chatId == chatId &&
-      other.lastMessageTime == lastMessageTime;
+        other.chatId == chatId &&
+        other.lastMessageTime == lastMessageTime;
   }
 
   @override

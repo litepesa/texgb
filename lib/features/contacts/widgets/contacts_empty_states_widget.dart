@@ -26,7 +26,7 @@ class ContactItemWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -89,9 +89,9 @@ class ContactItemWidget extends ConsumerWidget {
                   ),
                   child: _buildCachedAvatar(theme),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 // Enhanced Contact Info
                 Expanded(
                   child: Column(
@@ -110,12 +110,13 @@ class ContactItemWidget extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Phone number with enhanced styling
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: theme.primaryColor!.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
@@ -144,9 +145,9 @@ class ContactItemWidget extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Status message if available
                       if (contact.bio.isNotEmpty)
                         Text(
@@ -162,7 +163,7 @@ class ContactItemWidget extends ConsumerWidget {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
               ],
             ),
@@ -241,7 +242,7 @@ class InviteItemWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -304,10 +305,11 @@ class InviteItemWidget extends ConsumerWidget {
                   ),
                   child: CircleAvatar(
                     radius: 24,
-                    backgroundColor: theme.surfaceVariantColor!.withOpacity(0.7),
+                    backgroundColor:
+                        theme.surfaceVariantColor!.withOpacity(0.7),
                     child: Text(
-                      contact.displayName.isNotEmpty 
-                          ? contact.displayName[0].toUpperCase() 
+                      contact.displayName.isNotEmpty
+                          ? contact.displayName[0].toUpperCase()
                           : '?',
                       style: TextStyle(
                         fontSize: 18,
@@ -317,9 +319,9 @@ class InviteItemWidget extends ConsumerWidget {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 // Enhanced Contact Info
                 Expanded(
                   child: Column(
@@ -338,12 +340,13 @@ class InviteItemWidget extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Phone number with enhanced styling
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.orange.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
@@ -359,8 +362,8 @@ class InviteItemWidget extends ConsumerWidget {
                             const SizedBox(width: 3),
                             Flexible(
                               child: Text(
-                                contact.phones.isNotEmpty 
-                                    ? contact.phones.first.number 
+                                contact.phones.isNotEmpty
+                                    ? contact.phones.first.number
                                     : 'No phone number',
                                 style: TextStyle(
                                   fontSize: 10,
@@ -374,12 +377,13 @@ class InviteItemWidget extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Not on WemaChat indicator
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: theme.surfaceVariantColor!.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(6),
@@ -394,7 +398,7 @@ class InviteItemWidget extends ConsumerWidget {
                             ),
                             const SizedBox(width: 3),
                             Text(
-                              'Not on WemaChat',
+                              'Not on WemaShop',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: theme.textSecondaryColor,
@@ -407,9 +411,9 @@ class InviteItemWidget extends ConsumerWidget {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 // Enhanced Invite Button
                 Material(
                   color: Colors.transparent,
@@ -425,7 +429,8 @@ class InviteItemWidget extends ConsumerWidget {
                         minWidth: 80,
                         maxWidth: 100,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: theme.primaryColor,
                         borderRadius: BorderRadius.circular(14),
@@ -484,13 +489,14 @@ class InviteItemWidget extends ConsumerWidget {
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
       final message = contactsNotifier.generateInviteMessage();
-      
+
       await Share.share(
         message,
-        subject: 'Join me on WemaChat!',
+        subject: 'Join me on WemaShop!',
       );
-      
-      _showSuccessSnackBar(context, 'Invitation sent to ${contact.displayName}');
+
+      _showSuccessSnackBar(
+          context, 'Invitation sent to ${contact.displayName}');
     } catch (e) {
       _showErrorSnackBar(context, 'Failed to share invitation: $e');
     }
@@ -498,7 +504,7 @@ class InviteItemWidget extends ConsumerWidget {
 
   void _showContactDetailsSheet(BuildContext context, WidgetRef ref) {
     final theme = context.modernTheme;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -532,7 +538,7 @@ class InviteItemWidget extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
@@ -569,8 +575,8 @@ class InviteItemWidget extends ConsumerWidget {
                               ),
                               child: Center(
                                 child: Text(
-                                  contact.displayName.isNotEmpty 
-                                      ? contact.displayName[0].toUpperCase() 
+                                  contact.displayName.isNotEmpty
+                                      ? contact.displayName[0].toUpperCase()
                                       : '?',
                                   style: TextStyle(
                                     fontSize: 24,
@@ -596,13 +602,14 @@ class InviteItemWidget extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: Colors.orange.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      'Not on WemaChat',
+                                      'Not on WemaShop',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -616,9 +623,9 @@ class InviteItemWidget extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Phone numbers section
                       if (contact.phones.isNotEmpty) ...[
                         Text(
@@ -632,60 +639,63 @@ class InviteItemWidget extends ConsumerWidget {
                         ),
                         const SizedBox(height: 12),
                         ...contact.phones.map((phone) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: theme.surfaceVariantColor!.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: theme.dividerColor!.withOpacity(0.15),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: theme.primaryColor!.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.phone_rounded,
-                                  color: theme.primaryColor,
-                                  size: 16,
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.surfaceVariantColor!.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.dividerColor!.withOpacity(0.15),
+                                  width: 1,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      phone.number,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.textColor,
-                                      ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          theme.primaryColor!.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    Text(
-                                      phone.label.name.toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: theme.textSecondaryColor,
-                                      ),
+                                    child: Icon(
+                                      Icons.phone_rounded,
+                                      color: theme.primaryColor,
+                                      size: 16,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          phone.number,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: theme.textColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          phone.label.name.toUpperCase(),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: theme.textSecondaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        )),
+                            )),
                         const SizedBox(height: 24),
                       ],
-                      
+
                       // Actions section
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -711,13 +721,15 @@ class InviteItemWidget extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   decoration: BoxDecoration(
                                     color: theme.primaryColor,
                                     borderRadius: BorderRadius.circular(14),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: theme.primaryColor!.withOpacity(0.3),
+                                        color: theme.primaryColor!
+                                            .withOpacity(0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -730,7 +742,8 @@ class InviteItemWidget extends ConsumerWidget {
                                         padding: const EdgeInsets.all(4),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
                                         ),
                                         child: const Icon(
                                           Icons.share_rounded,
@@ -740,7 +753,7 @@ class InviteItemWidget extends ConsumerWidget {
                                       ),
                                       const SizedBox(width: 8),
                                       const Text(
-                                        'Invite to WemaChat',
+                                        'Invite to WemaShop',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
@@ -752,9 +765,9 @@ class InviteItemWidget extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            
+
                             const SizedBox(height: 12),
-                            
+
                             // Close button
                             Material(
                               color: Colors.transparent,
@@ -764,12 +777,14 @@ class InviteItemWidget extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(14),
                                 child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   decoration: BoxDecoration(
                                     color: theme.surfaceVariantColor,
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: theme.dividerColor!.withOpacity(0.3),
+                                      color:
+                                          theme.dividerColor!.withOpacity(0.3),
                                       width: 1,
                                     ),
                                   ),
@@ -798,7 +813,7 @@ class InviteItemWidget extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 20),
                     ],
                   ),

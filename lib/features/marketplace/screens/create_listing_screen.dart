@@ -25,7 +25,7 @@ class VideoInfo {
   final double fileSizeMB;
   final int? currentBitrate;
   final double frameRate;
-  
+
   VideoInfo({
     required this.duration,
     required this.resolution,
@@ -33,12 +33,12 @@ class VideoInfo {
     this.currentBitrate,
     required this.frameRate,
   });
-  
+
   @override
   String toString() {
     return 'Duration: ${duration.inSeconds}s, Resolution: ${resolution.width}x${resolution.height}, '
-           'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
-           'FPS: ${frameRate.toStringAsFixed(1)}';
+        'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
+        'FPS: ${frameRate.toStringAsFixed(1)}';
   }
 }
 
@@ -46,13 +46,14 @@ class CreateListingScreen extends ConsumerStatefulWidget {
   const CreateListingScreen({super.key});
 
   @override
-  ConsumerState<CreateListingScreen> createState() => _CreateListingScreenState();
+  ConsumerState<CreateListingScreen> createState() =>
+      _CreateListingScreenState();
 }
 
 class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
-  
+
   // Cache manager for efficient file handling
   static final CacheManager _cacheManager = CacheManager(
     Config(
@@ -61,25 +62,25 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       maxNrOfCacheObjects: 20,
     ),
   );
-  
+
   // Video selection
   File? _videoFile;
   VideoInfo? _videoInfo;
   VideoPlayerController? _videoController;
   bool _isVideoPlaying = false;
-  
+
   // Processing state
   bool _isProcessing = false;
   double _processingProgress = 0.0;
-  
+
   // Upload simulation state
   bool _isSimulatingUpload = false;
   double _simulatedUploadProgress = 0.0;
   Timer? _uploadSimulationTimer;
-  
+
   // Wakelock state tracking
   bool _wakelockActive = false;
-  
+
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -345,7 +346,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
       int? currentBitrate;
       if (duration.inSeconds > 0) {
-        currentBitrate = ((fileSizeBytes * 8) / duration.inSeconds / 1000).round();
+        currentBitrate =
+            ((fileSizeBytes * 8) / duration.inSeconds / 1000).round();
       }
 
       await controller.dispose();
@@ -377,7 +379,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   String _getOptimalPreset(VideoInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
     final duration = info.duration.inSeconds;
-    
+
     if (totalPixels >= 1920 * 1080 || duration > 180) {
       return 'slow';
     } else if (totalPixels >= 1280 * 720) {
@@ -390,7 +392,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   // Get optimal profile based on resolution
   String _getOptimalProfile(VideoInfo info) {
     final totalPixels = info.resolution.width * info.resolution.height;
-    
+
     if (totalPixels >= 1920 * 1080) {
       return 'high';
     } else {
@@ -401,18 +403,20 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   // Build video filters for enhancement
   String _buildVideoFilters(VideoInfo info) {
     List<String> filters = [];
-    
+
     if (info.currentBitrate != null && info.currentBitrate! > 1000) {
       // Subtle sharpening for better perceived quality
-      filters.add('unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
-      
+      filters.add(
+          'unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
+
       // Slight saturation boost for more vivid colors
       filters.add('eq=saturation=1.1');
-      
+
       // Noise reduction for cleaner image
-      filters.add('hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
+      filters.add(
+          'hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
     }
-    
+
     return filters.join(',');
   }
 
@@ -422,13 +426,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   // Modified video processing - enhanced audio for all videos
-  Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
+  Future<File?> _optimizeVideoQualitySize(
+      File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
-      final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
-      
+      final outputPath =
+          '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
       await _enableWakelock();
-      
+
       setState(() {
         _isProcessing = true;
         _processingProgress = 0.0;
@@ -476,24 +482,25 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
       final videoDurationMs = info.duration.inMilliseconds;
       final Completer<void> processingCompleter = Completer<void>();
-      
+
       FFmpegKit.executeAsync(
         command,
         (session) async {
           final returnCode = await session.getReturnCode();
-          
+
           if (mounted) {
             setState(() {
               _isProcessing = false;
-              _processingProgress = ReturnCode.isSuccess(returnCode) ? 1.0 : 0.0;
+              _processingProgress =
+                  ReturnCode.isSuccess(returnCode) ? 1.0 : 0.0;
             });
           }
-          
+
           final authProvider = ref.read(authenticationProvider.notifier);
           if (!authProvider.isLoading) {
             await _disableWakelock();
           }
-          
+
           if (!processingCompleter.isCompleted) {
             processingCompleter.complete();
           }
@@ -502,16 +509,20 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
           // Silent processing - no debug logs
         },
         (statistics) {
-          if (mounted && _isProcessing && statistics.getTime() > 0 && videoDurationMs > 0) {
-            final encodingProgress = (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
-            
+          if (mounted &&
+              _isProcessing &&
+              statistics.getTime() > 0 &&
+              videoDurationMs > 0) {
+            final encodingProgress =
+                (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
+
             setState(() {
               _processingProgress = encodingProgress.clamp(0.0, 1.0);
             });
           }
         },
       );
-      
+
       await processingCompleter.future;
 
       // 1. Small delay for OS to flush file buffers to disk
@@ -554,14 +565,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       }
 
       // 5. Compare to expected size (warning if too small)
-      final expectedMinSize = info.fileSizeMB * 0.3 * 1024 * 1024; // At least 30% of original
+      final expectedMinSize =
+          info.fileSizeMB * 0.3 * 1024 * 1024; // At least 30% of original
       if (fileSize < expectedMinSize) {
-        debugPrint('⚠️ Warning: Processed file (${fileSize / (1024 * 1024)}MB) is much smaller than expected');
+        debugPrint(
+            '⚠️ Warning: Processed file (${fileSize / (1024 * 1024)}MB) is much smaller than expected');
       }
 
       debugPrint('✅ Verified processed file: ${fileSize / (1024 * 1024)}MB');
       return outputFile;
-      
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -577,22 +589,23 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   // Simulate upload progress
   void _startUploadSimulation() {
     _uploadSimulationTimer?.cancel();
-    
+
     setState(() {
       _isSimulatingUpload = true;
       _simulatedUploadProgress = 0.0;
     });
-    
+
     // Simulate varying upload speeds
     const updateInterval = Duration(milliseconds: 100);
     const totalDuration = Duration(seconds: 180); // Total simulated upload time
-    final totalSteps = totalDuration.inMilliseconds / updateInterval.inMilliseconds;
-    
+    final totalSteps =
+        totalDuration.inMilliseconds / updateInterval.inMilliseconds;
+
     int currentStep = 0;
-    
+
     _uploadSimulationTimer = Timer.periodic(updateInterval, (timer) {
       currentStep++;
-      
+
       if (currentStep >= totalSteps) {
         timer.cancel();
         setState(() {
@@ -601,10 +614,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         });
         return;
       }
-      
+
       // Create realistic upload progress with some variation
       double baseProgress = currentStep / totalSteps;
-      
+
       // Add some realistic upload behavior (slower start, faster middle, slower end)
       double adjustedProgress;
       if (baseProgress < 0.1) {
@@ -612,9 +625,10 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       } else if (baseProgress < 0.8) {
         adjustedProgress = 0.05 + (baseProgress - 0.1) * 1.2; // Faster middle
       } else {
-        adjustedProgress = 0.05 + 0.7 * 1.2 + (baseProgress - 0.8) * 0.6; // Slower end
+        adjustedProgress =
+            0.05 + 0.7 * 1.2 + (baseProgress - 0.8) * 0.6; // Slower end
       }
-      
+
       setState(() {
         _simulatedUploadProgress = adjustedProgress.clamp(0.0, 1.0);
       });
@@ -659,11 +673,11 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
   Future<bool> _checkUserAuthentication() async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (isAuthenticated) {
       return true;
     }
-    
+
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -680,7 +694,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         ),
       ),
     );
-    
+
     return result ?? false;
   }
 
@@ -690,34 +704,35 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       if (!isAuthenticated) {
         return;
       }
-      
+
       final authProvider = ref.read(authenticationProvider.notifier);
       final currentUser = ref.read(currentUserProvider);
-      
+
       if (currentUser == null) {
         _showError('User not found. Please try again.');
         return;
       }
-      
+
       if (_videoFile == null) {
         _showError('Please select a video');
         return;
       }
-      
+
       await _enableWakelock();
-      
+
       // Parse tags
       List<String> tags = [];
       if (_tagsController.text.isNotEmpty) {
-        tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
+        tags =
+            _tagsController.text.split(',').map((tag) => tag.trim()).toList();
       }
-      
+
       // Parse price
       double price = 0.0;
       if (_priceController.text.isNotEmpty) {
         price = double.tryParse(_priceController.text) ?? 0.0;
       }
-      
+
       // STEP 1: Generate thumbnail FIRST from the original, unprocessed video
       debugPrint('🎬 Step 1: Generating thumbnail from original video...');
       File? thumbnailFile;
@@ -731,9 +746,11 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         );
 
         if (thumbnailFile == null) {
-          debugPrint('⚠️ Warning: Failed to generate thumbnail, continuing without it');
+          debugPrint(
+              '⚠️ Warning: Failed to generate thumbnail, continuing without it');
         } else {
-          debugPrint('✅ Thumbnail generated successfully from original video: ${thumbnailFile.path}');
+          debugPrint(
+              '✅ Thumbnail generated successfully from original video: ${thumbnailFile.path}');
         }
       } catch (e) {
         debugPrint('❌ Error generating thumbnail: $e');
@@ -745,7 +762,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
       File videoToUpload = _videoFile!;
 
       if (_videoInfo != null) {
-        final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
+        final processedVideo =
+            await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
 
         if (processedVideo != null) {
           videoToUpload = processedVideo;
@@ -825,7 +843,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 
   // Helper method to get upload state
   bool get _isUploading {
-    final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
+    final authState =
+        ref.read(authenticationProvider).value ?? const AuthenticationState();
     return authState.isUploading || _isSimulatingUpload;
   }
 
@@ -834,7 +853,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     if (_isSimulatingUpload) {
       return _simulatedUploadProgress;
     }
-    final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
+    final authState =
+        ref.read(authenticationProvider).value ?? const AuthenticationState();
     return authState.uploadProgress;
   }
 
@@ -951,16 +971,19 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                             ),
                             GestureDetector(
                               onTap: () {
-                                Clipboard.setData(ClipboardData(text: '4146499'));
+                                Clipboard.setData(
+                                    ClipboardData(text: '4146499'));
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Paybill number copied to clipboard!'),
+                                    content: Text(
+                                        'Paybill number copied to clipboard!'),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
                               },
                               child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(4),
@@ -1056,7 +1079,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     // Use isSeller field to check if user can create marketplace listings
     final canPost = currentUser?.isSeller ?? false;
     final modernTheme = context.modernTheme;
-    
+
     if (!isAuthenticated) {
       return Scaffold(
         backgroundColor: modernTheme.backgroundColor,
@@ -1083,11 +1106,12 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         ),
         body: const InlineLoginRequiredWidget(
           title: 'Sign In to Create',
-          subtitle: 'You need to sign in before you can upload videos. Join WemaChat to share your content with the world!',
+          subtitle:
+              'You need to sign in before you can upload videos. Join WemaShop to share your content with the world!',
         ),
       );
     }
-    
+
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
       appBar: AppBar(
@@ -1113,12 +1137,16 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
         actions: [
           if (_videoFile != null && canPost)
             TextButton(
-              onPressed: (isLoading || _isProcessing || isUploading) ? null : _submitForm,
+              onPressed: (isLoading || _isProcessing || isUploading)
+                  ? null
+                  : _submitForm,
               child: Text(
-                _isProcessing ? 'Processing...' : (isUploading ? 'Uploading...' : 'Post'),
+                _isProcessing
+                    ? 'Processing...'
+                    : (isUploading ? 'Uploading...' : 'Post'),
                 style: TextStyle(
-                  color: (isLoading || _isProcessing || isUploading) 
-                      ? modernTheme.textSecondaryColor 
+                  color: (isLoading || _isProcessing || isUploading)
+                      ? modernTheme.textSecondaryColor
                       : modernTheme.primaryColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -1138,14 +1166,14 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                 children: [
                   // Payment Required Banner (if cannot post)
                   // FIXED: Positioned banner removed from here to match users list screen
-                  
+
                   // Video preview or picker
                   _videoFile == null
                       ? _buildVideoPickerPlaceholder(modernTheme, canPost)
                       : _buildVideoPreview(modernTheme, canPost),
-                    
+
                   const SizedBox(height: 24),
-                  
+
                   // Processing progress
                   if (_isProcessing)
                     Column(
@@ -1171,7 +1199,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                                      _videoInfo != null &&
+                                              _videoInfo!.fileSizeMB < 50.0
                                           ? 'Processing...'
                                           : 'Processing...',
                                       style: const TextStyle(
@@ -1186,7 +1215,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                               LinearProgressIndicator(
                                 value: _processingProgress,
                                 backgroundColor: modernTheme.borderColor,
-                                valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    modernTheme.primaryColor!),
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -1202,7 +1232,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                         const SizedBox(height: 16),
                       ],
                     ),
-                  
+
                   // Upload progress indicator with simulated percentage
                   if (isUploading)
                     Column(
@@ -1249,26 +1279,31 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                               LinearProgressIndicator(
                                 value: uploadProgress,
                                 backgroundColor: modernTheme.borderColor,
-                                valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    modernTheme.primaryColor!),
                               ),
                             ],
-                      ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                       ],
                     ),
-                  
+
                   // Caption
                   TextFormField(
                     controller: _captionController,
                     decoration: InputDecoration(
                       labelText: 'Caption *',
-                      labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                      labelStyle:
+                          TextStyle(color: modernTheme.textSecondaryColor),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                        borderSide: BorderSide(
+                            color: modernTheme.textSecondaryColor!
+                                .withOpacity(0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: modernTheme.primaryColor!),
+                        borderSide:
+                            BorderSide(color: modernTheme.primaryColor!),
                       ),
                       errorBorder: const OutlineInputBorder(
                         borderSide: BorderSide(color: Colors.red),
@@ -1284,22 +1319,27 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                       }
                       return null;
                     },
-                    enabled: !isLoading && !_isProcessing && !isUploading && canPost,
+                    enabled:
+                        !isLoading && !_isProcessing && !isUploading && canPost,
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Price field (Required temporarily)
                   TextFormField(
                     controller: _priceController,
                     decoration: InputDecoration(
                       labelText: 'Price (KES) *',
-                      labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                      labelStyle:
+                          TextStyle(color: modernTheme.textSecondaryColor),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                        borderSide: BorderSide(
+                            color: modernTheme.textSecondaryColor!
+                                .withOpacity(0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: modernTheme.primaryColor!),
+                        borderSide:
+                            BorderSide(color: modernTheme.primaryColor!),
                       ),
                       errorBorder: const OutlineInputBorder(
                         borderSide: BorderSide(color: Colors.red),
@@ -1307,7 +1347,9 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                       filled: true,
                       fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
                       hintText: 'e.g. 100, 500, 1000',
-                      hintStyle: TextStyle(color: modernTheme.textSecondaryColor?.withOpacity(0.5)),
+                      hintStyle: TextStyle(
+                          color:
+                              modernTheme.textSecondaryColor?.withOpacity(0.5)),
                       prefixIcon: Icon(
                         Icons.attach_money,
                         color: modernTheme.textSecondaryColor,
@@ -1336,43 +1378,56 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                       }
                       return null;
                     },
-                    enabled: !isLoading && !_isProcessing && !isUploading && canPost,
+                    enabled:
+                        !isLoading && !_isProcessing && !isUploading && canPost,
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Tags (Optional)
                   TextFormField(
                     controller: _tagsController,
                     decoration: InputDecoration(
                       labelText: 'Keyword (Optional)',
-                      labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                      labelStyle:
+                          TextStyle(color: modernTheme.textSecondaryColor),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                        borderSide: BorderSide(
+                            color: modernTheme.textSecondaryColor!
+                                .withOpacity(0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: modernTheme.primaryColor!),
+                        borderSide:
+                            BorderSide(color: modernTheme.primaryColor!),
                       ),
                       filled: true,
                       fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
                       hintText: 'e.g. sports, travel, music',
                     ),
                     style: TextStyle(color: modernTheme.textColor),
-                    enabled: !isLoading && !_isProcessing && !isUploading && canPost,
+                    enabled:
+                        !isLoading && !_isProcessing && !isUploading && canPost,
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Submit Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: (!isLoading && !_isProcessing && !isUploading && canPost) ? _submitForm : null,
+                      onPressed: (!isLoading &&
+                              !_isProcessing &&
+                              !isUploading &&
+                              canPost)
+                          ? _submitForm
+                          : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: canPost ? modernTheme.primaryColor : Colors.grey,
+                        backgroundColor:
+                            canPost ? modernTheme.primaryColor : Colors.grey,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                        disabledBackgroundColor:
+                            modernTheme.primaryColor!.withOpacity(0.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -1380,7 +1435,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                       child: !canPost
                           ? const Text('Seller Account Required')
                           : (_isProcessing
-                              ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0
+                              ? Text(_videoInfo != null &&
+                                      _videoInfo!.fileSizeMB < 50.0
                                   ? 'Processing...'
                                   : 'Processing...')
                               : (isUploading
@@ -1388,7 +1444,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                                   : const Text('Post Listing'))),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 40),
                 ],
               ),
@@ -1580,7 +1636,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                                   Text(
                                     'View Payment Details',
                                     style: TextStyle(
-                                      color: theme.primaryColor ?? const Color(0xFF6366F1),
+                                      color: theme.primaryColor ??
+                                          const Color(0xFF6366F1),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1588,7 +1645,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                                   const SizedBox(width: 4),
                                   Icon(
                                     Icons.arrow_forward,
-                                    color: theme.primaryColor ?? const Color(0xFF6366F1),
+                                    color: theme.primaryColor ??
+                                        const Color(0xFF6366F1),
                                     size: 14,
                                   ),
                                 ],
@@ -1608,7 +1666,8 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
     );
   }
 
-  Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme, bool canPost) {
+  Widget _buildVideoPickerPlaceholder(
+      ModernThemeExtension modernTheme, bool canPost) {
     return AspectRatio(
       aspectRatio: 9 / 16,
       child: Container(
@@ -1648,11 +1707,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading && canPost) ? _pickItemFromGallery : null,
+              onPressed: (!_isProcessing && !_isUploading && canPost)
+                  ? _pickItemFromGallery
+                  : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: canPost ? modernTheme.primaryColor : Colors.grey,
+                backgroundColor:
+                    canPost ? modernTheme.primaryColor : Colors.grey,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 disabledBackgroundColor: Colors.grey.withOpacity(0.5),
               ),
               child: Row(
@@ -1670,11 +1733,15 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: (!_isProcessing && !_isUploading && canPost) ? _showGoLiveMessage : null,
+              onPressed: (!_isProcessing && !_isUploading && canPost)
+                  ? _showGoLiveMessage
+                  : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: canPost ? modernTheme.primaryColor : Colors.grey,
+                backgroundColor:
+                    canPost ? modernTheme.primaryColor : Colors.grey,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 disabledBackgroundColor: Colors.grey.withOpacity(0.5),
               ),
               child: Row(
@@ -1697,8 +1764,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
   }
 
   Widget _buildVideoPreview(ModernThemeExtension modernTheme, bool canPost) {
-    if (_videoController != null &&
-        _videoController!.value.isInitialized) {
+    if (_videoController != null && _videoController!.value.isInitialized) {
       return Stack(
         alignment: Alignment.center,
         children: [
@@ -1706,7 +1772,6 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
             aspectRatio: _videoController!.value.aspectRatio,
             child: VideoPlayer(_videoController!),
           ),
-
           GestureDetector(
             onTap: _togglePlayPause,
             child: Container(
@@ -1722,12 +1787,13 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
               ),
             ),
           ),
-          
           Positioned(
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: (!_isProcessing && !_isUploading && canPost) ? _pickItemFromGallery : null,
+              onPressed: (!_isProcessing && !_isUploading && canPost)
+                  ? _pickItemFromGallery
+                  : null,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -1736,7 +1802,9 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
                 ),
                 child: Icon(
                   Icons.edit,
-                  color: (!_isProcessing && !_isUploading && canPost) ? Colors.white : Colors.grey,
+                  color: (!_isProcessing && !_isUploading && canPost)
+                      ? Colors.white
+                      : Colors.grey,
                   size: 20,
                 ),
               ),
@@ -1767,7 +1835,7 @@ class _CreateListingScreenState extends ConsumerState<CreateListingScreen> {
 class InlineLoginRequiredWidget extends StatelessWidget {
   final String title;
   final String subtitle;
-  
+
   const InlineLoginRequiredWidget({
     super.key,
     required this.title,
@@ -1777,7 +1845,7 @@ class InlineLoginRequiredWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -1825,7 +1893,8 @@ class InlineLoginRequiredWidget extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

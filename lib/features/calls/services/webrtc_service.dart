@@ -12,13 +12,17 @@ class WebRTCService {
 
   final _localStreamController = StreamController<MediaStream?>.broadcast();
   final _remoteStreamController = StreamController<MediaStream?>.broadcast();
-  final _connectionStateController = StreamController<RTCPeerConnectionState>.broadcast();
-  final _iceStateController = StreamController<RTCIceConnectionState>.broadcast();
+  final _connectionStateController =
+      StreamController<RTCPeerConnectionState>.broadcast();
+  final _iceStateController =
+      StreamController<RTCIceConnectionState>.broadcast();
 
   Stream<MediaStream?> get localStreamStream => _localStreamController.stream;
   Stream<MediaStream?> get remoteStreamStream => _remoteStreamController.stream;
-  Stream<RTCPeerConnectionState> get connectionStateStream => _connectionStateController.stream;
-  Stream<RTCIceConnectionState> get iceStateStream => _iceStateController.stream;
+  Stream<RTCPeerConnectionState> get connectionStateStream =>
+      _connectionStateController.stream;
+  Stream<RTCIceConnectionState> get iceStateStream =>
+      _iceStateController.stream;
 
   MediaStream? get localStream => _localStream;
   MediaStream? get remoteStream => _remoteStream;
@@ -73,7 +77,8 @@ class WebRTCService {
             : false,
       };
 
-      _localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+      _localStream =
+          await navigator.mediaDevices.getUserMedia(mediaConstraints);
       _localStreamController.add(_localStream);
 
       debugPrint('WebRTC: Local stream initialized successfully');
@@ -302,7 +307,9 @@ class WebRTCService {
   }
 
   // Check if connection is established
-  bool get isConnected => _peerConnection?.connectionState == RTCPeerConnectionState.RTCPeerConnectionStateConnected;
+  bool get isConnected =>
+      _peerConnection?.connectionState ==
+      RTCPeerConnectionState.RTCPeerConnectionStateConnected;
 
   // Check if video is enabled
   bool get isVideoEnabled {

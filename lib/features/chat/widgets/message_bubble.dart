@@ -59,32 +59,39 @@ class MessageBubble extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         margin: EdgeInsets.only(
-          left: isCurrentUser ? 50 : 16, // Reduced left margin from 60 to 50 for current user
-          right: isCurrentUser ? 16 : 50, // Reduced right margin from 60 to 50 for other user
-          bottom: isLastInGroup ? 8 : 2, // Increased bottom margin to accommodate external timestamp
+          left: isCurrentUser
+              ? 50
+              : 16, // Reduced left margin from 60 to 50 for current user
+          right: isCurrentUser
+              ? 16
+              : 50, // Reduced right margin from 60 to 50 for other user
+          bottom: isLastInGroup
+              ? 8
+              : 2, // Increased bottom margin to accommodate external timestamp
           top: 1,
         ),
         child: Column(
-          crossAxisAlignment: isCurrentUser 
-            ? CrossAxisAlignment.end 
-            : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             if (message.isPinned) ...[
               _buildPinIndicator(context, modernTheme),
               const SizedBox(height: 3),
             ],
-            
+
             // Main message bubble
             Container(
               constraints: BoxConstraints(
-                maxWidth: _isMediaMessage() 
-                  ? MediaQuery.of(context).size.width * 0.60 // Even narrower for standing rectangle look
-                  : MediaQuery.of(context).size.width * 0.85, // Wider for text messages
+                maxWidth: _isMediaMessage()
+                    ? MediaQuery.of(context).size.width *
+                        0.60 // Even narrower for standing rectangle look
+                    : MediaQuery.of(context).size.width *
+                        0.85, // Wider for text messages
               ),
               decoration: BoxDecoration(
-                color: isCurrentUser 
-                  ? chatTheme.senderBubbleColor 
-                  : chatTheme.receiverBubbleColor,
+                color: isCurrentUser
+                    ? chatTheme.senderBubbleColor
+                    : chatTheme.receiverBubbleColor,
                 borderRadius: _getBubbleRadius(),
                 boxShadow: [
                   BoxShadow(
@@ -99,16 +106,16 @@ class MessageBubble extends StatelessWidget {
                 child: _buildMessageContent(context, modernTheme, chatTheme),
               ),
             ),
-            
+
             // External timestamp and status
             const SizedBox(height: 2),
             _buildExternalTimestamp(context, modernTheme),
-            
+
             if (message.isEdited) ...[
               const SizedBox(height: 1),
               _buildEditIndicator(context, modernTheme),
             ],
-            
+
             if (message.status == MessageStatus.failed && isCurrentUser) ...[
               const SizedBox(height: 3),
               _buildRetryIndicator(context, modernTheme),
@@ -125,24 +132,24 @@ class MessageBubble extends StatelessWidget {
     if (message.mediaMetadata?['isVideoReaction'] == true) {
       return true;
     }
-    return message.type == MessageEnum.image || 
-           message.type == MessageEnum.video;
+    return message.type == MessageEnum.image ||
+        message.type == MessageEnum.video;
   }
 
   BorderRadius _getBubbleRadius() {
     const radius = 28.0; // Even more rounded for ultra-modern look
-    
+
     return BorderRadius.circular(radius);
   }
 
-  Widget _buildExternalTimestamp(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildExternalTimestamp(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: isCurrentUser
-          ? MainAxisAlignment.end
-          : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           Text(
             DateFormat('HH:mm').format(message.timestamp.toLocal()),
@@ -160,7 +167,8 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildPinIndicator(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildPinIndicator(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -189,7 +197,8 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildEditIndicator(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildEditIndicator(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
@@ -203,7 +212,8 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildRetryIndicator(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildRetryIndicator(
+      BuildContext context, ModernThemeExtension modernTheme) {
     return GestureDetector(
       onTap: onLongPress,
       child: Container(
@@ -245,7 +255,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildMessageContent(
-    BuildContext context, 
+    BuildContext context,
     ModernThemeExtension modernTheme,
     ChatThemeExtension chatTheme,
   ) {
@@ -253,7 +263,7 @@ class MessageBubble extends StatelessWidget {
     if (message.mediaMetadata?['isVideoReaction'] == true) {
       return _buildVideoReactionContent(context, modernTheme, chatTheme);
     }
-    
+
     switch (message.type) {
       case MessageEnum.text:
         return _buildTextContent(context, modernTheme, chatTheme);
@@ -304,7 +314,8 @@ class MessageBubble extends StatelessWidget {
     ChatThemeExtension chatTheme,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), // Further reduced vertical padding and increased horizontal
+      padding: const EdgeInsets.fromLTRB(16, 4, 16,
+          4), // Further reduced vertical padding and increased horizontal
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -313,16 +324,17 @@ class MessageBubble extends StatelessWidget {
             _buildInnerReplyPreview(context, modernTheme),
             const SizedBox(height: 8),
           ],
-          
+
           // The actual reply content (our new message)
           SelectableText(
             message.content,
             style: TextStyle(
               fontSize: fontSize,
-              color: isCurrentUser 
-                ? chatTheme.senderTextColor
-                : chatTheme.receiverTextColor,
-              height: 1.15, // Further reduced line height from 1.2 to 1.15 for maximum compactness
+              color: isCurrentUser
+                  ? chatTheme.senderTextColor
+                  : chatTheme.receiverTextColor,
+              height:
+                  1.15, // Further reduced line height from 1.2 to 1.15 for maximum compactness
             ),
           ),
         ],
@@ -331,7 +343,8 @@ class MessageBubble extends StatelessWidget {
   }
 
   // Build the inner reply preview showing the message we're replying TO
-  Widget _buildInnerReplyPreview(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildInnerReplyPreview(
+      BuildContext context, ModernThemeExtension modernTheme) {
     // Create a mock MessageModel for the replied-to message using the reply fields
     final repliedToMessage = MessageModel(
       messageId: message.replyToMessageId ?? '',
@@ -374,11 +387,13 @@ class MessageBubble extends StatelessWidget {
           return MessageEnum.text;
       }
     }
-    
+
     // Fallback: If we have replyToContent and it indicates a media type, return that type
-    if (message.replyToContent?.startsWith('📷') == true || message.replyToContent == 'Photo') {
+    if (message.replyToContent?.startsWith('📷') == true ||
+        message.replyToContent == 'Photo') {
       return MessageEnum.image;
-    } else if (message.replyToContent?.startsWith('📹') == true || message.replyToContent == 'Video') {
+    } else if (message.replyToContent?.startsWith('📹') == true ||
+        message.replyToContent == 'Video') {
       return MessageEnum.video;
     } else if (message.replyToContent?.startsWith('📎') == true) {
       return MessageEnum.file;
@@ -399,7 +414,7 @@ class MessageBubble extends StatelessWidget {
     if (replyMediaUrl != null && replyMediaUrl.toString().isNotEmpty) {
       return replyMediaUrl.toString();
     }
-    
+
     // Fallback: return null for now
     return null;
   }
@@ -414,7 +429,8 @@ class MessageBubble extends StatelessWidget {
     return contactName ?? 'Contact';
   }
 
-  Widget _buildImageContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
+  Widget _buildImageContent(BuildContext context,
+      ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -453,7 +469,9 @@ class MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-                errorWidget: (BuildContext context, String url, dynamic error) => Container(
+                errorWidget:
+                    (BuildContext context, String url, dynamic error) =>
+                        Container(
                   height: 320, // Updated to match new taller height
                   color: modernTheme.surfaceVariantColor,
                   child: Column(
@@ -476,7 +494,6 @@ class MessageBubble extends StatelessWidget {
                   ),
                 ),
               ),
-              
               if (message.mediaMetadata?['isUploading'] == true) ...[
                 Container(
                   height: 320, // Updated to match new taller height
@@ -506,7 +523,7 @@ class MessageBubble extends StatelessWidget {
             ],
           ),
         ),
-        
+
         // Content section with reply preview and caption
         if (message.isReply() || message.content.isNotEmpty) ...[
           Padding(
@@ -519,16 +536,16 @@ class MessageBubble extends StatelessWidget {
                   _buildInnerReplyPreview(context, modernTheme),
                   const SizedBox(height: 8),
                 ],
-                
+
                 // Caption if present (our new message content)
                 if (message.content.isNotEmpty) ...[
                   SelectableText(
                     message.content,
                     style: TextStyle(
                       fontSize: fontSize,
-                      color: isCurrentUser 
-                        ? chatTheme.senderTextColor
-                        : chatTheme.receiverTextColor,
+                      color: isCurrentUser
+                          ? chatTheme.senderTextColor
+                          : chatTheme.receiverTextColor,
                       height: 1.15,
                     ),
                   ),
@@ -541,14 +558,16 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildFileContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
+  Widget _buildFileContent(BuildContext context,
+      ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
     final fileName = message.mediaMetadata?['fileName'] ?? 'Unknown file';
     final fileSize = message.mediaMetadata?['fileSize'] ?? 0;
     final fileSizeText = _formatFileSize(fileSize);
     final isUploading = message.mediaMetadata?['isUploading'] == true;
-    
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), // Further reduced and increased horizontal padding
+      padding: const EdgeInsets.fromLTRB(
+          16, 4, 16, 4), // Further reduced and increased horizontal padding
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -557,16 +576,16 @@ class MessageBubble extends StatelessWidget {
             _buildInnerReplyPreview(context, modernTheme),
             const SizedBox(height: 8),
           ],
-          
+
           // File content
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isCurrentUser 
-                    ? Colors.white.withOpacity(0.2)
-                    : modernTheme.primaryColor?.withOpacity(0.1),
+                  color: isCurrentUser
+                      ? Colors.white.withOpacity(0.2)
+                      : modernTheme.primaryColor?.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: isUploading
@@ -574,17 +593,17 @@ class MessageBubble extends StatelessWidget {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                          color: isCurrentUser 
-                            ? Colors.white
-                            : modernTheme.primaryColor,
+                          color: isCurrentUser
+                              ? Colors.white
+                              : modernTheme.primaryColor,
                           strokeWidth: 2,
                         ),
                       )
                     : Icon(
                         _getFileIcon(fileName),
-                        color: isCurrentUser 
-                          ? Colors.white
-                          : modernTheme.primaryColor,
+                        color: isCurrentUser
+                            ? Colors.white
+                            : modernTheme.primaryColor,
                         size: 20,
                       ),
               ),
@@ -598,9 +617,9 @@ class MessageBubble extends StatelessWidget {
                       style: TextStyle(
                         fontSize: fontSize,
                         fontWeight: FontWeight.w500,
-                        color: isCurrentUser 
-                          ? Colors.white
-                          : modernTheme.textColor,
+                        color: isCurrentUser
+                            ? Colors.white
+                            : modernTheme.textColor,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -612,9 +631,9 @@ class MessageBubble extends StatelessWidget {
                           fileSizeText,
                           style: TextStyle(
                             fontSize: fontSize - 2,
-                            color: isCurrentUser 
-                              ? Colors.white70
-                              : modernTheme.textSecondaryColor,
+                            color: isCurrentUser
+                                ? Colors.white70
+                                : modernTheme.textSecondaryColor,
                           ),
                         ),
                         if (isUploading) ...[
@@ -623,9 +642,9 @@ class MessageBubble extends StatelessWidget {
                             '• Uploading...',
                             style: TextStyle(
                               fontSize: fontSize - 2,
-                              color: isCurrentUser 
-                                ? Colors.white70
-                                : modernTheme.primaryColor,
+                              color: isCurrentUser
+                                  ? Colors.white70
+                                  : modernTheme.primaryColor,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -638,9 +657,9 @@ class MessageBubble extends StatelessWidget {
               if (!isUploading) ...[
                 Icon(
                   Icons.download,
-                  color: isCurrentUser 
-                    ? Colors.white70
-                    : modernTheme.textSecondaryColor,
+                  color: isCurrentUser
+                      ? Colors.white70
+                      : modernTheme.textSecondaryColor,
                   size: 18,
                 ),
               ],
@@ -652,10 +671,11 @@ class MessageBubble extends StatelessWidget {
   }
 
   // CLEAN: Simple video content like image bubble - just thumbnail with play button
-  Widget _buildVideoContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
+  Widget _buildVideoContent(BuildContext context,
+      ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
     final videoUrl = message.mediaUrl ?? '';
     final isUploading = message.mediaMetadata?['isUploading'] == true;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -671,12 +691,14 @@ class MessageBubble extends StatelessWidget {
               VideoThumbnailWidget(
                 videoUrl: videoUrl,
                 width: double.infinity,
-                height: 320, // Taller height for standing rounded rectangle look
-                borderRadius: BorderRadius.zero, // No additional border radius since parent handles it
+                height:
+                    320, // Taller height for standing rounded rectangle look
+                borderRadius: BorderRadius
+                    .zero, // No additional border radius since parent handles it
                 onTap: onVideoTap,
                 showPlayButton: false, // We'll add our own clean play button
               ),
-              
+
               // Clean play button overlay (only if not uploading)
               if (!isUploading)
                 Positioned.fill(
@@ -699,7 +721,7 @@ class MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-              
+
               // Upload overlay (same as image)
               if (isUploading)
                 Container(
@@ -729,7 +751,7 @@ class MessageBubble extends StatelessWidget {
             ],
           ),
         ),
-        
+
         // Content section with reply preview and caption (same as image)
         if (message.isReply() || message.content.isNotEmpty) ...[
           Padding(
@@ -742,16 +764,16 @@ class MessageBubble extends StatelessWidget {
                   _buildInnerReplyPreview(context, modernTheme),
                   const SizedBox(height: 8),
                 ],
-                
+
                 // Caption if present (our new message content)
                 if (message.content.isNotEmpty) ...[
                   SelectableText(
                     message.content,
                     style: TextStyle(
                       fontSize: fontSize,
-                      color: isCurrentUser 
-                        ? chatTheme.senderTextColor
-                        : chatTheme.receiverTextColor,
+                      color: isCurrentUser
+                          ? chatTheme.senderTextColor
+                          : chatTheme.receiverTextColor,
                       height: 1.15,
                     ),
                   ),
@@ -767,7 +789,7 @@ class MessageBubble extends StatelessWidget {
   Widget _buildMessageStatusIcon(ModernThemeExtension modernTheme) {
     Color iconColor;
     IconData iconData = message.status.icon;
-    
+
     switch (message.status) {
       case MessageStatus.sending:
         iconColor = modernTheme.textTertiaryColor ?? Colors.grey;
@@ -784,7 +806,7 @@ class MessageBubble extends StatelessWidget {
       case MessageStatus.read:
         throw UnimplementedError();
     }
-    
+
     return Icon(
       iconData,
       size: 12,
@@ -828,7 +850,8 @@ class MessageBubble extends StatelessWidget {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '${bytes}B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
   }
 }

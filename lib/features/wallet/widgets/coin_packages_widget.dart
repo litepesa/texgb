@@ -13,7 +13,7 @@ class CoinPackagesWidget extends ConsumerStatefulWidget {
   ConsumerState<CoinPackagesWidget> createState() => _CoinPackagesWidgetState();
 }
 
-class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget> 
+class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _shimmerController;
   final TextEditingController _amountController = TextEditingController();
@@ -40,7 +40,7 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final currentUser = ref.watch(currentUserProvider);
-    
+
     return Container(
       height: screenHeight * 0.9,
       decoration: BoxDecoration(
@@ -73,7 +73,7 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
@@ -98,21 +98,27 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                                   height: 120,
                                   child: Stack(
                                     children: List.generate(6, (index) {
-                                      final angle = (index / 6) * 2 * math.pi + 
-                                                   (_shimmerController.value * 2 * math.pi);
+                                      final angle = (index / 6) * 2 * math.pi +
+                                          (_shimmerController.value *
+                                              2 *
+                                              math.pi);
                                       final distance = 40.0;
                                       return Positioned(
-                                        left: 60 + math.cos(angle) * distance - 3,
-                                        top: 60 + math.sin(angle) * distance - 3,
+                                        left:
+                                            60 + math.cos(angle) * distance - 3,
+                                        top:
+                                            60 + math.sin(angle) * distance - 3,
                                         child: Container(
                                           width: 6,
                                           height: 6,
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            color: theme.primaryColor!.withOpacity(0.4),
+                                            color: theme.primaryColor!
+                                                .withOpacity(0.4),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: theme.primaryColor!.withOpacity(0.6),
+                                                color: theme.primaryColor!
+                                                    .withOpacity(0.6),
                                                 blurRadius: 8,
                                               ),
                                             ],
@@ -157,9 +163,9 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Title with shimmer
                         AnimatedBuilder(
                           animation: _shimmerController,
@@ -191,9 +197,9 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                             );
                           },
                         ),
-                        
+
                         const SizedBox(height: 12),
-                        
+
                         Text(
                           'Digital currency for gifts, commerce & rewards',
                           style: TextStyle(
@@ -204,11 +210,12 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        
+
                         if (currentUser != null) ...[
                           const SizedBox(height: 16),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
                               color: theme.primaryColor!.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
@@ -249,7 +256,7 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                       ],
                     ),
                   ),
-                  
+
                   // Main content
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -292,7 +299,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                                       borderRadius: BorderRadius.circular(10),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: theme.primaryColor!.withOpacity(0.4),
+                                          color: theme.primaryColor!
+                                              .withOpacity(0.4),
                                           blurRadius: 10,
                                         ),
                                       ],
@@ -315,13 +323,14 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                                   ),
                                 ],
                               ),
-                              
+
                               const SizedBox(height: 20),
-                              
+
                               // Amount input field
                               Container(
                                 decoration: BoxDecoration(
-                                  color: theme.surfaceVariantColor!.withOpacity(0.5),
+                                  color: theme.surfaceVariantColor!
+                                      .withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: theme.dividerColor!.withOpacity(0.2),
@@ -362,28 +371,31 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(height: 16),
-                              
+
                               // Quick amount buttons
                               Row(
                                 children: [
                                   Expanded(
-                                    child: _buildQuickAmountButton('100', theme),
+                                    child:
+                                        _buildQuickAmountButton('100', theme),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: _buildQuickAmountButton('500', theme),
+                                    child:
+                                        _buildQuickAmountButton('500', theme),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: _buildQuickAmountButton('1000', theme),
+                                    child:
+                                        _buildQuickAmountButton('1000', theme),
                                   ),
                                 ],
                               ),
-                              
+
                               const SizedBox(height: 20),
-                              
+
                               // Conversion info
                               Container(
                                 padding: const EdgeInsets.all(16),
@@ -416,35 +428,46 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(height: 20),
-                              
+
                               // Buy button
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   onPressed: () {
                                     final amount = _amountController.text;
-                                    if (amount.isEmpty || int.tryParse(amount) == null || int.parse(amount) <= 0) {
-                                      _showErrorSnackBar(context, 'Please enter a valid amount');
+                                    if (amount.isEmpty ||
+                                        int.tryParse(amount) == null ||
+                                        int.parse(amount) <= 0) {
+                                      _showErrorSnackBar(context,
+                                          'Please enter a valid amount');
                                       return;
                                     }
-                                    _showPurchaseInstructions(context, theme, int.parse(amount), currentUser?.phoneNumber ?? 'Your phone number');
+                                    _showPurchaseInstructions(
+                                        context,
+                                        theme,
+                                        int.parse(amount),
+                                        currentUser?.phoneNumber ??
+                                            'Your phone number');
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.primaryColor,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 18),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                     elevation: 0,
-                                    shadowColor: theme.primaryColor!.withOpacity(0.4),
+                                    shadowColor:
+                                        theme.primaryColor!.withOpacity(0.4),
                                   ),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: const [
-                                      Icon(Icons.shopping_cart_rounded, size: 20),
+                                      Icon(Icons.shopping_cart_rounded,
+                                          size: 20),
                                       SizedBox(width: 10),
                                       Text(
                                         'Continue to Payment',
@@ -588,7 +611,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                               const SizedBox(height: 16),
                               _buildStep('1', 'Enter amount above', theme),
                               _buildStep('2', 'Pay via M-Pesa', theme),
-                              _buildStep('3', 'KEST added within 10 minutes', theme),
+                              _buildStep(
+                                  '3', 'KEST added within 10 minutes', theme),
                               _buildStep('4', 'Start sending gifts!', theme),
                             ],
                           ),
@@ -600,7 +624,7 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
               ),
             ),
           ),
-          
+
           // Close button
           Container(
             padding: const EdgeInsets.all(24),
@@ -768,7 +792,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     );
   }
 
-  static void _showPurchaseInstructions(BuildContext context, ModernThemeExtension theme, int amount, String phoneNumber) {
+  static void _showPurchaseInstructions(BuildContext context,
+      ModernThemeExtension theme, int amount, String phoneNumber) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -851,7 +876,7 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                   ],
                 ),
               ),
-              
+
               // Content
               Padding(
                 padding: const EdgeInsets.all(24),
@@ -922,9 +947,9 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // M-Pesa payment details
                     Container(
                       padding: const EdgeInsets.all(18),
@@ -971,9 +996,11 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                             ],
                           ),
                           const SizedBox(height: 16),
-                          _buildPaymentDetail('Business:', 'Pomasoft Limited', theme),
+                          _buildPaymentDetail(
+                              'Business:', 'Pomasoft Limited', theme),
                           const SizedBox(height: 10),
-                          _buildCopyableDetail(context, 'Paybill:', '4146499', theme),
+                          _buildCopyableDetail(
+                              context, 'Paybill:', '4146499', theme),
                           const SizedBox(height: 10),
                           _buildPaymentDetail('Account:', phoneNumber, theme),
                           const SizedBox(height: 10),
@@ -981,9 +1008,9 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Payment steps
                     Row(
                       children: [
@@ -1018,10 +1045,11 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
                     _buildPaymentStep('5', 'Account: $phoneNumber', theme),
                     _buildPaymentStep('6', 'Amount: KES $amount', theme),
                     _buildPaymentStep('7', 'Enter PIN and confirm', theme),
-                    _buildPaymentStep('8', 'KEST added within 10 minutes', theme),
-                    
+                    _buildPaymentStep(
+                        '8', 'KEST added within 10 minutes', theme),
+
                     const SizedBox(height: 20),
-                    
+
                     // Important note
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -1092,7 +1120,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     );
   }
 
-  static Widget _buildPaymentDetail(String label, String value, ModernThemeExtension theme) {
+  static Widget _buildPaymentDetail(
+      String label, String value, ModernThemeExtension theme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1121,7 +1150,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     );
   }
 
-  static Widget _buildCopyableDetail(BuildContext context, String label, String value, ModernThemeExtension theme) {
+  static Widget _buildCopyableDetail(BuildContext context, String label,
+      String value, ModernThemeExtension theme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1138,7 +1168,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
         ),
         Expanded(
           child: GestureDetector(
-            onTap: () => _copyToClipboard(context, value, label.replaceAll(':', '')),
+            onTap: () =>
+                _copyToClipboard(context, value, label.replaceAll(':', '')),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -1179,7 +1210,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     );
   }
 
-  static Widget _buildPaymentStep(String number, String instruction, ModernThemeExtension theme) {
+  static Widget _buildPaymentStep(
+      String number, String instruction, ModernThemeExtension theme) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -1234,7 +1266,8 @@ class _CoinPackagesWidgetState extends ConsumerState<CoinPackagesWidget>
     );
   }
 
-  static void _copyToClipboard(BuildContext context, String text, String label) {
+  static void _copyToClipboard(
+      BuildContext context, String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

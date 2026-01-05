@@ -64,7 +64,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
           if (allGroups.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Text(
                   'Recent updates',
                   style: TextStyle(
@@ -106,7 +107,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
     StatusGroup? myStatusGroup,
     dynamic modernTheme,
   ) {
-    final hasStatus = myStatusGroup != null && myStatusGroup.activeStatuses.isNotEmpty;
+    final hasStatus =
+        myStatusGroup != null && myStatusGroup.activeStatuses.isNotEmpty;
     final latestStatus = hasStatus ? myStatusGroup.latestStatus : null;
 
     return InkWell(
@@ -129,7 +131,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
                     border: hasStatus
                         ? null
                         : Border.all(
-                            color: modernTheme.dividerColor ?? Colors.grey[300]!,
+                            color:
+                                modernTheme.dividerColor ?? Colors.grey[300]!,
                             width: 2,
                           ),
                   ),
@@ -137,7 +140,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
                       ? CustomPaint(
                           painter: _StatusRingPainter(
                             statuses: myStatusGroup!.activeStatuses,
-                            primaryColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                            primaryColor: modernTheme.primaryColor ??
+                                Theme.of(context).primaryColor,
                           ),
                           child: _buildAvatar(myStatusGroup.userAvatar, 52),
                         )
@@ -153,7 +157,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                        color: modernTheme.primaryColor ??
+                            Theme.of(context).primaryColor,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: modernTheme.surfaceColor ?? Colors.white,
@@ -188,7 +193,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
                   const SizedBox(height: 2),
                   Text(
                     hasStatus
-                        ? StatusTimeService.formatListTime(latestStatus!.createdAt)
+                        ? StatusTimeService.formatListTime(
+                            latestStatus!.createdAt)
                         : 'Tap to add status update',
                     style: TextStyle(
                       fontSize: 14,
@@ -243,7 +249,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
               child: CustomPaint(
                 painter: _StatusRingPainter(
                   statuses: group.activeStatuses,
-                  primaryColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                  primaryColor: modernTheme.primaryColor ??
+                      Theme.of(context).primaryColor,
                 ),
                 child: _buildAvatar(group.userAvatar, 52),
               ),
@@ -263,7 +270,8 @@ class _StatusListScreenState extends ConsumerState<StatusListScreen> {
                       fontWeight: FontWeight.w600,
                       color: hasUnviewed
                           ? (modernTheme.textColor ?? Colors.black)
-                          : (modernTheme.textSecondaryColor ?? Colors.grey[600]),
+                          : (modernTheme.textSecondaryColor ??
+                              Colors.grey[600]),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

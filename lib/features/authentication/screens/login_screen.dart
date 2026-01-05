@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         TextSpan(
-                          text: "Chat",
+                          text: "Shop",
                           style: TextStyle(
                             color: const Color(0xFFFE2C55),
                             fontWeight: FontWeight.w700,
@@ -161,8 +161,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   color: Colors.grey,
                                   fontSize: 14,
                                 ),
-                                prefixIcon:
-                                    const Icon(Icons.search, color: Colors.grey),
+                                prefixIcon: const Icon(Icons.search,
+                                    color: Colors.grey),
                                 contentPadding: const EdgeInsets.symmetric(
                                     vertical: 0, horizontal: 16),
                                 border: OutlineInputBorder(
@@ -292,14 +292,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               end: Alignment.centerRight,
                             )
                           : null,
-                      color:
-                          isPhoneNumberValid() ? null : wechatGreen.withOpacity(0.6),
+                      color: isPhoneNumberValid()
+                          ? null
+                          : wechatGreen.withOpacity(0.6),
                     ),
                     child: ElevatedButton(
                       onPressed: isPhoneNumberValid()
                           ? () {
-                              final formattedNumber =
-                                  formatPhoneNumber(_phoneNumberController.text);
+                              final formattedNumber = formatPhoneNumber(
+                                  _phoneNumberController.text);
                               // Navigation is handled by the authentication provider
                               authNotifier.signInWithPhoneNumber(
                                 phoneNumber: formattedNumber,
@@ -350,7 +351,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         height: 1.5,
                       ),
                       children: [
-                        const TextSpan(text: 'By continuing, you agree to our '),
+                        const TextSpan(
+                            text: 'By continuing, you agree to our '),
                         TextSpan(
                           text: 'Terms',
                           style: TextStyle(

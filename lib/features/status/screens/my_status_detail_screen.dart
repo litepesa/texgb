@@ -277,15 +277,16 @@ class _StatusCard extends ConsumerWidget {
         decoration: BoxDecoration(
           gradient: status.textBackground != null
               ? LinearGradient(
-                  colors: status.textBackground!.colors.map((hex) => _hexToColor(hex)).toList(),
+                  colors: status.textBackground!.colors
+                      .map((hex) => _hexToColor(hex))
+                      .toList(),
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
               : const LinearGradient(
                   colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
                 ),
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(12)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
         ),
         child: Center(
           child: Padding(

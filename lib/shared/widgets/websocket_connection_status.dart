@@ -127,10 +127,12 @@ class WebSocketErrorListener extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<WebSocketErrorListener> createState() => _WebSocketErrorListenerState();
+  ConsumerState<WebSocketErrorListener> createState() =>
+      _WebSocketErrorListenerState();
 }
 
-class _WebSocketErrorListenerState extends ConsumerState<WebSocketErrorListener> {
+class _WebSocketErrorListenerState
+    extends ConsumerState<WebSocketErrorListener> {
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<String>>(
@@ -267,7 +269,8 @@ class TypingIndicator extends ConsumerWidget {
 
     return typingEvents.when(
       data: (message) {
-        if (message.data['chatId'] == chatId && message.data['isTyping'] == true) {
+        if (message.data['chatId'] == chatId &&
+            message.data['isTyping'] == true) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -286,7 +289,8 @@ class TypingIndicator extends ConsumerWidget {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
                   ),
                 ),
               ],
@@ -311,16 +315,18 @@ class WebSocketLifecycleManager extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<WebSocketLifecycleManager> createState() => _WebSocketLifecycleManagerState();
+  ConsumerState<WebSocketLifecycleManager> createState() =>
+      _WebSocketLifecycleManagerState();
 }
 
-class _WebSocketLifecycleManagerState extends ConsumerState<WebSocketLifecycleManager>
+class _WebSocketLifecycleManagerState
+    extends ConsumerState<WebSocketLifecycleManager>
     with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     // Connect on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final wsService = ref.read(websocketServiceProvider);

@@ -12,18 +12,18 @@ class HttpClientService {
       // For development - connect to local Elixir server
       // Use 10.0.2.2 for Android emulator, localhost for iOS simulator
       if (Platform.isAndroid) {
-        return 'https://wemachatex.gigalixirapp.com/api/v1';  // Android emulator localhost
+        return 'https://wemachatex.gigalixirapp.com/api/v1'; // Android emulator localhost
       } else if (Platform.isIOS) {
-        return 'http://localhost:4000/api/v1';  // iOS simulator
+        return 'http://localhost:4000/api/v1'; // iOS simulator
       } else {
-        return 'http://localhost:4000/api/v1';  // Desktop/Web
+        return 'http://localhost:4000/api/v1'; // Desktop/Web
       }
     } else {
       // Production: Use your production server URL
       return 'https://wemachatex.gigalixirapp.com/api/v1';
     }
   }
-  
+
   static const Duration _timeout = Duration(seconds: 900);
 
   // Singleton pattern
@@ -55,14 +55,14 @@ class HttpClientService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    
+
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
       debugPrint('Authorization header added');
     } else {
       debugPrint('No auth token available - request will be unauthenticated');
     }
-    
+
     return headers;
   }
 
@@ -71,11 +71,11 @@ class HttpClientService {
     try {
       final baseUrlWithoutApi = _baseUrl.replaceAll('/api/v1', '');
       debugPrint('Testing connection to: $baseUrlWithoutApi/health');
-      
-      final response = await http.get(
-        Uri.parse('$baseUrlWithoutApi/health')
-      ).timeout(const Duration(seconds: 5));
-      
+
+      final response = await http
+          .get(Uri.parse('$baseUrlWithoutApi/health'))
+          .timeout(const Duration(seconds: 5));
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         debugPrint('Backend health check: ${data.toString()}');
@@ -107,7 +107,8 @@ class HttpClientService {
   }
 
   // POST request
-  Future<http.Response> post(String endpoint, {Map<String, dynamic>? body}) async {
+  Future<http.Response> post(String endpoint,
+      {Map<String, dynamic>? body}) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     final headers = await _getHeaders();
 
@@ -115,13 +116,15 @@ class HttpClientService {
       debugPrint('POST: $url');
       debugPrint('Headers: $headers');
       if (body != null) debugPrint('Body: ${jsonEncode(body)}');
-      
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: body != null ? jsonEncode(body) : null,
-      ).timeout(_timeout);
-      
+
+      final response = await http
+          .post(
+            url,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(_timeout);
+
       debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
@@ -131,18 +134,21 @@ class HttpClientService {
   }
 
   // PUT request
-  Future<http.Response> put(String endpoint, {Map<String, dynamic>? body}) async {
+  Future<http.Response> put(String endpoint,
+      {Map<String, dynamic>? body}) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     final headers = await _getHeaders();
 
     try {
       debugPrint('PUT: $url');
       debugPrint('Headers: $headers');
-      final response = await http.put(
-        url,
-        headers: headers,
-        body: body != null ? jsonEncode(body) : null,
-      ).timeout(_timeout);
+      final response = await http
+          .put(
+            url,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(_timeout);
       debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
@@ -159,7 +165,8 @@ class HttpClientService {
     try {
       debugPrint('DELETE: $url');
       debugPrint('Headers: $headers');
-      final response = await http.delete(url, headers: headers).timeout(_timeout);
+      final response =
+          await http.delete(url, headers: headers).timeout(_timeout);
       debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
@@ -183,7 +190,8 @@ class HttpClientService {
 
       // Require authentication for uploads
       if (token == null) {
-        throw HttpException('Upload failed: User not authenticated. Please sign in again.');
+        throw HttpException(
+            'Upload failed: User not authenticated. Please sign in again.');
       }
 
       final request = http.MultipartRequest('POST', url);
@@ -191,7 +199,8 @@ class HttpClientService {
       debugPrint('Authorization header added to upload request');
 
       // Add file
-      final multipartFile = await http.MultipartFile.fromPath(fieldName, file.path);
+      final multipartFile =
+          await http.MultipartFile.fromPath(fieldName, file.path);
       request.files.add(multipartFile);
 
       // Add additional fields
@@ -210,21 +219,26 @@ class HttpClientService {
   }
 
   // Handle API response and extract data
-  T handleResponse<T>(http.Response response, T Function(Map<String, dynamic>) fromJson) {
+  T handleResponse<T>(
+      http.Response response, T Function(Map<String, dynamic>) fromJson) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return fromJson(data);
     } else {
       _throwHttpException(response);
-      throw const HttpException('Response handling failed'); // This will never execute but satisfies return type
+      throw const HttpException(
+          'Response handling failed'); // This will never execute but satisfies return type
     }
   }
 
   // Handle API response for lists
-  List<T> handleListResponse<T>(http.Response response, T Function(Map<String, dynamic>) fromJson) {
+  List<T> handleListResponse<T>(
+      http.Response response, T Function(Map<String, dynamic>) fromJson) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final List<dynamic> data = jsonDecode(response.body);
-      return data.map((item) => fromJson(item as Map<String, dynamic>)).toList();
+      return data
+          .map((item) => fromJson(item as Map<String, dynamic>))
+          .toList();
     } else {
       _throwHttpException(response);
       return <T>[]; // This will never execute but satisfies return type
@@ -241,7 +255,7 @@ class HttpClientService {
   // Throw appropriate exception based on response
   Never _throwHttpException(http.Response response) {
     String message = 'Unknown error occurred';
-    
+
     try {
       final errorData = jsonDecode(response.body) as Map<String, dynamic>;
       message = errorData['error'] ?? errorData['message'] ?? message;

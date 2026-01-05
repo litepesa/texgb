@@ -163,7 +163,9 @@ class _MembersManagementScreenState
 
     return Card(
       margin: const EdgeInsets.all(16),
-      color: isAtLimit ? Colors.orange.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+      color: isAtLimit
+          ? Colors.orange.withOpacity(0.1)
+          : Colors.blue.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -260,9 +262,7 @@ class _MembersManagementScreenState
         backgroundImage: member.userAvatarUrl != null
             ? NetworkImage(member.userAvatarUrl!)
             : null,
-        child: member.userAvatarUrl == null
-            ? const Icon(Icons.person)
-            : null,
+        child: member.userAvatarUrl == null ? const Icon(Icons.person) : null,
       ),
       title: Text(member.userName),
       subtitle: Row(
@@ -416,7 +416,8 @@ class _MembersManagementScreenState
 
   Future<void> _showAddMemberDialog(BuildContext context) async {
     // Check if at limit
-    final members = await ref.read(channelMembersProvider(widget.channelId).future);
+    final members =
+        await ref.read(channelMembersProvider(widget.channelId).future);
     if (members.length >= 8) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -472,27 +473,27 @@ class _MembersManagementScreenState
             ),
           ],
         ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (userIdController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter user ID')),
-                  );
-                  return;
-                }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (userIdController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter user ID')),
+                );
+                return;
+              }
 
-                Navigator.pop(dialogContext);
-                await _addMember(userIdController.text.trim(), MemberRole.admin);
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
+              Navigator.pop(dialogContext);
+              await _addMember(userIdController.text.trim(), MemberRole.admin);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -554,7 +555,9 @@ class _MembersManagementScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            success ? 'Member removed successfully!' : 'Failed to remove member',
+            success
+                ? 'Member removed successfully!'
+                : 'Failed to remove member',
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),

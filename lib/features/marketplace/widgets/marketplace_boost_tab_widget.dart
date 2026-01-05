@@ -8,7 +8,8 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 class MarketplaceBoostTabWidget extends ConsumerStatefulWidget {
   final AnimationController rocketAnimationController;
   final Animation<double> rocketAnimation;
-  final Function(String boostTier) onBoostPost; // Now accepts boost tier parameter
+  final Function(String boostTier)
+      onBoostPost; // Now accepts boost tier parameter
 
   const MarketplaceBoostTabWidget({
     super.key,
@@ -18,10 +19,12 @@ class MarketplaceBoostTabWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MarketplaceBoostTabWidget> createState() => _MarketplaceBoostTabWidgetState();
+  ConsumerState<MarketplaceBoostTabWidget> createState() =>
+      _MarketplaceBoostTabWidgetState();
 }
 
-class _MarketplaceBoostTabWidgetState extends ConsumerState<MarketplaceBoostTabWidget> {
+class _MarketplaceBoostTabWidgetState
+    extends ConsumerState<MarketplaceBoostTabWidget> {
   String? _selectedTier;
   bool _isProcessing = false;
 
@@ -181,7 +184,8 @@ class _MarketplaceBoostTabWidgetState extends ConsumerState<MarketplaceBoostTabW
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(25),
@@ -590,7 +594,9 @@ class _MarketplaceBoostTabWidgetState extends ConsumerState<MarketplaceBoostTabW
                             });
 
                             // Trigger rocket animation
-                            widget.rocketAnimationController.forward().then((_) {
+                            widget.rocketAnimationController
+                                .forward()
+                                .then((_) {
                               widget.rocketAnimationController.reset();
                             });
 
@@ -626,11 +632,14 @@ class _MarketplaceBoostTabWidgetState extends ConsumerState<MarketplaceBoostTabW
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : Text(
-                            canAfford ? 'Select & Boost' : 'Insufficient Balance',
+                            canAfford
+                                ? 'Select & Boost'
+                                : 'Insufficient Balance',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                   ),
@@ -645,7 +654,8 @@ class _MarketplaceBoostTabWidgetState extends ConsumerState<MarketplaceBoostTabW
               top: -5,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(12),

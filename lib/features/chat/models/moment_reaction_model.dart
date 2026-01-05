@@ -62,13 +62,13 @@ class MomentReactionModel {
     if (value == null) {
       return DateTime.now().toIso8601String();
     }
-    
+
     if (value is String) {
       final trimmed = value.trim();
       if (trimmed.isEmpty) {
         return DateTime.now().toIso8601String();
       }
-      
+
       try {
         final dateTime = DateTime.parse(trimmed);
         return dateTime.toIso8601String();
@@ -76,11 +76,11 @@ class MomentReactionModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     if (value is DateTime) {
       return value.toIso8601String();
     }
-    
+
     // Handle Unix timestamp in milliseconds
     if (value is int) {
       try {
@@ -90,7 +90,7 @@ class MomentReactionModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     // Handle Unix timestamp in seconds (double)
     if (value is double) {
       try {
@@ -101,7 +101,7 @@ class MomentReactionModel {
         return DateTime.now().toIso8601String();
       }
     }
-    
+
     return DateTime.now().toIso8601String();
   }
 
@@ -142,7 +142,7 @@ class MomentReactionModel {
     final now = DateTime.now();
     final reactionTime = timestampDateTime;
     final difference = now.difference(reactionTime);
-    
+
     if (difference.inSeconds < 60) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
@@ -157,7 +157,7 @@ class MomentReactionModel {
   }
 
   bool get isVideo => mediaType.toLowerCase() == 'video';
-  
+
   bool get isImage => mediaType.toLowerCase() == 'image';
 
   String get displayMediaUrl => thumbnailUrl ?? mediaUrl;
@@ -165,7 +165,7 @@ class MomentReactionModel {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is MomentReactionModel &&
         other.momentId == momentId &&
         other.mediaUrl == mediaUrl &&
@@ -201,22 +201,23 @@ class MomentReactionModel {
 extension MomentReactionModelList on List<MomentReactionModel> {
   List<MomentReactionModel> sortByDate({bool descending = true}) {
     final sorted = List<MomentReactionModel>.from(this);
-    sorted.sort((a, b) => descending 
+    sorted.sort((a, b) => descending
         ? b.timestampDateTime.compareTo(a.timestampDateTime)
         : a.timestampDateTime.compareTo(b.timestampDateTime));
     return sorted;
   }
-  
+
   List<MomentReactionModel> get videoReactions =>
       where((reaction) => reaction.isVideo).toList();
-  
+
   List<MomentReactionModel> get imageReactions =>
       where((reaction) => reaction.isImage).toList();
-  
+
   List<MomentReactionModel> filterByAuthor(String authorName) =>
-      where((reaction) => 
-          reaction.authorName.toLowerCase() == authorName.toLowerCase()).toList();
-  
+      where((reaction) =>
+              reaction.authorName.toLowerCase() == authorName.toLowerCase())
+          .toList();
+
   List<MomentReactionModel> filterByMoment(String momentId) =>
       where((reaction) => reaction.momentId == momentId).toList();
 }

@@ -53,11 +53,14 @@ class _ChatScreenWrapperState extends ConsumerState<ChatScreenWrapper> {
       bool foundInChatList = false;
 
       chatListState.whenData((state) {
-        final chatItem = state.chats.where((c) => c.chat.chatId == widget.chatId).firstOrNull;
+        final chatItem = state.chats
+            .where((c) => c.chat.chatId == widget.chatId)
+            .firstOrNull;
 
         if (chatItem != null) {
           // Found in chat list - create UserModel from chat item data
-          final otherUserId = chatItem.chat.getOtherParticipant(currentUser.uid);
+          final otherUserId =
+              chatItem.chat.getOtherParticipant(currentUser.uid);
 
           if (mounted) {
             setState(() {
@@ -78,7 +81,6 @@ class _ChatScreenWrapperState extends ConsumerState<ChatScreenWrapper> {
       if (!foundInChatList) {
         await _fetchUserFromApi(currentUser.uid);
       }
-
     } catch (e) {
       debugPrint('Error fetching contact: $e');
       if (mounted) {

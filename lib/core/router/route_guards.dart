@@ -8,73 +8,75 @@ import 'package:textgb/features/authentication/providers/auth_convenience_provid
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
 /// Route guard that handles authentication and authorization
-/// 
+///
 /// This class manages:
 /// - Login redirects (unauthenticated users → login)
 /// - Profile completion checks (no profile → create profile)
 /// - Post-login redirects (logged in on auth pages → home)
 class RouteGuard {
   final Ref ref;
-  
+
   RouteGuard(this.ref);
-  
+
   /// Main redirect logic for go_router
-  /// 
+  ///
   /// Returns:
   /// - null: Allow navigation to requested route
   /// - String: Redirect to this route instead
   String? redirect(BuildContext context, GoRouterState state) {
     final currentPath = state.matchedLocation;
-    
+
     debugPrint('🔒 Route Guard Check:');
     debugPrint('   - Current Path: $currentPath');
     debugPrint('   - Full Location: ${state.uri}');
-    
+
     // Get authentication status
     final isAuthenticated = _isUserAuthenticated();
     final hasProfile = _hasCompleteProfile();
-    
+
     debugPrint('   - Authenticated: $isAuthenticated');
     debugPrint('   - Has Profile: $hasProfile');
-    
+
     // ==================== AUTHENTICATION FLOW ====================
-    
+
     // 1. User is NOT authenticated
     if (!isAuthenticated) {
       debugPrint('   ❌ User not authenticated');
-      
+
       // Allow access to auth routes
-      if (RoutePaths.isAuthRoute(currentPath) || currentPath == RoutePaths.root) {
+      if (RoutePaths.isAuthRoute(currentPath) ||
+          currentPath == RoutePaths.root) {
         debugPrint('   ✅ Allowing access to auth route');
         return null;
       }
-      
+
       // Redirect to landing for all other routes
       debugPrint('   ↩️  Redirecting to landing');
       return RoutePaths.landing;
     }
-    
+
     // 2. User IS authenticated but has NO profile
     if (isAuthenticated && !hasProfile) {
       debugPrint('   ⚠️  User authenticated but no profile');
-      
+
       // Allow access to profile creation
       if (currentPath == RoutePaths.createProfile) {
         debugPrint('   ✅ Allowing access to profile creation');
         return null;
       }
-      
+
       // Allow logout routes
-      if (currentPath == RoutePaths.landing || currentPath == RoutePaths.login) {
+      if (currentPath == RoutePaths.landing ||
+          currentPath == RoutePaths.login) {
         debugPrint('   ✅ Allowing access to auth routes (logout flow)');
         return null;
       }
-      
+
       // Redirect to profile creation for all other routes
       debugPrint('   ↩️  Redirecting to profile creation');
       return RoutePaths.createProfile;
     }
-    
+
     // 3. User IS authenticated AND has complete profile
     if (isAuthenticated && hasProfile) {
       debugPrint('   ✅ User fully authenticated with profile');
@@ -100,22 +102,26 @@ class RouteGuard {
         }
 
         // Allow logout routes
-        if (currentPath == RoutePaths.landing || currentPath == RoutePaths.login) {
+        if (currentPath == RoutePaths.landing ||
+            currentPath == RoutePaths.login) {
           debugPrint('   ✅ Allowing access to auth routes (logout flow)');
           return null;
         }
 
         // Redirect to wallet top-up for all other routes (first-time purchase required)
-        debugPrint('   ↩️  Redirecting to wallet top-up (minimum 50 coins = KES 75)');
+        debugPrint(
+            '   ↩️  Redirecting to wallet top-up (minimum 50 coins = KES 75)');
         return '/wallet-topup';
       }
 
       // 3b. User authenticated, has profile, and has made first wallet top-up
-      debugPrint('   ✅ User fully authenticated, has profile, and has completed first wallet top-up');
+      debugPrint(
+          '   ✅ User fully authenticated, has profile, and has completed first wallet top-up');
 
       // Prevent authenticated users from accessing auth screens
       if (RoutePaths.isAuthRoute(currentPath)) {
-        debugPrint('   ↩️  Redirecting authenticated user away from auth screens');
+        debugPrint(
+            '   ↩️  Redirecting authenticated user away from auth screens');
         return RoutePaths.home;
       }
 
@@ -123,20 +129,20 @@ class RouteGuard {
       debugPrint('   ✅ Allowing access to protected route');
       return null;
     }
-    
+
     // Default: allow navigation
     debugPrint('   ✅ Default: allowing navigation');
     return null;
   }
-  
+
   // ==================== HELPER METHODS ====================
-  
+
   /// Check if user is authenticated with Firebase
   bool _isUserAuthenticated() {
     final user = FirebaseAuth.instance.currentUser;
     return user != null;
   }
-  
+
   /// Check if user has completed their profile
   bool _hasCompleteProfile() {
     try {
@@ -234,7 +240,7 @@ final routeGuardProvider = Provider<RouteGuard>((ref) {
 /// Different redirect strategies for various use cases
 class RedirectStrategies {
   RedirectStrategies._();
-  
+
   /// Strategy for guest mode (allow browsing without auth)
   static String? guestModeRedirect(
     BuildContext context,
@@ -243,7 +249,7 @@ class RedirectStrategies {
   ) {
     final currentPath = state.matchedLocation;
     final isAuthenticated = FirebaseAuth.instance.currentUser != null;
-    
+
     // Allow guest access to main screens
     final guestAllowedRoutes = [
       RoutePaths.home,
@@ -252,20 +258,20 @@ class RedirectStrategies {
       RoutePaths.videosFeed,
       RoutePaths.search,
     ];
-    
+
     // Check if current route allows guest access
     if (guestAllowedRoutes.contains(currentPath)) {
       return null; // Allow access
     }
-    
+
     // For protected routes, check authentication
     if (!isAuthenticated && RoutePaths.requiresAuth(currentPath)) {
       return RoutePaths.landing;
     }
-    
+
     return null;
   }
-  
+
   /// Strategy for strict auth (no guest browsing)
   static String? strictAuthRedirect(
     BuildContext context,
@@ -275,7 +281,7 @@ class RedirectStrategies {
     final routeGuard = RouteGuard(ref);
     return routeGuard.redirect(context, state);
   }
-  
+
   /// Strategy for onboarding flow
   static String? onboardingRedirect(
     BuildContext context,
@@ -283,14 +289,14 @@ class RedirectStrategies {
     Ref ref,
   ) {
     final currentPath = state.matchedLocation;
-    
+
     // Check if onboarding is completed (you can store this in SharedPreferences)
     final onboardingCompleted = true; // TODO: Get from storage
-    
+
     if (!onboardingCompleted && currentPath != '/onboarding') {
       return '/onboarding';
     }
-    
+
     // Otherwise use normal auth redirect
     final routeGuard = RouteGuard(ref);
     return routeGuard.redirect(context, state);
@@ -334,17 +340,17 @@ class AppRouteObserver extends NavigatorObserver {
 /// Check if user can access a specific route
 bool canAccessRoute(String path, Ref ref) {
   final isAuthenticated = FirebaseAuth.instance.currentUser != null;
-  
+
   // Auth routes can be accessed by anyone
   if (RoutePaths.isAuthRoute(path)) {
     return true;
   }
-  
+
   // Protected routes require authentication
   if (RoutePaths.requiresAuth(path)) {
     return isAuthenticated;
   }
-  
+
   return true;
 }
 
@@ -353,7 +359,7 @@ String getAuthRedirectPath(String attemptedPath) {
   // Store attempted path for redirect after login
   // You can save this to SharedPreferences or state management
   debugPrint('🔐 Saving redirect path: $attemptedPath');
-  
+
   return RoutePaths.landing;
 }
 
@@ -362,7 +368,7 @@ String getPostLoginRedirectPath() {
   // Check if there's a stored redirect path
   // Otherwise go to home
   // TODO: Implement redirect path storage/retrieval
-  
+
   return RoutePaths.home;
 }
 
@@ -372,14 +378,15 @@ String getPostLoginRedirectPath() {
 /// This can be used in combination with route guards
 class AuthStateListener {
   final Ref ref;
-  
+
   AuthStateListener(this.ref);
-  
+
   /// Set up listener for authentication state changes
   void listen(void Function(bool isAuthenticated) onAuthChanged) {
     FirebaseAuth.instance.authStateChanges().listen((user) {
       final isAuthenticated = user != null;
-      debugPrint('🔐 Auth state changed: ${isAuthenticated ? "Logged in" : "Logged out"}');
+      debugPrint(
+          '🔐 Auth state changed: ${isAuthenticated ? "Logged in" : "Logged out"}');
       onAuthChanged(isAuthenticated);
     });
   }
@@ -393,10 +400,10 @@ class NavigationErrorHandler {
     debugPrint('❌ Navigation Error:');
     debugPrint('   - Path: ${state.uri}');
     debugPrint('   - Error: ${state.error}');
-    
+
     // For production, you might want to log this to analytics
     // FirebaseAnalytics.instance.logEvent(name: 'navigation_error', parameters: {...});
-    
+
     // Redirect to home or show error page
     return RoutePaths.home;
   }
@@ -406,22 +413,23 @@ class NavigationErrorHandler {
 
 /// Alternative simpler approach to check if user has profile
 /// Use this if the above _hasCompleteProfile is too complex
-/// 
+///
 /// This checks:
 /// 1. Firebase Auth user exists
 /// 2. User has displayName or phoneNumber (indicating profile setup)
 bool hasUserCompletedProfile() {
   final user = FirebaseAuth.instance.currentUser;
-  
+
   if (user == null) return false;
-  
+
   // Simple check: if user has displayName, profile is complete
   // Adjust this based on your app's requirements
-  final hasDisplayName = user.displayName != null && user.displayName!.isNotEmpty;
-  
+  final hasDisplayName =
+      user.displayName != null && user.displayName!.isNotEmpty;
+
   debugPrint('   - Simple Profile Check:');
   debugPrint('     - Display Name: ${user.displayName}');
   debugPrint('     - Has Profile: $hasDisplayName');
-  
+
   return hasDisplayName;
 }

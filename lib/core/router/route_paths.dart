@@ -1,77 +1,83 @@
 // lib/core/router/route_paths.dart
 /// Centralized route path definitions for type-safe navigation
-/// 
+///
 /// Usage:
 /// - context.go(RoutePaths.home)
 /// - context.push(RoutePaths.userProfile(userId))
 class RoutePaths {
   // Private constructor to prevent instantiation
   RoutePaths._();
-  
+
   // ==================== ROOT & AUTH ROUTES ====================
   static const String root = '/';
   static const String landing = '/landing';
   static const String login = '/login';
   static const String otp = '/otp';
   static const String createProfile = '/create-profile';
-  
+
   // ==================== MAIN APP ROUTES ====================
   static const String home = '/home';
   static const String discover = '/discover';
   static const String explore = '/explore';
-  
+
   // ==================== USER PROFILE ROUTES ====================
   static const String myProfile = '/my-profile';
   static const String editProfile = '/edit-profile';
   static const String usersList = '/users-list';
   static const String liveUsers = '/live-users';
-  
+
   // Dynamic route with parameter
   static String userProfile(String userId) => '/user/$userId';
   static const String userProfilePattern = '/user/:userId';
-  
+
   // ==================== VIDEO ROUTES ====================
   static const String videosFeed = '/videos-feed';
   static const String createPost = '/create-post';
   static const String recommendedPosts = '/recommended-posts';
   static const String managePosts = '/manage-posts';
   static const String featuredVideos = '/featured-videos';
-  
+
   // Dynamic video routes
   static String singleVideo(String videoId) => '/video/$videoId';
   static const String singleVideoPattern = '/video/:videoId';
-  
+
   static String myPost(String videoId) => '/my-post/$videoId';
   static const String myPostPattern = '/my-post/:videoId';
-  
+
   static String postDetail(String videoId) => '/post-detail/$videoId';
   static const String postDetailPattern = '/post-detail/:videoId';
 
   // ==================== MARKETPLACE ROUTES ====================
   static const String marketplaceFeed = '/marketplace-feed';
   static const String createMarketplaceListing = '/create-marketplace-listing';
-  static const String recommendedMarketplaceListings = '/recommended-marketplace-listings';
+  static const String recommendedMarketplaceListings =
+      '/recommended-marketplace-listings';
   static const String featuredMarketplace = '/featured-marketplace';
-  static const String manageMarketplaceListings = '/manage-marketplace-listings';
+  static const String manageMarketplaceListings =
+      '/manage-marketplace-listings';
 
   // Dynamic marketplace routes
-  static String singleMarketplaceVideo(String videoId) => '/marketplace-video/$videoId';
-  static const String singleMarketplaceVideoPattern = '/marketplace-video/:videoId';
+  static String singleMarketplaceVideo(String videoId) =>
+      '/marketplace-video/$videoId';
+  static const String singleMarketplaceVideoPattern =
+      '/marketplace-video/:videoId';
 
   static String myListing(String videoId) => '/my-marketplace-listing/$videoId';
   static const String myListingPattern = '/my-marketplace-listing/:videoId';
 
-  static String listingDetail(String videoId) => '/marketplace-listing-detail/$videoId';
-  static const String listingDetailPattern = '/marketplace-listing-detail/:videoId';
+  static String listingDetail(String videoId) =>
+      '/marketplace-listing-detail/$videoId';
+  static const String listingDetailPattern =
+      '/marketplace-listing-detail/:videoId';
 
   // ==================== CONTACTS ROUTES ====================
   static const String contacts = '/contacts';
   static const String addContact = '/add-contact';
   static const String blockedContacts = '/blocked-contacts';
-  
+
   static String contactProfile(String userId) => '/contact/$userId';
   static const String contactProfilePattern = '/contact/:userId';
-  
+
   // ==================== CHAT ROUTES ====================
   static const String chats = '/chats';
   static const String chatList = '/chat-list';
@@ -129,8 +135,10 @@ class RoutePaths {
   static String channelProfile(String channelId) => '/channel/$channelId';
   static const String channelProfilePattern = '/channel/:channelId';
 
-  static String createChannelPost(String channelId) => '/channel/$channelId/create-post';
-  static const String createChannelPostPattern = '/channel/:channelId/create-post';
+  static String createChannelPost(String channelId) =>
+      '/channel/$channelId/create-post';
+  static const String createChannelPostPattern =
+      '/channel/:channelId/create-post';
 
   static String channelPost(String postId) => '/channel-post/$postId';
   static const String channelPostPattern = '/channel-post/:postId';
@@ -149,8 +157,10 @@ class RoutePaths {
   static String momentDetail(String momentId) => '/moment/$momentId';
   static const String momentDetailPattern = '/moment/:momentId';
 
-  static String momentMediaViewer(String momentId, int index) => '/moment/$momentId/media/$index';
-  static const String momentMediaViewerPattern = '/moment/:momentId/media/:index';
+  static String momentMediaViewer(String momentId, int index) =>
+      '/moment/$momentId/media/$index';
+  static const String momentMediaViewerPattern =
+      '/moment/:momentId/media/:index';
 
   static String momentVideoViewer(String momentId) => '/moment/$momentId/video';
   static const String momentVideoViewerPattern = '/moment/:momentId/video';
@@ -171,33 +181,36 @@ class RoutePaths {
   static const String advancedSearch = '/advanced-search';
   static const String searchResults = '/search-results';
   static const String searchHistory = '/search-history';
-  
+
   // ==================== SOCIAL ROUTES ====================
   static const String comments = '/comments';
   static const String likes = '/likes';
   static const String shares = '/shares';
   static const String mentions = '/mentions';
-  
+
   static String hashtag(String tag) => '/hashtag/$tag';
   static const String hashtagPattern = '/hashtag/:tag';
-  
+
   // ==================== SETTINGS ROUTES ====================
   static const String privacyPolicy = '/privacy-policy';
   static const String privacySettings = '/privacy-settings';
   static const String termsAndConditions = '/terms-and-conditions';
-  
+
   // ==================== HELPER METHODS ====================
-  
+
   /// Check if a path is an auth route
   static bool isAuthRoute(String path) {
-    return path == landing || path == login || path == otp || path == createProfile;
+    return path == landing ||
+        path == login ||
+        path == otp ||
+        path == createProfile;
   }
-  
+
   /// Check if a path requires authentication
   static bool requiresAuth(String path) {
     return !isAuthRoute(path) && path != root;
   }
-  
+
   /// Get route name from path (for analytics)
   static String getRouteName(String path) {
     if (path == root || path == home) return 'home';
@@ -244,12 +257,12 @@ class RoutePaths {
 
     return 'unknown';
   }
-  
+
   /// Extract parameter from path
   static String? extractParam(String path, String pattern) {
     final pathSegments = path.split('/');
     final patternSegments = pattern.split('/');
-    
+
     for (var i = 0; i < patternSegments.length; i++) {
       if (patternSegments[i].startsWith(':')) {
         if (i < pathSegments.length) {
@@ -265,7 +278,7 @@ class RoutePaths {
 /// Use these if you need to reference routes by name
 class RouteNames {
   RouteNames._();
-  
+
   static const String root = 'root';
   static const String landing = 'landing';
   static const String login = 'login';
@@ -291,7 +304,8 @@ class RouteNames {
   static const String singleMarketplaceVideo = 'singleMarketplaceVideo';
   static const String myListing = 'myListing';
   static const String createMarketplaceListing = 'createMarketplaceListing';
-  static const String recommendedMarketplaceListings = 'recommendedMarketplaceListings';
+  static const String recommendedMarketplaceListings =
+      'recommendedMarketplaceListings';
   static const String manageMarketplaceListings = 'manageMarketplaceListings';
   static const String featuredMarketplace = 'featuredMarketplace';
   static const String contacts = 'contacts';

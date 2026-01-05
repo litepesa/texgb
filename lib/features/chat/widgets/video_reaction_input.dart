@@ -30,7 +30,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final VideoThumbnailService _thumbnailService = VideoThumbnailService();
-  
+
   late AnimationController _slideController;
   late AnimationController _fadeController;
   late Animation<Offset> _slideAnimation;
@@ -39,18 +39,18 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize animations
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
@@ -58,7 +58,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
       parent: _slideController,
       curve: Curves.easeOutCubic,
     ));
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -66,11 +66,11 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
       parent: _fadeController,
       curve: Curves.easeOut,
     ));
-    
+
     // Start animations
     _slideController.forward();
     _fadeController.forward();
-    
+
     // Auto-focus the text field
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -105,11 +105,11 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
     if (widget.video.thumbnailUrl.isNotEmpty) {
       return widget.video.thumbnailUrl;
     }
-    
+
     if (widget.video.isMultipleImages && widget.video.imageUrls.isNotEmpty) {
       return widget.video.imageUrls.first;
     }
-    
+
     return null;
   }
 
@@ -132,7 +132,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final currentUser = ref.watch(currentUserProvider);
     final videoCreator = _getVideoCreator();
-    
+
     return SlideTransition(
       position: _slideAnimation,
       child: FadeTransition(
@@ -146,7 +146,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                modernTheme.surfaceColor?.withOpacity(0.98) ?? Colors.white.withOpacity(0.98),
+                modernTheme.surfaceColor?.withOpacity(0.98) ??
+                    Colors.white.withOpacity(0.98),
                 modernTheme.surfaceColor ?? Colors.white,
               ],
             ),
@@ -159,7 +160,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                 spreadRadius: 0,
               ),
               BoxShadow(
-                color: modernTheme.primaryColor?.withOpacity(0.08) ?? Colors.blue.withOpacity(0.08),
+                color: modernTheme.primaryColor?.withOpacity(0.08) ??
+                    Colors.blue.withOpacity(0.08),
                 blurRadius: 48,
                 offset: const Offset(0, -12),
                 spreadRadius: 0,
@@ -181,14 +183,17 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            modernTheme.primaryColor?.withOpacity(0.4) ?? Colors.grey.withOpacity(0.4),
-                            modernTheme.primaryColor?.withOpacity(0.7) ?? Colors.grey.withOpacity(0.7),
+                            modernTheme.primaryColor?.withOpacity(0.4) ??
+                                Colors.grey.withOpacity(0.4),
+                            modernTheme.primaryColor?.withOpacity(0.7) ??
+                                Colors.grey.withOpacity(0.7),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(3),
                         boxShadow: [
                           BoxShadow(
-                            color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
+                            color: modernTheme.primaryColor?.withOpacity(0.2) ??
+                                Colors.grey.withOpacity(0.2),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
                           ),
@@ -197,30 +202,37 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                     ),
                   ),
                   const SizedBox(height: 28),
-                  
+
                   // Enhanced header with better typography and layout
                   Row(
                     children: [
                       // Enhanced reaction badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              modernTheme.primaryColor?.withOpacity(0.15) ?? Colors.blue.withOpacity(0.15),
-                              modernTheme.primaryColor?.withOpacity(0.08) ?? Colors.blue.withOpacity(0.08),
+                              modernTheme.primaryColor?.withOpacity(0.15) ??
+                                  Colors.blue.withOpacity(0.15),
+                              modernTheme.primaryColor?.withOpacity(0.08) ??
+                                  Colors.blue.withOpacity(0.08),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: modernTheme.primaryColor?.withOpacity(0.25) ?? Colors.blue.withOpacity(0.25),
+                            color:
+                                modernTheme.primaryColor?.withOpacity(0.25) ??
+                                    Colors.blue.withOpacity(0.25),
                             width: 1.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: modernTheme.primaryColor?.withOpacity(0.1) ?? Colors.blue.withOpacity(0.1),
+                              color:
+                                  modernTheme.primaryColor?.withOpacity(0.1) ??
+                                      Colors.blue.withOpacity(0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -232,7 +244,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: modernTheme.primaryColor?.withOpacity(0.2),
+                                color:
+                                    modernTheme.primaryColor?.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
@@ -255,7 +268,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                         ),
                       ),
                       const Spacer(),
-                      
+
                       // Enhanced close button
                       Container(
                         decoration: BoxDecoration(
@@ -263,13 +276,18 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              modernTheme.surfaceVariantColor?.withOpacity(0.8) ?? Colors.grey.shade100,
-                              modernTheme.surfaceVariantColor?.withOpacity(0.4) ?? Colors.grey.shade50,
+                              modernTheme.surfaceVariantColor
+                                      ?.withOpacity(0.8) ??
+                                  Colors.grey.shade100,
+                              modernTheme.surfaceVariantColor
+                                      ?.withOpacity(0.4) ??
+                                  Colors.grey.shade50,
                             ],
                           ),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: modernTheme.dividerColor?.withOpacity(0.4) ?? Colors.grey.withOpacity(0.3),
+                            color: modernTheme.dividerColor?.withOpacity(0.4) ??
+                                Colors.grey.withOpacity(0.3),
                             width: 1.5,
                           ),
                           boxShadow: [
@@ -299,7 +317,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                     ],
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Enhanced video preview card with user provider data
                   Container(
                     decoration: BoxDecoration(
@@ -308,12 +326,14 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                         end: Alignment.bottomRight,
                         colors: [
                           modernTheme.surfaceColor ?? Colors.white,
-                          modernTheme.surfaceVariantColor?.withOpacity(0.4) ?? Colors.grey.shade50,
+                          modernTheme.surfaceVariantColor?.withOpacity(0.4) ??
+                              Colors.grey.shade50,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: modernTheme.dividerColor?.withOpacity(0.6) ?? Colors.grey.withOpacity(0.3),
+                        color: modernTheme.dividerColor?.withOpacity(0.6) ??
+                            Colors.grey.withOpacity(0.3),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -323,7 +343,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                           offset: const Offset(0, 4),
                         ),
                         BoxShadow(
-                          color: modernTheme.primaryColor?.withOpacity(0.04) ?? Colors.blue.withOpacity(0.04),
+                          color: modernTheme.primaryColor?.withOpacity(0.04) ??
+                              Colors.blue.withOpacity(0.04),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -354,7 +375,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                     height: 88,
                                     child: VideoThumbnailWidget(
                                       videoUrl: widget.video.videoUrl,
-                                      fallbackThumbnailUrl: _getBestThumbnailUrl(),
+                                      fallbackThumbnailUrl:
+                                          _getBestThumbnailUrl(),
                                       width: 88,
                                       height: 88,
                                       fit: BoxFit.cover,
@@ -368,7 +390,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                             ],
                           ),
                           const SizedBox(width: 16),
-                          
+
                           // Enhanced video info with real user data
                           Expanded(
                             child: Column(
@@ -382,14 +404,20 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                       children: [
                                         Container(
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(16),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
                                             border: Border.all(
-                                              color: modernTheme.primaryColor?.withOpacity(0.4) ?? Colors.blue.withOpacity(0.4),
+                                              color: modernTheme.primaryColor
+                                                      ?.withOpacity(0.4) ??
+                                                  Colors.blue.withOpacity(0.4),
                                               width: 2,
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.blue.withOpacity(0.2),
+                                                color: modernTheme.primaryColor
+                                                        ?.withOpacity(0.2) ??
+                                                    Colors.blue
+                                                        .withOpacity(0.2),
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 2),
                                               ),
@@ -397,27 +425,43 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                           ),
                                           child: CircleAvatar(
                                             radius: 16,
-                                            backgroundColor: modernTheme.primaryColor?.withOpacity(0.1),
-                                            backgroundImage: (videoCreator?.profileImage.isNotEmpty == true)
-                                                ? NetworkImage(videoCreator!.profileImage)
+                                            backgroundColor: modernTheme
+                                                .primaryColor
+                                                ?.withOpacity(0.1),
+                                            backgroundImage: (videoCreator
+                                                        ?.profileImage
+                                                        .isNotEmpty ==
+                                                    true)
+                                                ? NetworkImage(
+                                                    videoCreator!.profileImage)
                                                 : null,
-                                            child: (videoCreator?.profileImage.isEmpty != false)
+                                            child: (videoCreator?.profileImage
+                                                        .isEmpty !=
+                                                    false)
                                                 ? Text(
-                                                    (videoCreator?.name.isNotEmpty == true) 
-                                                      ? videoCreator!.name[0].toUpperCase()
-                                                      : widget.video.userName.isNotEmpty 
-                                                        ? widget.video.userName[0].toUpperCase()
-                                                        : 'U',
+                                                    (videoCreator?.name
+                                                                .isNotEmpty ==
+                                                            true)
+                                                        ? videoCreator!.name[0]
+                                                            .toUpperCase()
+                                                        : widget.video.userName
+                                                                .isNotEmpty
+                                                            ? widget.video
+                                                                .userName[0]
+                                                                .toUpperCase()
+                                                            : 'U',
                                                     style: TextStyle(
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: modernTheme.primaryColor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: modernTheme
+                                                          .primaryColor,
                                                     ),
                                                   )
                                                 : null,
                                           ),
                                         ),
-                                        
+
                                         // Verification badge
                                         if (videoCreator?.isVerified == true)
                                           Positioned(
@@ -426,8 +470,11 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                             child: Container(
                                               padding: const EdgeInsets.all(2),
                                               decoration: BoxDecoration(
-                                                color: modernTheme.surfaceColor ?? Colors.white,
-                                                borderRadius: BorderRadius.circular(8),
+                                                color:
+                                                    modernTheme.surfaceColor ??
+                                                        Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Icon(
                                                 Icons.verified_rounded,
@@ -439,15 +486,17 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                       ],
                                     ),
                                     const SizedBox(width: 12),
-                                    
+
                                     // User name and metadata
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           // Use real username from user provider
                                           Text(
-                                            videoCreator?.name ?? widget.video.userName,
+                                            videoCreator?.name ??
+                                                widget.video.userName,
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w700,
@@ -458,49 +507,77 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           const SizedBox(height: 4),
-                                          
+
                                           // Enhanced metadata row
                                           Row(
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3),
                                                 decoration: BoxDecoration(
                                                   gradient: LinearGradient(
                                                     colors: [
-                                                      modernTheme.primaryColor?.withOpacity(0.12) ?? Colors.blue.withOpacity(0.12),
-                                                      modernTheme.primaryColor?.withOpacity(0.06) ?? Colors.blue.withOpacity(0.06),
+                                                      modernTheme.primaryColor
+                                                              ?.withOpacity(
+                                                                  0.12) ??
+                                                          Colors.blue
+                                                              .withOpacity(
+                                                                  0.12),
+                                                      modernTheme.primaryColor
+                                                              ?.withOpacity(
+                                                                  0.06) ??
+                                                          Colors.blue
+                                                              .withOpacity(
+                                                                  0.06),
                                                     ],
                                                   ),
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                   border: Border.all(
-                                                    color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.blue.withOpacity(0.2),
+                                                    color: modernTheme
+                                                            .primaryColor
+                                                            ?.withOpacity(
+                                                                0.2) ??
+                                                        Colors.blue
+                                                            .withOpacity(0.2),
                                                     width: 0.5,
                                                   ),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
                                                     Icon(
-                                                      widget.video.isMultipleImages 
-                                                        ? Icons.photo_library_rounded 
-                                                        : Icons.videocam_rounded,
+                                                      widget.video.isMultipleImages
+                                                          ? Icons
+                                                              .photo_library_rounded
+                                                          : Icons
+                                                              .videocam_rounded,
                                                       size: 10,
-                                                      color: modernTheme.primaryColor,
+                                                      color: modernTheme
+                                                          .primaryColor,
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      widget.video.isMultipleImages ? 'Photos' : 'Video',
+                                                      widget.video
+                                                              .isMultipleImages
+                                                          ? 'Photos'
+                                                          : 'Video',
                                                       style: TextStyle(
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: modernTheme.primaryColor,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: modernTheme
+                                                            .primaryColor,
                                                         letterSpacing: 0.4,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
-                                              
+
                                               // Follower count if available
                                               if (videoCreator != null) ...[
                                                 const SizedBox(width: 8),
@@ -508,7 +585,9 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                                   '${videoCreator.followers} followers',
                                                   style: TextStyle(
                                                     fontSize: 11,
-                                                    color: modernTheme.textSecondaryColor?.withOpacity(0.8),
+                                                    color: modernTheme
+                                                        .textSecondaryColor
+                                                        ?.withOpacity(0.8),
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
@@ -520,17 +599,20 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                     ),
                                   ],
                                 ),
-                                
+
                                 // Video caption preview (if available)
                                 if (widget.video.caption.isNotEmpty) ...[
                                   const SizedBox(height: 12),
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: modernTheme.surfaceVariantColor?.withOpacity(0.3),
+                                      color: modernTheme.surfaceVariantColor
+                                          ?.withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
-                                        color: modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.2),
+                                        color: modernTheme.dividerColor
+                                                ?.withOpacity(0.3) ??
+                                            Colors.grey.withOpacity(0.2),
                                         width: 1,
                                       ),
                                     ),
@@ -554,9 +636,9 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Enhanced text input section header
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -577,9 +659,11 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                             ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: modernTheme.primaryColor?.withOpacity(0.1),
+                                color:
+                                    modernTheme.primaryColor?.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -598,7 +682,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                           'Share your thoughts about this ${widget.video.isMultipleImages ? 'post' : 'video'}',
                           style: TextStyle(
                             fontSize: 14,
-                            color: modernTheme.textSecondaryColor?.withOpacity(0.8),
+                            color: modernTheme.textSecondaryColor
+                                ?.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.1,
                           ),
@@ -607,7 +692,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Enhanced text input with modern design
                   Container(
                     decoration: BoxDecoration(
@@ -616,14 +701,17 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                         end: Alignment.bottomRight,
                         colors: [
                           modernTheme.surfaceColor ?? Colors.white,
-                          modernTheme.surfaceVariantColor?.withOpacity(0.2) ?? Colors.grey.shade50,
+                          modernTheme.surfaceVariantColor?.withOpacity(0.2) ??
+                              Colors.grey.shade50,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: _focusNode.hasFocus 
-                          ? modernTheme.primaryColor?.withOpacity(0.8) ?? Colors.blue.withOpacity(0.8)
-                          : modernTheme.dividerColor?.withOpacity(0.6) ?? Colors.grey.withOpacity(0.3),
+                        color: _focusNode.hasFocus
+                            ? modernTheme.primaryColor?.withOpacity(0.8) ??
+                                Colors.blue.withOpacity(0.8)
+                            : modernTheme.dividerColor?.withOpacity(0.6) ??
+                                Colors.grey.withOpacity(0.3),
                         width: _focusNode.hasFocus ? 2 : 1.5,
                       ),
                       boxShadow: [
@@ -634,7 +722,8 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                         ),
                         if (_focusNode.hasFocus)
                           BoxShadow(
-                            color: modernTheme.primaryColor?.withOpacity(0.1) ?? Colors.blue.withOpacity(0.1),
+                            color: modernTheme.primaryColor?.withOpacity(0.1) ??
+                                Colors.blue.withOpacity(0.1),
                             blurRadius: 24,
                             offset: const Offset(0, 8),
                           ),
@@ -649,21 +738,25 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.blue.withOpacity(0.3),
+                              color:
+                                  modernTheme.primaryColor?.withOpacity(0.3) ??
+                                      Colors.blue.withOpacity(0.3),
                               width: 1.5,
                             ),
                           ),
                           child: CircleAvatar(
                             radius: 14,
-                            backgroundColor: modernTheme.primaryColor?.withOpacity(0.1),
-                            backgroundImage: currentUser?.profileImage.isNotEmpty == true
-                                ? NetworkImage(currentUser!.profileImage)
-                                : null,
+                            backgroundColor:
+                                modernTheme.primaryColor?.withOpacity(0.1),
+                            backgroundImage:
+                                currentUser?.profileImage.isNotEmpty == true
+                                    ? NetworkImage(currentUser!.profileImage)
+                                    : null,
                             child: currentUser?.profileImage.isEmpty != false
                                 ? Text(
-                                    currentUser?.name.isNotEmpty == true 
-                                      ? currentUser!.name[0].toUpperCase()
-                                      : 'Y',
+                                    currentUser?.name.isNotEmpty == true
+                                        ? currentUser!.name[0].toUpperCase()
+                                        : 'Y',
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -673,7 +766,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                                 : null,
                           ),
                         ),
-                        
+
                         // Text input
                         Expanded(
                           child: TextField(
@@ -690,11 +783,12 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                               height: 1.4,
                             ),
                             decoration: InputDecoration(
-                              hintText: widget.video.isMultipleImages 
-                                ? 'What do you think about these photos?'
-                                : 'Share your reaction to this video...',
+                              hintText: widget.video.isMultipleImages
+                                  ? 'What do you think about these photos?'
+                                  : 'Share your reaction to this video...',
                               hintStyle: TextStyle(
-                                color: modernTheme.textSecondaryColor?.withOpacity(0.6),
+                                color: modernTheme.textSecondaryColor
+                                    ?.withOpacity(0.6),
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,
                                 letterSpacing: 0.1,
@@ -708,7 +802,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                             onSubmitted: _sendReaction,
                           ),
                         ),
-                        
+
                         // Enhanced send button
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
@@ -717,37 +811,50 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: _textController.text.trim().isNotEmpty ? [
-                                modernTheme.primaryColor ?? Colors.blue,
-                                modernTheme.primaryColor?.withOpacity(0.8) ?? Colors.blue.withOpacity(0.8),
-                              ] : [
-                                modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
-                                modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-                              ],
+                              colors: _textController.text.trim().isNotEmpty
+                                  ? [
+                                      modernTheme.primaryColor ?? Colors.blue,
+                                      modernTheme.primaryColor
+                                              ?.withOpacity(0.8) ??
+                                          Colors.blue.withOpacity(0.8),
+                                    ]
+                                  : [
+                                      modernTheme.dividerColor
+                                              ?.withOpacity(0.3) ??
+                                          Colors.grey.withOpacity(0.3),
+                                      modernTheme.dividerColor
+                                              ?.withOpacity(0.2) ??
+                                          Colors.grey.withOpacity(0.2),
+                                    ],
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: _textController.text.trim().isNotEmpty ? [
-                              BoxShadow(
-                                color: modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.blue.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ] : [],
+                            boxShadow: _textController.text.trim().isNotEmpty
+                                ? [
+                                    BoxShadow(
+                                      color: modernTheme.primaryColor
+                                              ?.withOpacity(0.3) ??
+                                          Colors.blue.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : [],
                           ),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(20),
-                              onTap: _textController.text.trim().isNotEmpty 
-                                ? () => _sendReaction(_textController.text)
-                                : null,
+                              onTap: _textController.text.trim().isNotEmpty
+                                  ? () => _sendReaction(_textController.text)
+                                  : null,
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 child: Icon(
                                   Icons.send_rounded,
-                                  color: _textController.text.trim().isNotEmpty 
-                                    ? Colors.white 
-                                    : modernTheme.textSecondaryColor?.withOpacity(0.5),
+                                  color: _textController.text.trim().isNotEmpty
+                                      ? Colors.white
+                                      : modernTheme.textSecondaryColor
+                                          ?.withOpacity(0.5),
                                   size: 20,
                                 ),
                               ),
@@ -757,7 +864,7 @@ class _VideoReactionInputState extends ConsumerState<VideoReactionInput>
                       ],
                     ),
                   ),
-                  
+
                   // Enhanced bottom spacing with keyboard adjustment
                   SizedBox(height: keyboardHeight > 0 ? 16 : 32),
                 ],

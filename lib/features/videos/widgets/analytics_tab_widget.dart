@@ -26,7 +26,7 @@ class AnalyticsTabWidget extends StatelessWidget {
     final engagementRate = video.views > 0
         ? ((video.likes + video.comments + video.shares) / video.views * 100)
         : 0.0;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -42,7 +42,7 @@ class AnalyticsTabWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Analytics Cards
           GridView.count(
             crossAxisCount: 2,
@@ -86,9 +86,9 @@ class AnalyticsTabWidget extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Post Status
           Container(
             padding: const EdgeInsets.all(16),
@@ -163,9 +163,9 @@ class AnalyticsTabWidget extends StatelessWidget {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Performance Graph Placeholder
           Container(
             height: 200,
@@ -252,7 +252,9 @@ class AnalyticsTabWidget extends StatelessWidget {
           Text(
             trend,
             style: TextStyle(
-              color: trend.contains('↗') || trend.contains('Excellent') || trend.contains('Featured')
+              color: trend.contains('↗') ||
+                      trend.contains('Excellent') ||
+                      trend.contains('Featured')
                   ? Colors.green
                   : modernTheme.textSecondaryColor,
               fontSize: 10,

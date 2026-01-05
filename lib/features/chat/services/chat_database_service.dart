@@ -117,12 +117,18 @@ class ChatDatabaseService {
     ''');
 
     // Indexes for performance
-    await db.execute('CREATE INDEX idx_chats_last_message_time ON $_chatsTable(last_message_time DESC)');
-    await db.execute('CREATE INDEX idx_chats_participants ON $_chatsTable(participant1_id, participant2_id)');
-    await db.execute('CREATE INDEX idx_messages_chat_id ON $_messagesTable(chat_id, timestamp DESC)');
-    await db.execute('CREATE INDEX idx_messages_sender ON $_messagesTable(sender_id)');
-    await db.execute('CREATE INDEX idx_messages_status ON $_messagesTable(status)');
-    await db.execute('CREATE INDEX idx_sync_entity ON $_syncTable(entity_type, entity_id)');
+    await db.execute(
+        'CREATE INDEX idx_chats_last_message_time ON $_chatsTable(last_message_time DESC)');
+    await db.execute(
+        'CREATE INDEX idx_chats_participants ON $_chatsTable(participant1_id, participant2_id)');
+    await db.execute(
+        'CREATE INDEX idx_messages_chat_id ON $_messagesTable(chat_id, timestamp DESC)');
+    await db.execute(
+        'CREATE INDEX idx_messages_sender ON $_messagesTable(sender_id)');
+    await db
+        .execute('CREATE INDEX idx_messages_status ON $_messagesTable(status)');
+    await db.execute(
+        'CREATE INDEX idx_sync_entity ON $_syncTable(entity_type, entity_id)');
 
     debugPrint('ChatDB: Database schema created successfully');
   }
@@ -141,7 +147,8 @@ class ChatDatabaseService {
     final chatData = {
       'chat_id': chat.chatId,
       'participant1_id': chat.participants[0],
-      'participant2_id': chat.participants.length > 1 ? chat.participants[1] : '',
+      'participant2_id':
+          chat.participants.length > 1 ? chat.participants[1] : '',
       'last_message': chat.lastMessage,
       'last_message_type': chat.lastMessageType,
       'last_message_sender': chat.lastMessageSender,
@@ -179,7 +186,8 @@ class ChatDatabaseService {
       final chatData = {
         'chat_id': chat.chatId,
         'participant1_id': chat.participants[0],
-        'participant2_id': chat.participants.length > 1 ? chat.participants[1] : '',
+        'participant2_id':
+            chat.participants.length > 1 ? chat.participants[1] : '',
         'last_message': chat.lastMessage,
         'last_message_type': chat.lastMessageType,
         'last_message_sender': chat.lastMessageSender,
@@ -264,18 +272,29 @@ class ChatDatabaseService {
       'type': message.type.name,
       'status': message.status.name,
       'media_url': message.mediaUrl,
-      'media_metadata': message.mediaMetadata != null ? jsonEncode(message.mediaMetadata) : null,
+      'media_metadata': message.mediaMetadata != null
+          ? jsonEncode(message.mediaMetadata)
+          : null,
       'file_name': message.fileName,
       'reply_to_message_id': message.replyToMessageId,
       'reply_to_content': message.replyToContent,
       'reply_to_sender': message.replyToSender,
-      'reactions': message.reactions != null ? jsonEncode(message.reactions) : null,
-      'read_by': message.readBy != null ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, v.toIso8601String()))) : null,
-      'delivered_to': message.deliveredTo != null ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, v.toIso8601String()))) : null,
+      'reactions':
+          message.reactions != null ? jsonEncode(message.reactions) : null,
+      'read_by': message.readBy != null
+          ? jsonEncode(
+              message.readBy!.map((k, v) => MapEntry(k, v.toIso8601String())))
+          : null,
+      'delivered_to': message.deliveredTo != null
+          ? jsonEncode(message.deliveredTo!
+              .map((k, v) => MapEntry(k, v.toIso8601String())))
+          : null,
       'is_pinned': message.isPinned ? 1 : 0,
       'is_edited': message.isEdited ? 1 : 0,
       'edited_at': message.editedAt?.millisecondsSinceEpoch,
-      'video_reaction_data': message.videoReactionData != null ? jsonEncode(message.videoReactionData!) : null,
+      'video_reaction_data': message.videoReactionData != null
+          ? jsonEncode(message.videoReactionData!)
+          : null,
       'is_original_reaction': message.isOriginalReaction == true ? 1 : 0,
       'timestamp': message.timestamp.millisecondsSinceEpoch,
       'synced_at': DateTime.now().millisecondsSinceEpoch,
@@ -304,18 +323,29 @@ class ChatDatabaseService {
         'type': message.type.name,
         'status': message.status.name,
         'media_url': message.mediaUrl,
-        'media_metadata': message.mediaMetadata != null ? jsonEncode(message.mediaMetadata) : null,
+        'media_metadata': message.mediaMetadata != null
+            ? jsonEncode(message.mediaMetadata)
+            : null,
         'file_name': message.fileName,
         'reply_to_message_id': message.replyToMessageId,
         'reply_to_content': message.replyToContent,
         'reply_to_sender': message.replyToSender,
-        'reactions': message.reactions != null ? jsonEncode(message.reactions) : null,
-        'read_by': message.readBy != null ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, v.toIso8601String()))) : null,
-        'delivered_to': message.deliveredTo != null ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, v.toIso8601String()))) : null,
+        'reactions':
+            message.reactions != null ? jsonEncode(message.reactions) : null,
+        'read_by': message.readBy != null
+            ? jsonEncode(
+                message.readBy!.map((k, v) => MapEntry(k, v.toIso8601String())))
+            : null,
+        'delivered_to': message.deliveredTo != null
+            ? jsonEncode(message.deliveredTo!
+                .map((k, v) => MapEntry(k, v.toIso8601String())))
+            : null,
         'is_pinned': message.isPinned ? 1 : 0,
         'is_edited': message.isEdited ? 1 : 0,
         'edited_at': message.editedAt?.millisecondsSinceEpoch,
-        'video_reaction_data': message.videoReactionData != null ? jsonEncode(message.videoReactionData!) : null,
+        'video_reaction_data': message.videoReactionData != null
+            ? jsonEncode(message.videoReactionData!)
+            : null,
         'is_original_reaction': message.isOriginalReaction == true ? 1 : 0,
         'timestamp': message.timestamp.millisecondsSinceEpoch,
         'synced_at': DateTime.now().millisecondsSinceEpoch,
@@ -419,7 +449,8 @@ class ChatDatabaseService {
   }
 
   /// Search messages by content
-  Future<List<MessageModel>> searchMessages(String query, {String? chatId}) async {
+  Future<List<MessageModel>> searchMessages(String query,
+      {String? chatId}) async {
     final db = await database;
 
     String whereClause = 'content LIKE ?';
@@ -444,7 +475,8 @@ class ChatDatabaseService {
   // ==================== SYNC OPERATIONS ====================
 
   /// Update sync metadata
-  Future<void> updateSyncMetadata(String entityType, String entityId, String status) async {
+  Future<void> updateSyncMetadata(
+      String entityType, String entityId, String status) async {
     final db = await database;
     await db.insert(
       _syncTable,
@@ -469,7 +501,8 @@ class ChatDatabaseService {
     );
 
     if (maps.isEmpty) return null;
-    return DateTime.fromMillisecondsSinceEpoch(maps.first['last_synced'] as int);
+    return DateTime.fromMillisecondsSinceEpoch(
+        maps.first['last_synced'] as int);
   }
 
   /// Get unsynced messages (for background sync)
@@ -499,9 +532,15 @@ class ChatDatabaseService {
   /// Get database statistics
   Future<Map<String, int>> getDatabaseStats() async {
     final db = await database;
-    final chatsCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_chatsTable')) ?? 0;
-    final messagesCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_messagesTable')) ?? 0;
-    final unsyncedCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_messagesTable WHERE synced_at IS NULL')) ?? 0;
+    final chatsCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_chatsTable')) ??
+        0;
+    final messagesCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_messagesTable')) ??
+        0;
+    final unsyncedCount = Sqflite.firstIntValue(await db.rawQuery(
+            'SELECT COUNT(*) FROM $_messagesTable WHERE synced_at IS NULL')) ??
+        0;
 
     return {
       'chats': chatsCount,
@@ -525,7 +564,8 @@ class ChatDatabaseService {
       chatId: map['chat_id'] as String,
       participants: [
         map['participant1_id'] as String,
-        if ((map['participant2_id'] as String).isNotEmpty) map['participant2_id'] as String,
+        if ((map['participant2_id'] as String).isNotEmpty)
+          map['participant2_id'] as String,
       ],
       lastMessage: (map['last_message'] as String?) ?? '',
       lastMessageType: MessageEnum.values.firstWhere(
@@ -534,20 +574,29 @@ class ChatDatabaseService {
       ),
       lastMessageSender: (map['last_message_sender'] as String?) ?? '',
       lastMessageTime: map['last_message_time'] != null
-        ? DateTime.fromMillisecondsSinceEpoch(map['last_message_time'] as int)
-        : DateTime.now(),
-      unreadCounts: Map<String, int>.from(jsonDecode(map['unread_counts'] as String)),
-      isArchived: Map<String, bool>.from(jsonDecode(map['is_archived'] as String)),
+          ? DateTime.fromMillisecondsSinceEpoch(map['last_message_time'] as int)
+          : DateTime.now(),
+      unreadCounts:
+          Map<String, int>.from(jsonDecode(map['unread_counts'] as String)),
+      isArchived:
+          Map<String, bool>.from(jsonDecode(map['is_archived'] as String)),
       isPinned: Map<String, bool>.from(jsonDecode(map['is_pinned'] as String)),
       isMuted: Map<String, bool>.from(jsonDecode(map['is_muted'] as String)),
-      chatWallpapers: map['chat_wallpapers'] != null ? Map<String, String>.from(jsonDecode(map['chat_wallpapers'] as String)) : null,
-      fontSizes: map['font_sizes'] != null ? Map<String, double>.from(jsonDecode(map['font_sizes'] as String)) : null,
+      chatWallpapers: map['chat_wallpapers'] != null
+          ? Map<String, String>.from(
+              jsonDecode(map['chat_wallpapers'] as String))
+          : null,
+      fontSizes: map['font_sizes'] != null
+          ? Map<String, double>.from(jsonDecode(map['font_sizes'] as String))
+          : null,
       originalVideoId: map['original_video_id'] as String?,
       originalVideoUrl: map['original_video_url'] as String?,
       originalVideoThumbnail: map['original_video_thumbnail'] as String?,
       originalVideoCaption: map['original_video_caption'] as String?,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
-      updatedAt: map['updated_at'] != null ? DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int) : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int)
+          : null,
     );
   }
 
@@ -560,25 +609,36 @@ class ChatDatabaseService {
       type: MessageEnum.values.firstWhere((e) => e.name == map['type']),
       status: MessageStatus.values.firstWhere((e) => e.name == map['status']),
       mediaUrl: map['media_url'] as String?,
-      mediaMetadata: map['media_metadata'] != null ? jsonDecode(map['media_metadata'] as String) : null,
+      mediaMetadata: map['media_metadata'] != null
+          ? jsonDecode(map['media_metadata'] as String)
+          : null,
       fileName: map['file_name'] as String?,
       replyToMessageId: map['reply_to_message_id'] as String?,
       replyToContent: map['reply_to_content'] as String?,
       replyToSender: map['reply_to_sender'] as String?,
-      reactions: map['reactions'] != null ? Map<String, String>.from(jsonDecode(map['reactions'] as String)) : null,
+      reactions: map['reactions'] != null
+          ? Map<String, String>.from(jsonDecode(map['reactions'] as String))
+          : null,
       readBy: map['read_by'] != null
-        ? (jsonDecode(map['read_by'] as String) as Map<String, dynamic>).map((k, v) => MapEntry(k, DateTime.parse(v as String)))
-        : null,
+          ? (jsonDecode(map['read_by'] as String) as Map<String, dynamic>)
+              .map((k, v) => MapEntry(k, DateTime.parse(v as String)))
+          : null,
       deliveredTo: map['delivered_to'] != null
-        ? (jsonDecode(map['delivered_to'] as String) as Map<String, dynamic>).map((k, v) => MapEntry(k, DateTime.parse(v as String)))
-        : null,
+          ? (jsonDecode(map['delivered_to'] as String) as Map<String, dynamic>)
+              .map((k, v) => MapEntry(k, DateTime.parse(v as String)))
+          : null,
       isPinned: (map['is_pinned'] as int) == 1,
       isEdited: (map['is_edited'] as int) == 1,
-      editedAt: map['edited_at'] != null ? DateTime.fromMillisecondsSinceEpoch(map['edited_at'] as int) : null,
+      editedAt: map['edited_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['edited_at'] as int)
+          : null,
       videoReactionData: map['video_reaction_data'] != null
-        ? jsonDecode(map['video_reaction_data'] as String) as Map<String, dynamic>
-        : null,
-      isOriginalReaction: map['is_original_reaction'] != null ? (map['is_original_reaction'] as int) == 1 : null,
+          ? jsonDecode(map['video_reaction_data'] as String)
+              as Map<String, dynamic>
+          : null,
+      isOriginalReaction: map['is_original_reaction'] != null
+          ? (map['is_original_reaction'] as int) == 1
+          : null,
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
     );
   }

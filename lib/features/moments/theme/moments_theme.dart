@@ -12,19 +12,26 @@ class MomentsTheme {
   // ===============================
 
   // Main Background & Surface Colors
-  static const Color lightBackground = Color(0xFFF0F2F5); // Athens Gray - Facebook background
+  static const Color lightBackground =
+      Color(0xFFF0F2F5); // Athens Gray - Facebook background
   static const Color lightSurface = Color(0xFFFFFFFF); // Pure white cards/posts
-  static const Color lightDivider = Color(0xFFE4E6EB); // Facebook divider/border
+  static const Color lightDivider =
+      Color(0xFFE4E6EB); // Facebook divider/border
   static const Color lightBorder = Color(0xFFE4E6EB); // Facebook borders
 
   // Text colors (Facebook standard)
-  static const Color lightTextPrimary = Color(0xFF050505); // Near-black for main text
-  static const Color lightTextSecondary = Color(0xFF65676B); // Mid-gray for metadata
-  static const Color lightTextTertiary = Color(0xFF8A8D91); // Light gray for subtle info
+  static const Color lightTextPrimary =
+      Color(0xFF050505); // Near-black for main text
+  static const Color lightTextSecondary =
+      Color(0xFF65676B); // Mid-gray for metadata
+  static const Color lightTextTertiary =
+      Color(0xFF8A8D91); // Light gray for subtle info
 
   // Interactive colors (Facebook blue)
-  static const Color primaryBlue = Color(0xFF1877F2); // Azure Radiance - Facebook blue
-  static const Color primaryBlueLight = Color(0xFF4B93F1); // Lighter Facebook blue
+  static const Color primaryBlue =
+      Color(0xFF1877F2); // Azure Radiance - Facebook blue
+  static const Color primaryBlueLight =
+      Color(0xFF4B93F1); // Lighter Facebook blue
   static const Color likeRed = Color(0xFFEB445A); // Like/heart color
 
   // Action colors

@@ -8,13 +8,14 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 
 class VideoThumbnailService {
-  static final VideoThumbnailService _instance = VideoThumbnailService._internal();
+  static final VideoThumbnailService _instance =
+      VideoThumbnailService._internal();
   factory VideoThumbnailService() => _instance;
   VideoThumbnailService._internal();
 
   // Cache for generated thumbnails
   final Map<String, String> _thumbnailCache = {};
-  
+
   // Generate unique cache key for video URL
   String _generateCacheKey(String videoUrl) {
     return md5.convert(utf8.encode(videoUrl)).toString();
@@ -24,11 +25,11 @@ class VideoThumbnailService {
   Future<Directory> _getCacheDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
     final thumbnailDir = Directory('${appDir.path}/chat_video_thumbnails');
-    
+
     if (!await thumbnailDir.exists()) {
       await thumbnailDir.create(recursive: true);
     }
-    
+
     return thumbnailDir;
   }
 
@@ -42,7 +43,7 @@ class VideoThumbnailService {
   }) async {
     try {
       debugPrint('🎬 Generating thumbnail from video file: ${videoFile.path}');
-      
+
       final cacheDir = await _getCacheDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final thumbnailPath = '${cacheDir.path}/thumbnail_$timestamp.jpg';
@@ -79,11 +80,18 @@ class VideoThumbnailService {
     int quality = 85,
   }) async {
     try {
-      debugPrint('🎬 Generating best quality thumbnail from video file: ${videoFile.path}');
-      
+      debugPrint(
+          '🎬 Generating best quality thumbnail from video file: ${videoFile.path}');
+
       // Try multiple time positions to get the best frame
-      final timePositions = [2000, 1000, 3000, 5000, 500]; // Try different seconds
-      
+      final timePositions = [
+        2000,
+        1000,
+        3000,
+        5000,
+        500
+      ]; // Try different seconds
+
       for (final timeMs in timePositions) {
         try {
           final thumbnailFile = await generateThumbnailFile(
@@ -97,11 +105,14 @@ class VideoThumbnailService {
           if (thumbnailFile != null && await thumbnailFile.exists()) {
             // Verify file size is reasonable (not corrupted)
             final fileSize = await thumbnailFile.length();
-            if (fileSize > 1000) { // At least 1KB
-              debugPrint('✅ Best thumbnail generated at ${timeMs}ms (size: $fileSize bytes)');
+            if (fileSize > 1000) {
+              // At least 1KB
+              debugPrint(
+                  '✅ Best thumbnail generated at ${timeMs}ms (size: $fileSize bytes)');
               return thumbnailFile;
             } else {
-              debugPrint('⚠️ Thumbnail too small at ${timeMs}ms, trying next position...');
+              debugPrint(
+                  '⚠️ Thumbnail too small at ${timeMs}ms, trying next position...');
               await thumbnailFile.delete(); // Clean up small file
             }
           }
@@ -128,8 +139,9 @@ class VideoThumbnailService {
     int timeMs = 2000,
   }) async {
     try {
-      debugPrint('🎬 Generating thumbnail data from video file: ${videoFile.path}');
-      
+      debugPrint(
+          '🎬 Generating thumbnail data from video file: ${videoFile.path}');
+
       // Generate high-quality thumbnail as bytes
       final thumbnailData = await VideoThumbnail.thumbnailData(
         video: videoFile.path,
@@ -141,7 +153,8 @@ class VideoThumbnailService {
       );
 
       if (thumbnailData != null && thumbnailData.isNotEmpty) {
-        debugPrint('✅ Thumbnail data generated successfully (${thumbnailData.length} bytes)');
+        debugPrint(
+            '✅ Thumbnail data generated successfully (${thumbnailData.length} bytes)');
         return thumbnailData;
       } else {
         debugPrint('❌ Failed to generate thumbnail data');
@@ -158,7 +171,7 @@ class VideoThumbnailService {
     if (videoUrl.isEmpty) return null;
 
     final cacheKey = _generateCacheKey(videoUrl);
-    
+
     // Check if thumbnail is already cached
     if (_thumbnailCache.containsKey(cacheKey)) {
       final cachedPath = _thumbnailCache[cacheKey]!;
@@ -172,7 +185,7 @@ class VideoThumbnailService {
 
     try {
       debugPrint('Generating high-quality thumbnail for video: $videoUrl');
-      
+
       final cacheDir = await _getCacheDirectory();
       final thumbnailPath = '${cacheDir.path}/$cacheKey.jpg';
 
@@ -181,7 +194,8 @@ class VideoThumbnailService {
         video: videoUrl,
         thumbnailPath: thumbnailPath,
         imageFormat: ImageFormat.JPEG,
-        maxWidth: 400, // Increased width for better quality (matching recommended posts)
+        maxWidth:
+            400, // Increased width for better quality (matching recommended posts)
         maxHeight: 600, // Increased height for 9:16 aspect ratio videos
         quality: 85, // Higher quality (matching recommended posts quality)
         timeMs: 2000, // Get thumbnail at 2 second mark for better frame
@@ -207,7 +221,7 @@ class VideoThumbnailService {
 
     try {
       debugPrint('Generating high-quality thumbnail data for video: $videoUrl');
-      
+
       // Generate high-quality thumbnail as bytes with enhanced settings
       final thumbnailData = await VideoThumbnail.thumbnailData(
         video: videoUrl,
@@ -237,10 +251,10 @@ class VideoThumbnailService {
 
     try {
       debugPrint('Generating best quality thumbnail for video: $videoUrl');
-      
+
       // Try multiple time positions to get the best frame
       final timePositions = [2000, 1000, 3000, 5000]; // Try different seconds
-      
+
       for (final timeMs in timePositions) {
         try {
           final thumbnailData = await VideoThumbnail.thumbnailData(
@@ -262,7 +276,8 @@ class VideoThumbnailService {
         }
       }
 
-      debugPrint('Failed to generate thumbnail at any time position for: $videoUrl');
+      debugPrint(
+          'Failed to generate thumbnail at any time position for: $videoUrl');
       return null;
     } catch (e) {
       debugPrint('Error generating best thumbnail: $e');
@@ -275,7 +290,8 @@ class VideoThumbnailService {
     try {
       if (await thumbnailFile.exists()) {
         await thumbnailFile.delete();
-        debugPrint('🗑️ Deleted temporary thumbnail file: ${thumbnailFile.path}');
+        debugPrint(
+            '🗑️ Deleted temporary thumbnail file: ${thumbnailFile.path}');
       }
     } catch (e) {
       debugPrint('❌ Error deleting thumbnail file: $e');
@@ -286,11 +302,11 @@ class VideoThumbnailService {
   Future<void> clearCache() async {
     try {
       final cacheDir = await _getCacheDirectory();
-      
+
       if (await cacheDir.exists()) {
         await cacheDir.delete(recursive: true);
       }
-      
+
       _thumbnailCache.clear();
       debugPrint('Video thumbnail cache cleared');
     } catch (e) {
@@ -302,16 +318,16 @@ class VideoThumbnailService {
   Future<double> getCacheSize() async {
     try {
       final cacheDir = await _getCacheDirectory();
-      
+
       if (!await cacheDir.exists()) return 0.0;
-      
+
       int totalSize = 0;
       await for (final file in cacheDir.list(recursive: true)) {
         if (file is File) {
           totalSize += await file.length();
         }
       }
-      
+
       return totalSize / (1024 * 1024); // Convert to MB
     } catch (e) {
       debugPrint('Error calculating cache size: $e');
@@ -323,25 +339,25 @@ class VideoThumbnailService {
   Future<void> cleanOldCache() async {
     try {
       final cacheDir = await _getCacheDirectory();
-      
+
       if (!await cacheDir.exists()) return;
-      
+
       final now = DateTime.now();
       final cutoffDate = now.subtract(const Duration(days: 7));
-      
+
       await for (final file in cacheDir.list()) {
         if (file is File) {
           final stat = await file.stat();
           if (stat.modified.isBefore(cutoffDate)) {
             await file.delete();
-            
+
             // Remove from memory cache if exists
             final fileName = file.path.split('/').last.replaceAll('.jpg', '');
             _thumbnailCache.remove(fileName);
           }
         }
       }
-      
+
       debugPrint('Old video thumbnails cleaned');
     } catch (e) {
       debugPrint('Error cleaning old cache: $e');
@@ -351,30 +367,46 @@ class VideoThumbnailService {
   // Check if video URL is valid for thumbnail generation
   bool isValidVideoUrl(String url) {
     if (url.isEmpty) return false;
-    
+
     // Check for common video file extensions
-    final videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v'];
+    final videoExtensions = [
+      '.mp4',
+      '.avi',
+      '.mov',
+      '.mkv',
+      '.webm',
+      '.flv',
+      '.m4v'
+    ];
     final lowerUrl = url.toLowerCase();
-    
+
     return videoExtensions.any((ext) => lowerUrl.contains(ext)) ||
-           lowerUrl.startsWith('http') || // Network URLs
-           lowerUrl.startsWith('file://'); // Local file URLs
+        lowerUrl.startsWith('http') || // Network URLs
+        lowerUrl.startsWith('file://'); // Local file URLs
   }
 
   // Check if video file is valid for thumbnail generation
   bool isValidVideoFile(File file) {
     if (!file.existsSync()) return false;
-    
-    final videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v'];
+
+    final videoExtensions = [
+      '.mp4',
+      '.avi',
+      '.mov',
+      '.mkv',
+      '.webm',
+      '.flv',
+      '.m4v'
+    ];
     final lowerPath = file.path.toLowerCase();
-    
+
     return videoExtensions.any((ext) => lowerPath.endsWith(ext));
   }
 
   // Preload thumbnail for better performance
   Future<void> preloadThumbnail(String videoUrl) async {
     if (!isValidVideoUrl(videoUrl)) return;
-    
+
     // Generate thumbnail in background without waiting
     generateThumbnail(videoUrl).catchError((e) {
       debugPrint('Error preloading thumbnail: $e');

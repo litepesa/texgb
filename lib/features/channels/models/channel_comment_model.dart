@@ -4,7 +4,8 @@
 class ChannelComment {
   final String id;
   final String postId;
-  final String? parentCommentId; // null = top-level comment, otherwise reply to this comment
+  final String?
+      parentCommentId; // null = top-level comment, otherwise reply to this comment
   final String authorId;
   final String authorName;
   final String? authorAvatarUrl;
@@ -58,26 +59,41 @@ class ChannelComment {
     return ChannelComment(
       id: json['id'] as String,
       postId: json['postId'] as String? ?? json['post_id'] as String,
-      parentCommentId: json['parentCommentId'] as String? ?? json['parent_comment_id'] as String?,
+      parentCommentId: json['parentCommentId'] as String? ??
+          json['parent_comment_id'] as String?,
       authorId: json['authorId'] as String? ?? json['author_id'] as String,
-      authorName: json['authorName'] as String? ?? json['author_name'] as String,
-      authorAvatarUrl: json['authorAvatarUrl'] as String? ?? json['author_avatar_url'] as String?,
+      authorName:
+          json['authorName'] as String? ?? json['author_name'] as String,
+      authorAvatarUrl: json['authorAvatarUrl'] as String? ??
+          json['author_avatar_url'] as String?,
       text: json['text'] as String,
       mediaUrl: json['mediaUrl'] as String? ?? json['media_url'] as String?,
       depth: json['depth'] as int? ?? 0,
-      repliesCount: json['repliesCount'] as int? ?? json['replies_count'] as int? ?? 0,
-      totalRepliesCount: json['totalRepliesCount'] as int? ?? json['total_replies_count'] as int? ?? 0,
+      repliesCount:
+          json['repliesCount'] as int? ?? json['replies_count'] as int? ?? 0,
+      totalRepliesCount: json['totalRepliesCount'] as int? ??
+          json['total_replies_count'] as int? ??
+          0,
       likes: json['likes'] as int? ?? 0,
-      isPinned: json['isPinned'] as bool? ?? json['is_pinned'] as bool? ?? false,
-      isDeleted: json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? false,
+      isPinned:
+          json['isPinned'] as bool? ?? json['is_pinned'] as bool? ?? false,
+      isDeleted:
+          json['isDeleted'] as bool? ?? json['is_deleted'] as bool? ?? false,
       hasLiked: json['hasLiked'] as bool? ?? json['has_liked'] as bool?,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) :
-                 (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) :
-                 (json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : (json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : null),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : (json['updated_at'] != null
+              ? DateTime.parse(json['updated_at'] as String)
+              : null),
       replies: (json['replies'] as List<dynamic>?)
               ?.map((e) => ChannelComment.fromJson(e as Map<String, dynamic>))
-              .toList() ?? const [],
+              .toList() ??
+          const [],
     );
   }
 

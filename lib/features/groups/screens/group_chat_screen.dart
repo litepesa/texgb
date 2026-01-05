@@ -88,7 +88,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       _isTyping = typing;
     });
 
-    final typingProvider = ref.read(typingIndicatorProvider(widget.groupId).notifier);
+    final typingProvider =
+        ref.read(typingIndicatorProvider(widget.groupId).notifier);
     if (typing) {
       typingProvider.sendTyping();
     } else {
@@ -135,7 +136,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   _AttachmentOption(
                     icon: Icons.camera_alt,
                     label: 'Camera',
-                    color: modernTheme.successColor ?? ModernColors.groupSuccess,
+                    color:
+                        modernTheme.successColor ?? ModernColors.groupSuccess,
                     onTap: () {
                       Navigator.pop(context);
                       _handleCameraPicker();
@@ -233,7 +235,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     }
   }
 
-  Future<void> _uploadAndSendMedia(File file, MessageMediaType mediaType) async {
+  Future<void> _uploadAndSendMedia(
+      File file, MessageMediaType mediaType) async {
     setState(() {
       _isUploadingMedia = true;
     });
@@ -243,7 +246,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       final authNotifier = ref.read(authenticationProvider.notifier);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = file.path.split('.').last;
-      final reference = 'groups/${widget.groupId}/messages/$timestamp.$extension';
+      final reference =
+          'groups/${widget.groupId}/messages/$timestamp.$extension';
 
       final uploadedUrl = await authNotifier.storeFileToStorage(
         file: file,
@@ -251,7 +255,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       );
 
       // Send message with media URL
-      await ref.read(groupMessagesProvider(widget.groupId).notifier).sendMessage(
+      await ref
+          .read(groupMessagesProvider(widget.groupId).notifier)
+          .sendMessage(
             messageText: mediaType == MessageMediaType.image ? 'Image' : 'File',
             mediaUrl: uploadedUrl,
             mediaType: mediaType,
@@ -336,7 +342,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => GroupSettingsScreen(groupId: widget.groupId),
+                  builder: (context) =>
+                      GroupSettingsScreen(groupId: widget.groupId),
                 ),
               );
             },
@@ -399,7 +406,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       showSender: showSender,
                       onDelete: () {
                         ref
-                            .read(groupMessagesProvider(widget.groupId).notifier)
+                            .read(
+                                groupMessagesProvider(widget.groupId).notifier)
                             .deleteMessage(message.id);
                       },
                     );
@@ -481,7 +489,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        onPressed: _isUploadingMedia ? null : _showAttachmentOptions,
+                        onPressed:
+                            _isUploadingMedia ? null : _showAttachmentOptions,
                         padding: EdgeInsets.zero,
                         icon: Icon(
                           Icons.attach_file,

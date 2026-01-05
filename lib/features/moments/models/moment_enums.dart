@@ -4,23 +4,23 @@
 
 /// Visibility level for a moment post
 enum MomentVisibility {
-  all,      // Visible to all mutual contacts
-  private,  // Only visible to post owner
-  custom,   // Custom whitelist/blacklist
+  all, // Visible to all mutual contacts
+  private, // Only visible to post owner
+  custom, // Custom whitelist/blacklist
 }
 
 /// Media type for moment content
 enum MomentMediaType {
-  text,     // Text only
-  images,   // One or more images (max 9)
-  video,    // Single video
+  text, // Text only
+  images, // One or more images (max 9)
+  video, // Single video
 }
 
 /// Timeline visibility settings (for user profile)
 enum TimelineVisibility {
-  all,            // Show all moments
-  lastThreeDays,  // Only show last 3 days
-  lastSixMonths,  // Only show last 6 months
+  all, // Show all moments
+  lastThreeDays, // Only show last 3 days
+  lastSixMonths, // Only show last 6 months
 }
 
 /// Moment interaction type

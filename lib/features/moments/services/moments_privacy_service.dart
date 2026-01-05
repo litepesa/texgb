@@ -147,7 +147,8 @@ class MomentsPrivacyService {
   }
 
   /// Get privacy description for UI
-  static String getPrivacyDescription(MomentVisibility visibility, {
+  static String getPrivacyDescription(
+    MomentVisibility visibility, {
     int? visibleToCount,
     int? hiddenFromCount,
   }) {
@@ -168,7 +169,8 @@ class MomentsPrivacyService {
   }
 
   /// Get timeline visibility description
-  static String getTimelineVisibilityDescription(TimelineVisibility visibility) {
+  static String getTimelineVisibilityDescription(
+      TimelineVisibility visibility) {
     switch (visibility) {
       case TimelineVisibility.all:
         return 'All moments visible';
@@ -190,8 +192,10 @@ class MomentsPrivacyService {
     if (hiddenFrom != null && hiddenFrom.length > 1000) {
       return 'Cannot hide from more than 1000 contacts';
     }
-    if (visibleTo != null && hiddenFrom != null &&
-        visibleTo.isNotEmpty && hiddenFrom.isNotEmpty) {
+    if (visibleTo != null &&
+        hiddenFrom != null &&
+        visibleTo.isNotEmpty &&
+        hiddenFrom.isNotEmpty) {
       return 'Cannot use both whitelist and blacklist simultaneously';
     }
     return null;

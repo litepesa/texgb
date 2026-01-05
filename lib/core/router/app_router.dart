@@ -38,7 +38,6 @@ import 'package:textgb/features/marketplace/screens/recommended_listings_screen.
 import 'package:textgb/features/marketplace/screens/manage_listings_screen.dart';
 import 'package:textgb/features/marketplace/screens/featured_marketplace_screen.dart';
 
-
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -96,56 +95,57 @@ import 'package:textgb/features/status/models/status_model.dart';
 /// This is the main router for the entire app
 final appRouterProvider = Provider<GoRouter>((ref) {
   final routeGuard = ref.watch(routeGuardProvider);
-  
+
   return GoRouter(
     // Initial location when app starts
     initialLocation: RoutePaths.home,
 
     // Enable debug logging (disable in production)
     debugLogDiagnostics: false,
-    
+
     // Route guard - handles authentication redirects
     redirect: (context, state) => routeGuard.redirect(context, state),
-    
+
     // Refresh router when authentication state changes
     refreshListenable: GoRouterRefreshStream(ref),
-    
+
     // Error handling
-    errorBuilder: (context, state) => NavigationErrorHandler.handleError(context, state) as Widget,
-    
+    errorBuilder: (context, state) =>
+        NavigationErrorHandler.handleError(context, state) as Widget,
+
     // Navigation observers for analytics/debugging
     observers: [
       AppRouteObserver(),
     ],
-    
+
     // ==================== ROUTE DEFINITIONS ====================
     routes: [
       // ==================== AUTH ROUTES ====================
-      
+
       GoRoute(
         path: RoutePaths.root,
         name: RouteNames.root,
         builder: (context, state) => const HomeScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.landing,
         name: RouteNames.landing,
         builder: (context, state) => const LandingScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.login,
         name: RouteNames.login,
         builder: (context, state) => const LoginScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.otp,
         name: RouteNames.otp,
         builder: (context, state) => const OtpScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.createProfile,
         name: RouteNames.createProfile,
@@ -153,19 +153,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // ==================== MAIN APP ROUTES ====================
-      
+
       GoRoute(
         path: RoutePaths.home,
         name: RouteNames.home,
         builder: (context, state) => const HomeScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.discover,
         name: RouteNames.discover,
         builder: (context, state) => const DiscoverScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.explore,
         name: RouteNames.explore,
@@ -175,15 +175,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      
+
       // ==================== USER PROFILE ROUTES ====================
-      
+
       GoRoute(
         path: RoutePaths.myProfile,
         name: RouteNames.myProfile,
         builder: (context, state) => const MyProfileScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.editProfile,
         name: RouteNames.editProfile,
@@ -196,7 +196,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditProfileScreen(user: user);
         },
       ),
-      
+
       GoRoute(
         path: RoutePaths.userProfilePattern,
         name: RouteNames.userProfile,
@@ -205,21 +205,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return UserProfileScreen(userId: userId);
         },
       ),
-      
+
       GoRoute(
         path: RoutePaths.usersList,
         name: RouteNames.usersList,
         builder: (context, state) => const UsersListScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.liveUsers,
         name: RouteNames.liveUsers,
         builder: (context, state) => const LiveUsersScreen(),
       ),
-      
+
       // ==================== VIDEO ROUTES ====================
-      
+
       GoRoute(
         path: RoutePaths.videosFeed,
         name: RouteNames.videosFeed,
@@ -231,7 +231,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      
+
       GoRoute(
         path: RoutePaths.singleVideoPattern,
         name: RouteNames.singleVideo,
@@ -244,13 +244,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      
+
       GoRoute(
         path: RoutePaths.createPost,
         name: RouteNames.createPost,
         builder: (context, state) => const CreatePostScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.myPostPattern,
         name: RouteNames.myPost,
@@ -259,7 +259,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return MyPostScreen(videoId: videoId);
         },
       ),
-      
+
       GoRoute(
         path: RoutePaths.postDetailPattern,
         name: RouteNames.postDetail,
@@ -268,19 +268,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return MyPostScreen(videoId: videoId);
         },
       ),
-      
+
       GoRoute(
         path: RoutePaths.recommendedPosts,
         name: RouteNames.recommendedPosts,
         builder: (context, state) => const RecommendedPostsScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.managePosts,
         name: RouteNames.managePosts,
         builder: (context, state) => const ManagePostsScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.featuredVideos,
         name: RouteNames.featuredVideos,
@@ -288,25 +288,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // ==================== CONTACTS ROUTES ====================
-      
+
       GoRoute(
         path: RoutePaths.contacts,
         name: RouteNames.contacts,
         builder: (context, state) => const ContactsScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.addContact,
         name: RouteNames.addContact,
         builder: (context, state) => const AddContactScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.blockedContacts,
         name: RouteNames.blockedContacts,
         builder: (context, state) => const BlockedContactsScreen(),
       ),
-      
+
       GoRoute(
         path: RoutePaths.contactProfilePattern,
         name: RouteNames.contactProfile,
@@ -552,7 +552,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             final otherUserId = extra['otherUserId'] as String?;
             final otherUserName = extra['otherUserName'] as String?;
             final otherUserImage = extra['otherUserImage'] as String?;
-            final otherUserVerified = extra['otherUserVerified'] as bool? ?? false;
+            final otherUserVerified =
+                extra['otherUserVerified'] as bool? ?? false;
 
             if (otherUserId != null) {
               contact = UserModel.fromMap({
@@ -673,7 +674,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'paymentStatus',
         builder: (context, state) {
           final checkoutRequestId = state.pathParameters['checkoutRequestId']!;
-          final isActivation = state.uri.queryParameters['isActivation'] == 'true';
+          final isActivation =
+              state.uri.queryParameters['isActivation'] == 'true';
           return PaymentStatusScreen(
             checkoutRequestId: checkoutRequestId,
             isActivation: isActivation,
@@ -747,7 +749,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // ==================== SEARCH ROUTES ====================
       // Add these when you implement search screens
-      
+
       // GoRoute(
       //   path: RoutePaths.search,
       //   name: RouteNames.search,
@@ -783,46 +785,48 @@ class GoRouterRefreshStream extends ChangeNotifier {
 // ==================== NAVIGATION EXTENSIONS ====================
 
 /// Extension on BuildContext for easier navigation
-/// 
+///
 /// Usage:
 /// - context.goToHome()
 /// - context.goToUserProfile(userId)
 /// - context.goToVideo(videoId)
 extension AppNavigationExtension on BuildContext {
   // ==================== AUTH NAVIGATION ====================
-  
+
   void goToLanding() => go(RoutePaths.landing);
   void goToLogin() => go(RoutePaths.login);
-  void goToOtp({Map<String, dynamic>? extra}) => go(RoutePaths.otp, extra: extra);
+  void goToOtp({Map<String, dynamic>? extra}) =>
+      go(RoutePaths.otp, extra: extra);
   void goToCreateProfile() => go(RoutePaths.createProfile);
-  
+
   // ==================== MAIN APP NAVIGATION ====================
-  
+
   void goToHome() => go(RoutePaths.home);
   void goToDiscover() => go(RoutePaths.discover);
   void goToExplore() => go(RoutePaths.explore);
-  
+
   // ==================== USER PROFILE NAVIGATION ====================
-  
+
   void goToMyProfile() => go(RoutePaths.myProfile);
-  void goToEditProfile(UserModel user) => go(RoutePaths.editProfile, extra: user);
+  void goToEditProfile(UserModel user) =>
+      go(RoutePaths.editProfile, extra: user);
   void goToUserProfile(String userId) => go(RoutePaths.userProfile(userId));
   void goToUsersList() => go(RoutePaths.usersList);
   void goToLiveUsers() => go(RoutePaths.liveUsers);
-  
+
   // ==================== VIDEO NAVIGATION ====================
-  
+
   void goToVideosFeed({String? startVideoId, String? userId}) {
     go(RoutePaths.videosFeed, extra: {
       'startVideoId': startVideoId,
       'userId': userId,
     });
   }
-  
+
   void goToVideo(String videoId, {String? userId}) {
     go(RoutePaths.singleVideo(videoId), extra: {'userId': userId});
   }
-  
+
   void goToCreatePost() => go(RoutePaths.createPost);
   void goToMyPost(String videoId) => go(RoutePaths.myPost(videoId));
   void goToPostDetail(String videoId) => go(RoutePaths.postDetail(videoId));
@@ -841,24 +845,28 @@ extension AppNavigationExtension on BuildContext {
   void goToMyListing(String itemId) => go(RoutePaths.myListing(itemId));
   void goToListingDetail(String itemId) => go(RoutePaths.listingDetail(itemId));
 
-  void goToCreateMarketplaceListing() => go(RoutePaths.createMarketplaceListing);
-  void goToRecommendedMarketplaceListings() => go(RoutePaths.recommendedMarketplaceListings);
-  void goToManageMarketplaceListings() => go(RoutePaths.manageMarketplaceListings);
+  void goToCreateMarketplaceListing() =>
+      go(RoutePaths.createMarketplaceListing);
+  void goToRecommendedMarketplaceListings() =>
+      go(RoutePaths.recommendedMarketplaceListings);
+  void goToManageMarketplaceListings() =>
+      go(RoutePaths.manageMarketplaceListings);
   void goToFeaturedMarketplace() => go(RoutePaths.featuredMarketplace);
 
-  void pushToMarketplaceItem(String itemId) => push(RoutePaths.singleMarketplaceVideo(itemId));
+  void pushToMarketplaceItem(String itemId) =>
+      push(RoutePaths.singleMarketplaceVideo(itemId));
   void pushToMyListing(String itemId) => push(RoutePaths.myListing(itemId));
 
   // ==================== CONTACTS NAVIGATION ====================
-  
+
   void goToContacts() => go(RoutePaths.contacts);
   void goToAddContact() => go(RoutePaths.addContact);
   void goToBlockedContacts() => go(RoutePaths.blockedContacts);
   void goToContactProfile(UserModel user) => go(
-    RoutePaths.contactProfile(user.uid),
-    extra: user,
-  );
-  
+        RoutePaths.contactProfile(user.uid),
+        extra: user,
+      );
+
   // ==================== WALLET NAVIGATION ====================
 
   void goToWallet() => go(RoutePaths.wallet);
@@ -870,14 +878,17 @@ extension AppNavigationExtension on BuildContext {
   void goToChannelsFeed() => go(RoutePaths.channelsFeed);
   void goToDiscoverChannels() => go(RoutePaths.discoverChannels);
   void goToCreateChannel() => go(RoutePaths.createChannel);
-  void goToEditChannel({String? channelId}) => go(RoutePaths.editChannel, extra: channelId);
+  void goToEditChannel({String? channelId}) =>
+      go(RoutePaths.editChannel, extra: channelId);
   void goToMyChannel() => go(RoutePaths.myChannel);
-  void goToChannelDetail(String channelId) => go(RoutePaths.channelDetail(channelId));
-  void goToChannelProfile(String channelId) => go(RoutePaths.channelProfile(channelId));
+  void goToChannelDetail(String channelId) =>
+      go(RoutePaths.channelDetail(channelId));
+  void goToChannelProfile(String channelId) =>
+      go(RoutePaths.channelProfile(channelId));
   void goToChannelPost(String postId, String channelId) => go(
-    RoutePaths.channelPost(postId),
-    extra: {'channelId': channelId},
-  );
+        RoutePaths.channelPost(postId),
+        extra: {'channelId': channelId},
+      );
   void goToChannelVideo(String videoId) => go(RoutePaths.channelVideo(videoId));
 
   // ==================== GROUPS NAVIGATION ====================
@@ -885,12 +896,15 @@ extension AppNavigationExtension on BuildContext {
   void goToGroupsList() => go(RoutePaths.groupsList);
   void goToCreateGroup() => go(RoutePaths.createGroup);
   void goToGroupChat(String groupId) => go(RoutePaths.groupChat(groupId));
-  void goToGroupSettings(String groupId) => go(RoutePaths.groupSettings(groupId));
+  void goToGroupSettings(String groupId) =>
+      go(RoutePaths.groupSettings(groupId));
   void goToGroupMembers(String groupId) => go(RoutePaths.groupMembers(groupId));
 
   void pushToGroupChat(String groupId) => push(RoutePaths.groupChat(groupId));
-  void pushToGroupSettings(String groupId) => push(RoutePaths.groupSettings(groupId));
-  void pushToGroupMembers(String groupId) => push(RoutePaths.groupMembers(groupId));
+  void pushToGroupSettings(String groupId) =>
+      push(RoutePaths.groupSettings(groupId));
+  void pushToGroupMembers(String groupId) =>
+      push(RoutePaths.groupMembers(groupId));
 
   // ==================== MOMENTS NAVIGATION ====================
 
@@ -905,13 +919,17 @@ extension AppNavigationExtension on BuildContext {
       },
     );
   }
-  void goToMomentDetail(String momentId) => go(RoutePaths.momentDetail(momentId));
-  void goToMomentMediaViewer(String momentId, int index, List<String> imageUrls) {
+
+  void goToMomentDetail(String momentId) =>
+      go(RoutePaths.momentDetail(momentId));
+  void goToMomentMediaViewer(
+      String momentId, int index, List<String> imageUrls) {
     go(
       RoutePaths.momentMediaViewer(momentId, index),
       extra: {'imageUrls': imageUrls},
     );
   }
+
   void goToMomentVideoViewer(String momentId, String videoUrl, dynamic moment) {
     go(
       RoutePaths.momentVideoViewer(momentId),
@@ -925,7 +943,9 @@ extension AppNavigationExtension on BuildContext {
   void pushToVideo(String videoId, {String? userId}) {
     push(RoutePaths.singleVideo(videoId), extra: {'userId': userId});
   }
-  void pushToEditProfile(UserModel user) => push(RoutePaths.editProfile, extra: user);
+
+  void pushToEditProfile(UserModel user) =>
+      push(RoutePaths.editProfile, extra: user);
   void pushToWallet() => push(RoutePaths.wallet);
   void pushToManagePosts() => push(RoutePaths.managePosts);
   void pushToMyPost(String videoId) => push(RoutePaths.myPost(videoId));
@@ -936,7 +956,7 @@ extension AppNavigationExtension on BuildContext {
 /// Helper class for common navigation patterns
 class AppNavigation {
   AppNavigation._();
-  
+
   /// Navigate and clear all previous routes (e.g., after login)
   static void goAndClearStack(BuildContext context, String path) {
     while (context.canPop()) {
@@ -944,22 +964,22 @@ class AppNavigation {
     }
     context.go(path);
   }
-  
+
   /// Navigate to home and clear stack
   static void goToHomeAndClearStack(BuildContext context) {
     goAndClearStack(context, RoutePaths.home);
   }
-  
+
   /// Navigate to landing and clear stack (logout)
   static void goToLandingAndClearStack(BuildContext context) {
     goAndClearStack(context, RoutePaths.landing);
   }
-  
+
   /// Check if user can pop (has previous route)
   static bool canGoBack(BuildContext context) {
     return context.canPop();
   }
-  
+
   /// Safe pop with fallback to home
   static void popOrGoHome(BuildContext context) {
     if (context.canPop()) {
@@ -976,6 +996,7 @@ class AppNavigation {
 void debugCurrentRoute(BuildContext context) {
   final router = GoRouter.of(context);
   debugPrint('📍 Current Route Information:');
-  debugPrint('   - Location: ${router.routerDelegate.currentConfiguration.uri}');
+  debugPrint(
+      '   - Location: ${router.routerDelegate.currentConfiguration.uri}');
   debugPrint('   - Can Pop: ${context.canPop()}');
 }

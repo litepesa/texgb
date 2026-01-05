@@ -26,16 +26,16 @@ class VideoReactionBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
-    
+
     return GestureDetector(
       onTap: onVideoTap,
       onLongPress: onLongPress,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 280),
         decoration: BoxDecoration(
-          color: isCurrentUser 
-            ? chatTheme.senderBubbleColor 
-            : chatTheme.receiverBubbleColor,
+          color: isCurrentUser
+              ? chatTheme.senderBubbleColor
+              : chatTheme.receiverBubbleColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -63,9 +63,10 @@ class VideoReactionBubble extends StatelessWidget {
                     // Smart video thumbnail with auto-generation fallback
                     VideoThumbnailWidget(
                       videoUrl: videoReaction.videoUrl,
-                      fallbackThumbnailUrl: videoReaction.thumbnailUrl.isNotEmpty 
-                          ? videoReaction.thumbnailUrl 
-                          : null,
+                      fallbackThumbnailUrl:
+                          videoReaction.thumbnailUrl.isNotEmpty
+                              ? videoReaction.thumbnailUrl
+                              : null,
                       width: double.infinity,
                       height: 160,
                       fit: BoxFit.cover,
@@ -73,7 +74,7 @@ class VideoReactionBubble extends StatelessWidget {
                       enableGestures: false,
                       borderRadius: BorderRadius.zero,
                     ),
-                    
+
                     // Gradient overlay
                     Container(
                       decoration: BoxDecoration(
@@ -87,7 +88,7 @@ class VideoReactionBubble extends StatelessWidget {
                         ),
                       ),
                     ),
-                    
+
                     // Play button
                     Center(
                       child: Container(
@@ -104,7 +105,7 @@ class VideoReactionBubble extends StatelessWidget {
                         ),
                       ),
                     ),
-                    
+
                     // User info overlay (changed from channel info)
                     Positioned(
                       bottom: 8,
@@ -120,9 +121,10 @@ class VideoReactionBubble extends StatelessWidget {
                                 : null,
                             child: videoReaction.userImage.isEmpty
                                 ? Text(
-                                    videoReaction.userName.isNotEmpty 
-                                      ? videoReaction.userName[0].toUpperCase()
-                                      : 'U',
+                                    videoReaction.userName.isNotEmpty
+                                        ? videoReaction.userName[0]
+                                            .toUpperCase()
+                                        : 'U',
                                     style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -157,18 +159,19 @@ class VideoReactionBubble extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Reaction section (if present)
-            if (videoReaction.reaction != null && videoReaction.reaction!.isNotEmpty) ...[
+            if (videoReaction.reaction != null &&
+                videoReaction.reaction!.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(
                   videoReaction.reaction!,
                   style: TextStyle(
                     fontSize: 16,
-                    color: isCurrentUser 
-                      ? chatTheme.senderTextColor
-                      : chatTheme.receiverTextColor,
+                    color: isCurrentUser
+                        ? chatTheme.senderTextColor
+                        : chatTheme.receiverTextColor,
                   ),
                 ),
               ),
@@ -193,10 +196,10 @@ Future<void> sendVideoReactionMessage({
 }) async {
   try {
     final thumbnailSvc = thumbnailService ?? VideoThumbnailService();
-    
+
     // Get or generate the best available thumbnail
     String thumbnailUrl = '';
-    
+
     // Priority 1: Use existing thumbnail
     if (video.thumbnailUrl.isNotEmpty) {
       thumbnailUrl = video.thumbnailUrl;
@@ -209,7 +212,8 @@ Future<void> sendVideoReactionMessage({
     else if (video.videoUrl.isNotEmpty) {
       debugPrint('Generating thumbnail for video reaction: ${video.videoUrl}');
       try {
-        final generatedThumbnail = await thumbnailSvc.generateThumbnail(video.videoUrl);
+        final generatedThumbnail =
+            await thumbnailSvc.generateThumbnail(video.videoUrl);
         if (generatedThumbnail != null) {
           thumbnailUrl = generatedThumbnail; // This will be a local file path
           debugPrint('Generated thumbnail: $thumbnailUrl');
@@ -219,12 +223,13 @@ Future<void> sendVideoReactionMessage({
         // Continue without thumbnail - the VideoThumbnailWidget will handle generation in UI
       }
     }
-    
+
     // Create video reaction data with user-based field names
     final videoReaction = VideoReactionModel(
       videoId: video.id,
       videoUrl: video.videoUrl,
-      thumbnailUrl: thumbnailUrl, // Will be generated URL, existing URL, or empty
+      thumbnailUrl:
+          thumbnailUrl, // Will be generated URL, existing URL, or empty
       userName: video.userName, // Changed from channelName
       userImage: video.userImage, // Changed from channelImage
       reaction: reaction,
@@ -237,9 +242,8 @@ Future<void> sendVideoReactionMessage({
       senderId: senderId,
       videoReaction: videoReaction,
     );
-    
+
     debugPrint('Video reaction sent successfully to chat: $chatId');
-    
   } catch (e) {
     debugPrint('Error sending video reaction message: $e');
     rethrow;

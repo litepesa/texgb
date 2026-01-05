@@ -12,7 +12,7 @@ class HostUpgradeWidget extends StatelessWidget {
     final primaryColor = theme.colorScheme.primary;
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     return Container(
       height: screenHeight * 0.85,
       decoration: const BoxDecoration(
@@ -33,7 +33,7 @@ class HostUpgradeWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
@@ -86,7 +86,7 @@ class HostUpgradeWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Key benefits highlight cards
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -95,7 +95,8 @@ class HostUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.money_off_rounded,
                           title: '0% Commission',
-                          description: 'Keep 100% of your booking earnings - no commission fees!',
+                          description:
+                              'Keep 100% of your booking earnings - no commission fees!',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
                           ),
@@ -104,7 +105,8 @@ class HostUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.campaign_rounded,
                           title: 'Free Social Media Advertising',
-                          description: 'Your listing promoted across all our social media platforms',
+                          description:
+                              'Your listing promoted across all our social media platforms',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
                           ),
@@ -113,7 +115,8 @@ class HostUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: CupertinoIcons.bubble_left,
                           title: 'Direct WhatsApp Bookings',
-                          description: 'Communicate and confirm bookings directly with guests',
+                          description:
+                              'Communicate and confirm bookings directly with guests',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
                           ),
@@ -122,7 +125,8 @@ class HostUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.event_available_rounded,
                           title: 'We Keep You Booked',
-                          description: 'Our team works to ensure your property stays fully booked',
+                          description:
+                              'Our team works to ensure your property stays fully booked',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFE65100), Color(0xFFFF6F00)],
                           ),
@@ -131,7 +135,7 @@ class HostUpgradeWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Additional benefits
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -150,56 +154,63 @@ class HostUpgradeWidget extends StatelessWidget {
                         _buildBenefitItem(
                           icon: Icons.add_business_rounded,
                           title: 'List Your Property',
-                          description: 'Create stunning listings with photos and videos to showcase your space',
+                          description:
+                              'Create stunning listings with photos and videos to showcase your space',
                           color: Colors.blue,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.visibility_rounded,
                           title: 'Maximum Exposure',
-                          description: 'Featured in search results, recommendations, and social media campaigns',
+                          description:
+                              'Featured in search results, recommendations, and social media campaigns',
                           color: Colors.purple,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.verified_user_rounded,
                           title: 'Verified Host Badge',
-                          description: 'All hosts and listings are verified to build guest trust',
+                          description:
+                              'All hosts and listings are verified to build guest trust',
                           color: Colors.green,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.people_rounded,
                           title: 'Grow Your Guest Base',
-                          description: 'Regular guests can get promos, encouraging repeat bookings',
+                          description:
+                              'Regular guests can get promos, encouraging repeat bookings',
                           color: Colors.teal,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.dashboard_rounded,
                           title: 'Host Dashboard',
-                          description: 'Manage listings, bookings, and track performance easily',
+                          description:
+                              'Manage listings, bookings, and track performance easily',
                           color: Colors.indigo,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.calendar_today_rounded,
                           title: 'Booking Management',
-                          description: 'Control availability, pricing, and guest communications',
+                          description:
+                              'Control availability, pricing, and guest communications',
                           color: Colors.orange,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.support_agent_rounded,
                           title: 'Dedicated Host Support',
-                          description: 'Get assistance during business hours (8 AM - 5 PM)',
+                          description:
+                              'Get assistance during business hours (8 AM - 5 PM)',
                           color: Colors.red,
                         ),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                  
+
                   // Safety & Trust section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -253,9 +264,9 @@ class HostUpgradeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Important notes
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -310,12 +321,13 @@ class HostUpgradeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Action buttons
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     child: Column(
                       children: [
                         // Primary upgrade button
@@ -587,13 +599,15 @@ class HostUpgradeWidget extends StatelessWidget {
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Paybill number copied to clipboard!'),
+                                content:
+                                    Text('Paybill number copied to clipboard!'),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(4),
@@ -743,13 +757,15 @@ class HostUpgradeWidget extends StatelessWidget {
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('WhatsApp number copied to clipboard!'),
+                                  content: Text(
+                                      'WhatsApp number copied to clipboard!'),
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.orange.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),

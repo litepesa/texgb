@@ -62,7 +62,7 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkIfNeedsExpansion();
     });
@@ -80,9 +80,9 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
       maxLines: widget.maxLines,
       textDirection: TextDirection.ltr,
     );
-    
+
     textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120);
-    
+
     if (textPainter.didExceedMaxLines) {
       setState(() {
         _needsExpansion = true;
@@ -94,26 +94,26 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
     setState(() {
       _isExpanded = !_isExpanded;
     });
-    
+
     if (_isExpanded) {
       _animationController.forward();
     } else {
       _animationController.reverse();
     }
-    
+
     HapticFeedback.lightImpact();
   }
 
   String _getTruncatedText() {
     if (!_needsExpansion || _isExpanded) return widget.text;
-    
+
     final words = widget.text.split(' ');
     if (words.length <= 20) return widget.text;
-    
+
     final targetLength = widget.isMainComment ? 120 : 100;
     int currentLength = 0;
     int wordIndex = 0;
-    
+
     for (int i = 0; i < words.length; i++) {
       currentLength += words[i].length + 1;
       if (currentLength > targetLength) {
@@ -121,16 +121,16 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
         break;
       }
     }
-    
+
     if (wordIndex == 0) wordIndex = words.length ~/ 2;
-    
+
     return '${words.take(wordIndex).join(' ')}...';
   }
 
   @override
   Widget build(BuildContext context) {
     final displayText = _getTruncatedText();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -143,12 +143,11 @@ class _ExpandableCommentTextState extends State<ExpandableCommentText>
             widget.text,
             style: widget.style,
           ),
-          crossFadeState: _isExpanded 
-              ? CrossFadeState.showSecond 
+          crossFadeState: _isExpanded
+              ? CrossFadeState.showSecond
               : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 300),
         ),
-        
         if (_needsExpansion) ...[
           const SizedBox(height: 4),
           GestureDetector(
@@ -183,7 +182,8 @@ class CommentsBottomSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CommentsBottomSheet> createState() => _CommentsBottomSheetState();
+  ConsumerState<CommentsBottomSheet> createState() =>
+      _CommentsBottomSheetState();
 }
 
 class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
@@ -192,17 +192,17 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
-  
+
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
-  
+
   String? _replyingToCommentId;
   String? _replyingToAuthorName;
   bool _isExpanded = false;
   List<CommentModel> _comments = [];
   bool _isLoadingComments = false;
   CommentSortOption _sortOption = CommentSortOption.top;
-  
+
   // 🆕 Media state
   final List<File> _selectedImages = [];
   bool _isUploadingMedia = false;
@@ -231,7 +231,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
@@ -273,7 +273,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
     try {
       final authProvider = ref.read(authenticationProvider.notifier);
       final comments = await authProvider.getVideoComments(widget.video.id);
-      
+
       if (mounted) {
         setState(() {
           _comments = _sortComments(comments);
@@ -320,7 +320,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
 
   Future<void> _closeSheet() async {
     await _slideController.reverse();
-    
+
     if (mounted) {
       widget.onClose?.call();
       Navigator.of(context).pop();
@@ -342,14 +342,18 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
 
       if (images.isNotEmpty) {
         final remainingSlots = 2 - _selectedImages.length;
-        final imagesToAdd = images.take(remainingSlots).map((xFile) => File(xFile.path)).toList();
-        
+        final imagesToAdd = images
+            .take(remainingSlots)
+            .map((xFile) => File(xFile.path))
+            .toList();
+
         setState(() {
           _selectedImages.addAll(imagesToAdd);
         });
-        
+
         if (images.length > remainingSlots) {
-          showSnackBar(context, 'Only $remainingSlots image(s) added (max 2 total)');
+          showSnackBar(
+              context, 'Only $remainingSlots image(s) added (max 2 total)');
         }
       }
     } catch (e) {
@@ -458,7 +462,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
     final sheetHeight = _isExpanded ? screenHeight * 0.9 : screenHeight * 0.6;
-    
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -490,7 +494,6 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   ),
                 ),
               ),
-              
               SlideTransition(
                 position: _slideAnimation,
                 child: Align(
@@ -551,9 +554,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
           const SizedBox(height: 16),
-          
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -568,7 +569,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                     ),
                   ),
                 ),
-                
+
                 // Sort dropdown
                 PopupMenuButton<CommentSortOption>(
                   icon: const Icon(Icons.sort, color: _mediumGray, size: 20),
@@ -606,9 +607,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 GestureDetector(
                   onTap: _closeSheet,
                   child: Container(
@@ -654,7 +655,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
             backgroundColor: _lightGray,
             child: widget.video.userImage.isEmpty
                 ? Text(
-                    widget.video.userName.isNotEmpty 
+                    widget.video.userName.isNotEmpty
                         ? widget.video.userName[0].toUpperCase()
                         : "U",
                     style: const TextStyle(
@@ -765,12 +766,13 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
           Padding(
             padding: const EdgeInsets.only(left: 48),
             child: Column(
-              children: group.replies.take(2).map((reply) => 
-                _buildEnhancedCommentItem(reply, isReply: true)
-              ).toList(),
+              children: group.replies
+                  .take(2)
+                  .map((reply) =>
+                      _buildEnhancedCommentItem(reply, isReply: true))
+                  .toList(),
             ),
           ),
-          
           if (group.replies.length > 2) ...[
             _buildViewMoreReplies(group),
           ],
@@ -863,7 +865,6 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
               ],
             ),
           ),
-          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: const BoxDecoration(
@@ -909,7 +910,6 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
               ],
             ),
           ),
-          
           Expanded(
             child: Container(
               color: _pureWhite,
@@ -917,7 +917,8 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: group.replies.length,
                 itemBuilder: (context, index) {
-                  return _buildEnhancedCommentItem(group.replies[index], isReply: true);
+                  return _buildEnhancedCommentItem(group.replies[index],
+                      isReply: true);
                 },
               ),
             ),
@@ -927,14 +928,18 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
     );
   }
 
-  Widget _buildEnhancedCommentItem(CommentModel comment, {bool isReply = false}) {
+  Widget _buildEnhancedCommentItem(CommentModel comment,
+      {bool isReply = false}) {
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
-    
-    final isLiked = currentUserId != null && comment.likes > 0; // Simplified like check
+
+    final isLiked =
+        currentUserId != null && comment.likes > 0; // Simplified like check
     final isOwn = currentUserId != null && comment.userId == currentUserId;
-    final isVideoCreator = currentUserId != null && widget.video.userId == currentUserId;
-    final canPin = isVideoCreator && !isReply; // Only video creator can pin top-level comments
+    final isVideoCreator =
+        currentUserId != null && widget.video.userId == currentUserId;
+    final canPin = isVideoCreator &&
+        !isReply; // Only video creator can pin top-level comments
 
     return Container(
       padding: EdgeInsets.only(
@@ -955,7 +960,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
             backgroundColor: _lightGray,
             child: comment.userImage.isEmpty
                 ? Text(
-                    comment.userName.isNotEmpty 
+                    comment.userName.isNotEmpty
                         ? comment.userName[0].toUpperCase()
                         : "U",
                     style: TextStyle(
@@ -976,7 +981,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   decoration: BoxDecoration(
                     color: isReply ? _lightGray : const Color(0xFFEBEBF0),
                     borderRadius: BorderRadius.circular(isReply ? 14 : 16),
-                    border: comment.isReply && comment.replyToUserName != null 
+                    border: comment.isReply && comment.replyToUserName != null
                         ? Border.all(
                             color: _iosBlue.withOpacity(0.3),
                             width: 1,
@@ -998,7 +1003,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                               ),
                             ),
                           ),
-                          
+
                           // 🆕 Pin indicator
                           if (comment.isPinned) ...[
                             const Icon(
@@ -1010,8 +1015,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                           ],
                         ],
                       ),
-                      
-                      if (comment.isReply && comment.replyToUserName != null) ...[
+
+                      if (comment.isReply &&
+                          comment.replyToUserName != null) ...[
                         const SizedBox(height: 3),
                         Row(
                           children: [
@@ -1033,9 +1039,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                           ],
                         ),
                       ],
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       ExpandableCommentText(
                         text: comment.content,
                         style: TextStyle(
@@ -1046,7 +1052,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                         maxLines: isReply ? 2 : 3,
                         isMainComment: !isReply,
                       ),
-                      
+
                       // 🆕 Display comment images
                       if (comment.imageUrls.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -1055,9 +1061,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                     ],
                   ),
                 ),
-                
                 const SizedBox(height: 8),
-                
                 Row(
                   children: [
                     Text(
@@ -1068,16 +1072,19 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-                    
+
                     const SizedBox(width: 16),
-                    
+
                     GestureDetector(
                       onTap: () => _likeComment(comment),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isLiked ? _iosRed.withOpacity(0.1) : Colors.transparent,
+                          color: isLiked
+                              ? _iosRed.withOpacity(0.1)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -1086,7 +1093,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 200),
                               child: Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                isLiked
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
                                 key: ValueKey(isLiked),
                                 color: isLiked ? _iosRed : _mediumGray,
                                 size: 14,
@@ -1102,7 +1111,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                                   style: TextStyle(
                                     color: isLiked ? _iosRed : _mediumGray,
                                     fontSize: 11,
-                                    fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
+                                    fontWeight: isLiked
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ),
@@ -1111,13 +1122,14 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                         ),
                       ),
                     ),
-                    
+
                     if (!isReply) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _replyToComment(comment),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
@@ -1133,27 +1145,32 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                         ),
                       ),
                     ],
-                    
+
                     // 🆕 Pin/Unpin button (video creator only)
                     if (canPin) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _togglePinComment(comment),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                comment.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                                color: comment.isPinned ? _iosBlue : _mediumGray,
+                                comment.isPinned
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                                color:
+                                    comment.isPinned ? _iosBlue : _mediumGray,
                                 size: 12,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 comment.isPinned ? 'Unpin' : 'Pin',
                                 style: TextStyle(
-                                  color: comment.isPinned ? _iosBlue : _mediumGray,
+                                  color:
+                                      comment.isPinned ? _iosBlue : _mediumGray,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1163,13 +1180,14 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                         ),
                       ),
                     ],
-                    
+
                     if (isOwn) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _deleteComment(comment),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
@@ -1198,7 +1216,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   // 🆕 Build comment images widget
   Widget _buildCommentImages(List<String> imageUrls) {
     if (imageUrls.isEmpty) return const SizedBox.shrink();
-    
+
     if (imageUrls.length == 1) {
       return GestureDetector(
         onTap: () => _showFullscreenImage(imageUrls, 0),
@@ -1233,16 +1251,17 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         ),
       );
     }
-    
+
     // Two images side by side
     return Row(
       children: imageUrls.asMap().entries.map((entry) {
         final index = entry.key;
         final url = entry.value;
-        
+
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: index == 0 ? 4 : 0, left: index == 1 ? 4 : 0),
+            padding: EdgeInsets.only(
+                right: index == 0 ? 4 : 0, left: index == 1 ? 4 : 0),
             child: GestureDetector(
               onTap: () => _showFullscreenImage(imageUrls, index),
               child: ClipRRect(
@@ -1346,8 +1365,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   Widget _buildCommentInput(double bottomInset, double systemBottomPadding) {
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
-    final hasContent = _commentController.text.trim().isNotEmpty || _selectedImages.isNotEmpty;
-    
+    final hasContent =
+        _commentController.text.trim().isNotEmpty || _selectedImages.isNotEmpty;
+
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -1374,10 +1394,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       child: Column(
         children: [
           if (_replyingToCommentId != null) _buildReplyingIndicator(),
-          
+
           // 🆕 Image preview
           if (_selectedImages.isNotEmpty) _buildImagePreview(),
-          
+
           if (!isAuthenticated) ...[
             _buildGuestCommentPrompt(),
           ] else ...[
@@ -1410,7 +1430,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                         ),
                 ),
                 const SizedBox(width: 12),
-                
+
                 Expanded(
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 100),
@@ -1418,7 +1438,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                       color: _lightGray,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _commentFocusNode.hasFocus 
+                        color: _commentFocusNode.hasFocus
                             ? _iosBlue.withOpacity(0.5)
                             : Colors.transparent,
                         width: 1,
@@ -1428,7 +1448,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                       controller: _commentController,
                       focusNode: _commentFocusNode,
                       decoration: InputDecoration(
-                        hintText: _replyingToCommentId != null 
+                        hintText: _replyingToCommentId != null
                             ? 'Reply to $_replyingToAuthorName...'
                             : 'Add a comment...',
                         hintStyle: const TextStyle(
@@ -1448,7 +1468,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                       ),
                       maxLines: null,
                       maxLength: 500,
-                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                      buildCounter: (context,
+                          {required currentLength,
+                          required isFocused,
+                          maxLength}) {
                         return null;
                       },
                       textCapitalization: TextCapitalization.sentences,
@@ -1457,25 +1480,28 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   ),
                 ),
                 const SizedBox(width: 8),
-                
+
                 // 🆕 Media picker button
                 GestureDetector(
                   onTap: _showImagePickerOptions,
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: _selectedImages.isNotEmpty ? _iosBlue.withOpacity(0.1) : _borderGray,
+                      color: _selectedImages.isNotEmpty
+                          ? _iosBlue.withOpacity(0.1)
+                          : _borderGray,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.image,
-                      color: _selectedImages.isNotEmpty ? _iosBlue : _mediumGray,
+                      color:
+                          _selectedImages.isNotEmpty ? _iosBlue : _mediumGray,
                       size: 16,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                
+
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   child: GestureDetector(
@@ -1483,16 +1509,12 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: hasContent
-                            ? _iosBlue
-                            : _borderGray,
+                        color: hasContent ? _iosBlue : _borderGray,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.send,
-                        color: hasContent
-                            ? _pureWhite
-                            : _mediumGray,
+                        color: hasContent ? _pureWhite : _mediumGray,
                         size: 16,
                       ),
                     ),
@@ -1500,7 +1522,6 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                 ),
               ],
             ),
-            
             if (_commentController.text.length > 400) ...[
               const SizedBox(height: 4),
               Align(
@@ -1615,7 +1636,8 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                     Navigator.of(context).pushNamed(Constants.landingScreen);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: _iosBlue,
                       borderRadius: BorderRadius.circular(16),
@@ -1692,7 +1714,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   void _likeComment(CommentModel comment) async {
     final currentUserId = ref.read(currentUserIdProvider);
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated || currentUserId == null) {
       await requireLogin(
         context,
@@ -1703,15 +1725,15 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       );
       return;
     }
-    
+
     try {
       final authProvider = ref.read(authenticationProvider.notifier);
-      
+
       // Simple like/unlike (backend handles the logic)
       await authProvider.likeComment(comment.id);
-      
+
       _loadComments();
-      
+
       HapticFeedback.lightImpact();
     } catch (e) {
       if (mounted) {
@@ -1722,7 +1744,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
 
   void _replyToComment(CommentModel comment) {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated) {
       requireLogin(
         context,
@@ -1733,7 +1755,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       );
       return;
     }
-    
+
     setState(() {
       _replyingToCommentId = comment.id;
       _replyingToAuthorName = comment.userName;
@@ -1752,12 +1774,12 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   // 🆕 Pin/Unpin comment (video creator only)
   void _togglePinComment(CommentModel comment) async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated) return;
-    
+
     try {
       final authProvider = ref.read(authenticationProvider.notifier);
-      
+
       if (comment.isPinned) {
         await authProvider.unpinComment(comment.id, widget.video.id, (error) {
           if (mounted) {
@@ -1771,7 +1793,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
           }
         });
       }
-      
+
       _loadComments();
       HapticFeedback.lightImpact();
     } catch (e) {
@@ -1820,19 +1842,20 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                
+
                 try {
-                  await ref.read(authenticationProvider.notifier)
+                  await ref
+                      .read(authenticationProvider.notifier)
                       .deleteComment(comment.id, (error) {
                     if (mounted) {
                       showSnackBar(context, error);
                     }
                   });
-                  
+
                   _loadComments();
-                  
+
                   HapticFeedback.lightImpact();
-                  
+
                   if (mounted) {
                     showSnackBar(context, Constants.commentDeleted);
                   }
@@ -1884,51 +1907,53 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
 
       // 🔧 FIXED: Pass imageFiles directly to provider, which will handle the upload
       await ref.read(authenticationProvider.notifier).addComment(
-        videoId: widget.video.id,
-        content: content,
-        imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null, // 🔧 Changed from imageUrls to imageFiles
-        repliedToCommentId: _replyingToCommentId,
-        repliedToAuthorName: _replyingToAuthorName,
-        onSuccess: (message) async {
-          setState(() {
-            _isUploadingMedia = false;
-          });
-          
-          if (mounted) {
-            _commentController.clear();
-            _selectedImages.clear();
-            _cancelReply();
-            
-            _loadComments();
-            
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(
-                  _scrollController.position.maxScrollExtent,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                );
+            videoId: widget.video.id,
+            content: content,
+            imageFiles: _selectedImages.isNotEmpty
+                ? _selectedImages
+                : null, // 🔧 Changed from imageUrls to imageFiles
+            repliedToCommentId: _replyingToCommentId,
+            repliedToAuthorName: _replyingToAuthorName,
+            onSuccess: (message) async {
+              setState(() {
+                _isUploadingMedia = false;
+              });
+
+              if (mounted) {
+                _commentController.clear();
+                _selectedImages.clear();
+                _cancelReply();
+
+                _loadComments();
+
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+
+                showSnackBar(context, Constants.commentAdded);
               }
-            });
-            
-            showSnackBar(context, Constants.commentAdded);
-          }
-        },
-        onError: (error) {
-          setState(() {
-            _isUploadingMedia = false;
-          });
-          
-          if (mounted) {
-            showSnackBar(context, error);
-          }
-        },
-      );
+            },
+            onError: (error) {
+              setState(() {
+                _isUploadingMedia = false;
+              });
+
+              if (mounted) {
+                showSnackBar(context, error);
+              }
+            },
+          );
     } catch (e) {
       setState(() {
         _isUploadingMedia = false;
       });
-      
+
       if (mounted) {
         showSnackBar(context, 'Failed to send comment: $e');
       }

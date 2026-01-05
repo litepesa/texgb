@@ -49,7 +49,8 @@ extension StatusMediaTypeExtension on StatusMediaType {
     }
   }
 
-  bool get isMedia => this == StatusMediaType.image || this == StatusMediaType.video;
+  bool get isMedia =>
+      this == StatusMediaType.image || this == StatusMediaType.video;
   bool get isText => this == StatusMediaType.text;
   bool get isImage => this == StatusMediaType.image;
   bool get isVideo => this == StatusMediaType.video;

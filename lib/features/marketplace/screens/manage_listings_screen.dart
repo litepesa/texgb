@@ -22,7 +22,8 @@ class ManageListingsScreen extends ConsumerStatefulWidget {
   const ManageListingsScreen({super.key});
 
   @override
-  ConsumerState<ManageListingsScreen> createState() => _ManageListingsScreenState();
+  ConsumerState<ManageListingsScreen> createState() =>
+      _ManageListingsScreenState();
 }
 
 class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
@@ -35,7 +36,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
   late TabController _tabController;
   final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
-  
+
   // Selection state for bulk operations
   bool _isSelectionMode = false;
   Set<String> _selectedVideoIds = {};
@@ -112,7 +113,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
       final marketplaceVideos = ref.read(marketplaceVideosProvider);
       final userMarketplaceItems = marketplaceVideos
-          .where((marketplaceVideo) => marketplaceVideo.userId == freshUserProfile.uid)
+          .where((marketplaceVideo) =>
+              marketplaceVideo.userId == freshUserProfile.uid)
           .toList();
 
       if (mounted) {
@@ -138,10 +140,12 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
   Future<void> _generateVideoThumbnails() async {
     for (final marketplaceVideo in _userMarketplaceVideos) {
-      if (!marketplaceVideo.isMultipleImages && marketplaceVideo.videoUrl.isNotEmpty) {
+      if (!marketplaceVideo.isMultipleImages &&
+          marketplaceVideo.videoUrl.isNotEmpty) {
         try {
           final cacheKey = 'manage_thumb_${marketplaceVideo.id}';
-          final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
+          final fileInfo =
+              await _thumbnailCacheManager.getFileFromCache(cacheKey);
 
           if (fileInfo != null && fileInfo.file.existsSync()) {
             if (mounted) {
@@ -173,7 +177,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             }
           }
         } catch (e) {
-          debugPrint('❌ Error generating thumbnail for marketplaceVideo ${marketplaceVideo.id}: $e');
+          debugPrint(
+              '❌ Error generating thumbnail for marketplaceVideo ${marketplaceVideo.id}: $e');
         }
       }
     }
@@ -244,7 +249,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_selectedVideoIds.length} listings deleted successfully'),
+            content: Text(
+                '${_selectedVideoIds.length} listings deleted successfully'),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
           ),
@@ -271,49 +277,50 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
   Future<bool> _showDeleteConfirmation(int count) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              Icons.delete_outline,
-              color: Colors.red.shade600,
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 8),
-            const Text('Delete Posts'),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete $count listing${count > 1 ? 's' : ''}? This action cannot be undone.',
-          style: const TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
+            title: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline,
+                  color: Colors.red.shade600,
+                ),
+                const SizedBox(width: 8),
+                const Text('Delete Posts'),
+              ],
+            ),
+            content: Text(
+              'Are you sure you want to delete $count listing${count > 1 ? 's' : ''}? This action cannot be undone.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: context.modernTheme.textSecondaryColor,
+                  ),
+                ),
               ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Delete'),
               ),
-            ),
-            child: const Text('Delete'),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Future<void> _deleteSingleVideo(String videoId) async {
@@ -358,10 +365,13 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
   void _openVideoDetails(MarketplaceVideoModel marketplaceVideo) {
     // Using GoRouter to navigate to my listing screen
-    context.push(
-      RoutePaths.myPost(marketplaceVideo.id),
-      extra: marketplaceVideo, // Pass the marketplaceVideo model as extra data
-    ).then((_) => _loadUserData());
+    context
+        .push(
+          RoutePaths.myPost(marketplaceVideo.id),
+          extra:
+              marketplaceVideo, // Pass the marketplaceVideo model as extra data
+        )
+        .then((_) => _loadUserData());
   }
 
   List<MarketplaceVideoModel> _getFilteredAndSortedVideos() {
@@ -370,13 +380,19 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     // Apply filters
     switch (_filterBy) {
       case 'active':
-        filteredVideos = filteredVideos.where((marketplaceVideo) => marketplaceVideo.isActive).toList();
+        filteredVideos = filteredVideos
+            .where((marketplaceVideo) => marketplaceVideo.isActive)
+            .toList();
         break;
       case 'inactive':
-        filteredVideos = filteredVideos.where((marketplaceVideo) => !marketplaceVideo.isActive).toList();
+        filteredVideos = filteredVideos
+            .where((marketplaceVideo) => !marketplaceVideo.isActive)
+            .toList();
         break;
       case 'featured':
-        filteredVideos = filteredVideos.where((marketplaceVideo) => marketplaceVideo.isFeatured).toList();
+        filteredVideos = filteredVideos
+            .where((marketplaceVideo) => marketplaceVideo.isFeatured)
+            .toList();
         break;
       case 'all':
       default:
@@ -387,23 +403,23 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     // Apply sorting
     switch (_sortBy) {
       case 'views':
-        filteredVideos.sort((a, b) => _sortDescending 
-            ? b.views.compareTo(a.views) 
+        filteredVideos.sort((a, b) => _sortDescending
+            ? b.views.compareTo(a.views)
             : a.views.compareTo(b.views));
         break;
       case 'likes':
-        filteredVideos.sort((a, b) => _sortDescending 
-            ? b.likes.compareTo(a.likes) 
+        filteredVideos.sort((a, b) => _sortDescending
+            ? b.likes.compareTo(a.likes)
             : a.likes.compareTo(b.likes));
         break;
       case 'engagement':
-        filteredVideos.sort((a, b) => _sortDescending 
-            ? b.engagementRate.compareTo(a.engagementRate) 
+        filteredVideos.sort((a, b) => _sortDescending
+            ? b.engagementRate.compareTo(a.engagementRate)
             : a.engagementRate.compareTo(b.engagementRate));
         break;
       case 'date':
       default:
-        filteredVideos.sort((a, b) => _sortDescending 
+        filteredVideos.sort((a, b) => _sortDescending
             ? b.createdAtDateTime.compareTo(a.createdAtDateTime)
             : a.createdAtDateTime.compareTo(b.createdAtDateTime));
         break;
@@ -426,7 +442,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       final dateTime = DateTime.parse(timestamp);
       final now = DateTime.now();
       final difference = now.difference(dateTime);
-      
+
       if (difference.inDays > 0) {
         return DateFormat('MMM d, y').format(dateTime);
       } else if (difference.inHours > 0) {
@@ -446,7 +462,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
     final totalEngagement = _userMarketplaceVideos.fold<int>(
       0,
-      (sum, marketplaceVideo) => sum + marketplaceVideo.likes + marketplaceVideo.comments,
+      (sum, marketplaceVideo) =>
+          sum + marketplaceVideo.likes + marketplaceVideo.comments,
     );
     final totalViews = _userMarketplaceVideos.fold<int>(
       0,
@@ -480,12 +497,15 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       foregroundColor: modernTheme.textColor,
       elevation: 0,
       title: Text(
-        _isSelectionMode 
+        _isSelectionMode
             ? '${_selectedVideoIds.length} selected'
             : 'Manage Listings',
       ),
       actions: [
-        if (!_isLoading && !_hasNoProfile && _error == null && _userMarketplaceVideos.isNotEmpty) ...[
+        if (!_isLoading &&
+            !_hasNoProfile &&
+            _error == null &&
+            _userMarketplaceVideos.isNotEmpty) ...[
           if (_isSelectionMode) ...[
             // Selection mode actions
             IconButton(
@@ -496,7 +516,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                 color: modernTheme.primaryColor,
               ),
               onPressed: _selectAllVideos,
-              tooltip: _selectedVideoIds.length == _getFilteredAndSortedVideos().length
+              tooltip: _selectedVideoIds.length ==
+                      _getFilteredAndSortedVideos().length
                   ? 'Deselect All'
                   : 'Select All',
             ),
@@ -540,8 +561,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                       Icon(Icons.access_time, size: 20),
                       const SizedBox(width: 8),
                       Text('Sort by Date'),
-                      if (_sortBy == 'date') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
+                      if (_sortBy == 'date')
+                        Icon(Icons.check,
+                            color: modernTheme.primaryColor, size: 16),
                     ],
                   ),
                 ),
@@ -552,8 +574,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                       Icon(Icons.visibility, size: 20),
                       const SizedBox(width: 8),
                       Text('Sort by Views'),
-                      if (_sortBy == 'views') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
+                      if (_sortBy == 'views')
+                        Icon(Icons.check,
+                            color: modernTheme.primaryColor, size: 16),
                     ],
                   ),
                 ),
@@ -564,8 +587,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                       Icon(Icons.favorite, size: 20),
                       const SizedBox(width: 8),
                       Text('Sort by Likes'),
-                      if (_sortBy == 'likes') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
+                      if (_sortBy == 'likes')
+                        Icon(Icons.check,
+                            color: modernTheme.primaryColor, size: 16),
                     ],
                   ),
                 ),
@@ -576,8 +600,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                       Icon(Icons.trending_up, size: 20),
                       const SizedBox(width: 8),
                       Text('Sort by Engagement'),
-                      if (_sortBy == 'engagement') 
-                        Icon(Icons.check, color: modernTheme.primaryColor, size: 16),
+                      if (_sortBy == 'engagement')
+                        Icon(Icons.check,
+                            color: modernTheme.primaryColor, size: 16),
                     ],
                   ),
                 ),
@@ -586,7 +611,11 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                   value: 'toggle_order',
                   child: Row(
                     children: [
-                      Icon(_sortDescending ? Icons.arrow_downward : Icons.arrow_upward, size: 20),
+                      Icon(
+                          _sortDescending
+                              ? Icons.arrow_downward
+                              : Icons.arrow_upward,
+                          size: 20),
                       const SizedBox(width: 8),
                       Text(_sortDescending ? 'Descending' : 'Ascending'),
                     ],
@@ -761,7 +790,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  Widget _buildFilterChip(String label, String value, ModernThemeExtension modernTheme) {
+  Widget _buildFilterChip(
+      String label, String value, ModernThemeExtension modernTheme) {
     final isSelected = _filterBy == value;
     return GestureDetector(
       onTap: () {
@@ -772,22 +802,19 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? modernTheme.primaryColor 
-              : modernTheme.surfaceColor,
+          color:
+              isSelected ? modernTheme.primaryColor : modernTheme.surfaceColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected 
-                ? modernTheme.primaryColor! 
+            color: isSelected
+                ? modernTheme.primaryColor!
                 : modernTheme.primaryColor!.withOpacity(0.3),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected 
-                ? Colors.white 
-                : modernTheme.textColor,
+            color: isSelected ? Colors.white : modernTheme.textColor,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -797,7 +824,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
   Widget _buildPostsTab(ModernThemeExtension modernTheme) {
     final filteredVideos = _getFilteredAndSortedVideos();
-    
+
     if (filteredVideos.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
@@ -818,9 +845,10 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  Widget _buildVideoCard(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
+  Widget _buildVideoCard(MarketplaceVideoModel marketplaceVideo,
+      ModernThemeExtension modernTheme) {
     final isSelected = _selectedVideoIds.contains(marketplaceVideo.id);
-    
+
     return GestureDetector(
       onTap: () {
         if (_isSelectionMode) {
@@ -842,9 +870,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected 
-                    ? modernTheme.primaryColor! 
-                    : Colors.transparent,
+                color:
+                    isSelected ? modernTheme.primaryColor! : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -854,7 +881,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                 fit: StackFit.expand,
                 children: [
                   // Thumbnail
-                  if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty)
+                  if (marketplaceVideo.isMultipleImages &&
+                      marketplaceVideo.imageUrls.isNotEmpty)
                     CachedNetworkImage(
                       imageUrl: marketplaceVideo.imageUrls.first,
                       fit: BoxFit.cover,
@@ -878,12 +906,14 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                         ),
                       ),
                     )
-                  else if (!marketplaceVideo.isMultipleImages && _videoThumbnails.containsKey(marketplaceVideo.id))
+                  else if (!marketplaceVideo.isMultipleImages &&
+                      _videoThumbnails.containsKey(marketplaceVideo.id))
                     Image.file(
                       File(_videoThumbnails[marketplaceVideo.id]!),
                       fit: BoxFit.cover,
                     )
-                  else if (!marketplaceVideo.isMultipleImages && marketplaceVideo.thumbnailUrl.isNotEmpty)
+                  else if (!marketplaceVideo.isMultipleImages &&
+                      marketplaceVideo.thumbnailUrl.isNotEmpty)
                     CachedNetworkImage(
                       imageUrl: marketplaceVideo.thumbnailUrl,
                       fit: BoxFit.cover,
@@ -1011,7 +1041,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                       children: [
                         if (!marketplaceVideo.isActive)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.orange.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(4),
@@ -1027,8 +1058,10 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                           ),
                         if (marketplaceVideo.isFeatured)
                           Container(
-                            margin: EdgeInsets.only(left: marketplaceVideo.isActive ? 0 : 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            margin: EdgeInsets.only(
+                                left: marketplaceVideo.isActive ? 0 : 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.amber.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(4),
@@ -1047,12 +1080,14 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                   ),
 
                   // Multiple images indicator
-                  if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.length > 1)
+                  if (marketplaceVideo.isMultipleImages &&
+                      marketplaceVideo.imageUrls.length > 1)
                     Positioned(
                       top: 8,
                       right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(4),
@@ -1086,14 +1121,18 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                       right: 8,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected 
-                              ? modernTheme.primaryColor 
+                          color: isSelected
+                              ? modernTheme.primaryColor
                               : Colors.white.withOpacity(0.8),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isSelected ? Icons.check : Icons.radio_button_unchecked,
-                          color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
+                          isSelected
+                              ? Icons.check
+                              : Icons.radio_button_unchecked,
+                          color: isSelected
+                              ? Colors.white
+                              : modernTheme.textSecondaryColor,
                           size: 24,
                         ),
                       ),
@@ -1109,7 +1148,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               bottom: 8,
               right: 8,
               child: GestureDetector(
-                onTap: () => _showQuickActionsMenu(marketplaceVideo, modernTheme),
+                onTap: () =>
+                    _showQuickActionsMenu(marketplaceVideo, modernTheme),
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -1129,7 +1169,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  void _showQuickActionsMenu(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
+  void _showQuickActionsMenu(MarketplaceVideoModel marketplaceVideo,
+      ModernThemeExtension modernTheme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -1154,8 +1195,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
 
             // Post title
             Text(
-              marketplaceVideo.caption.length > 50 
-                  ? '${marketplaceVideo.caption.substring(0, 50)}...' 
+              marketplaceVideo.caption.length > 50
+                  ? '${marketplaceVideo.caption.substring(0, 50)}...'
                   : marketplaceVideo.caption,
               style: TextStyle(
                 color: modernTheme.textColor,
@@ -1260,7 +1301,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              _filterBy == 'all' 
+              _filterBy == 'all'
                   ? 'Start creating content to see your listings here'
                   : 'No listings match the current filter',
               style: TextStyle(
@@ -1308,7 +1349,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -1327,7 +1368,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Views',
-                _formatViewCount(_userMarketplaceVideos.fold<int>(0, (sum, marketplaceVideo) => sum + marketplaceVideo.views)),
+                _formatViewCount(_userMarketplaceVideos.fold<int>(0,
+                    (sum, marketplaceVideo) => sum + marketplaceVideo.views)),
                 Icons.visibility,
                 'Across all listings',
                 Colors.green,
@@ -1335,7 +1377,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Likes',
-                _formatViewCount(_userMarketplaceVideos.fold<int>(0, (sum, marketplaceVideo) => sum + marketplaceVideo.likes)),
+                _formatViewCount(_userMarketplaceVideos.fold<int>(0,
+                    (sum, marketplaceVideo) => sum + marketplaceVideo.likes)),
                 Icons.favorite,
                 '${(_calculateEngagementRate()).toStringAsFixed(1)}% engagement',
                 Colors.red,
@@ -1343,7 +1386,10 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Comments',
-                _formatViewCount(_userMarketplaceVideos.fold<int>(0, (sum, marketplaceVideo) => sum + marketplaceVideo.comments)),
+                _formatViewCount(_userMarketplaceVideos.fold<int>(
+                    0,
+                    (sum, marketplaceVideo) =>
+                        sum + marketplaceVideo.comments)),
                 Icons.comment,
                 'Community feedback',
                 Colors.orange,
@@ -1351,9 +1397,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Top Performing Posts
           Text(
             'Top Performing Posts',
@@ -1364,15 +1410,16 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           ...(() {
             final sortedVideos = _userMarketplaceVideos.toList()
               ..sort((a, b) => b.views.compareTo(a.views));
-            return sortedVideos.take(3).map((marketplaceVideo) => _buildTopPostItem(marketplaceVideo, modernTheme));
+            return sortedVideos.take(3).map((marketplaceVideo) =>
+                _buildTopPostItem(marketplaceVideo, modernTheme));
           })(),
-          
+
           const SizedBox(height: 32),
-          
+
           // Recent Activity
           Text(
             'Recent Activity',
@@ -1383,11 +1430,13 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           ...(() {
             final sortedVideos = _userMarketplaceVideos.toList()
-              ..sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
-            return sortedVideos.take(5).map((marketplaceVideo) => _buildRecentActivityItem(marketplaceVideo, modernTheme));
+              ..sort(
+                  (a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+            return sortedVideos.take(5).map((marketplaceVideo) =>
+                _buildRecentActivityItem(marketplaceVideo, modernTheme));
           })(),
         ],
       ),
@@ -1455,7 +1504,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  Widget _buildTopPostItem(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
+  Widget _buildTopPostItem(MarketplaceVideoModel marketplaceVideo,
+      ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -1476,7 +1526,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               borderRadius: BorderRadius.circular(8),
               color: modernTheme.primaryColor!.withOpacity(0.1),
             ),
-            child: marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty
+            child: marketplaceVideo.isMultipleImages &&
+                    marketplaceVideo.imageUrls.isNotEmpty
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: CachedNetworkImage(
@@ -1489,20 +1540,22 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
                     ),
                   )
                 : Icon(
-                    marketplaceVideo.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    marketplaceVideo.isMultipleImages
+                        ? Icons.photo_library
+                        : Icons.play_circle_fill,
                     color: modernTheme.primaryColor,
                   ),
           ),
           const SizedBox(width: 12),
-          
+
           // Post info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  marketplaceVideo.caption.length > 40 
-                      ? '${marketplaceVideo.caption.substring(0, 40)}...' 
+                  marketplaceVideo.caption.length > 40
+                      ? '${marketplaceVideo.caption.substring(0, 40)}...'
                       : marketplaceVideo.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
@@ -1547,7 +1600,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ],
             ),
           ),
-          
+
           // View button
           IconButton(
             icon: Icon(
@@ -1562,7 +1615,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
     );
   }
 
-  Widget _buildRecentActivityItem(MarketplaceVideoModel marketplaceVideo, ModernThemeExtension modernTheme) {
+  Widget _buildRecentActivityItem(MarketplaceVideoModel marketplaceVideo,
+      ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1573,7 +1627,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       child: Row(
         children: [
           Icon(
-            marketplaceVideo.isMultipleImages ? Icons.photo_library : Icons.video_library,
+            marketplaceVideo.isMultipleImages
+                ? Icons.photo_library
+                : Icons.video_library,
             color: modernTheme.primaryColor,
             size: 20,
           ),
@@ -1583,8 +1639,8 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  marketplaceVideo.caption.length > 30 
-                      ? '${marketplaceVideo.caption.substring(0, 30)}...' 
+                  marketplaceVideo.caption.length > 30
+                      ? '${marketplaceVideo.caption.substring(0, 30)}...'
                       : marketplaceVideo.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
@@ -1620,7 +1676,7 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [  
+        children: [
           // Content Analysis
           Text(
             'Content Analysis',
@@ -1631,13 +1687,15 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           Row(
             children: [
               Expanded(
                 child: _buildContentTypeCard(
                   'Videos',
-                  _userMarketplaceVideos.where((v) => !v.isMultipleImages).length,
+                  _userMarketplaceVideos
+                      .where((v) => !v.isMultipleImages)
+                      .length,
                   Icons.play_circle_fill,
                   Colors.red,
                   modernTheme,
@@ -1647,7 +1705,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               Expanded(
                 child: _buildContentTypeCard(
                   'Images',
-                  _userMarketplaceVideos.where((v) => v.isMultipleImages).length,
+                  _userMarketplaceVideos
+                      .where((v) => v.isMultipleImages)
+                      .length,
                   Icons.photo_library,
                   Colors.blue,
                   modernTheme,
@@ -1655,9 +1715,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           Row(
             children: [
               Expanded(
@@ -1681,9 +1741,9 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Engagement Insights
           Container(
             padding: const EdgeInsets.all(16),

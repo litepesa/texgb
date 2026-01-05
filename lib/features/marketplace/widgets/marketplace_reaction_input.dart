@@ -20,10 +20,12 @@ class MarketplaceReactionInput extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MarketplaceReactionInput> createState() => _MarketplaceReactionInputState();
+  ConsumerState<MarketplaceReactionInput> createState() =>
+      _MarketplaceReactionInputState();
 }
 
-class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionInput>
+class _MarketplaceReactionInputState
+    extends ConsumerState<MarketplaceReactionInput>
     with TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -98,7 +100,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
     if (widget.listing.thumbnailUrl.isNotEmpty) {
       return widget.listing.thumbnailUrl;
     }
-    if (widget.listing.isMultipleImages && widget.listing.imageUrls.isNotEmpty) {
+    if (widget.listing.isMultipleImages &&
+        widget.listing.imageUrls.isNotEmpty) {
       return widget.listing.imageUrls.first;
     }
     return null;
@@ -142,7 +145,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                modernTheme.surfaceColor?.withOpacity(0.98) ?? Colors.white.withOpacity(0.98),
+                modernTheme.surfaceColor?.withOpacity(0.98) ??
+                    Colors.white.withOpacity(0.98),
                 modernTheme.surfaceColor ?? Colors.white,
               ],
             ),
@@ -170,8 +174,10 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            modernTheme.primaryColor?.withOpacity(0.4) ?? Colors.grey.withOpacity(0.4),
-                            modernTheme.primaryColor?.withOpacity(0.7) ?? Colors.grey.withOpacity(0.7),
+                            modernTheme.primaryColor?.withOpacity(0.4) ??
+                                Colors.grey.withOpacity(0.4),
+                            modernTheme.primaryColor?.withOpacity(0.7) ??
+                                Colors.grey.withOpacity(0.7),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(3),
@@ -184,7 +190,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
@@ -233,10 +240,13 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                       // Close button
                       Container(
                         decoration: BoxDecoration(
-                          color: modernTheme.surfaceVariantColor?.withOpacity(0.8) ?? Colors.grey.shade100,
+                          color: modernTheme.surfaceVariantColor
+                                  ?.withOpacity(0.8) ??
+                              Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: modernTheme.dividerColor?.withOpacity(0.4) ?? Colors.grey.withOpacity(0.3),
+                            color: modernTheme.dividerColor?.withOpacity(0.4) ??
+                                Colors.grey.withOpacity(0.3),
                             width: 1.5,
                           ),
                         ),
@@ -268,12 +278,14 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                         end: Alignment.bottomRight,
                         colors: [
                           modernTheme.surfaceColor ?? Colors.white,
-                          modernTheme.surfaceVariantColor?.withOpacity(0.4) ?? Colors.grey.shade50,
+                          modernTheme.surfaceVariantColor?.withOpacity(0.4) ??
+                              Colors.grey.shade50,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: modernTheme.dividerColor?.withOpacity(0.6) ?? Colors.grey.withOpacity(0.3),
+                        color: modernTheme.dividerColor?.withOpacity(0.6) ??
+                            Colors.grey.withOpacity(0.3),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -309,12 +321,15 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                                     ? Image.network(
                                         thumbnailUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
                                           return Container(
-                                            color: modernTheme.surfaceVariantColor,
+                                            color:
+                                                modernTheme.surfaceVariantColor,
                                             child: Icon(
                                               CupertinoIcons.photo,
-                                              color: modernTheme.textSecondaryColor,
+                                              color: modernTheme
+                                                  .textSecondaryColor,
                                               size: 32,
                                             ),
                                           );
@@ -352,20 +367,35 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                                       ),
                                       child: CircleAvatar(
                                         radius: 16,
-                                        backgroundColor: Colors.green.withOpacity(0.1),
-                                        backgroundImage: (listingOwner?.profileImage.isNotEmpty == true)
-                                            ? NetworkImage(listingOwner!.profileImage)
-                                            : (widget.listing.userImage.isNotEmpty
-                                                ? NetworkImage(widget.listing.userImage)
+                                        backgroundColor:
+                                            Colors.green.withOpacity(0.1),
+                                        backgroundImage: (listingOwner
+                                                    ?.profileImage.isNotEmpty ==
+                                                true)
+                                            ? NetworkImage(
+                                                listingOwner!.profileImage)
+                                            : (widget.listing.userImage
+                                                    .isNotEmpty
+                                                ? NetworkImage(
+                                                    widget.listing.userImage)
                                                 : null),
-                                        child: (listingOwner?.profileImage.isEmpty != false &&
-                                                widget.listing.userImage.isEmpty)
+                                        child: (listingOwner?.profileImage
+                                                        .isEmpty !=
+                                                    false &&
+                                                widget
+                                                    .listing.userImage.isEmpty)
                                             ? Text(
-                                                (listingOwner?.name.isNotEmpty == true)
-                                                  ? listingOwner!.name[0].toUpperCase()
-                                                  : widget.listing.userName.isNotEmpty
-                                                    ? widget.listing.userName[0].toUpperCase()
-                                                    : 'S',
+                                                (listingOwner
+                                                            ?.name.isNotEmpty ==
+                                                        true)
+                                                    ? listingOwner!.name[0]
+                                                        .toUpperCase()
+                                                    : widget.listing.userName
+                                                            .isNotEmpty
+                                                        ? widget
+                                                            .listing.userName[0]
+                                                            .toUpperCase()
+                                                        : 'S',
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.bold,
@@ -380,10 +410,12 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                                     // Seller name
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            listingOwner?.name ?? widget.listing.userName,
+                                            listingOwner?.name ??
+                                                widget.listing.userName,
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w700,
@@ -397,17 +429,22 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
 
                                           // Price tag
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 3),
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
                                                 colors: [
-                                                  Colors.green.withOpacity(0.12),
-                                                  Colors.green.withOpacity(0.06),
+                                                  Colors.green
+                                                      .withOpacity(0.12),
+                                                  Colors.green
+                                                      .withOpacity(0.06),
                                                 ],
                                               ),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               border: Border.all(
-                                                color: Colors.green.withOpacity(0.2),
+                                                color: Colors.green
+                                                    .withOpacity(0.2),
                                                 width: 0.5,
                                               ),
                                             ),
@@ -421,7 +458,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                                                 ),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  _formatPrice(widget.listing.price),
+                                                  _formatPrice(
+                                                      widget.listing.price),
                                                   style: const TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w600,
@@ -444,10 +482,13 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: modernTheme.surfaceVariantColor?.withOpacity(0.3),
+                                      color: modernTheme.surfaceVariantColor
+                                          ?.withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
-                                        color: modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.2),
+                                        color: modernTheme.dividerColor
+                                                ?.withOpacity(0.3) ??
+                                            Colors.grey.withOpacity(0.2),
                                         width: 1,
                                       ),
                                     ),
@@ -494,7 +535,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                             ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
@@ -515,7 +557,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                           'Ask about availability, pricing, or make an offer',
                           style: TextStyle(
                             fontSize: 14,
-                            color: modernTheme.textSecondaryColor?.withOpacity(0.8),
+                            color: modernTheme.textSecondaryColor
+                                ?.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.1,
                           ),
@@ -533,14 +576,16 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                         end: Alignment.bottomRight,
                         colors: [
                           modernTheme.surfaceColor ?? Colors.white,
-                          modernTheme.surfaceVariantColor?.withOpacity(0.2) ?? Colors.grey.shade50,
+                          modernTheme.surfaceVariantColor?.withOpacity(0.2) ??
+                              Colors.grey.shade50,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
                         color: _focusNode.hasFocus
-                          ? Colors.green.withOpacity(0.8)
-                          : modernTheme.dividerColor?.withOpacity(0.6) ?? Colors.grey.withOpacity(0.3),
+                            ? Colors.green.withOpacity(0.8)
+                            : modernTheme.dividerColor?.withOpacity(0.6) ??
+                                Colors.grey.withOpacity(0.3),
                         width: _focusNode.hasFocus ? 2 : 1.5,
                       ),
                       boxShadow: [
@@ -573,14 +618,15 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                           child: CircleAvatar(
                             radius: 14,
                             backgroundColor: Colors.green.withOpacity(0.1),
-                            backgroundImage: currentUser?.profileImage.isNotEmpty == true
-                                ? NetworkImage(currentUser!.profileImage)
-                                : null,
+                            backgroundImage:
+                                currentUser?.profileImage.isNotEmpty == true
+                                    ? NetworkImage(currentUser!.profileImage)
+                                    : null,
                             child: currentUser?.profileImage.isEmpty != false
                                 ? Text(
                                     currentUser?.name.isNotEmpty == true
-                                      ? currentUser!.name[0].toUpperCase()
-                                      : 'Y',
+                                        ? currentUser!.name[0].toUpperCase()
+                                        : 'Y',
                                     style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -609,7 +655,8 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                             decoration: InputDecoration(
                               hintText: 'Hi, is this still available?',
                               hintStyle: TextStyle(
-                                color: modernTheme.textSecondaryColor?.withOpacity(0.6),
+                                color: modernTheme.textSecondaryColor
+                                    ?.withOpacity(0.6),
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,
                                 letterSpacing: 0.1,
@@ -632,37 +679,46 @@ class _MarketplaceReactionInputState extends ConsumerState<MarketplaceReactionIn
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: _textController.text.trim().isNotEmpty ? [
-                                Colors.green,
-                                Colors.green.shade700,
-                              ] : [
-                                modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
-                                modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-                              ],
+                              colors: _textController.text.trim().isNotEmpty
+                                  ? [
+                                      Colors.green,
+                                      Colors.green.shade700,
+                                    ]
+                                  : [
+                                      modernTheme.dividerColor
+                                              ?.withOpacity(0.3) ??
+                                          Colors.grey.withOpacity(0.3),
+                                      modernTheme.dividerColor
+                                              ?.withOpacity(0.2) ??
+                                          Colors.grey.withOpacity(0.2),
+                                    ],
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: _textController.text.trim().isNotEmpty ? [
-                              BoxShadow(
-                                color: Colors.green.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ] : [],
+                            boxShadow: _textController.text.trim().isNotEmpty
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.green.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : [],
                           ),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(20),
                               onTap: _textController.text.trim().isNotEmpty
-                                ? () => _sendReaction(_textController.text)
-                                : null,
+                                  ? () => _sendReaction(_textController.text)
+                                  : null,
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 child: Icon(
                                   Icons.send_rounded,
                                   color: _textController.text.trim().isNotEmpty
-                                    ? Colors.white
-                                    : modernTheme.textSecondaryColor?.withOpacity(0.5),
+                                      ? Colors.white
+                                      : modernTheme.textSecondaryColor
+                                          ?.withOpacity(0.5),
                                   size: 20,
                                 ),
                               ),

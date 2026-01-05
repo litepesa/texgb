@@ -118,10 +118,19 @@ class StatusTimeService {
       return '${difference.inMinutes} minutes ago';
     } else if (difference.inHours < 24 && statusTime.day == now.day) {
       return 'Today, $timeStr';
-    } else if (difference.inDays == 1 || (difference.inHours < 48 && statusTime.day == now.day - 1)) {
+    } else if (difference.inDays == 1 ||
+        (difference.inHours < 48 && statusTime.day == now.day - 1)) {
       return 'Yesterday, $timeStr';
     } else if (difference.inDays < 7) {
-      final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final weekdays = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday'
+      ];
       final weekday = weekdays[statusTime.weekday - 1];
       return '$weekday, $timeStr';
     } else {
@@ -186,7 +195,8 @@ class StatusTimeService {
   }
 
   /// Separate groups into viewed and unviewed
-  static Map<String, List<StatusGroup>> separateByViewStatus(List<StatusGroup> groups) {
+  static Map<String, List<StatusGroup>> separateByViewStatus(
+      List<StatusGroup> groups) {
     final unviewed = <StatusGroup>[];
     final viewed = <StatusGroup>[];
 
@@ -254,7 +264,8 @@ class StatusTimeService {
 
     // Optional: Add rate limiting (e.g., max 1 status per minute)
     final latestStatus = sortByNewest(activeStatuses).first;
-    final timeSinceLastStatus = DateTime.now().difference(latestStatus.createdAt);
+    final timeSinceLastStatus =
+        DateTime.now().difference(latestStatus.createdAt);
 
     // Allow if more than 30 seconds have passed
     return timeSinceLastStatus.inSeconds >= 30;

@@ -12,22 +12,22 @@ class ThemeSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeStateAsync = ref.watch(themeManagerNotifierProvider);
     final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-    
+
     // Show loading indicator while theme is initializing
     if (themeStateAsync.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     // Handle error
     if (themeStateAsync.hasError) {
       return Center(
         child: Text('Error loading theme: ${themeStateAsync.error}'),
       );
     }
-    
+
     // Get the theme state
     final themeState = themeStateAsync.value!;
-    
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -42,7 +42,6 @@ class ThemeSelector extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
           ),
-          
           _buildThemeOption(
             context,
             title: 'System',
@@ -51,9 +50,7 @@ class ThemeSelector extends ConsumerWidget {
             isSelected: themeState.currentTheme == ThemeOption.system,
             onTap: () => themeManager.setTheme(ThemeOption.system),
           ),
-          
           const SizedBox(height: 8),
-          
           _buildThemeOption(
             context,
             title: 'Light',
@@ -62,9 +59,7 @@ class ThemeSelector extends ConsumerWidget {
             isSelected: themeState.currentTheme == ThemeOption.light,
             onTap: () => themeManager.setTheme(ThemeOption.light),
           ),
-          
           const SizedBox(height: 8),
-          
           _buildThemeOption(
             context,
             title: 'Dark',
@@ -77,7 +72,7 @@ class ThemeSelector extends ConsumerWidget {
       ),
     );
   }
-  
+
   Widget _buildThemeOption(
     BuildContext context, {
     required String title,
@@ -88,11 +83,9 @@ class ThemeSelector extends ConsumerWidget {
   }) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    
+
     return Material(
-      color: isSelected 
-          ? primaryColor.withOpacity(0.1)
-          : Colors.transparent,
+      color: isSelected ? primaryColor.withOpacity(0.1) : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -141,7 +134,7 @@ class ThemeSelector extends ConsumerWidget {
 class ThemeToggleButton extends ConsumerWidget {
   final double size;
   final EdgeInsets? padding;
-  
+
   const ThemeToggleButton({
     super.key,
     this.size = 56,
@@ -152,7 +145,7 @@ class ThemeToggleButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeStateAsync = ref.watch(themeManagerNotifierProvider);
     final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-    
+
     // Show loading indicator while theme is initializing
     if (themeStateAsync.isLoading) {
       return Container(
@@ -175,7 +168,7 @@ class ThemeToggleButton extends ConsumerWidget {
         ),
       );
     }
-    
+
     // Handle error
     if (themeStateAsync.hasError) {
       return Container(
@@ -194,11 +187,11 @@ class ThemeToggleButton extends ConsumerWidget {
         ),
       );
     }
-    
+
     final themeState = themeStateAsync.value!;
     final isDark = themeState.isDarkMode;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
+
     return Container(
       width: size,
       height: size,

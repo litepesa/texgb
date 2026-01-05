@@ -85,7 +85,7 @@ class VideoReactionWidget extends ConsumerWidget {
       // Get video owner's user data using authentication provider
       final authNotifier = ref.read(authenticationProvider.notifier);
       final videoOwner = await authNotifier.getUserById(video!.userId);
-      
+
       if (videoOwner == null) {
         throw Exception('Video owner not found');
       }
@@ -106,7 +106,7 @@ class VideoReactionWidget extends ConsumerWidget {
       if (reaction != null && reaction.trim().isNotEmpty && context.mounted) {
         final chatListNotifier = ref.read(chatListProvider.notifier);
         final chatId = await chatListNotifier.createOrGetChat(videoOwner.uid);
-        
+
         if (chatId != null) {
           // Send video reaction message
           await _sendVideoReactionMessage(
@@ -155,18 +155,19 @@ class VideoReactionWidget extends ConsumerWidget {
   }) async {
     try {
       final chatRepository = ref.read(chatRepositoryProvider);
-      
+
       // Create video reaction data
       final videoReaction = VideoReactionModel(
         videoId: video.id,
-        videoUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
-            ? video.imageUrls.first 
+        videoUrl: video.isMultipleImages && video.imageUrls.isNotEmpty
+            ? video.imageUrls.first
             : video.videoUrl,
-        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
-            ? video.imageUrls.first 
+        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty
+            ? video.imageUrls.first
             : video.thumbnailUrl,
         userName: videoOwner.name, // Use actual user name from UserModel
-        userImage: videoOwner.profileImage, // Use actual profile image from UserModel
+        userImage:
+            videoOwner.profileImage, // Use actual profile image from UserModel
         reaction: reaction,
         timestamp: DateTime.now(),
       );
@@ -177,9 +178,8 @@ class VideoReactionWidget extends ConsumerWidget {
         senderId: senderId,
         videoReaction: videoReaction,
       );
-      
+
       debugPrint('Video reaction sent successfully to chat: $chatId');
-      
     } catch (e) {
       debugPrint('Error sending video reaction message: $e');
       rethrow;

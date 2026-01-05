@@ -61,7 +61,8 @@ class CommentList extends ConsumerWidget {
   }
 
   // Compact comment (for preview in feed)
-  Widget _buildCompactComment(BuildContext context, MomentCommentModel comment) {
+  Widget _buildCompactComment(
+      BuildContext context, MomentCommentModel comment) {
     return RichText(
       text: TextSpan(
         children: [
@@ -106,7 +107,8 @@ class CommentList extends ConsumerWidget {
   }
 
   // Full comment (for detail view)
-  Widget _buildFullComment(BuildContext context, WidgetRef ref, MomentCommentModel comment) {
+  Widget _buildFullComment(
+      BuildContext context, WidgetRef ref, MomentCommentModel comment) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -153,7 +155,8 @@ class CommentList extends ConsumerWidget {
     );
   }
 
-  void _handleReply(BuildContext context, WidgetRef ref, MomentCommentModel comment) {
+  void _handleReply(
+      BuildContext context, WidgetRef ref, MomentCommentModel comment) {
     if (onReply != null) {
       onReply!();
     } else {
@@ -192,10 +195,12 @@ class CommentList extends ConsumerWidget {
               if (controller.text.trim().isEmpty) return;
 
               try {
-                await ref.read(momentCommentsProvider(momentId).notifier).addComment(
-                  controller.text.trim(),
-                  replyToUserId: comment.userId,
-                );
+                await ref
+                    .read(momentCommentsProvider(momentId).notifier)
+                    .addComment(
+                      controller.text.trim(),
+                      replyToUserId: comment.userId,
+                    );
 
                 if (context.mounted) {
                   context.pop();
@@ -261,7 +266,8 @@ class CommentList extends ConsumerWidget {
             if (isOwner)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                title:
+                    const Text('Delete', style: TextStyle(color: Colors.red)),
                 onTap: () {
                   context.pop();
                   _deleteComment(context, ref, comment);

@@ -22,10 +22,12 @@ class VirtualGiftsBottomSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<VirtualGiftsBottomSheet> createState() => _VirtualGiftsBottomSheetState();
+  ConsumerState<VirtualGiftsBottomSheet> createState() =>
+      _VirtualGiftsBottomSheetState();
 }
 
-class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomSheet>
+class _VirtualGiftsBottomSheetState
+    extends ConsumerState<VirtualGiftsBottomSheet>
     with TickerProviderStateMixin {
   late TabController _tabController;
   VirtualGift? _selectedGift;
@@ -757,15 +759,17 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   void initState() {
     super.initState();
     _tabController = TabController(length: _giftCategories.length, vsync: this);
-    
+
     // ✅ Debug: Log wallet state on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final walletAsync = ref.read(walletProvider);
       print('🎁 Gift Bottom Sheet Initialized');
-      print('🎁 Wallet State: ${walletAsync.value?.wallet?.coinsBalance ?? "null"}');
-      
+      print(
+          '🎁 Wallet State: ${walletAsync.value?.wallet?.coinsBalance ?? "null"}');
+
       walletAsync.whenData((walletState) {
-        print('🎁 Wallet Balance: ${walletState.wallet?.coinsBalance ?? 0} coins');
+        print(
+            '🎁 Wallet Balance: ${walletState.wallet?.coinsBalance ?? 0} coins');
       });
     });
   }
@@ -780,10 +784,10 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final availableHeight = MediaQuery.of(context).size.height * 0.85;
-    
+
     // ✅ Watch the wallet provider directly to handle loading state
     final walletAsync = ref.watch(walletProvider);
-    
+
     return Container(
       height: availableHeight,
       decoration: const BoxDecoration(
@@ -793,7 +797,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
       child: walletAsync.when(
         data: (walletState) {
           final currentCoins = walletState.wallet?.coinsBalance ?? 0;
-          
+
           return Column(
             children: [
               _buildHeader(currentCoins),
@@ -893,9 +897,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               ),
             ),
           ),
-          
           const SizedBox(width: 16),
-          
           if (widget.recipientImage != null) ...[
             Container(
               width: 40,
@@ -912,7 +914,8 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       color: Colors.grey[700],
-                      child: const Icon(Icons.person, color: Colors.white, size: 20),
+                      child: const Icon(Icons.person,
+                          color: Colors.white, size: 20),
                     );
                   },
                 ),
@@ -920,7 +923,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
             ),
             const SizedBox(width: 12),
           ],
-          
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -944,7 +946,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               ],
             ),
           ),
-          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -983,7 +984,8 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
         labelColor: const Color(0xFFFF6B35),
         unselectedLabelColor: Colors.white60,
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
         tabs: _giftCategories.map((category) {
           return Tab(
             child: Row(
@@ -1018,29 +1020,35 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               final gift = category.gifts[index];
               final isSelected = _selectedGift?.id == gift.id;
               final canAfford = currentCoins >= gift.price;
-              
+
               return GestureDetector(
-                onTap: canAfford ? () {
-                  setState(() {
-                    _selectedGift = isSelected ? null : gift;
-                  });
-                } : null,
+                onTap: canAfford
+                    ? () {
+                        setState(() {
+                          _selectedGift = isSelected ? null : gift;
+                        });
+                      }
+                    : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   decoration: BoxDecoration(
-                    color: isSelected ? gift.color.withOpacity(0.2) : Colors.grey[900],
+                    color: isSelected
+                        ? gift.color.withOpacity(0.2)
+                        : Colors.grey[900],
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isSelected ? gift.color : Colors.transparent,
                       width: 2,
                     ),
-                    boxShadow: isSelected ? [
-                      BoxShadow(
-                        color: gift.color.withOpacity(0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ] : null,
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: gift.color.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Stack(
                     children: [
@@ -1060,7 +1068,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                             ),
                           ),
                         ),
-                      
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1075,7 +1082,8 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: _getRarityColor(gift.rarity).withOpacity(0.5),
+                                        color: _getRarityColor(gift.rarity)
+                                            .withOpacity(0.5),
                                         blurRadius: 20,
                                         spreadRadius: 5,
                                       ),
@@ -1091,9 +1099,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                               ),
                             ],
                           ),
-                          
                           const SizedBox(height: 6),
-                          
                           Text(
                             gift.name,
                             style: TextStyle(
@@ -1105,13 +1111,13 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          
                           const SizedBox(height: 3),
-                          
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: gift.color.withOpacity(canAfford ? 0.2 : 0.1),
+                              color:
+                                  gift.color.withOpacity(canAfford ? 0.2 : 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
@@ -1120,7 +1126,9 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                                 Text(
                                   '${gift.price}',
                                   style: TextStyle(
-                                    color: canAfford ? gift.color : gift.color.withOpacity(0.5),
+                                    color: canAfford
+                                        ? gift.color
+                                        : gift.color.withOpacity(0.5),
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1128,13 +1136,14 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                                 const SizedBox(width: 2),
                                 Icon(
                                   Icons.stars,
-                                  color: canAfford ? gift.color : gift.color.withOpacity(0.5),
+                                  color: canAfford
+                                      ? gift.color
+                                      : gift.color.withOpacity(0.5),
                                   size: 8,
                                 ),
                               ],
                             ),
                           ),
-                          
                           if (gift.rarity != GiftRarity.common) ...[
                             const SizedBox(height: 2),
                             Row(
@@ -1144,11 +1153,13 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                                 (index) => Container(
                                   width: 3,
                                   height: 3,
-                                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 1),
                                   decoration: BoxDecoration(
-                                    color: canAfford 
-                                      ? _getRarityColor(gift.rarity)
-                                      : _getRarityColor(gift.rarity).withOpacity(0.5),
+                                    color: canAfford
+                                        ? _getRarityColor(gift.rarity)
+                                        : _getRarityColor(gift.rarity)
+                                            .withOpacity(0.5),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -1205,9 +1216,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               ),
             ),
           ),
-          
           const SizedBox(width: 16),
-          
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1244,9 +1253,11 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _getRarityColor(_selectedGift!.rarity).withOpacity(0.2),
+                        color: _getRarityColor(_selectedGift!.rarity)
+                            .withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1263,7 +1274,6 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               ],
             ),
           ),
-          
           GestureDetector(
             onTap: _isProcessing ? null : _sendGift,
             child: AnimatedContainer(
@@ -1272,9 +1282,12 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
               height: 44,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: _isProcessing 
-                    ? [Colors.grey, Colors.grey[600]!]
-                    : [_selectedGift!.color, _selectedGift!.color.withOpacity(0.8)],
+                  colors: _isProcessing
+                      ? [Colors.grey, Colors.grey[600]!]
+                      : [
+                          _selectedGift!.color,
+                          _selectedGift!.color.withOpacity(0.8)
+                        ],
                 ),
                 borderRadius: BorderRadius.circular(22),
                 boxShadow: [
@@ -1286,23 +1299,24 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                 ],
               ),
               child: Center(
-                child: _isProcessing 
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                child: _isProcessing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Send',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'Send',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
               ),
             ),
           ),
@@ -1371,36 +1385,37 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
   // ✅ UPDATED _sendGift METHOD USING HttpClientService
   void _sendGift() async {
     if (_selectedGift == null || _isProcessing) return;
-    
+
     // ✅ Get balance from wallet state directly
     final walletAsync = ref.read(walletProvider);
     final currentCoins = walletAsync.value?.wallet?.coinsBalance ?? 0;
-    
+
     print('🎁 Attempting to send gift: ${_selectedGift!.name}');
     print('🎁 Gift price: ${_selectedGift!.price} coins');
     print('🎁 Current balance: $currentCoins coins');
-    
+
     // Check if user has enough coins
     if (currentCoins < _selectedGift!.price) {
-      print('❌ Insufficient coins: need ${_selectedGift!.price}, have $currentCoins');
+      print(
+          '❌ Insufficient coins: need ${_selectedGift!.price}, have $currentCoins');
       _showInsufficientCoinsMessage();
       return;
     }
-    
+
     // Check if recipient ID is provided
     if (widget.recipientId == null || widget.recipientId!.isEmpty) {
       print('❌ Missing recipient ID');
       _showErrorMessage('Recipient information is missing');
       return;
     }
-    
+
     setState(() {
       _isProcessing = true;
     });
-    
+
     try {
       print('📤 Sending gift to: ${widget.recipientId}');
-      
+
       // Use HttpClientService which handles auth token and base URL automatically
       final response = await _httpClient.post('/gifts/send', body: {
         'recipientId': widget.recipientId!,
@@ -1408,25 +1423,25 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
         'message': 'Sent you a gift!',
         'context': 'profile', // Can be 'video', 'live_stream', etc.
       });
-      
+
       print('📥 Response status: ${response.statusCode}');
       print('📥 Response body: ${response.body}');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         print('✅ Gift sent successfully!');
         print('✅ New sender balance: ${data['senderNewBalance']}');
-        
+
         // Refresh wallet balance
         ref.refresh(walletProvider);
-        
+
         // Call onGiftSelected callback if provided
         widget.onGiftSelected?.call(_selectedGift!);
-        
+
         // Show success animation
         _showSuccessAnimation();
-        
+
         // Close after delay
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
@@ -1486,9 +1501,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   size: 30,
                 ),
               ),
-              
               const SizedBox(height: 16),
-              
               const Text(
                 'Error',
                 style: TextStyle(
@@ -1498,9 +1511,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                 ),
                 textAlign: TextAlign.center,
               ),
-              
               const SizedBox(height: 8),
-              
               Text(
                 message,
                 style: const TextStyle(
@@ -1509,9 +1520,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                 ),
                 textAlign: TextAlign.center,
               ),
-              
               const SizedBox(height: 20),
-              
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child: Container(
@@ -1586,9 +1595,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   size: 30,
                 ),
               ),
-              
               const SizedBox(height: 16),
-              
               const Text(
                 'Not Enough Coins',
                 style: TextStyle(
@@ -1598,9 +1605,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                 ),
                 textAlign: TextAlign.center,
               ),
-              
               const SizedBox(height: 8),
-              
               Text(
                 'You need ${_selectedGift!.price} coins to send this gift.',
                 style: const TextStyle(
@@ -1609,9 +1614,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                 ),
                 textAlign: TextAlign.center,
               ),
-              
               const SizedBox(height: 20),
-              
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).pop();
@@ -1651,9 +1654,7 @@ class _VirtualGiftsBottomSheetState extends ConsumerState<VirtualGiftsBottomShee
                   ),
                 ),
               ),
-              
               const SizedBox(height: 12),
-              
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child: Container(

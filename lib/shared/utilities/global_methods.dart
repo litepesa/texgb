@@ -44,20 +44,19 @@ Future<File?> pickImage({
   if (fromCamera) {
     // get picture from camera
     try {
-      final pickedFile =
-          await ImagePicker().pickImage(
-            source: ImageSource.camera,
-            imageQuality: 80, // Compress image for better performance
-          );
+      final pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80, // Compress image for better performance
+      );
       if (pickedFile == null) {
         onFail('No image selected');
       } else {
         fileImage = File(pickedFile.path);
-        
+
         // Check file size
         final fileSize = await fileImage.length();
         final fileSizeInMB = fileSize / (1024 * 1024);
-        
+
         if (fileSizeInMB > 10) {
           onFail('Image size too large. Maximum allowed is 10MB.');
           return null;
@@ -69,20 +68,19 @@ Future<File?> pickImage({
   } else {
     // get picture from gallery
     try {
-      final pickedFile =
-          await ImagePicker().pickImage(
-            source: ImageSource.gallery,
-            imageQuality: 80, // Compress image for better performance
-          );
+      final pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80, // Compress image for better performance
+      );
       if (pickedFile == null) {
         onFail('No image selected');
       } else {
         fileImage = File(pickedFile.path);
-        
+
         // Check file size
         final fileSize = await fileImage.length();
         final fileSizeInMB = fileSize / (1024 * 1024);
-        
+
         if (fileSizeInMB > 10) {
           onFail('Image size too large. Maximum allowed is 10MB.');
           return null;
@@ -105,18 +103,19 @@ Future<File?> pickVideo({
   try {
     final pickedFile = await ImagePicker().pickVideo(
       source: ImageSource.gallery,
-      maxDuration: maxDuration ?? const Duration(seconds: 90), // Default to 90 seconds
+      maxDuration:
+          maxDuration ?? const Duration(seconds: 90), // Default to 90 seconds
     );
-    
+
     if (pickedFile == null) {
       onFail('No video selected');
     } else {
       fileVideo = File(pickedFile.path);
-      
+
       // Check file size
       final fileSize = await fileVideo.length();
       final fileSizeInMB = fileSize / (1024 * 1024);
-      
+
       // Limit file size to 50MB
       if (fileSizeInMB > 50) {
         onFail('Video size too large. Maximum allowed is 50MB.');
@@ -139,18 +138,19 @@ Future<File?> pickVideoFromCamera({
   try {
     final pickedFile = await ImagePicker().pickVideo(
       source: ImageSource.camera,
-      maxDuration: maxDuration ?? const Duration(seconds: 90), // Default to 90 seconds
+      maxDuration:
+          maxDuration ?? const Duration(seconds: 90), // Default to 90 seconds
     );
-    
+
     if (pickedFile == null) {
       onFail('No video recorded');
     } else {
       fileVideo = File(pickedFile.path);
-      
+
       // Check file size
       final fileSize = await fileVideo.length();
       final fileSizeInMB = fileSize / (1024 * 1024);
-      
+
       // Limit file size to 50MB
       if (fileSizeInMB > 50) {
         onFail('Video size too large. Maximum allowed is 50MB.');
@@ -241,7 +241,7 @@ Future<String> storeFileToStorage({
   required String reference,
 }) async {
   final httpClient = HttpClientService();
-  
+
   try {
     final response = await httpClient.uploadFile(
       '/upload',
@@ -265,7 +265,8 @@ Future<String> storeFileToStorage({
 
 // Helper method to determine file type from reference
 String _getFileTypeFromReference(String reference) {
-  if (reference.contains('profile') || reference.contains('userImages')) return 'profile';
+  if (reference.contains('profile') || reference.contains('userImages'))
+    return 'profile';
   if (reference.contains('banner')) return 'banner';
   if (reference.contains('thumbnail')) return 'thumbnail';
   if (reference.contains('video')) return 'video';

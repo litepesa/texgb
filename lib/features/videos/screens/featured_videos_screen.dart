@@ -13,19 +13,19 @@ class FeaturedVideosScreen extends ConsumerStatefulWidget {
   const FeaturedVideosScreen({super.key});
 
   @override
-  ConsumerState<FeaturedVideosScreen> createState() => _FeaturedVideosScreenState();
+  ConsumerState<FeaturedVideosScreen> createState() =>
+      _FeaturedVideosScreenState();
 }
 
-class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen> 
+class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
     with AutomaticKeepAliveClientMixin {
-  
   @override
   bool get wantKeepAlive => true; // Keep screen alive when switching tabs
-  
+
   final PageController _pageController = PageController(
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
-  
+
   // Cache for featured videos to avoid reloading
   List<VideoModel> _featuredVideos = [];
   bool _isLoadingFeatured = false;
@@ -67,7 +67,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
+
       // Force refresh data if needed
       if (forceRefresh) {
         await authNotifier.loadVideos();
@@ -77,14 +77,14 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
       // Get current state
       final authState = ref.read(authenticationProvider);
       final currentAuthState = authState.value;
-      
+
       if (currentAuthState == null) {
         throw Exception('Authentication state not available');
       }
 
       // Step 1: Get all videos
       final allVideos = currentAuthState.videos;
-      
+
       if (allVideos.isEmpty) {
         setState(() {
           _featuredVideos = [];
@@ -99,17 +99,18 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
           .toList();
 
       // Step 3: Sort featured videos by creation time (most recent first)
-      featuredVideos.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+      featuredVideos
+          .sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
 
       // Step 4: Limit total featured videos for performance
       final maxFeaturedVideos = 20; // Maximum featured videos to show
-      final finalFeaturedVideos = featuredVideos.take(maxFeaturedVideos).toList();
+      final finalFeaturedVideos =
+          featuredVideos.take(maxFeaturedVideos).toList();
 
       setState(() {
         _featuredVideos = finalFeaturedVideos;
         _isLoadingFeatured = false;
       });
-
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -121,21 +122,21 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
+
     final theme = context.modernTheme;
-    
+
     // Watch for video data changes and refresh automatically
     ref.listen(videosProvider, (previous, next) {
       if (mounted && previous != next) {
         Future.microtask(() => _loadFeaturedVideos());
       }
     });
-    
+
     // Load immediately if we don't have data
     if (_featuredVideos.isEmpty && !_isLoadingFeatured && _error == null) {
       Future.microtask(() => _loadFeaturedVideos(forceRefresh: true));
     }
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
@@ -146,7 +147,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
   Widget _buildBody() {
     final theme = context.modernTheme;
-    
+
     if (_isLoadingFeatured && _featuredVideos.isEmpty) {
       return _buildLoadingState();
     }
@@ -167,7 +168,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
         children: [
           // Page indicator dots with enhanced styling
           if (_featuredVideos.isNotEmpty) _buildPageIndicator(),
-          
+
           // Main carousel with enhanced container
           Expanded(
             child: Container(
@@ -182,7 +183,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                 itemCount: _featuredVideos.length,
                 itemBuilder: (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 20.0),
                     child: _buildVideoThumbnail(_featuredVideos[index], index),
                   );
                 },
@@ -196,7 +198,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
   Widget _buildPageIndicator() {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -223,24 +225,26 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
           _featuredVideos.length,
           (index) {
             bool isActive = index == _currentIndex;
-            
+
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 4.0),
               height: 8.0,
               width: isActive ? 24.0 : 8.0,
               decoration: BoxDecoration(
-                color: isActive 
-                    ? theme.primaryColor 
+                color: isActive
+                    ? theme.primaryColor
                     : theme.textSecondaryColor!.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(4.0),
-                boxShadow: isActive ? [
-                  BoxShadow(
-                    color: theme.primaryColor!.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ] : null,
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: theme.primaryColor!.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
               ),
             );
           },
@@ -251,11 +255,12 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
   Widget _buildVideoThumbnail(VideoModel video, int index) {
     final theme = context.modernTheme;
-    
+
     // Calculate scale based on current page position
     double scale = 1.0;
     if (_pageController.hasClients && _pageController.page != null) {
-      scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
+      scale =
+          1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
     }
 
     return Transform.scale(
@@ -315,13 +320,14 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                           height: double.infinity,
                           child: _buildThumbnailContent(video),
                         ),
-                        
+
                         // Featured badge at top-right
                         Positioned(
                           top: 12,
                           right: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.amber.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(8),
@@ -354,7 +360,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                             ),
                           ),
                         ),
-                        
+
                         // Enhanced gradient overlay
                         Positioned(
                           bottom: 0,
@@ -377,7 +383,9 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  video.caption.isNotEmpty ? video.caption : 'No caption',
+                                  video.caption.isNotEmpty
+                                      ? video.caption
+                                      : 'No caption',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -392,7 +400,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(8),
@@ -408,7 +417,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: Colors.red.withOpacity(0.3),
                                         borderRadius: BorderRadius.circular(8),
@@ -433,7 +443,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                   ),
                 ),
               ),
-              
+
               // Enhanced User info section
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -469,13 +479,15 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
                                         decoration: BoxDecoration(
-                                          color: theme.primaryColor!.withOpacity(0.15),
+                                          color: theme.primaryColor!
+                                              .withOpacity(0.15),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            video.userName.isNotEmpty 
-                                                ? video.userName[0].toUpperCase()
+                                            video.userName.isNotEmpty
+                                                ? video.userName[0]
+                                                    .toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -489,12 +501,13 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                                   )
                                 : Container(
                                     decoration: BoxDecoration(
-                                      color: theme.primaryColor!.withOpacity(0.15),
+                                      color:
+                                          theme.primaryColor!.withOpacity(0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
                                       child: Text(
-                                        video.userName.isNotEmpty 
+                                        video.userName.isNotEmpty
                                             ? video.userName[0].toUpperCase()
                                             : "U",
                                         style: TextStyle(
@@ -509,9 +522,9 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(width: 14),
-                    
+
                     // Enhanced user info
                     Expanded(
                       child: Column(
@@ -529,9 +542,11 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                           ),
                           const SizedBox(height: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: theme.surfaceVariantColor!.withOpacity(0.7),
+                              color:
+                                  theme.surfaceVariantColor!.withOpacity(0.7),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: theme.dividerColor!.withOpacity(0.2),
@@ -575,7 +590,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
     final authState = ref.read(authenticationProvider);
     final currentAuthState = authState.value;
     if (currentAuthState == null) return 0;
-    
+
     try {
       final user = currentAuthState.users.firstWhere(
         (user) => user.uid == userId,
@@ -608,7 +623,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildLoadingThumbnail();
           }
-          
+
           if (snapshot.hasData && snapshot.data != null) {
             return Image.memory(
               snapshot.data!,
@@ -617,7 +632,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
               height: double.infinity,
             );
           }
-          
+
           if (video.thumbnailUrl.isNotEmpty) {
             return Image.network(
               video.thumbnailUrl,
@@ -629,7 +644,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
               },
             );
           }
-          
+
           return _buildErrorThumbnail();
         },
       );
@@ -684,7 +699,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
   Widget _buildLoadingState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -736,7 +751,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
   Widget _buildErrorState(String error) {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -798,7 +813,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                 onTap: () => _loadFeaturedVideos(forceRefresh: true),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -840,7 +856,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
 
   Widget _buildEmptyState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -905,7 +921,8 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -951,7 +968,7 @@ class _FeaturedVideosScreenState extends ConsumerState<FeaturedVideosScreen>
       Constants.videosFeedScreen,
       arguments: {
         Constants.startVideoId: video.id,
-        Constants.userId: video.userId, 
+        Constants.userId: video.userId,
       },
     );
   }

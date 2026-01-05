@@ -24,10 +24,12 @@ class MarketplaceSearchOverlay extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MarketplaceSearchOverlay> createState() => _MarketplaceSearchOverlayState();
+  ConsumerState<MarketplaceSearchOverlay> createState() =>
+      _MarketplaceSearchOverlayState();
 }
 
-class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOverlay>
+class _MarketplaceSearchOverlayState
+    extends ConsumerState<MarketplaceSearchOverlay>
     with SingleTickerProviderStateMixin {
   late TextEditingController _controller;
   late FocusNode _focusNode;
@@ -61,7 +63,9 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
         if (mounted) {
           _focusNode.requestFocus();
           if (widget.initialQuery?.isNotEmpty == true) {
-            ref.read(marketplaceSearchProvider.notifier).searchNow(widget.initialQuery!);
+            ref
+                .read(marketplaceSearchProvider.notifier)
+                .searchNow(widget.initialQuery!);
           }
         }
       });
@@ -118,8 +122,7 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                     ),
 
                     // Filter chip
-                    if (_controller.text.isNotEmpty)
-                      _buildFilterChip(),
+                    if (_controller.text.isNotEmpty) _buildFilterChip(),
 
                     // Search results or empty state
                     Expanded(
@@ -164,7 +167,8 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
               decoration: InputDecoration(
                 hintText: 'Search',
                 hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-                prefixIcon: Icon(CupertinoIcons.search, color: Colors.grey[500], size: 20),
+                prefixIcon: Icon(CupertinoIcons.search,
+                    color: Colors.grey[500], size: 20),
                 suffixIcon: _controller.text.isNotEmpty
                     ? GestureDetector(
                         onTap: () {
@@ -172,24 +176,30 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                           ref.read(marketplaceSearchProvider.notifier).clear();
                           setState(() {});
                         },
-                        child: Icon(Icons.cancel, color: Colors.grey[500], size: 20),
+                        child: Icon(Icons.cancel,
+                            color: Colors.grey[500], size: 20),
                       )
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 isDense: true,
               ),
               onChanged: (value) {
                 setState(() {});
                 if (value.trim().isNotEmpty) {
-                  ref.read(marketplaceSearchProvider.notifier).search(value, usernameOnly: _usernameOnly);
+                  ref
+                      .read(marketplaceSearchProvider.notifier)
+                      .search(value, usernameOnly: _usernameOnly);
                 } else {
                   ref.read(marketplaceSearchProvider.notifier).clear();
                 }
               },
               onSubmitted: (value) {
                 if (value.trim().isNotEmpty) {
-                  ref.read(marketplaceSearchProvider.notifier).searchNow(value, usernameOnly: _usernameOnly);
+                  ref
+                      .read(marketplaceSearchProvider.notifier)
+                      .searchNow(value, usernameOnly: _usernameOnly);
                 }
               },
               textInputAction: TextInputAction.search,
@@ -201,7 +211,10 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
           onTap: _close,
           child: const Text(
             'Cancel',
-            style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -226,7 +239,9 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _usernameOnly ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+                color: _usernameOnly
+                    ? Colors.blue.withOpacity(0.1)
+                    : Colors.grey[100],
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _usernameOnly ? Colors.blue : Colors.grey[300]!,
@@ -314,11 +329,13 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        itemCount: state.marketplaceVideos.length + (state.isLoading && state.hasResults ? 1 : 0),
+        itemCount: state.marketplaceVideos.length +
+            (state.isLoading && state.hasResults ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == state.marketplaceVideos.length) {
             return const Center(
-              child: CircularProgressIndicator(color: Colors.black87, strokeWidth: 2),
+              child: CircularProgressIndicator(
+                  color: Colors.black87, strokeWidth: 2),
             );
           }
 
@@ -356,17 +373,20 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                       placeholder: (context, url) => Container(
                         color: Colors.grey[300],
                         child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.grey),
                         ),
                       ),
                       errorWidget: (context, url, error) => Container(
                         color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                        child:
+                            const Icon(Icons.broken_image, color: Colors.grey),
                       ),
                     )
                   : Container(
                       color: Colors.grey[300],
-                      child: const Icon(Icons.play_circle_outline, color: Colors.grey),
+                      child: const Icon(Icons.play_circle_outline,
+                          color: Colors.grey),
                     ),
             ),
 
@@ -412,11 +432,13 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
                   // Views
                   Row(
                     children: [
-                      const Icon(CupertinoIcons.eye, color: Colors.white, size: 10),
+                      const Icon(CupertinoIcons.eye,
+                          color: Colors.white, size: 10),
                       const SizedBox(width: 3),
                       Text(
                         _formatCount(marketplaceVideo.views),
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 10),
                       ),
                     ],
                   ),
@@ -456,7 +478,10 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
             const SizedBox(height: 16),
             Text(
               'Something went wrong',
-              style: TextStyle(color: Colors.grey[800], fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: Colors.grey[800],
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -469,14 +494,17 @@ class _MarketplaceSearchOverlayState extends ConsumerState<MarketplaceSearchOver
               onPressed: () {
                 if (_controller.text.trim().isNotEmpty) {
                   ref.read(marketplaceSearchProvider.notifier).searchNow(
-                    _controller.text,
-                    usernameOnly: _usernameOnly,
-                  );
+                        _controller.text,
+                        usernameOnly: _usernameOnly,
+                      );
                 }
               },
               child: const Text(
                 'Try Again',
-                style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ],

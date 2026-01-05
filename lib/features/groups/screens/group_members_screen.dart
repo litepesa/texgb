@@ -87,7 +87,8 @@ class GroupMembersScreen extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text('${member.displayName} promoted to admin')),
+                            content: Text(
+                                '${member.displayName} promoted to admin')),
                       );
                     }
                   } catch (e) {
@@ -106,7 +107,8 @@ class GroupMembersScreen extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text('${member.displayName} demoted to member')),
+                            content: Text(
+                                '${member.displayName} demoted to member')),
                       );
                     }
                   } catch (e) {
@@ -158,11 +160,14 @@ class GroupMembersScreen extends ConsumerWidget {
       builder: (context) => Consumer(
         builder: (context, ref, _) {
           final allUsers = ref.watch(usersProvider);
-          final currentMembers = ref.watch(groupMembersProvider(groupId)).valueOrNull ?? [];
+          final currentMembers =
+              ref.watch(groupMembersProvider(groupId)).valueOrNull ?? [];
           final currentMemberIds = currentMembers.map((m) => m.userId).toSet();
 
           // Filter out users who are already members
-          final availableUsers = allUsers.where((user) => !currentMemberIds.contains(user.id)).toList();
+          final availableUsers = allUsers
+              .where((user) => !currentMemberIds.contains(user.id))
+              .toList();
 
           return AlertDialog(
             title: const Text('Add Members'),
@@ -195,11 +200,14 @@ class GroupMembersScreen extends ConsumerWidget {
                             itemCount: availableUsers.length,
                             itemBuilder: (context, index) {
                               final user = availableUsers[index];
-                              final searchQuery = searchController.text.toLowerCase();
+                              final searchQuery =
+                                  searchController.text.toLowerCase();
 
                               // Filter by search query
                               if (searchQuery.isNotEmpty &&
-                                  !user.name.toLowerCase().contains(searchQuery)) {
+                                  !user.name
+                                      .toLowerCase()
+                                      .contains(searchQuery)) {
                                 return const SizedBox.shrink();
                               }
 
@@ -209,7 +217,9 @@ class GroupMembersScreen extends ConsumerWidget {
                                       ? NetworkImage(user.profileImage)
                                       : null,
                                   child: user.profileImage.isEmpty
-                                      ? Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U')
+                                      ? Text(user.name.isNotEmpty
+                                          ? user.name[0].toUpperCase()
+                                          : 'U')
                                       : null,
                                 ),
                                 title: Text(user.name),
@@ -221,17 +231,21 @@ class GroupMembersScreen extends ConsumerWidget {
                                   onPressed: () async {
                                     try {
                                       await ref
-                                          .read(groupMembersProvider(groupId).notifier)
+                                          .read(groupMembersProvider(groupId)
+                                              .notifier)
                                           .addMembers([user.id]);
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
-                                              content: Text('${user.name} added to group')),
+                                              content: Text(
+                                                  '${user.name} added to group')),
                                         );
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(content: Text('Error: $e')),
                                         );
                                       }
@@ -260,8 +274,7 @@ class GroupMembersScreen extends ConsumerWidget {
     );
   }
 
-  void _showRemoveMemberDialog(
-      BuildContext context, WidgetRef ref, member) {
+  void _showRemoveMemberDialog(BuildContext context, WidgetRef ref, member) {
     final modernTheme = context.modernTheme;
     showDialog(
       context: context,
@@ -296,7 +309,8 @@ class GroupMembersScreen extends ConsumerWidget {
                 }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: modernTheme.errorColor),
+            style:
+                TextButton.styleFrom(foregroundColor: modernTheme.errorColor),
             child: const Text('Remove'),
           ),
         ],

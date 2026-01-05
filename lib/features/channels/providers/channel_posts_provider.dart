@@ -69,7 +69,8 @@ class ChannelPosts extends _$ChannelPosts {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
 
-    final updatedList = currentState.where((post) => post.id != postId).toList();
+    final updatedList =
+        currentState.where((post) => post.id != postId).toList();
     state = AsyncValue.data(updatedList);
   }
 }

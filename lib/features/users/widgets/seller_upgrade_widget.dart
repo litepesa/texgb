@@ -12,7 +12,7 @@ class SellerUpgradeWidget extends StatelessWidget {
     final primaryColor = theme.colorScheme.primary;
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     return Container(
       height: screenHeight * 0.85,
       decoration: const BoxDecoration(
@@ -33,7 +33,7 @@ class SellerUpgradeWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
@@ -87,7 +87,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Market opportunity banner
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -136,7 +136,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           const SizedBox(height: 16),
                           _buildMarketStat(
                             '1M+',
-                            'Active users on WemaChat',
+                            'Active users on WemaShop',
                             Icons.people_rounded,
                           ),
                           const SizedBox(height: 10),
@@ -173,9 +173,9 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Key benefits highlight cards
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -184,7 +184,8 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.groups_rounded,
                           title: 'Massive Audience Reach',
-                          description: 'Reach over 1 million active Kenyan users on WemaChat - your potential customers are already here',
+                          description:
+                              'Reach over 1 million active Kenyan users on WemaShop - your potential customers are already here',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFD32F2F), Color(0xFFE53935)],
                           ),
@@ -193,7 +194,8 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.money_off_rounded,
                           title: '0% Commission Forever',
-                          description: 'Keep 100% of your sales - no hidden fees, no commission cuts, ever!',
+                          description:
+                              'Keep 100% of your sales - no hidden fees, no commission cuts, ever!',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
                           ),
@@ -202,7 +204,8 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: CupertinoIcons.bubble_left,
                           title: 'Direct Buyer Connection',
-                          description: 'Buyers can message you instantly through WemaChat\'s built-in messaging - no third-party apps needed',
+                          description:
+                              'Buyers can message you instantly through WemaShop\'s built-in messaging - no third-party apps needed',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
                           ),
@@ -211,16 +214,28 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildHighlightCard(
                           icon: Icons.trending_up_rounded,
                           title: 'Unlimited Growth Potential',
-                          description: 'No limits on products, sales, or earnings - scale your business without restrictions',
+                          description:
+                              'No limits on products, sales, or earnings - scale your business without restrictions',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFE65100), Color(0xFFFF6F00)],
                           ),
                         ),
                         const SizedBox(height: 12),
                         _buildHighlightCard(
+                          icon: Icons.campaign_rounded,
+                          title: 'Free Social Media Ads',
+                          description:
+                              'Get your products advertised for FREE on Facebook, TikTok, and Instagram - reach millions beyond WemaShop!',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildHighlightCard(
                           icon: Icons.live_tv_rounded,
                           title: 'Live Selling (Coming Soon)',
-                          description: 'Sell products live to thousands of viewers - verified sellers will get early access to livestream shopping',
+                          description:
+                              'Sell products live to thousands of viewers - verified sellers will get early access to livestream shopping',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFD32F2F), Color(0xFFE91E63)],
                           ),
@@ -229,7 +244,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // What you're missing section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -268,7 +283,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _buildMissingItem(
-                            '🚫 Losing sales to competitors who are already on WemaChat',
+                            '🚫 Losing sales to competitors who are already on WemaShop',
                           ),
                           _buildMissingItem(
                             '🚫 Missing out on 1M+ active buyers searching daily',
@@ -277,7 +292,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                             '🚫 Paying commissions on other platforms when you could keep 100%',
                           ),
                           _buildMissingItem(
-                            '🚫 Limited reach when you could access WemaChat\'s growing user base',
+                            '🚫 Limited reach when you could access WemaShop\'s growing user base',
                           ),
                           _buildMissingItem(
                             '🚫 Complicated processes instead of simple direct messaging',
@@ -286,9 +301,9 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Additional benefits
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -307,42 +322,47 @@ class SellerUpgradeWidget extends StatelessWidget {
                         _buildBenefitItem(
                           icon: Icons.add_circle_outline,
                           title: 'Unlimited Product Posts',
-                          description: 'Showcase all your products with engaging short videos',
+                          description:
+                              'Showcase all your products with engaging short videos',
                           color: Colors.blue,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.search_rounded,
                           title: 'Prime Marketplace Visibility',
-                          description: 'Your products appear in search results and recommendations to millions',
+                          description:
+                              'Your products appear in search results and recommendations to millions',
                           color: Colors.purple,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.phone_android_rounded,
                           title: 'Mobile-First Experience',
-                          description: 'Optimized for Kenya\'s mobile-first market - where your customers are',
+                          description:
+                              'Optimized for Kenya\'s mobile-first market - where your customers are',
                           color: Colors.teal,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.dashboard_rounded,
                           title: 'Powerful Seller Dashboard',
-                          description: 'Manage inventory, track views, and monitor performance',
+                          description:
+                              'Manage inventory, track views, and monitor performance',
                           color: Colors.indigo,
                         ),
                         const SizedBox(height: 12),
                         _buildBenefitItem(
                           icon: Icons.support_agent_rounded,
                           title: 'Dedicated Seller Support',
-                          description: 'Get help during business hours (8 AM - 5 PM)',
+                          description:
+                              'Get help during business hours (8 AM - 5 PM)',
                           color: Colors.orange,
                         ),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                  
+
                   // Success stories section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -378,7 +398,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Smart sellers are already reaching thousands of customers daily on WemaChat. Your competition is growing - don\'t get left behind!',
+                            'Smart sellers are already reaching thousands of customers daily on WemaShop. Your competition is growing - don\'t get left behind!',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 15,
@@ -390,9 +410,9 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Important notes
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -430,7 +450,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 const SizedBox(height: 8),
                                 Text(
                                   '• Instant activation within 30 minutes (8 AM - 5 PM)\n'
-                                  '• One-time payment for seller access\n'
+                                  '• Annual subscription (999 KES/year)\n'
                                   '• Start posting products immediately after upgrade\n'
                                   '• Get verified later to build even more trust',
                                   style: TextStyle(
@@ -446,12 +466,13 @@ class SellerUpgradeWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Action buttons
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     child: Column(
                       children: [
                         // Primary upgrade button
@@ -477,7 +498,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 Icon(Icons.rocket_launch_rounded, size: 22),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Start Selling - USD 25',
+                                  'Start Selling - KES 999/year',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -489,7 +510,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'One-time payment',
+                          'Annual subscription',
                           style: TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -716,7 +737,7 @@ class SellerUpgradeWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'One-Time Upgrade Fee:',
+                'Annual Subscription:',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -756,7 +777,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'USD 25 / KES 3,225',
+                          'KES 999',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -767,7 +788,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'One-time payment for lifetime seller access',
+                      'Annual subscription for seller access',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -793,13 +814,15 @@ class SellerUpgradeWidget extends StatelessWidget {
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Paybill number copied to clipboard!'),
+                                content:
+                                    Text('Paybill number copied to clipboard!'),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(4),
@@ -921,13 +944,15 @@ class SellerUpgradeWidget extends StatelessWidget {
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Phone number copied to clipboard!'),
+                                  content:
+                                      Text('Phone number copied to clipboard!'),
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.orange.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),

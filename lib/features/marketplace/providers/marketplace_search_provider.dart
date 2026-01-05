@@ -73,7 +73,8 @@ class SimpleSearchState {
 // ===============================
 
 @riverpod
-MarketplaceSearchRepository marketplaceSearchRepository(MarketplaceSearchRepositoryRef ref) {
+MarketplaceSearchRepository marketplaceSearchRepository(
+    MarketplaceSearchRepositoryRef ref) {
   return MarketplaceSearchRepository();
 }
 
@@ -99,7 +100,7 @@ class MarketplaceSearch extends _$MarketplaceSearch {
     _debounceTimer?.cancel();
 
     final trimmed = query.trim();
-    
+
     // Clear results if query is too short
     if (trimmed.length < 2) {
       state = const SimpleSearchState();
@@ -139,7 +140,8 @@ class MarketplaceSearch extends _$MarketplaceSearch {
     if (!state.hasMore || state.isLoading) return;
 
     try {
-      debugPrint('📄 Loading more results (offset: ${state.marketplaceVideos.length})');
+      debugPrint(
+          '📄 Loading more results (offset: ${state.marketplaceVideos.length})');
 
       final repository = ref.read(marketplaceSearchRepositoryProvider);
       final response = await repository.searchMarketplaceVideos(
@@ -151,12 +153,16 @@ class MarketplaceSearch extends _$MarketplaceSearch {
 
       // Append new marketplaceVideos to existing list
       state = state.copyWith(
-        marketplaceVideos: [...state.marketplaceVideos, ...response.marketplaceVideos],
+        marketplaceVideos: [
+          ...state.marketplaceVideos,
+          ...response.marketplaceVideos
+        ],
         hasMore: response.hasMore,
         totalResults: response.total,
       );
 
-      debugPrint('✅ Loaded more: ${response.marketplaceVideos.length} marketplaceVideos (total: ${state.marketplaceVideos.length})');
+      debugPrint(
+          '✅ Loaded more: ${response.marketplaceVideos.length} marketplaceVideos (total: ${state.marketplaceVideos.length})');
     } catch (e) {
       debugPrint('❌ Load more error: $e');
       // Don't update state on pagination errors - just log it
@@ -194,7 +200,7 @@ class MarketplaceSearch extends _$MarketplaceSearch {
   Future<void> _performSearch(String query, bool usernameOnly) async {
     try {
       debugPrint('🔍 Searching: "$query" (usernameOnly: $usernameOnly)');
-      
+
       state = state.copyWith(
         status: SearchStatus.loading,
         query: query,
@@ -224,7 +230,8 @@ class MarketplaceSearch extends _$MarketplaceSearch {
           totalResults: response.total,
           hasMore: response.hasMore,
         );
-        debugPrint('✅ Search complete: ${response.marketplaceVideos.length} marketplaceVideos (total: ${response.total})');
+        debugPrint(
+            '✅ Search complete: ${response.marketplaceVideos.length} marketplaceVideos (total: ${response.total})');
       }
     } catch (e) {
       debugPrint('❌ Search failed: $e');
@@ -237,7 +244,8 @@ class MarketplaceSearch extends _$MarketplaceSearch {
   }
 
   // Helper to check if provider is still mounted
-  bool get mounted => state.status != SearchStatus.idle || state.query.isNotEmpty;
+  bool get mounted =>
+      state.status != SearchStatus.idle || state.query.isNotEmpty;
 }
 
 // ===============================

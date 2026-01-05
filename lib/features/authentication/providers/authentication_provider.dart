@@ -146,13 +146,13 @@ class Authentication extends _$Authentication {
 
           if (userProfile != null) {
             await _saveCachedUserProfile(userProfile);
-            
+
             // ✅ Load videos and users in parallel
             await Future.wait([
               loadVideos(),
               loadUsers(),
             ]);
-            
+
             await _saveCachedUsers(state.value?.users ?? []);
 
             return AuthenticationState(
@@ -185,7 +185,7 @@ class Authentication extends _$Authentication {
 
     // ✅ User not authenticated - load videos immediately for guest browsing
     debugPrint('🎬 Loading videos for guest user...');
-    
+
     await Future.wait([
       loadVideos(),
       loadUsers(),
@@ -340,10 +340,10 @@ class Authentication extends _$Authentication {
 
     try {
       debugPrint('🔄 Force refreshing user profile from backend...');
-      
+
       // 1. Fetch fresh data from backend (ignore cache completely)
       final freshProfile = await _repository.getUserProfile(userId);
-      
+
       if (freshProfile != null) {
         debugPrint('✅ Fresh profile retrieved:');
         debugPrint('   - Name: ${freshProfile.name}');
@@ -353,7 +353,7 @@ class Authentication extends _$Authentication {
         debugPrint('   - Can Post: ${freshProfile.canPost}');
         debugPrint('   - Can Comment: ${freshProfile.canComment}');
         debugPrint('   - UID: ${freshProfile.uid}');
-        
+
         // 2. Update state immediately with fresh data
         final currentState = state.value ?? const AuthenticationState();
         state = AsyncValue.data(currentState.copyWith(
@@ -361,17 +361,17 @@ class Authentication extends _$Authentication {
           state: AuthState.authenticated,
           isSuccessful: true,
         ));
-        
+
         // 3. Update all caches with fresh data
         await _saveCachedUserProfile(freshProfile);
-        
+
         // Also update SharedPreferences userModel
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('userModel', jsonEncode(freshProfile.toMap()));
-        
+
         debugPrint('✅ Profile refresh complete and all caches updated');
       }
-      
+
       return freshProfile;
     } catch (e) {
       debugPrint('❌ Force refresh failed: $e');
@@ -518,13 +518,13 @@ class Authentication extends _$Authentication {
 
         if (userModel != null) {
           await _saveCachedUserProfile(userModel);
-          
+
           // ✅ Load videos and users in parallel
           await Future.wait([
             loadVideos(),
             loadUsers(),
           ]);
-          
+
           await _saveCachedUsers(state.value?.users ?? []);
 
           state = AsyncValue.data(AuthenticationState(
@@ -553,7 +553,7 @@ class Authentication extends _$Authentication {
       }
     } on AuthRepositoryException catch (e) {
       debugPrint('Failed to handle post-OTP verification: ${e.message}');
-      
+
       // ✅ Still load videos even on error
       await Future.wait([
         loadVideos(),
@@ -591,13 +591,13 @@ class Authentication extends _$Authentication {
 
       // Cache the new user profile
       await _saveCachedUserProfile(createdUser);
-      
+
       // ✅ Load videos and users in parallel
       await Future.wait([
         loadVideos(),
         loadUsers(),
       ]);
-      
+
       await _saveCachedUsers(state.value?.users ?? []);
 
       state = AsyncValue.data(AuthenticationState(
@@ -689,9 +689,9 @@ class Authentication extends _$Authentication {
   Future<void> loadVideos() async {
     try {
       debugPrint('🎬 Loading videos from backend...');
-      
+
       final videos = await _repository.getVideos();
-      
+
       debugPrint('✅ Loaded ${videos.length} videos successfully');
 
       final currentState = state.value ?? const AuthenticationState();
@@ -700,8 +700,8 @@ class Authentication extends _$Authentication {
         return video.copyWith(isLiked: isLiked);
       }).toList();
 
-      state = AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
-      
+      state =
+          AsyncValue.data(currentState.copyWith(videos: videosWithLikedStatus));
     } on AuthRepositoryException catch (e) {
       debugPrint('❌ Error loading videos: ${e.message}');
       // ✅ Don't set error state - just log it to keep UI functional
@@ -785,7 +785,7 @@ class Authentication extends _$Authentication {
 
       // Thumbnail is now pre-generated and passed as parameter
       debugPrint('🎬 Step 1/4: Using pre-generated thumbnail...');
-      
+
       if (thumbnailFile == null) {
         debugPrint('⚠️ Warning: No thumbnail provided, continuing without it');
       } else {
@@ -804,10 +804,11 @@ class Authentication extends _$Authentication {
         try {
           thumbnailUrl = await _repository.storeFileToStorage(
             file: thumbnailFile,
-            reference: 'thumbnails/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+            reference:
+                'thumbnails/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg',
           );
           debugPrint('✅ Thumbnail uploaded to R2: $thumbnailUrl');
-          
+
           // Clean up temporary thumbnail file after successful upload
           final thumbnailService = VideoThumbnailService();
           await thumbnailService.deleteThumbnailFile(thumbnailFile);
@@ -815,7 +816,7 @@ class Authentication extends _$Authentication {
           debugPrint('⚠️ Warning: Failed to upload thumbnail: $e');
           // Continue without thumbnail - don't fail the entire upload
           thumbnailUrl = '';
-          
+
           // Try to clean up the file anyway
           try {
             final thumbnailService = VideoThumbnailService();
@@ -833,7 +834,8 @@ class Authentication extends _$Authentication {
       debugPrint('🎹 Step 3/4: Uploading video to Cloudflare R2...');
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
-        reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
+        reference:
+            'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
           // Map video upload progress from 20% to 90%
           final mappedProgress = 0.2 + (progress * 0.7);
@@ -853,7 +855,7 @@ class Authentication extends _$Authentication {
       // Create video record in database with price
       debugPrint('💾 Step 4/4: Creating video record in database...');
       debugPrint('💰 Video price: ${price ?? 0.0} KES');
-      
+
       final videoData = await _repository.createVideo(
         userId: user.uid,
         userName: user.name,
@@ -864,7 +866,8 @@ class Authentication extends _$Authentication {
         tags: tags ?? [],
         price: price ?? 0.0,
       );
-      debugPrint('✅ Video record created in database with price: ${videoData.price}');
+      debugPrint(
+          '✅ Video record created in database with price: ${videoData.price}');
 
       List<VideoModel> updatedVideos = [
         videoData,
@@ -882,7 +885,7 @@ class Authentication extends _$Authentication {
       onSuccess('Video uploaded successfully');
     } on AuthRepositoryException catch (e) {
       debugPrint('❌ Error uploading video: ${e.message}');
-      
+
       // Clean up thumbnail file if it exists
       if (thumbnailFile != null) {
         try {
@@ -890,7 +893,7 @@ class Authentication extends _$Authentication {
           await thumbnailService.deleteThumbnailFile(thumbnailFile);
         } catch (_) {}
       }
-      
+
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 0.0,
@@ -898,7 +901,7 @@ class Authentication extends _$Authentication {
       onError(e.message);
     } catch (e) {
       debugPrint('❌ Unexpected error uploading video: $e');
-      
+
       // Clean up thumbnail file if it exists
       if (thumbnailFile != null) {
         try {
@@ -906,7 +909,7 @@ class Authentication extends _$Authentication {
           await thumbnailService.deleteThumbnailFile(thumbnailFile);
         } catch (_) {}
       }
-      
+
       state = AsyncValue.data(currentState.copyWith(
         isUploading: false,
         uploadProgress: 0.0,
@@ -1164,7 +1167,7 @@ class Authentication extends _$Authentication {
       debugPrint('🚀 Starting boost purchase for video: $videoId');
       debugPrint('   - Boost Tier: $boostTier');
       debugPrint('   - User: ${currentState.currentUser!.name}');
-      
+
       // Determine coin amount based on boost tier
       final int coinAmount;
       switch (boostTier.toLowerCase()) {
@@ -1181,9 +1184,9 @@ class Authentication extends _$Authentication {
           onError('Invalid boost tier');
           return;
       }
-      
+
       debugPrint('   - Coin Amount: $coinAmount');
-      
+
       // Call repository to boost video (backend will handle wallet deduction)
       final boostedVideo = await _repository.boostVideo(
         videoId: videoId,
@@ -1191,11 +1194,11 @@ class Authentication extends _$Authentication {
         boostTier: boostTier.toLowerCase(),
         coinAmount: coinAmount,
       );
-      
+
       debugPrint('✅ Boost purchase successful');
       debugPrint('   - Video now boosted: ${boostedVideo.isBoosted}');
       debugPrint('   - Boost tier: ${boostedVideo.boostTier}');
-      
+
       // Update video in local state
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
@@ -1203,14 +1206,13 @@ class Authentication extends _$Authentication {
         }
         return video;
       }).toList();
-      
+
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
-      
+
       onSuccess('Video boosted successfully! 🚀');
-      
     } on AuthRepositoryException catch (e) {
       debugPrint('❌ Boost purchase failed: ${e.message}');
-      
+
       // Handle specific error cases
       if (e.message.toLowerCase().contains('insufficient')) {
         onError('Insufficient wallet balance. Please top up your wallet.');
@@ -1231,7 +1233,7 @@ class Authentication extends _$Authentication {
     if (currentState == null || currentState.currentUser == null) {
       return false;
     }
-    
+
     // This is a simple check - actual wallet balance check should be done via wallet provider
     // But we can provide this helper method for UI decisions
     final int requiredCoins;
@@ -1248,7 +1250,7 @@ class Authentication extends _$Authentication {
       default:
         return false;
     }
-    
+
     // Note: This is a placeholder - real implementation should check wallet balance
     // For now, we'll always return true and let the backend handle the actual check
     return true;
@@ -1418,7 +1420,7 @@ class Authentication extends _$Authentication {
   Future<void> addComment({
     required String videoId,
     required String content,
-    List<File>? imageFiles,  // 🆕 NEW parameter for image uploads
+    List<File>? imageFiles, // 🆕 NEW parameter for image uploads
     String? repliedToCommentId,
     String? repliedToAuthorName,
     required Function(String) onSuccess,
@@ -1433,7 +1435,7 @@ class Authentication extends _$Authentication {
 
     try {
       final user = currentState.currentUser!;
-      
+
       debugPrint('💬 Adding comment to video: $videoId');
       if (imageFiles != null && imageFiles.isNotEmpty) {
         debugPrint('📸 Comment includes ${imageFiles.length} image(s)');
@@ -1445,14 +1447,16 @@ class Authentication extends _$Authentication {
         try {
           // Limit to 2 images
           final filesToUpload = imageFiles.take(2).toList();
-          
-          debugPrint('☁️ Uploading ${filesToUpload.length} comment images to R2...');
-          
+
+          debugPrint(
+              '☁️ Uploading ${filesToUpload.length} comment images to R2...');
+
           imageUrls = await _repository.storeFilesToStorage(
             files: filesToUpload,
-            referencePrefix: 'comments/${user.uid}/${DateTime.now().millisecondsSinceEpoch}',
+            referencePrefix:
+                'comments/${user.uid}/${DateTime.now().millisecondsSinceEpoch}',
           );
-          
+
           debugPrint('✅ Comment images uploaded successfully');
         } catch (e) {
           debugPrint('⚠️ Warning: Failed to upload comment images: $e');
@@ -1468,7 +1472,7 @@ class Authentication extends _$Authentication {
         authorName: user.name,
         authorImage: user.profileImage,
         content: content,
-        imageUrls: imageUrls,  // 🆕 Pass uploaded URLs
+        imageUrls: imageUrls, // 🆕 Pass uploaded URLs
         repliedToCommentId: repliedToCommentId,
         repliedToAuthorName: repliedToAuthorName,
       );
@@ -1550,7 +1554,7 @@ class Authentication extends _$Authentication {
 
   // 🆕 NEW: Pin comment (video creator only)
   Future<void> pinComment(
-    String commentId, 
+    String commentId,
     String videoId,
     Function(String) onError,
   ) async {

@@ -8,7 +8,8 @@ import 'package:flutter_video_caching/flutter_video_caching.dart';
 /// Singleton service for managing video caching with flutter_video_caching
 /// Provides TikTok-like instant video playback through intelligent preloading
 class MarketplaceCacheService {
-  static final MarketplaceCacheService _instance = MarketplaceCacheService._internal();
+  static final MarketplaceCacheService _instance =
+      MarketplaceCacheService._internal();
   factory MarketplaceCacheService() => _instance;
   MarketplaceCacheService._internal();
 
@@ -60,7 +61,8 @@ class MarketplaceCacheService {
       }
 
       _isInitialized = true;
-      debugPrint('MarketplaceCacheService: Initialized successfully on port $_proxyPort');
+      debugPrint(
+          'MarketplaceCacheService: Initialized successfully on port $_proxyPort');
     } catch (e) {
       debugPrint('MarketplaceCacheService: Initialization failed - $e');
       rethrow;
@@ -71,7 +73,8 @@ class MarketplaceCacheService {
   /// This enables caching through the local proxy server
   Uri getLocalUri(String videoUrl) {
     if (!_isInitialized) {
-      debugPrint('MarketplaceCacheService: Warning - not initialized, returning original URL');
+      debugPrint(
+          'MarketplaceCacheService: Warning - not initialized, returning original URL');
       return Uri.parse(videoUrl);
     }
 
@@ -106,11 +109,13 @@ class MarketplaceCacheService {
   /// Returns true if precaching started successfully
   Future<bool> precacheVideo(
     String videoUrl, {
-    int cacheSegments = 3, // Cache first 3 segments (6MB with default 2MB segments)
+    int cacheSegments =
+        3, // Cache first 3 segments (6MB with default 2MB segments)
     bool downloadImmediately = true,
   }) async {
     if (!_isInitialized) {
-      debugPrint('MarketplaceCacheService: Not initialized. Call initialize() first.');
+      debugPrint(
+          'MarketplaceCacheService: Not initialized. Call initialize() first.');
       return false;
     }
 
@@ -156,7 +161,8 @@ class MarketplaceCacheService {
   }) async {
     if (!_isInitialized || videoUrls.isEmpty) return;
 
-    debugPrint('MarketplaceCacheService: Precaching ${videoUrls.length} videos');
+    debugPrint(
+        'MarketplaceCacheService: Precaching ${videoUrls.length} videos');
 
     // Process videos in chunks to avoid overwhelming the system
     for (var i = 0; i < videoUrls.length; i += maxConcurrent) {
@@ -164,10 +170,10 @@ class MarketplaceCacheService {
 
       await Future.wait(
         chunk.map((url) => precacheVideo(
-          url,
-          cacheSegments: cacheSegmentsPerVideo,
-          downloadImmediately: false, // Queue for background download
-        )),
+              url,
+              cacheSegments: cacheSegmentsPerVideo,
+              downloadImmediately: false, // Queue for background download
+            )),
       );
     }
   }
@@ -203,7 +209,8 @@ class MarketplaceCacheService {
 
     if (videosToPreload.isEmpty) return;
 
-    debugPrint('MarketplaceCacheService: Intelligent preload - current: $currentIndex, preloading ${videosToPreload.length} videos');
+    debugPrint(
+        'MarketplaceCacheService: Intelligent preload - current: $currentIndex, preloading ${videosToPreload.length} videos');
 
     // Preload in background
     await precacheMultiple(

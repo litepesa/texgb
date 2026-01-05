@@ -8,7 +8,8 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 
 class MarketplaceThumbnailService {
-  static final MarketplaceThumbnailService _instance = MarketplaceThumbnailService._internal();
+  static final MarketplaceThumbnailService _instance =
+      MarketplaceThumbnailService._internal();
   factory MarketplaceThumbnailService() => _instance;
   MarketplaceThumbnailService._internal();
 
@@ -23,7 +24,8 @@ class MarketplaceThumbnailService {
   // Get cache directory for thumbnails
   Future<Directory> _getCacheDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final thumbnailDir = Directory('${appDir.path}/marketplace_video_thumbnails');
+    final thumbnailDir =
+        Directory('${appDir.path}/marketplace_video_thumbnails');
 
     if (!await thumbnailDir.exists()) {
       await thumbnailDir.create(recursive: true);
@@ -79,10 +81,17 @@ class MarketplaceThumbnailService {
     int quality = 85,
   }) async {
     try {
-      debugPrint('🎬 Generating best quality thumbnail from video file: ${videoFile.path}');
+      debugPrint(
+          '🎬 Generating best quality thumbnail from video file: ${videoFile.path}');
 
       // Try multiple time positions to get the best frame
-      final timePositions = [2000, 1000, 3000, 5000, 500]; // Try different seconds
+      final timePositions = [
+        2000,
+        1000,
+        3000,
+        5000,
+        500
+      ]; // Try different seconds
 
       for (final timeMs in timePositions) {
         try {
@@ -97,11 +106,14 @@ class MarketplaceThumbnailService {
           if (thumbnailFile != null && await thumbnailFile.exists()) {
             // Verify file size is reasonable (not corrupted)
             final fileSize = await thumbnailFile.length();
-            if (fileSize > 1000) { // At least 1KB
-              debugPrint('✅ Best thumbnail generated at ${timeMs}ms (size: $fileSize bytes)');
+            if (fileSize > 1000) {
+              // At least 1KB
+              debugPrint(
+                  '✅ Best thumbnail generated at ${timeMs}ms (size: $fileSize bytes)');
               return thumbnailFile;
             } else {
-              debugPrint('⚠️ Thumbnail too small at ${timeMs}ms, trying next position...');
+              debugPrint(
+                  '⚠️ Thumbnail too small at ${timeMs}ms, trying next position...');
               await thumbnailFile.delete(); // Clean up small file
             }
           }
@@ -128,7 +140,8 @@ class MarketplaceThumbnailService {
     int timeMs = 2000,
   }) async {
     try {
-      debugPrint('🎬 Generating thumbnail data from video file: ${videoFile.path}');
+      debugPrint(
+          '🎬 Generating thumbnail data from video file: ${videoFile.path}');
 
       // Generate high-quality thumbnail as bytes
       final thumbnailData = await VideoThumbnail.thumbnailData(
@@ -141,7 +154,8 @@ class MarketplaceThumbnailService {
       );
 
       if (thumbnailData != null && thumbnailData.isNotEmpty) {
-        debugPrint('✅ Thumbnail data generated successfully (${thumbnailData.length} bytes)');
+        debugPrint(
+            '✅ Thumbnail data generated successfully (${thumbnailData.length} bytes)');
         return thumbnailData;
       } else {
         debugPrint('❌ Failed to generate thumbnail data');
@@ -181,7 +195,8 @@ class MarketplaceThumbnailService {
         video: videoUrl,
         thumbnailPath: thumbnailPath,
         imageFormat: ImageFormat.JPEG,
-        maxWidth: 400, // Increased width for better quality (matching recommended posts)
+        maxWidth:
+            400, // Increased width for better quality (matching recommended posts)
         maxHeight: 600, // Increased height for 9:16 aspect ratio videos
         quality: 85, // Higher quality (matching recommended posts quality)
         timeMs: 2000, // Get thumbnail at 2 second mark for better frame
@@ -262,7 +277,8 @@ class MarketplaceThumbnailService {
         }
       }
 
-      debugPrint('Failed to generate thumbnail at any time position for: $videoUrl');
+      debugPrint(
+          'Failed to generate thumbnail at any time position for: $videoUrl');
       return null;
     } catch (e) {
       debugPrint('Error generating best thumbnail: $e');
@@ -275,7 +291,8 @@ class MarketplaceThumbnailService {
     try {
       if (await thumbnailFile.exists()) {
         await thumbnailFile.delete();
-        debugPrint('🗑️ Deleted temporary thumbnail file: ${thumbnailFile.path}');
+        debugPrint(
+            '🗑️ Deleted temporary thumbnail file: ${thumbnailFile.path}');
       }
     } catch (e) {
       debugPrint('❌ Error deleting thumbnail file: $e');
@@ -353,19 +370,35 @@ class MarketplaceThumbnailService {
     if (url.isEmpty) return false;
 
     // Check for common video file extensions
-    final videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v'];
+    final videoExtensions = [
+      '.mp4',
+      '.avi',
+      '.mov',
+      '.mkv',
+      '.webm',
+      '.flv',
+      '.m4v'
+    ];
     final lowerUrl = url.toLowerCase();
 
     return videoExtensions.any((ext) => lowerUrl.contains(ext)) ||
-           lowerUrl.startsWith('http') || // Network URLs
-           lowerUrl.startsWith('file://'); // Local file URLs
+        lowerUrl.startsWith('http') || // Network URLs
+        lowerUrl.startsWith('file://'); // Local file URLs
   }
 
   // Check if video file is valid for thumbnail generation
   bool isValidVideoFile(File file) {
     if (!file.existsSync()) return false;
 
-    final videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v'];
+    final videoExtensions = [
+      '.mp4',
+      '.avi',
+      '.mov',
+      '.mkv',
+      '.webm',
+      '.flv',
+      '.m4v'
+    ];
     final lowerPath = file.path.toLowerCase();
 
     return videoExtensions.any((ext) => lowerPath.endsWith(ext));

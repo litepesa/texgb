@@ -127,7 +127,8 @@ class StatusUploadService {
     }
 
     if (!isValidVideo(videoFile)) {
-      throw Exception('Invalid video format. Supported: MP4, MOV, AVI, MKV, WEBM');
+      throw Exception(
+          'Invalid video format. Supported: MP4, MOV, AVI, MKV, WEBM');
     }
 
     // Note: Duration validation would require video_player or similar

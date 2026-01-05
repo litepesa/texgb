@@ -103,7 +103,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _setupCacheCleanup() {
-    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {});
+    _cacheCleanupTimer =
+        Timer.periodic(const Duration(minutes: 10), (timer) {});
   }
 
   @override
@@ -169,7 +170,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       final followedUsers = ref.read(followedUsersProvider);
       final isFollowing = followedUsers.contains(targetVideo.userId);
       final currentUser = ref.read(currentUserProvider);
-      final isOwner = currentUser != null && currentUser.uid == targetVideo.userId;
+      final isOwner =
+          currentUser != null && currentUser.uid == targetVideo.userId;
 
       if (mounted) {
         setState(() {
@@ -206,14 +208,22 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _startIntelligentPreloading() {
-    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) {
+    if (!_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isCommentsSheetOpen) {
       return;
     }
     if (_videos.isEmpty) return;
   }
 
   void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) {
+    if (!mounted ||
+        !_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isManuallyPaused ||
+        _isCommentsSheetOpen) {
       return;
     }
 
@@ -245,9 +255,17 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
   void _resumeFromNavigation() {
     _isNavigatingAway = false;
-    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (_isScreenActive &&
+        _isAppInForeground &&
+        !_isManuallyPaused &&
+        !_isCommentsSheetOpen) {
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+        if (mounted &&
+            !_isNavigatingAway &&
+            _isScreenActive &&
+            _isAppInForeground &&
+            !_isManuallyPaused &&
+            !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
@@ -298,7 +316,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                    child:
+                        const Icon(Icons.close, color: Colors.white, size: 16),
                   ),
                 ),
               ],
@@ -327,7 +346,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     if (_currentVideoController?.value.isInitialized != true) {
       return Container(
         color: Colors.black,
-        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+        child:
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -347,7 +367,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     if (imageUrls.isEmpty) {
       return Container(
         color: Colors.black,
-        child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
+        child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
       );
     }
 
@@ -362,7 +383,9 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           errorBuilder: (context, error, stackTrace) {
             return Container(
               color: Colors.black,
-              child: const Center(child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
+              child: const Center(
+                  child:
+                      Icon(Icons.broken_image, color: Colors.white, size: 32)),
             );
           },
         );
@@ -371,7 +394,11 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) {
+    if (!mounted ||
+        !_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isCommentsSheetOpen) {
       return;
     }
 
@@ -382,7 +409,11 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     controller.seekTo(Duration.zero);
     WakelockPlus.enable();
 
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (_isScreenActive &&
+        _isAppInForeground &&
+        !_isNavigatingAway &&
+        !_isManuallyPaused &&
+        !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
     }
   }
@@ -401,12 +432,18 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       _isManuallyPaused = false;
     });
 
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (_isScreenActive &&
+        _isAppInForeground &&
+        !_isNavigatingAway &&
+        !_isManuallyPaused &&
+        !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
       WakelockPlus.enable();
     }
 
-    ref.read(authenticationProvider.notifier).incrementViewCount(_videos[index].id);
+    ref
+        .read(authenticationProvider.notifier)
+        .incrementViewCount(_videos[index].id);
   }
 
   void _handleBackNavigation() {
@@ -705,13 +742,18 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       scrollDirection: Axis.vertical,
       itemCount: _videos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
+      physics: _isScreenActive && !_isCommentsSheetOpen
+          ? null
+          : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = _videos[index];
 
         return VideoItem(
           video: video,
-          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
+          isActive: index == _currentVideoIndex &&
+              _isScreenActive &&
+              _isAppInForeground &&
+              !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
@@ -728,11 +770,13 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.videocam_off_outlined, color: Colors.white, size: 80),
+          const Icon(Icons.videocam_off_outlined,
+              color: Colors.white, size: 80),
           const SizedBox(height: 24),
           const Text(
             'No Videos Yet',
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
@@ -745,7 +789,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           if (_isOwner) ...[
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, Constants.createPostScreen),
+              onPressed: () =>
+                  Navigator.pushNamed(context, Constants.createPostScreen),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF0050),
                 foregroundColor: Colors.white,
@@ -767,7 +812,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           const SizedBox(height: 24),
           const Text(
             'Error Loading Content',
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(

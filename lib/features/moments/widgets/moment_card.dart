@@ -50,7 +50,8 @@ class _MomentCardState extends ConsumerState<MomentCard> {
           _buildUserHeader(),
 
           // Content text
-          if (widget.moment.content != null && widget.moment.content!.isNotEmpty)
+          if (widget.moment.content != null &&
+              widget.moment.content!.isNotEmpty)
             _buildContentText(),
 
           // Media (images/video)
@@ -121,7 +122,8 @@ class _MomentCardState extends ConsumerState<MomentCard> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    MomentsTimeService.formatMomentTime(widget.moment.createdAt),
+                    MomentsTimeService.formatMomentTime(
+                        widget.moment.createdAt),
                     style: MomentsTheme.timestampStyle,
                   ),
                 ],
@@ -372,7 +374,8 @@ class _MomentCardState extends ConsumerState<MomentCard> {
             ),
 
             // Copy text (if there's content)
-            if (widget.moment.content != null && widget.moment.content!.isNotEmpty)
+            if (widget.moment.content != null &&
+                widget.moment.content!.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.copy),
                 title: const Text('Copy text'),
@@ -426,7 +429,8 @@ class _MomentCardState extends ConsumerState<MomentCard> {
             if (isOwnPost)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                title:
+                    const Text('Delete', style: TextStyle(color: Colors.red)),
                 onTap: () {
                   context.pop();
                   _deleteMoment();
@@ -447,8 +451,9 @@ Check out this moment from ${widget.moment.userName}!
 
 ${widget.moment.content ?? ''}
 
-View on WemaChat: wemachat://moment/${widget.moment.id}
-    '''.trim();
+View on WemaShop: wemachat://moment/${widget.moment.id}
+    '''
+        .trim();
 
     Share.share(text, subject: 'Moment from ${widget.moment.userName}');
   }
@@ -503,7 +508,9 @@ View on WemaChat: wemachat://moment/${widget.moment.id}
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(momentsFeedProvider.notifier).hideUserPosts(widget.moment.userId);
+        await ref
+            .read(momentsFeedProvider.notifier)
+            .hideUserPosts(widget.moment.userId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -511,7 +518,9 @@ View on WemaChat: wemachat://moment/${widget.moment.id}
               action: SnackBarAction(
                 label: 'Undo',
                 onPressed: () {
-                  ref.read(momentsFeedProvider.notifier).unhideUserPosts(widget.moment.userId);
+                  ref
+                      .read(momentsFeedProvider.notifier)
+                      .unhideUserPosts(widget.moment.userId);
                 },
               ),
             ),
@@ -552,7 +561,9 @@ View on WemaChat: wemachat://moment/${widget.moment.id}
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(momentsFeedProvider.notifier).deleteMoment(widget.moment.id);
+        await ref
+            .read(momentsFeedProvider.notifier)
+            .deleteMoment(widget.moment.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Moment deleted')),

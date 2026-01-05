@@ -24,7 +24,8 @@ bool isAuthenticated(IsAuthenticatedRef ref) {
   final authState = ref.watch(authenticationProvider);
   return authState.when(
     data: (data) => data.state == AuthState.authenticated,
-    loading: () => false, // Default to false while loading (prevents login flash)
+    loading: () =>
+        false, // Default to false while loading (prevents login flash)
     error: (_, __) => false,
   );
 }
@@ -187,7 +188,8 @@ bool isAppInitializing(IsAppInitializingRef ref) {
 
 // NEW: Provider to get auth state safely with loading handling
 @riverpod
-AuthenticationState? authenticationStateOrNull(AuthenticationStateOrNullRef ref) {
+AuthenticationState? authenticationStateOrNull(
+    AuthenticationStateOrNullRef ref) {
   final authState = ref.watch(authenticationProvider);
   return authState.when(
     data: (data) => data,
@@ -213,7 +215,8 @@ AuthState safeAuthState(SafeAuthStateRef ref) {
   final authState = ref.watch(authenticationProvider);
   return authState.when(
     data: (data) => data.state,
-    loading: () => AuthState.loading, // Use loading state instead of defaulting to guest
+    loading: () =>
+        AuthState.loading, // Use loading state instead of defaulting to guest
     error: (_, __) => AuthState.error,
   );
 }

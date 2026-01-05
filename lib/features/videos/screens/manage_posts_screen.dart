@@ -33,7 +33,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
   late TabController _tabController;
   final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
-  
+
   // Selection state for bulk operations
   bool _isSelectionMode = false;
   Set<String> _selectedVideoIds = {};
@@ -138,7 +138,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
         try {
           final cacheKey = 'manage_thumb_${video.id}';
-          final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
+          final fileInfo =
+              await _thumbnailCacheManager.getFileFromCache(cacheKey);
 
           if (fileInfo != null && fileInfo.file.existsSync()) {
             if (mounted) {
@@ -200,9 +201,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       if (_selectedVideoIds.length == _getFilteredAndSortedVideos().length) {
         _selectedVideoIds.clear();
       } else {
-        _selectedVideoIds = _getFilteredAndSortedVideos()
-            .map((video) => video.id)
-            .toSet();
+        _selectedVideoIds =
+            _getFilteredAndSortedVideos().map((video) => video.id).toSet();
       }
     });
   }
@@ -219,7 +219,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
-      
+
       // Delete videos one by one
       for (final videoId in _selectedVideoIds) {
         await authNotifier.deleteVideo(
@@ -241,7 +241,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_selectedVideoIds.length} posts deleted successfully'),
+            content:
+                Text('${_selectedVideoIds.length} posts deleted successfully'),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
           ),
@@ -268,49 +269,50 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
   Future<bool> _showDeleteConfirmation(int count) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              Icons.delete_outline,
-              color: Colors.red.shade600,
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 8),
-            const Text('Delete Posts'),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete $count post${count > 1 ? 's' : ''}? This action cannot be undone.',
-          style: const TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
+            title: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline,
+                  color: Colors.red.shade600,
+                ),
+                const SizedBox(width: 8),
+                const Text('Delete Posts'),
+              ],
+            ),
+            content: Text(
+              'Are you sure you want to delete $count post${count > 1 ? 's' : ''}? This action cannot be undone.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: context.modernTheme.textSecondaryColor,
+                  ),
+                ),
               ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Delete'),
               ),
-            ),
-            child: const Text('Delete'),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Future<void> _deleteSingleVideo(String videoId) async {
@@ -355,10 +357,12 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
   void _openVideoDetails(VideoModel video) {
     // Using GoRouter to navigate to my post screen
-    context.push(
-      RoutePaths.myPost(video.id),
-      extra: video, // Pass the video model as extra data
-    ).then((_) => _loadUserData());
+    context
+        .push(
+          RoutePaths.myPost(video.id),
+          extra: video, // Pass the video model as extra data
+        )
+        .then((_) => _loadUserData());
   }
 
   List<VideoModel> _getFilteredAndSortedVideos() {
@@ -367,13 +371,16 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
     // Apply filters
     switch (_filterBy) {
       case 'active':
-        filteredVideos = filteredVideos.where((video) => video.isActive).toList();
+        filteredVideos =
+            filteredVideos.where((video) => video.isActive).toList();
         break;
       case 'inactive':
-        filteredVideos = filteredVideos.where((video) => !video.isActive).toList();
+        filteredVideos =
+            filteredVideos.where((video) => !video.isActive).toList();
         break;
       case 'featured':
-        filteredVideos = filteredVideos.where((video) => video.isFeatured).toList();
+        filteredVideos =
+            filteredVideos.where((video) => video.isFeatured).toList();
         break;
       case 'all':
       default:
@@ -384,23 +391,23 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
     // Apply sorting
     switch (_sortBy) {
       case 'views':
-        filteredVideos.sort((a, b) => _sortDescending 
-            ? b.views.compareTo(a.views) 
+        filteredVideos.sort((a, b) => _sortDescending
+            ? b.views.compareTo(a.views)
             : a.views.compareTo(b.views));
         break;
       case 'likes':
-        filteredVideos.sort((a, b) => _sortDescending 
-            ? b.likes.compareTo(a.likes) 
+        filteredVideos.sort((a, b) => _sortDescending
+            ? b.likes.compareTo(a.likes)
             : a.likes.compareTo(b.likes));
         break;
       case 'engagement':
-        filteredVideos.sort((a, b) => _sortDescending 
-            ? b.engagementRate.compareTo(a.engagementRate) 
+        filteredVideos.sort((a, b) => _sortDescending
+            ? b.engagementRate.compareTo(a.engagementRate)
             : a.engagementRate.compareTo(b.engagementRate));
         break;
       case 'date':
       default:
-        filteredVideos.sort((a, b) => _sortDescending 
+        filteredVideos.sort((a, b) => _sortDescending
             ? b.createdAtDateTime.compareTo(a.createdAtDateTime)
             : a.createdAtDateTime.compareTo(b.createdAtDateTime));
         break;
@@ -423,7 +430,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       final dateTime = DateTime.parse(timestamp);
       final now = DateTime.now();
       final difference = now.difference(dateTime);
-      
+
       if (difference.inDays > 0) {
         return DateFormat('MMM d, y').format(dateTime);
       } else if (difference.inHours > 0) {
@@ -477,20 +484,24 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       foregroundColor: modernTheme.textColor,
       elevation: 0,
       title: Text(
-        _isSelectionMode 
+        _isSelectionMode
             ? '${_selectedVideoIds.length} selected'
             : 'Manage Posts',
       ),
       actions: [
         // Always show create post button when user is authenticated
-        if (!_isLoading && !_hasNoProfile && _error == null && !_isSelectionMode)
+        if (!_isLoading &&
+            !_hasNoProfile &&
+            _error == null &&
+            !_isSelectionMode)
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton(
               onPressed: () => context.push(RoutePaths.createPost),
               style: TextButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
@@ -508,7 +519,10 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
             ),
           ),
-        if (!_isLoading && !_hasNoProfile && _error == null && _userVideos.isNotEmpty) ...[
+        if (!_isLoading &&
+            !_hasNoProfile &&
+            _error == null &&
+            _userVideos.isNotEmpty) ...[
           if (_isSelectionMode) ...[
             // Selection mode actions
             IconButton(
@@ -519,7 +533,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                 color: modernTheme.primaryColor,
               ),
               onPressed: _selectAllVideos,
-              tooltip: _selectedVideoIds.length == _getFilteredAndSortedVideos().length
+              tooltip: _selectedVideoIds.length ==
+                      _getFilteredAndSortedVideos().length
                   ? 'Deselect All'
                   : 'Select All',
             ),
@@ -704,7 +719,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
     );
   }
 
-  Widget _buildFilterChip(String label, String value, ModernThemeExtension modernTheme) {
+  Widget _buildFilterChip(
+      String label, String value, ModernThemeExtension modernTheme) {
     final isSelected = _filterBy == value;
     return GestureDetector(
       onTap: () {
@@ -715,22 +731,19 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? modernTheme.primaryColor 
-              : modernTheme.surfaceColor,
+          color:
+              isSelected ? modernTheme.primaryColor : modernTheme.surfaceColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected 
-                ? modernTheme.primaryColor! 
+            color: isSelected
+                ? modernTheme.primaryColor!
                 : modernTheme.primaryColor!.withOpacity(0.3),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected 
-                ? Colors.white 
-                : modernTheme.textColor,
+            color: isSelected ? Colors.white : modernTheme.textColor,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -740,7 +753,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
   Widget _buildPostsTab(ModernThemeExtension modernTheme) {
     final filteredVideos = _getFilteredAndSortedVideos();
-    
+
     if (filteredVideos.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
@@ -763,7 +776,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
   Widget _buildVideoCard(VideoModel video, ModernThemeExtension modernTheme) {
     final isSelected = _selectedVideoIds.contains(video.id);
-    
+
     return GestureDetector(
       onTap: () {
         if (_isSelectionMode) {
@@ -785,9 +798,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected 
-                    ? modernTheme.primaryColor! 
-                    : Colors.transparent,
+                color:
+                    isSelected ? modernTheme.primaryColor! : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -821,12 +833,14 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                         ),
                       ),
                     )
-                  else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
+                  else if (!video.isMultipleImages &&
+                      _videoThumbnails.containsKey(video.id))
                     Image.file(
                       File(_videoThumbnails[video.id]!),
                       fit: BoxFit.cover,
                     )
-                  else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
+                  else if (!video.isMultipleImages &&
+                      video.thumbnailUrl.isNotEmpty)
                     CachedNetworkImage(
                       imageUrl: video.thumbnailUrl,
                       fit: BoxFit.cover,
@@ -954,7 +968,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                       children: [
                         if (!video.isActive)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.orange.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(4),
@@ -970,8 +985,10 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                           ),
                         if (video.isFeatured)
                           Container(
-                            margin: EdgeInsets.only(left: video.isActive ? 0 : 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            margin:
+                                EdgeInsets.only(left: video.isActive ? 0 : 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.amber.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(4),
@@ -995,7 +1012,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                       top: 8,
                       right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(4),
@@ -1029,14 +1047,18 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                       right: 8,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected 
-                              ? modernTheme.primaryColor 
+                          color: isSelected
+                              ? modernTheme.primaryColor
                               : Colors.white.withOpacity(0.8),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isSelected ? Icons.check : Icons.radio_button_unchecked,
-                          color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
+                          isSelected
+                              ? Icons.check
+                              : Icons.radio_button_unchecked,
+                          color: isSelected
+                              ? Colors.white
+                              : modernTheme.textSecondaryColor,
                           size: 24,
                         ),
                       ),
@@ -1072,7 +1094,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
     );
   }
 
-  void _showQuickActionsMenu(VideoModel video, ModernThemeExtension modernTheme) {
+  void _showQuickActionsMenu(
+      VideoModel video, ModernThemeExtension modernTheme) {
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -1097,8 +1120,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
 
             // Post title
             Text(
-              video.caption.length > 50 
-                  ? '${video.caption.substring(0, 50)}...' 
+              video.caption.length > 50
+                  ? '${video.caption.substring(0, 50)}...'
                   : video.caption,
               style: TextStyle(
                 color: modernTheme.textColor,
@@ -1203,7 +1226,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              _filterBy == 'all' 
+              _filterBy == 'all'
                   ? 'Start creating content to see your posts here'
                   : 'No posts match the current filter',
               style: TextStyle(
@@ -1251,7 +1274,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -1270,7 +1293,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Views',
-                _formatViewCount(_userVideos.fold<int>(0, (sum, video) => sum + video.views)),
+                _formatViewCount(_userVideos.fold<int>(
+                    0, (sum, video) => sum + video.views)),
                 Icons.visibility,
                 'Across all posts',
                 Colors.green,
@@ -1278,7 +1302,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Likes',
-                _formatViewCount(_userVideos.fold<int>(0, (sum, video) => sum + video.likes)),
+                _formatViewCount(_userVideos.fold<int>(
+                    0, (sum, video) => sum + video.likes)),
                 Icons.favorite,
                 '${(_calculateEngagementRate()).toStringAsFixed(1)}% engagement',
                 Colors.red,
@@ -1286,7 +1311,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
               _buildAnalyticsCard(
                 'Total Comments',
-                _formatViewCount(_userVideos.fold<int>(0, (sum, video) => sum + video.comments)),
+                _formatViewCount(_userVideos.fold<int>(
+                    0, (sum, video) => sum + video.comments)),
                 Icons.comment,
                 'Community feedback',
                 Colors.orange,
@@ -1294,9 +1320,9 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Top Performing Posts
           Text(
             'Top Performing Posts',
@@ -1307,15 +1333,17 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           ...(() {
             final sortedVideos = _userVideos.toList()
               ..sort((a, b) => b.views.compareTo(a.views));
-            return sortedVideos.take(3).map((video) => _buildTopPostItem(video, modernTheme));
+            return sortedVideos
+                .take(3)
+                .map((video) => _buildTopPostItem(video, modernTheme));
           })(),
-          
+
           const SizedBox(height: 32),
-          
+
           // Recent Activity
           Text(
             'Recent Activity',
@@ -1326,11 +1354,14 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           ...(() {
             final sortedVideos = _userVideos.toList()
-              ..sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
-            return sortedVideos.take(5).map((video) => _buildRecentActivityItem(video, modernTheme));
+              ..sort(
+                  (a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+            return sortedVideos
+                .take(5)
+                .map((video) => _buildRecentActivityItem(video, modernTheme));
           })(),
         ],
       ),
@@ -1432,20 +1463,22 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
                     ),
                   )
                 : Icon(
-                    video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    video.isMultipleImages
+                        ? Icons.photo_library
+                        : Icons.play_circle_fill,
                     color: modernTheme.primaryColor,
                   ),
           ),
           const SizedBox(width: 12),
-          
+
           // Post info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  video.caption.length > 40 
-                      ? '${video.caption.substring(0, 40)}...' 
+                  video.caption.length > 40
+                      ? '${video.caption.substring(0, 40)}...'
                       : video.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
@@ -1490,7 +1523,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ],
             ),
           ),
-          
+
           // View button
           IconButton(
             icon: Icon(
@@ -1505,7 +1538,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
     );
   }
 
-  Widget _buildRecentActivityItem(VideoModel video, ModernThemeExtension modernTheme) {
+  Widget _buildRecentActivityItem(
+      VideoModel video, ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1526,8 +1560,8 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  video.caption.length > 30 
-                      ? '${video.caption.substring(0, 30)}...' 
+                  video.caption.length > 30
+                      ? '${video.caption.substring(0, 30)}...'
                       : video.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
@@ -1563,7 +1597,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [  
+        children: [
           // Content Analysis
           Text(
             'Content Analysis',
@@ -1574,7 +1608,7 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           Row(
             children: [
               Expanded(
@@ -1598,9 +1632,9 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           Row(
             children: [
               Expanded(
@@ -1624,9 +1658,9 @@ class _ManagePostsScreenState extends ConsumerState<ManagePostsScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Engagement Insights
           Container(
             padding: const EdgeInsets.all(16),

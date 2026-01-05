@@ -7,11 +7,11 @@ import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class ContactsEmptyStatesWidget {
-  
   // Permission request UI with modern design
-  static Widget buildPermissionScreen(BuildContext context, VoidCallback onRequestPermission) {
+  static Widget buildPermissionScreen(
+      BuildContext context, VoidCallback onRequestPermission) {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -85,7 +85,8 @@ class ContactsEmptyStatesWidget {
                     onTap: onRequestPermission,
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 16),
                       decoration: BoxDecoration(
                         color: theme.primaryColor,
                         borderRadius: BorderRadius.circular(16),
@@ -136,12 +137,9 @@ class ContactsEmptyStatesWidget {
 
   // Empty contacts state
   static Widget buildEmptyContactsState(
-    BuildContext context, 
-    String searchQuery, 
-    VoidCallback onSyncContacts
-  ) {
+      BuildContext context, String searchQuery, VoidCallback onSyncContacts) {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -164,7 +162,9 @@ class ContactsEmptyStatesWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                searchQuery.isEmpty ? 'No contacts found' : 'No matching contacts',
+                searchQuery.isEmpty
+                    ? 'No contacts found'
+                    : 'No matching contacts',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -174,9 +174,9 @@ class ContactsEmptyStatesWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                searchQuery.isEmpty 
-                  ? 'Your contacts will appear here when synced'
-                  : 'Try a different search term',
+                searchQuery.isEmpty
+                    ? 'Your contacts will appear here when synced'
+                    : 'Try a different search term',
                 style: TextStyle(
                   fontSize: 15,
                   color: theme.textSecondaryColor,
@@ -209,13 +209,10 @@ class ContactsEmptyStatesWidget {
   }
 
   // Empty invites state
-  static Widget buildEmptyInvitesState(
-    BuildContext context, 
-    String searchQuery, 
-    VoidCallback onRefreshContacts
-  ) {
+  static Widget buildEmptyInvitesState(BuildContext context, String searchQuery,
+      VoidCallback onRefreshContacts) {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -238,7 +235,9 @@ class ContactsEmptyStatesWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                searchQuery.isEmpty ? 'No contacts to invite' : 'No matching contacts',
+                searchQuery.isEmpty
+                    ? 'No contacts to invite'
+                    : 'No matching contacts',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -248,9 +247,9 @@ class ContactsEmptyStatesWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                searchQuery.isEmpty 
-                  ? 'Contacts not using WemaChat will appear here'
-                  : 'Try a different search term',
+                searchQuery.isEmpty
+                    ? 'Contacts not using WemaShop will appear here'
+                    : 'Try a different search term',
                 style: TextStyle(
                   fontSize: 15,
                   color: theme.textSecondaryColor,
@@ -285,7 +284,7 @@ class ContactsEmptyStatesWidget {
   // Loading state
   static Widget buildLoadingState(BuildContext context, String message) {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -312,12 +311,9 @@ class ContactsEmptyStatesWidget {
 
   // Error state
   static Widget buildErrorState(
-    BuildContext context, 
-    String error, 
-    VoidCallback onRetry
-  ) {
+      BuildContext context, String error, VoidCallback onRetry) {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -382,15 +378,15 @@ class ContactsEmptyStatesWidget {
     VoidCallback onForceSync,
   ) {
     if (lastSyncTime == null) return const SizedBox.shrink();
-    
+
     final theme = context.modernTheme;
     final formatter = DateFormat('MMM d, h:mm a');
     final syncTime = formatter.format(lastSyncTime);
-    
+
     Color statusColor;
     IconData statusIcon;
     String statusText;
-    
+
     switch (syncStatus) {
       case SyncStatus.upToDate:
         statusColor = Colors.green;
@@ -417,7 +413,7 @@ class ContactsEmptyStatesWidget {
         statusIcon = Icons.help_outline_rounded;
         statusText = 'Unknown';
     }
-    
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

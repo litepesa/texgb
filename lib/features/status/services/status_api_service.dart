@@ -27,7 +27,7 @@ class StatusApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final statusGroups = data['statusGroups'] as List<dynamic>? ??
-                            data['status_groups'] as List<dynamic>?;
+            data['status_groups'] as List<dynamic>?;
 
         if (statusGroups != null) {
           return statusGroups
@@ -69,7 +69,8 @@ class StatusApiService {
   /// Get specific user's statuses
   Future<List<StatusModel>> getUserStatuses(String userId) async {
     try {
-      final response = await _httpClient.get('${StatusConstants.apiGetUserStatuses}/$userId');
+      final response = await _httpClient
+          .get('${StatusConstants.apiGetUserStatuses}/$userId');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -121,7 +122,8 @@ class StatusApiService {
   /// Delete a status
   Future<bool> deleteStatus(String statusId) async {
     try {
-      final response = await _httpClient.delete('${StatusConstants.apiDeleteStatus}/$statusId');
+      final response = await _httpClient
+          .delete('${StatusConstants.apiDeleteStatus}/$statusId');
 
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
@@ -137,7 +139,8 @@ class StatusApiService {
   /// Mark status as viewed
   Future<bool> viewStatus(String statusId) async {
     try {
-      final endpoint = StatusConstants.apiViewStatus.replaceAll('{id}', statusId);
+      final endpoint =
+          StatusConstants.apiViewStatus.replaceAll('{id}', statusId);
       final response = await _httpClient.post(endpoint, body: {});
 
       return response.statusCode == 200;
@@ -150,7 +153,8 @@ class StatusApiService {
   /// Like a status
   Future<bool> likeStatus(String statusId) async {
     try {
-      final endpoint = StatusConstants.apiLikeStatus.replaceAll('{id}', statusId);
+      final endpoint =
+          StatusConstants.apiLikeStatus.replaceAll('{id}', statusId);
       final response = await _httpClient.post(endpoint, body: {});
 
       return response.statusCode == 200;
@@ -163,7 +167,8 @@ class StatusApiService {
   /// Unlike a status
   Future<bool> unlikeStatus(String statusId) async {
     try {
-      final endpoint = StatusConstants.apiUnlikeStatus.replaceAll('{id}', statusId);
+      final endpoint =
+          StatusConstants.apiUnlikeStatus.replaceAll('{id}', statusId);
       final response = await _httpClient.delete(endpoint);
 
       return response.statusCode == 200 || response.statusCode == 204;
@@ -228,7 +233,8 @@ class StatusApiService {
         return mediaUrl;
       }
 
-      throw Exception('Failed to upload media: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'Failed to upload media: ${response.statusCode} - ${response.body}');
     } catch (e) {
       print('Error uploading media: $e');
       rethrow;

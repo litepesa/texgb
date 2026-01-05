@@ -40,17 +40,19 @@ class VideoSearchRepository {
       }
 
       // Make API request
-      final uri = Uri.parse('/videos/search').replace(queryParameters: queryParams);
+      final uri =
+          Uri.parse('/videos/search').replace(queryParameters: queryParams);
       final response = await _httpClient.get(uri.toString());
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         debugPrint('✅ Found ${data['total']} results');
-        
+
         return SearchResponse.fromJson(data);
       } else if (response.statusCode == 400) {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>;
-        throw SearchException(errorData['error'] as String? ?? 'Invalid search');
+        throw SearchException(
+            errorData['error'] as String? ?? 'Invalid search');
       } else if (response.statusCode == 429) {
         throw SearchException('Too many requests. Please wait a moment.');
       } else {
@@ -58,13 +60,13 @@ class VideoSearchRepository {
       }
     } catch (e) {
       debugPrint('❌ Search error: $e');
-      
+
       if (e is SearchException) rethrow;
-      
+
       if (e.toString().contains('SocketException')) {
         throw SearchException('No internet connection');
       }
-      
+
       throw SearchException('Search failed: $e');
     }
   }
@@ -75,15 +77,15 @@ class VideoSearchRepository {
       final uri = Uri.parse('/videos/search/popular').replace(
         queryParameters: {'limit': limit.toString()},
       );
-      
+
       final response = await _httpClient.get(uri.toString());
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final terms = data['terms'] as List<dynamic>? ?? [];
         return terms.map((t) => t.toString()).toList();
       }
-      
+
       return [];
     } catch (e) {
       debugPrint('⚠️ Failed to get popular terms: $e');

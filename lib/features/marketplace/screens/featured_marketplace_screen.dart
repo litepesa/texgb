@@ -15,19 +15,20 @@ class FeaturedMarketplaceScreen extends ConsumerStatefulWidget {
   const FeaturedMarketplaceScreen({super.key});
 
   @override
-  ConsumerState<FeaturedMarketplaceScreen> createState() => _FeaturedMarketplaceScreenState();
+  ConsumerState<FeaturedMarketplaceScreen> createState() =>
+      _FeaturedMarketplaceScreenState();
 }
 
-class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceScreen> 
+class _FeaturedMarketplaceScreenState
+    extends ConsumerState<FeaturedMarketplaceScreen>
     with AutomaticKeepAliveClientMixin {
-  
   @override
   bool get wantKeepAlive => true; // Keep screen alive when switching tabs
-  
+
   final PageController _pageController = PageController(
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
-  
+
   // Cache for featured marketplace items to avoid reloading
   List<MarketplaceVideoModel> _featuredMarketplaceItems = [];
   bool _isLoadingFeatured = false;
@@ -58,7 +59,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
   /// Load featured marketplace items efficiently
   /// This method selects marketplaceVideos marked as featured from the available marketplaceVideos
-  Future<void> _loadFeaturedMarketplaceItems({bool forceRefresh = false}) async {
+  Future<void> _loadFeaturedMarketplaceItems(
+      {bool forceRefresh = false}) async {
     if (_isLoadingFeatured && !forceRefresh) return;
 
     setState(() {
@@ -87,7 +89,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
       // Step 1: Get all marketplace videos
       final allVideos = ref.read(marketplaceVideosProvider);
-      
+
       if (allVideos.isEmpty) {
         setState(() {
           _featuredMarketplaceItems = [];
@@ -98,21 +100,24 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
       // Step 2: Filter marketplaceVideos that are marked as featured
       final featuredMarketplaceItems = allVideos
-          .where((marketplaceVideo) => marketplaceVideo.isFeatured && marketplaceVideo.isActive)
+          .where((marketplaceVideo) =>
+              marketplaceVideo.isFeatured && marketplaceVideo.isActive)
           .toList();
 
       // Step 3: Sort featured marketplace items by creation time (most recent first)
-      featuredMarketplaceItems.sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
+      featuredMarketplaceItems
+          .sort((a, b) => b.createdAtDateTime.compareTo(a.createdAtDateTime));
 
       // Step 4: Limit total featured marketplace items for performance
-      final maxFeaturedVideos = 20; // Maximum featured marketplace items to show
-      final finalFeaturedVideos = featuredMarketplaceItems.take(maxFeaturedVideos).toList();
+      final maxFeaturedVideos =
+          20; // Maximum featured marketplace items to show
+      final finalFeaturedVideos =
+          featuredMarketplaceItems.take(maxFeaturedVideos).toList();
 
       setState(() {
         _featuredMarketplaceItems = finalFeaturedVideos;
         _isLoadingFeatured = false;
       });
-
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -124,21 +129,23 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
+
     final theme = context.modernTheme;
-    
+
     // Watch for marketplaceVideo data changes and refresh automatically
     ref.listen(marketplaceVideosProvider, (previous, next) {
       if (mounted && previous != next) {
         Future.microtask(() => _loadFeaturedMarketplaceItems());
       }
     });
-    
+
     // Load immediately if we don't have data
-    if (_featuredMarketplaceItems.isEmpty && !_isLoadingFeatured && _error == null) {
+    if (_featuredMarketplaceItems.isEmpty &&
+        !_isLoadingFeatured &&
+        _error == null) {
       Future.microtask(() => _loadFeaturedMarketplaceItems(forceRefresh: true));
     }
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
@@ -149,7 +156,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
   Widget _buildBody() {
     final theme = context.modernTheme;
-    
+
     if (_isLoadingFeatured && _featuredMarketplaceItems.isEmpty) {
       return _buildLoadingState();
     }
@@ -170,7 +177,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
         children: [
           // Page indicator dots with enhanced styling
           if (_featuredMarketplaceItems.isNotEmpty) _buildPageIndicator(),
-          
+
           // Main carousel with enhanced container
           Expanded(
             child: Container(
@@ -185,8 +192,10 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                 itemCount: _featuredMarketplaceItems.length,
                 itemBuilder: (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-                    child: _buildMarketplaceItemThumbnail(_featuredMarketplaceItems[index], index),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 20.0),
+                    child: _buildMarketplaceItemThumbnail(
+                        _featuredMarketplaceItems[index], index),
                   );
                 },
               ),
@@ -199,7 +208,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
   Widget _buildPageIndicator() {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -226,24 +235,26 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
           _featuredMarketplaceItems.length,
           (index) {
             bool isActive = index == _currentIndex;
-            
+
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 4.0),
               height: 8.0,
               width: isActive ? 24.0 : 8.0,
               decoration: BoxDecoration(
-                color: isActive 
-                    ? theme.primaryColor 
+                color: isActive
+                    ? theme.primaryColor
                     : theme.textSecondaryColor!.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(4.0),
-                boxShadow: isActive ? [
-                  BoxShadow(
-                    color: theme.primaryColor!.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ] : null,
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: theme.primaryColor!.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
               ),
             );
           },
@@ -252,13 +263,15 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     );
   }
 
-  Widget _buildMarketplaceItemThumbnail(MarketplaceVideoModel marketplaceVideo, int index) {
+  Widget _buildMarketplaceItemThumbnail(
+      MarketplaceVideoModel marketplaceVideo, int index) {
     final theme = context.modernTheme;
-    
+
     // Calculate scale based on current page position
     double scale = 1.0;
     if (_pageController.hasClients && _pageController.page != null) {
-      scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
+      scale =
+          1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
     }
 
     return Transform.scale(
@@ -318,13 +331,14 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                           height: double.infinity,
                           child: _buildThumbnailContent(marketplaceVideo),
                         ),
-                        
+
                         // Featured badge at top-right
                         Positioned(
                           top: 12,
                           right: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.amber.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(8),
@@ -357,7 +371,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                             ),
                           ),
                         ),
-                        
+
                         // Enhanced gradient overlay
                         Positioned(
                           bottom: 0,
@@ -380,7 +394,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  marketplaceVideo.caption.isNotEmpty ? marketplaceVideo.caption : 'No caption',
+                                  marketplaceVideo.caption.isNotEmpty
+                                      ? marketplaceVideo.caption
+                                      : 'No caption',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -395,7 +411,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(8),
@@ -411,7 +428,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: Colors.red.withOpacity(0.3),
                                         borderRadius: BorderRadius.circular(8),
@@ -436,7 +454,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                   ),
                 ),
               ),
-              
+
               // Enhanced User info section
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -472,13 +490,15 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
                                         decoration: BoxDecoration(
-                                          color: theme.primaryColor!.withOpacity(0.15),
+                                          color: theme.primaryColor!
+                                              .withOpacity(0.15),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            marketplaceVideo.userName.isNotEmpty 
-                                                ? marketplaceVideo.userName[0].toUpperCase()
+                                            marketplaceVideo.userName.isNotEmpty
+                                                ? marketplaceVideo.userName[0]
+                                                    .toUpperCase()
                                                 : "U",
                                             style: TextStyle(
                                               color: theme.primaryColor,
@@ -492,13 +512,15 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                                   )
                                 : Container(
                                     decoration: BoxDecoration(
-                                      color: theme.primaryColor!.withOpacity(0.15),
+                                      color:
+                                          theme.primaryColor!.withOpacity(0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
                                       child: Text(
-                                        marketplaceVideo.userName.isNotEmpty 
-                                            ? marketplaceVideo.userName[0].toUpperCase()
+                                        marketplaceVideo.userName.isNotEmpty
+                                            ? marketplaceVideo.userName[0]
+                                                .toUpperCase()
                                             : "U",
                                         style: TextStyle(
                                           color: theme.primaryColor,
@@ -512,9 +534,9 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(width: 14),
-                    
+
                     // Enhanced user info
                     Expanded(
                       child: Column(
@@ -532,9 +554,11 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                           ),
                           const SizedBox(height: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: theme.surfaceVariantColor!.withOpacity(0.7),
+                              color:
+                                  theme.surfaceVariantColor!.withOpacity(0.7),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: theme.dividerColor!.withOpacity(0.2),
@@ -578,7 +602,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
     final authState = ref.read(authenticationProvider);
     final currentAuthState = authState.value;
     if (currentAuthState == null) return 0;
-    
+
     try {
       final user = currentAuthState.users.firstWhere(
         (user) => user.uid == userId,
@@ -590,7 +614,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
   }
 
   Widget _buildThumbnailContent(MarketplaceVideoModel marketplaceVideo) {
-    if (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty) {
+    if (marketplaceVideo.isMultipleImages &&
+        marketplaceVideo.imageUrls.isNotEmpty) {
       return Image.network(
         marketplaceVideo.imageUrls.first,
         fit: BoxFit.cover,
@@ -611,7 +636,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildLoadingThumbnail();
           }
-          
+
           if (snapshot.hasData && snapshot.data != null) {
             return Image.memory(
               snapshot.data!,
@@ -620,7 +645,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
               height: double.infinity,
             );
           }
-          
+
           if (marketplaceVideo.thumbnailUrl.isNotEmpty) {
             return Image.network(
               marketplaceVideo.thumbnailUrl,
@@ -632,7 +657,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
               },
             );
           }
-          
+
           return _buildErrorThumbnail();
         },
       );
@@ -687,7 +712,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
   Widget _buildLoadingState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -739,7 +764,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
   Widget _buildErrorState(String error) {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -801,7 +826,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                 onTap: () => _loadFeaturedMarketplaceItems(forceRefresh: true),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),
@@ -843,7 +869,7 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
 
   Widget _buildEmptyState() {
     final theme = context.modernTheme;
-    
+
     return Center(
       child: Container(
         margin: const EdgeInsets.all(32),
@@ -908,7 +934,8 @@ class _FeaturedMarketplaceScreenState extends ConsumerState<FeaturedMarketplaceS
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.primaryColor,
                     borderRadius: BorderRadius.circular(12),

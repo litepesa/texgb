@@ -11,7 +11,6 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-
 class ContactProfileScreen extends ConsumerStatefulWidget {
   final UserModel contact;
 
@@ -21,7 +20,8 @@ class ContactProfileScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ContactProfileScreen> createState() => _ContactProfileScreenState();
+  ConsumerState<ContactProfileScreen> createState() =>
+      _ContactProfileScreenState();
 }
 
 class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
@@ -30,7 +30,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
   bool _isLoading = false;
   bool _isCreatingChat = false;
   bool _isBlocked = false;
-  
+
   late AnimationController _fadeController;
   late AnimationController _scaleController;
   late Animation<double> _fadeAnimation;
@@ -53,14 +53,14 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOutQuart),
     );
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
     );
-    
+
     _fadeController.forward();
     _scaleController.forward();
   }
@@ -100,7 +100,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
     });
 
     try {
-      await ref.read(contactsNotifierProvider.notifier).unblockContact(_contact);
+      await ref
+          .read(contactsNotifierProvider.notifier)
+          .unblockContact(_contact);
       if (mounted) {
         setState(() {
           _isBlocked = false;
@@ -122,43 +124,43 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
 
   // Updated navigation to chat - simplified for now until chat system is integrated
   Future<void> _navigateToChat() async {
-  final currentUser = ref.read(currentUserProvider);
-  if (currentUser == null) {
-    _showErrorSnackBar('User not authenticated');
-    return;
-  }
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      _showErrorSnackBar('User not authenticated');
+      return;
+    }
 
-  setState(() {
-    _isCreatingChat = true;
-  });
+    setState(() {
+      _isCreatingChat = true;
+    });
 
-  try {
-    // Generate a chat ID (you might want to use a different strategy)
-    final chatId = '${currentUser.uid}_${_contact.uid}';
-    
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatScreen(
-            chatId: chatId,
-            contact: _contact,
+    try {
+      // Generate a chat ID (you might want to use a different strategy)
+      final chatId = '${currentUser.uid}_${_contact.uid}';
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatId,
+              contact: _contact,
+            ),
           ),
-        ),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      _showErrorSnackBar('Failed to start chat: $e');
-    }
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isCreatingChat = false;
-      });
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Failed to start chat: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingChat = false;
+        });
+      }
     }
   }
-}
 
   @override
   void dispose() {
@@ -171,7 +173,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
     final primaryColor = theme.primaryColor!;
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: FadeTransition(
@@ -232,7 +234,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 60), // Account for app bar
-                        
+
                         // Enhanced Profile Image
                         Hero(
                           tag: 'contact-${_contact.uid}',
@@ -242,14 +244,16 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: _isBlocked 
+                                color: _isBlocked
                                     ? Colors.red.withOpacity(0.5)
                                     : primaryColor.withOpacity(0.3),
                                 width: 4,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: (_isBlocked ? Colors.red : primaryColor).withOpacity(0.2),
+                                  color:
+                                      (_isBlocked ? Colors.red : primaryColor)
+                                          .withOpacity(0.2),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                   spreadRadius: 2,
@@ -264,9 +268,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                             child: _buildProfileImage(),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Contact Name with Status
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -302,9 +306,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // Phone Number Badge
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -346,7 +350,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                             ],
                           ),
                         ),
-                        
+
                         // Bio Preview if available
                         if (_contact.bio.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -357,7 +361,8 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: theme.surfaceVariantColor!.withOpacity(0.5),
+                              color:
+                                  theme.surfaceVariantColor!.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: theme.dividerColor!.withOpacity(0.2),
@@ -384,7 +389,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                 ),
               ),
             ),
-            
+
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -397,7 +402,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                           // Message Button
                           Expanded(
                             child: _buildActionButton(
-                              onPressed: (_isLoading || _isCreatingChat) ? null : _navigateToChat,
+                              onPressed: (_isLoading || _isCreatingChat)
+                                  ? null
+                                  : _navigateToChat,
                               icon: _isCreatingChat
                                   ? const SizedBox(
                                       width: 20,
@@ -419,18 +426,22 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                                         size: 16,
                                       ),
                                     ),
-                              label: _isCreatingChat ? 'Starting Chat...' : 'Message',
+                              label: _isCreatingChat
+                                  ? 'Starting Chat...'
+                                  : 'Message',
                               backgroundColor: primaryColor,
                               textColor: Colors.white,
                             ),
                           ),
-                          
+
                           const SizedBox(width: 16),
-                          
+
                           // Block Button
                           Expanded(
                             child: _buildActionButton(
-                              onPressed: _isLoading ? null : _showBlockConfirmationDialog,
+                              onPressed: _isLoading
+                                  ? null
+                                  : _showBlockConfirmationDialog,
                               icon: _isLoading
                                   ? const SizedBox(
                                       width: 20,
@@ -465,7 +476,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                       SizedBox(
                         width: double.infinity,
                         child: _buildActionButton(
-                          onPressed: _isLoading ? null : _showUnblockConfirmationDialog,
+                          onPressed: _isLoading
+                              ? null
+                              : _showUnblockConfirmationDialog,
                           icon: _isLoading
                               ? const SizedBox(
                                   width: 20,
@@ -487,18 +500,19 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
                                     size: 16,
                                   ),
                                 ),
-                          label: _isLoading ? 'Unblocking...' : 'Unblock Contact',
+                          label:
+                              _isLoading ? 'Unblocking...' : 'Unblock Contact',
                           backgroundColor: Colors.green,
                           textColor: Colors.white,
                         ),
                       ),
                     ],
-                    
+
                     const SizedBox(height: 32),
-                    
+
                     // Contact Information Card
                     _buildContactInfoCard(),
-                    
+
                     // Statistics Card (if not blocked)
                     if (!_isBlocked && _hasStatistics()) ...[
                       const SizedBox(height: 16),
@@ -516,7 +530,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
 
   Widget _buildProfileImage() {
     final theme = context.modernTheme;
-    
+
     if (_contact.profileImage.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: _contact.profileImage,
@@ -544,14 +558,14 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
         errorWidget: (context, url, error) => _buildFallbackAvatar(),
       );
     }
-    
+
     return _buildFallbackAvatar();
   }
 
   Widget _buildFallbackAvatar() {
     final theme = context.modernTheme;
     final color = _isBlocked ? Colors.red : theme.primaryColor!;
-    
+
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -589,26 +603,30 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: onPressed == null ? null : () {
-          HapticFeedback.lightImpact();
-          onPressed();
-        },
+        onTap: onPressed == null
+            ? null
+            : () {
+                HapticFeedback.lightImpact();
+                onPressed();
+              },
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(16),
-            border: borderColor != null 
+            border: borderColor != null
                 ? Border.all(color: borderColor, width: 1.5)
                 : null,
-            boxShadow: onPressed != null ? [
-              BoxShadow(
-                color: backgroundColor.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ] : null,
+            boxShadow: onPressed != null
+                ? [
+                    BoxShadow(
+                      color: backgroundColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -632,7 +650,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
 
   Widget _buildContactInfoCard() {
     final theme = context.modernTheme;
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -688,9 +706,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Phone Number
           _buildInfoRow(
             icon: Icons.phone_rounded,
@@ -698,7 +716,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
             value: _contact.phoneNumber,
             theme: theme,
           ),
-          
+
           // Bio (if available)
           if (_contact.bio.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -710,11 +728,13 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
               maxLines: 3,
             ),
           ],
-          
+
           // Account Status
           const SizedBox(height: 12),
           _buildInfoRow(
-            icon: _isBlocked ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+            icon: _isBlocked
+                ? Icons.block_rounded
+                : Icons.check_circle_outline_rounded,
             label: 'Status',
             value: _isBlocked ? 'Blocked' : 'Active',
             theme: theme,
@@ -781,14 +801,14 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
   }
 
   bool _hasStatistics() {
-    return _contact.followers > 0 || 
-           _contact.following > 0 || 
-           _contact.videosCount > 0;
+    return _contact.followers > 0 ||
+        _contact.following > 0 ||
+        _contact.videosCount > 0;
   }
 
   Widget _buildStatisticsCard() {
     final theme = context.modernTheme;
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -844,9 +864,9 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Statistics Row
           Row(
             children: [
@@ -931,7 +951,8 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
     showMyAnimatedDialog(
       context: context,
       title: 'Block Contact',
-      content: 'Are you sure you want to block ${_contact.name}?\n\nThey won\'t be able to message or call you.',
+      content:
+          'Are you sure you want to block ${_contact.name}?\n\nThey won\'t be able to message or call you.',
       textAction: 'Block',
       onActionTap: (confirmed) {
         if (confirmed) {
@@ -945,7 +966,8 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
     showMyAnimatedDialog(
       context: context,
       title: 'Unblock Contact',
-      content: 'Are you sure you want to unblock ${_contact.name}?\n\nThey will be able to message and call you again.',
+      content:
+          'Are you sure you want to unblock ${_contact.name}?\n\nThey will be able to message and call you again.',
       textAction: 'Unblock',
       onActionTap: (confirmed) {
         if (confirmed) {

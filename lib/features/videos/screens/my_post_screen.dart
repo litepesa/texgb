@@ -19,7 +19,7 @@ import 'package:intl/intl.dart';
 
 class MyPostScreen extends ConsumerStatefulWidget {
   final String videoId;
-  
+
   const MyPostScreen({
     super.key,
     required this.videoId,
@@ -40,7 +40,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   late TabController _tabController;
   VideoPlayerController? _videoPlayerController;
   bool _isPlaying = false;
-  
+
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
@@ -54,7 +54,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    
+
     // Initialize rocket animation
     _rocketAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -67,7 +67,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       parent: _rocketAnimationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _loadVideoData();
   }
 
@@ -92,13 +92,13 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
         (v) => v.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
-      
+
       if (mounted) {
         setState(() {
           _video = video;
           _isLoading = false;
         });
-        
+
         // Generate thumbnail if it's a video
         if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
           _generateVideoThumbnail();
@@ -116,12 +116,12 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
 
   Future<void> _generateVideoThumbnail() async {
     if (_video == null || _video!.videoUrl.isEmpty) return;
-    
+
     try {
       // Check if thumbnail is already cached
       final cacheKey = 'post_thumb_${_video!.id}';
       final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
-      
+
       if (fileInfo != null && fileInfo.file.existsSync()) {
         // Use cached thumbnail
         if (mounted) {
@@ -138,7 +138,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           maxHeight: 400,
           quality: 85,
         );
-        
+
         if (thumbnailPath != null && mounted) {
           // Cache the thumbnail
           final thumbnailFile = File(thumbnailPath);
@@ -148,7 +148,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
               thumbnailFile.readAsBytesSync(),
             );
           }
-          
+
           setState(() {
             _videoThumbnail = thumbnailPath;
           });
@@ -160,8 +160,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   Future<void> _initializeVideoPlayer() async {
-    if (_video == null || _video!.isMultipleImages || _video!.videoUrl.isEmpty) return;
-    
+    if (_video == null || _video!.isMultipleImages || _video!.videoUrl.isEmpty)
+      return;
+
     try {
       _videoPlayerController = VideoPlayerController.network(_video!.videoUrl);
       await _videoPlayerController!.initialize();
@@ -174,9 +175,11 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   void _toggleVideoPlayback() {
-    if (_videoPlayerController == null || !_videoPlayerController!.value.isInitialized) {
+    if (_videoPlayerController == null ||
+        !_videoPlayerController!.value.isInitialized) {
       _initializeVideoPlayer().then((_) {
-        if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+        if (_videoPlayerController != null &&
+            _videoPlayerController!.value.isInitialized) {
           _videoPlayerController!.play();
           setState(() {
             _isPlaying = true;
@@ -200,100 +203,104 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
 
   void _boostPost(String boostTier) async {
     if (_video == null) return;
-    
+
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final tierInfo = _getBoostTierInfo(boostTier);
-        final modernTheme = context.modernTheme;
-        
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                Icons.rocket_launch,
-                color: modernTheme.primaryColor,
+          context: context,
+          builder: (context) {
+            final tierInfo = _getBoostTierInfo(boostTier);
+            final modernTheme = context.modernTheme;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(width: 8),
-              const Text('Confirm Boost'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Boost this post with ${tierInfo['name']}?',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.rocket_launch,
+                    color: modernTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Confirm Boost'),
+                ],
               ),
-              const SizedBox(height: 16),
-              _buildInfoRow('View Target:', tierInfo['viewRange'], Icons.visibility),
-              _buildInfoRow('Duration:', tierInfo['duration'], Icons.schedule),
-              _buildInfoRow('Cost:', 'KES ${tierInfo['price']}', Icons.payments),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: modernTheme.primaryColor,
-                      size: 20,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Boost this post with ${tierInfo['name']}?',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Coins will be deducted from your wallet',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 12,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoRow(
+                      'View Target:', tierInfo['viewRange'], Icons.visibility),
+                  _buildInfoRow(
+                      'Duration:', tierInfo['duration'], Icons.schedule),
+                  _buildInfoRow(
+                      'Cost:', 'KES ${tierInfo['price']}', Icons.payments),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: modernTheme.primaryColor,
+                          size: 20,
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Coins will be deducted from your wallet',
+                            style: TextStyle(
+                              color: modernTheme.textColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: modernTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Boost Now'),
                 ),
-              ),
-              child: const Text('Boost Now'),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
-    
+              ],
+            );
+          },
+        ) ??
+        false;
+
     if (!confirmed) return;
-    
+
     // Show loading
     showDialog(
       context: context,
@@ -316,41 +323,41 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
         ),
       ),
     );
-    
+
     // Call boost function
     await ref.read(authenticationProvider.notifier).boostVideo(
-      videoId: _video!.id,
-      boostTier: boostTier,
-      onSuccess: (message) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        // Reload video data
-        _loadVideoData();
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
+          videoId: _video!.id,
+          boostTier: boostTier,
+          onSuccess: (message) {
+            Navigator.of(context).pop(); // Close loading dialog
+
+            // Reload video data
+            _loadVideoData();
+
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.green.shade600,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          },
+          onError: (error) {
+            Navigator.of(context).pop(); // Close loading dialog
+
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(error),
+                backgroundColor: Colors.red.shade600,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          },
         );
-      },
-      onError: (error) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      },
-    );
   }
 
   // Helper method for info rows in dialog
@@ -437,7 +444,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
 
   Future<void> _deletePost() async {
     if (_video == null) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -471,7 +478,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              
+
               try {
                 await ref.read(authenticationProvider.notifier).deleteVideo(
                   _video!.id,
@@ -485,10 +492,10 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                     );
                   },
                 );
-                
+
                 // Go back to previous screen after successful deletion
                 Navigator.of(context).pop();
-                
+
                 // Show success message
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -527,7 +534,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       final dateTime = DateTime.parse(timestamp);
       final now = DateTime.now();
       final difference = now.difference(dateTime);
-      
+
       if (difference.inDays > 0) {
         return DateFormat('MMM d, y').format(dateTime);
       } else if (difference.inHours > 0) {
@@ -555,7 +562,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    
+
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
       appBar: _isLoading || _error != null || _video == null
@@ -598,7 +605,8 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                         children: [
                           Icon(Icons.delete, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Delete Post', style: TextStyle(color: Colors.red)),
+                          Text('Delete Post',
+                              style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -784,7 +792,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             ],
           ),
         ),
-        
+
         // Tab Views
         Expanded(
           child: TabBarView(
@@ -821,7 +829,8 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  Widget _buildPostPreviewCard(VideoModel video, ModernThemeExtension modernTheme) {
+  Widget _buildPostPreviewCard(
+      VideoModel video, ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -870,7 +879,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                     ),
                   ),
                 )
-              else if (!video.isMultipleImages && _videoPlayerController != null && _videoPlayerController!.value.isInitialized)
+              else if (!video.isMultipleImages &&
+                  _videoPlayerController != null &&
+                  _videoPlayerController!.value.isInitialized)
                 AspectRatio(
                   aspectRatio: _videoPlayerController!.value.aspectRatio,
                   child: VideoPlayer(_videoPlayerController!),
@@ -908,12 +919,14 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                 Container(
                   color: modernTheme.primaryColor!.withOpacity(0.1),
                   child: Icon(
-                    video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    video.isMultipleImages
+                        ? Icons.photo_library
+                        : Icons.play_circle_fill,
                     color: modernTheme.primaryColor,
                     size: 64,
                   ),
                 ),
-              
+
               // Gradient overlay
               Positioned.fill(
                 child: Container(
@@ -931,7 +944,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   ),
                 ),
               ),
-              
+
               // Play/Pause button for videos
               if (!video.isMultipleImages)
                 Center(
@@ -955,7 +968,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                     ),
                   ),
                 ),
-              
+
               // Post Info Overlay
               Positioned(
                 bottom: 0,
@@ -1011,7 +1024,8 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                                   ),
                                 ),
                                 Text(
-                                  _formatTimeAgo(video.createdAt), // UPDATED: Pass string directly
+                                  _formatTimeAgo(video
+                                      .createdAt), // UPDATED: Pass string directly
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -1029,9 +1043,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // Caption
                       Text(
                         video.caption,
@@ -1050,9 +1064,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // Tags
                       if (video.tags.isNotEmpty)
                         Wrap(
@@ -1082,9 +1096,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             );
                           }).toList(),
                         ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // Stats
                       Row(
                         children: [
@@ -1121,14 +1135,15 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   ),
                 ),
               ),
-              
+
               // Page indicator for multiple images
               if (video.isMultipleImages && video.imageUrls.length > 1)
                 Positioned(
                   top: 16,
                   right: 16,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(12),
@@ -1149,17 +1164,18 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  Widget _buildStatChip(IconData icon, String value, ModernThemeExtension modernTheme, {bool isOverlay = false}) {
+  Widget _buildStatChip(
+      IconData icon, String value, ModernThemeExtension modernTheme,
+      {bool isOverlay = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isOverlay 
+        color: isOverlay
             ? Colors.white.withOpacity(0.2)
             : modernTheme.backgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: isOverlay 
-            ? Border.all(color: Colors.white.withOpacity(0.3))
-            : null,
+        border:
+            isOverlay ? Border.all(color: Colors.white.withOpacity(0.3)) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

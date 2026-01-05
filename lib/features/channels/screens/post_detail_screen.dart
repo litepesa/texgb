@@ -173,7 +173,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             padding: EdgeInsets.all(32),
                             child: Center(child: CircularProgressIndicator()),
                           ),
-                          error: (error, stack) => _buildErrorState(error.toString()),
+                          error: (error, stack) =>
+                              _buildErrorState(error.toString()),
                         ),
 
                         const SizedBox(height: 100), // Comment input clearance
@@ -382,7 +383,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 
         // Nested Replies
         if (comment.replies.isNotEmpty)
-          ...comment.replies.map((reply) => _buildCommentItem(reply, depth + 1)),
+          ...comment.replies
+              .map((reply) => _buildCommentItem(reply, depth + 1)),
       ],
     );
   }
@@ -406,7 +408,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             // Reply indicator
             if (_replyingToCommentId != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 color: Colors.grey[200],
                 child: Row(
                   children: [

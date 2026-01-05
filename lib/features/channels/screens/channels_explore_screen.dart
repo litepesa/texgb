@@ -14,7 +14,8 @@ class ChannelsExploreScreen extends ConsumerStatefulWidget {
   const ChannelsExploreScreen({super.key});
 
   @override
-  ConsumerState<ChannelsExploreScreen> createState() => _ChannelsExploreScreenState();
+  ConsumerState<ChannelsExploreScreen> createState() =>
+      _ChannelsExploreScreenState();
 }
 
 class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
@@ -41,7 +42,7 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
     if (!mounted) {
       return _getFallbackTheme();
     }
-    
+
     try {
       final extension = Theme.of(context).extension<ModernThemeExtension>();
       return extension ?? _getFallbackTheme();
@@ -52,8 +53,9 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
   }
 
   ModernThemeExtension _getFallbackTheme() {
-    final isDark = mounted ? Theme.of(context).brightness == Brightness.dark : false;
-    
+    final isDark =
+        mounted ? Theme.of(context).brightness == Brightness.dark : false;
+
     return ModernThemeExtension(
       primaryColor: const Color(0xFF07C160), // WeChat green
       surfaceColor: isDark ? Colors.grey[900] : Colors.grey[50],
@@ -68,7 +70,7 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = _getSafeTheme();
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       appBar: AppBar(
@@ -96,7 +98,8 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
               color: theme.surfaceColor,
               border: Border(
                 bottom: BorderSide(
-                  color: (theme.dividerColor ?? Colors.grey[300]!).withOpacity(0.3),
+                  color: (theme.dividerColor ?? Colors.grey[300]!)
+                      .withOpacity(0.3),
                   width: 0.5,
                 ),
               ),
@@ -130,7 +133,8 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ),
@@ -157,9 +161,8 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
         if (channels.isEmpty) {
           return _buildEmptyState(
             icon: Icons.search_off,
-            title: _searchQuery.isEmpty
-                ? 'No channels yet'
-                : 'No channels found',
+            title:
+                _searchQuery.isEmpty ? 'No channels yet' : 'No channels found',
             subtitle: _searchQuery.isEmpty
                 ? 'Channels will appear here'
                 : 'Try a different search term',
@@ -221,7 +224,8 @@ class _ChannelsExploreScreenState extends ConsumerState<ChannelsExploreScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: (theme.primaryColor ?? const Color(0xFF07C160)).withOpacity(0.1),
+                color: (theme.primaryColor ?? const Color(0xFF07C160))
+                    .withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

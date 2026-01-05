@@ -11,7 +11,7 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
     const primaryColor = Colors.green; // Green color for profile verification
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     return Container(
       height: screenHeight * 0.85, // Limit height to 85% of screen
       decoration: const BoxDecoration(
@@ -32,7 +32,7 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
@@ -77,7 +77,7 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Main benefit - more prominent
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -88,10 +88,11 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Action buttons
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     child: Column(
                       children: [
                         // Primary verify button
@@ -221,9 +222,9 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Title with emphasis
           const Text(
             '💰 EARN REAL MONEY',
@@ -242,9 +243,9 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Description
           const Text(
             'Only verified users can receive virtual gifts that converts to real money',
@@ -264,9 +265,9 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Call to action with sparkle effect
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -378,13 +379,15 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Paybill number copied to clipboard!'),
+                                content:
+                                    Text('Paybill number copied to clipboard!'),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(4),
@@ -412,7 +415,8 @@ class ProfileVerificationInfoWidget extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('Account Number: Your phone number used for registration'),
+                    const Text(
+                        'Account Number: Your phone number used for registration'),
                   ],
                 ),
               ),

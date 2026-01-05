@@ -18,22 +18,23 @@ import 'package:crypto/crypto.dart';
 // Enhanced cache manager for contact-related data
 class ContactCacheManager extends CacheManager with ImageCacheManager {
   static const key = 'contactCache';
-  
+
   static ContactCacheManager? _instance;
-  
+
   factory ContactCacheManager() {
     return _instance ??= ContactCacheManager._();
   }
-  
-  ContactCacheManager._() : super(
-    Config(
-      key,
-      stalePeriod: const Duration(hours: 6),
-      maxNrOfCacheObjects: 1000,
-      repo: JsonCacheInfoRepository(databaseName: key),
-      fileService: HttpFileService(),
-    ),
-  );
+
+  ContactCacheManager._()
+      : super(
+          Config(
+            key,
+            stalePeriod: const Duration(hours: 6),
+            maxNrOfCacheObjects: 1000,
+            repo: JsonCacheInfoRepository(databaseName: key),
+            fileService: HttpFileService(),
+          ),
+        );
 }
 
 // ========================================
@@ -44,7 +45,7 @@ class ContactCacheManager extends CacheManager with ImageCacheManager {
 class ContactsRepositoryException implements Exception {
   final String message;
   const ContactsRepositoryException(this.message);
-  
+
   @override
   String toString() => 'ContactsRepositoryException: $message';
 }
@@ -52,7 +53,7 @@ class ContactsRepositoryException implements Exception {
 // Permission related exceptions
 class ContactsPermissionException extends ContactsRepositoryException {
   const ContactsPermissionException(super.message);
-  
+
   @override
   String toString() => 'ContactsPermissionException: $message';
 }
@@ -60,7 +61,7 @@ class ContactsPermissionException extends ContactsRepositoryException {
 // Sync related exceptions
 class ContactsSyncException extends ContactsRepositoryException {
   const ContactsSyncException(super.message);
-  
+
   @override
   String toString() => 'ContactsSyncException: $message';
 }
@@ -68,7 +69,7 @@ class ContactsSyncException extends ContactsRepositoryException {
 // Network related exceptions
 class ContactsNetworkException extends ContactsRepositoryException {
   const ContactsNetworkException(super.message);
-  
+
   @override
   String toString() => 'ContactsNetworkException: $message';
 }
@@ -76,7 +77,7 @@ class ContactsNetworkException extends ContactsRepositoryException {
 // Cache related exceptions
 class ContactsCacheException extends ContactsRepositoryException {
   const ContactsCacheException(super.message);
-  
+
   @override
   String toString() => 'ContactsCacheException: $message';
 }
@@ -84,7 +85,7 @@ class ContactsCacheException extends ContactsRepositoryException {
 // Device contacts related exceptions
 class DeviceContactsException extends ContactsRepositoryException {
   const DeviceContactsException(super.message);
-  
+
   @override
   String toString() => 'DeviceContactsException: $message';
 }
@@ -92,7 +93,7 @@ class DeviceContactsException extends ContactsRepositoryException {
 // Search related exceptions
 class ContactsSearchException extends ContactsRepositoryException {
   const ContactsSearchException(super.message);
-  
+
   @override
   String toString() => 'ContactsSearchException: $message';
 }
@@ -100,7 +101,7 @@ class ContactsSearchException extends ContactsRepositoryException {
 // Block/Unblock related exceptions
 class ContactsBlockException extends ContactsRepositoryException {
   const ContactsBlockException(super.message);
-  
+
   @override
   String toString() => 'ContactsBlockException: $message';
 }
@@ -114,7 +115,7 @@ class ContactsBlockException extends ContactsRepositoryException {
 class SyncedContact {
   final UserModel user;
   final String localContactName; // Name from user's phone contacts
-  final String? localContactId;  // Device contact ID for reference
+  final String? localContactId; // Device contact ID for reference
 
   SyncedContact({
     required this.user,
@@ -123,16 +124,17 @@ class SyncedContact {
   });
 
   // Display name - prefer local contact name, fallback to registered name
-  String get displayName => localContactName.isNotEmpty ? localContactName : user.name;
+  String get displayName =>
+      localContactName.isNotEmpty ? localContactName : user.name;
 
   // Get the registered name (user's profile name on the app)
   String get registeredName => user.name;
 
   Map<String, dynamic> toJson() => {
-    'user': user.toMap(),
-    'localContactName': localContactName,
-    'localContactId': localContactId,
-  };
+        'user': user.toMap(),
+        'localContactName': localContactName,
+        'localContactId': localContactId,
+      };
 
   factory SyncedContact.fromJson(Map<String, dynamic> json) {
     return SyncedContact(
@@ -145,7 +147,8 @@ class SyncedContact {
 
 // Result class for contact synchronization with metadata
 class ContactSyncResult {
-  final List<SyncedContact> registeredContacts; // Changed from UserModel to SyncedContact
+  final List<SyncedContact>
+      registeredContacts; // Changed from UserModel to SyncedContact
   final List<Contact> unregisteredContacts;
   final DateTime syncTime;
   final String syncVersion; // For cache invalidation
@@ -160,19 +163,24 @@ class ContactSyncResult {
   });
 
   Map<String, dynamic> toJson() => {
-    'registeredContacts': registeredContacts.map((c) => c.toJson()).toList(),
-    'unregisteredContacts': unregisteredContacts.map((c) => {
-      'id': c.id,
-      'displayName': c.displayName,
-      'phones': c.phones.map((p) => {
-        'number': p.number,
-        'label': p.label.name,
-      }).toList(),
-    }).toList(),
-    'syncTime': syncTime.toIso8601String(),
-    'syncVersion': syncVersion,
-    'contactHashes': contactHashes,
-  };
+        'registeredContacts':
+            registeredContacts.map((c) => c.toJson()).toList(),
+        'unregisteredContacts': unregisteredContacts
+            .map((c) => {
+                  'id': c.id,
+                  'displayName': c.displayName,
+                  'phones': c.phones
+                      .map((p) => {
+                            'number': p.number,
+                            'label': p.label.name,
+                          })
+                      .toList(),
+                })
+            .toList(),
+        'syncTime': syncTime.toIso8601String(),
+        'syncVersion': syncVersion,
+        'contactHashes': contactHashes,
+      };
 
   factory ContactSyncResult.fromJson(Map<String, dynamic> json) {
     return ContactSyncResult(
@@ -183,13 +191,15 @@ class ContactSyncResult {
           .map((c) => Contact()
             ..id = c['id']
             ..displayName = c['displayName']
-            ..phones = (c['phones'] as List).map((p) => Phone(
-              p['number'],
-              label: PhoneLabel.values.firstWhere(
-                (label) => label.name == p['label'],
-                orElse: () => PhoneLabel.mobile,
-              ),
-            )).toList())
+            ..phones = (c['phones'] as List)
+                .map((p) => Phone(
+                      p['number'],
+                      label: PhoneLabel.values.firstWhere(
+                        (label) => label.name == p['label'],
+                        orElse: () => PhoneLabel.mobile,
+                      ),
+                    ))
+                .toList())
           .toList(),
       syncTime: DateTime.parse(json['syncTime']),
       syncVersion: json['syncVersion'] ?? '',
@@ -209,16 +219,16 @@ class ContactsRepository {
   static const String _lastSyncTimeKey = 'last_contacts_sync_time';
   static const String _contactDataKey = 'contact_sync_data';
   static const String _deviceContactsHashKey = 'device_contacts_hash';
-  
+
   // Sync frequency constants
   static const Duration syncThreshold = Duration(hours: 6);
   static const Duration backgroundSyncThreshold = Duration(hours: 1);
-  
+
   ContactsRepository({
     required HttpClientService httpClient,
     ContactCacheManager? cacheManager,
-  }) : _httpClient = httpClient,
-       _cacheManager = cacheManager ?? ContactCacheManager();
+  })  : _httpClient = httpClient,
+        _cacheManager = cacheManager ?? ContactCacheManager();
 
   // ========================================
   // DEVICE CONTACTS METHODS
@@ -235,11 +245,11 @@ class ContactsRepository {
 
       // Generate hash of current device contacts for change detection
       final currentHash = await _generateDeviceContactsHash();
-      
+
       if (useCache) {
         final prefs = await SharedPreferences.getInstance();
         final cachedHash = prefs.getString(_deviceContactsHashKey);
-        
+
         if (cachedHash == currentHash) {
           final cachedData = await _loadCachedDeviceContacts();
           if (cachedData != null) {
@@ -250,7 +260,7 @@ class ContactsRepository {
       }
 
       debugPrint('Fetching fresh device contacts');
-      
+
       // Get all contacts with optimized properties
       final contacts = await FlutterContacts.getContacts(
         withProperties: true,
@@ -259,15 +269,14 @@ class ContactsRepository {
         withAccounts: false,
         withGroups: false,
       );
-      
+
       // Filter and process contacts
-      final validContacts = contacts
-          .where((contact) => contact.phones.isNotEmpty)
-          .toList();
-      
+      final validContacts =
+          contacts.where((contact) => contact.phones.isNotEmpty).toList();
+
       // Cache the contacts and hash
       await _cacheDeviceContacts(validContacts, currentHash);
-      
+
       return validContacts;
     } catch (e) {
       debugPrint('Error fetching contacts: $e');
@@ -284,11 +293,11 @@ class ContactsRepository {
       final contacts = await FlutterContacts.getContacts(
         withProperties: false, // Only get basic info for hashing
       );
-      
+
       final contactData = contacts
           .map((c) => '${c.id}:${c.displayName}:${c.phones.length}')
           .join('|');
-      
+
       return sha256.convert(utf8.encode(contactData)).toString();
     } catch (e) {
       return DateTime.now().millisecondsSinceEpoch.toString();
@@ -299,20 +308,24 @@ class ContactsRepository {
   Future<void> _cacheDeviceContacts(List<Contact> contacts, String hash) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Store hash for change detection
       await prefs.setString(_deviceContactsHashKey, hash);
-      
+
       // Store essential contact data
-      final contactData = contacts.map((contact) => {
-        'id': contact.id,
-        'displayName': contact.displayName,
-        'phones': contact.phones.map((phone) => {
-          'number': phone.number,
-          'label': phone.label.name,
-        }).toList(),
-      }).toList();
-      
+      final contactData = contacts
+          .map((contact) => {
+                'id': contact.id,
+                'displayName': contact.displayName,
+                'phones': contact.phones
+                    .map((phone) => {
+                          'number': phone.number,
+                          'label': phone.label.name,
+                        })
+                    .toList(),
+              })
+          .toList();
+
       await prefs.setString('cached_device_contacts', jsonEncode(contactData));
     } catch (e) {
       debugPrint('Error caching device contacts: $e');
@@ -325,16 +338,16 @@ class ContactsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedData = prefs.getString('cached_device_contacts');
-      
+
       if (cachedData == null) return null;
-      
+
       final contactList = jsonDecode(cachedData) as List;
-      
+
       return contactList.map((data) {
         final contact = Contact()
           ..id = data['id']
           ..displayName = data['displayName'];
-        
+
         contact.phones = (data['phones'] as List).map((phoneData) {
           return Phone(
             phoneData['number'],
@@ -344,7 +357,7 @@ class ContactsRepository {
             ),
           );
         }).toList();
-        
+
         return contact;
       }).toList();
     } catch (e) {
@@ -362,21 +375,21 @@ class ContactsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastSyncTimeString = prefs.getString(_lastSyncTimeKey);
-      
+
       if (lastSyncTimeString == null) {
         return true; // Never synced before
       }
-      
+
       final lastSyncTime = DateTime.parse(lastSyncTimeString);
       final now = DateTime.now();
       final threshold = isBackground ? backgroundSyncThreshold : syncThreshold;
-      
+
       // Check time-based sync need
       final timeSyncNeeded = now.difference(lastSyncTime) > threshold;
-      
+
       // Check if device contacts changed
       final deviceContactsChanged = await _haveDeviceContactsChanged();
-      
+
       return timeSyncNeeded || deviceContactsChanged;
     } catch (e) {
       debugPrint('Error checking sync status: $e');
@@ -389,9 +402,9 @@ class ContactsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastKnownHash = prefs.getString(_deviceContactsHashKey);
-      
+
       if (lastKnownHash == null) return true;
-      
+
       final currentHash = await _generateDeviceContactsHash();
       return currentHash != lastKnownHash;
     } catch (e) {
@@ -409,48 +422,49 @@ class ContactsRepository {
       // Try cache manager first
       final cacheKey = 'contacts_sync_data';
       final fileInfo = await _cacheManager.getFileFromCache(cacheKey);
-      
+
       if (fileInfo != null) {
         final content = await fileInfo.file.readAsString();
         final data = jsonDecode(content);
         return ContactSyncResult.fromJson(data);
       }
-      
+
       // Fallback to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final cachedData = prefs.getString(_contactDataKey);
-      
+
       if (cachedData != null) {
         final data = jsonDecode(cachedData);
         return ContactSyncResult.fromJson(data);
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('Error loading contacts from storage: $e');
       throw ContactsCacheException('Failed to load contacts from storage: $e');
     }
   }
-  
+
   // Enhanced contact saving with cache manager
   Future<void> saveContactsToStorage(ContactSyncResult result) async {
     try {
       final data = jsonEncode(result.toJson());
-      
+
       // Save to cache manager
       final cacheKey = 'contacts_sync_data';
       final bytes = utf8.encode(data);
       await _cacheManager.putFile(
-        cacheKey, 
+        cacheKey,
         bytes,
         maxAge: syncThreshold,
       );
-      
+
       // Also save to SharedPreferences as backup
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_contactDataKey, data);
-      await prefs.setString(_lastSyncTimeKey, result.syncTime.toIso8601String());
-      
+      await prefs.setString(
+          _lastSyncTimeKey, result.syncTime.toIso8601String());
+
       debugPrint('Contacts saved to storage successfully');
     } catch (e) {
       debugPrint('Error saving contacts to storage: $e');
@@ -482,11 +496,12 @@ class ContactsRepository {
   Future<List<UserModel>> findRegisteredUsers(List<String> phoneNumbers) async {
     try {
       if (phoneNumbers.isEmpty) return [];
-      
+
       // Create cache key for this phone number set
       final phoneSet = phoneNumbers.toSet().toList()..sort();
-      final cacheKey = 'registered_users_${sha256.convert(utf8.encode(phoneSet.join(','))).toString()}';
-      
+      final cacheKey =
+          'registered_users_${sha256.convert(utf8.encode(phoneSet.join(','))).toString()}';
+
       // Try cache first
       final fileInfo = await _cacheManager.getFileFromCache(cacheKey);
       if (fileInfo != null) {
@@ -498,29 +513,32 @@ class ContactsRepository {
           // Cache corrupted, continue with fresh fetch
         }
       }
-      
+
       List<UserModel> registeredUsers = [];
-      
+
       // Process in smaller batches for better performance
       final chunks = _chunkList(phoneNumbers.toSet().toList(), 10);
-      
+
       for (final chunk in chunks) {
         final response = await _httpClient.post('/contacts/sync', body: {
           'phone_numbers': chunk,
         });
-        
+
         if (response.statusCode == 200) {
-          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+          final responseData =
+              jsonDecode(response.body) as Map<String, dynamic>;
           final List<dynamic> usersData = responseData['users'] ?? [];
           final users = usersData
-              .map((userData) => UserModel.fromMap(userData as Map<String, dynamic>))
+              .map((userData) =>
+                  UserModel.fromMap(userData as Map<String, dynamic>))
               .toList();
           registeredUsers.addAll(users);
         } else {
-          throw ContactsNetworkException('Failed to search users: ${response.body}');
+          throw ContactsNetworkException(
+              'Failed to search users: ${response.body}');
         }
       }
-      
+
       // Cache the results
       final cacheData = registeredUsers.map((user) => user.toMap()).toList();
       final bytes = utf8.encode(jsonEncode(cacheData));
@@ -529,7 +547,7 @@ class ContactsRepository {
         bytes,
         maxAge: const Duration(hours: 1), // Shorter cache for user data
       );
-      
+
       return registeredUsers;
     } catch (e) {
       debugPrint('Error finding registered users: $e');
@@ -551,13 +569,14 @@ class ContactsRepository {
       if (!forceSync) {
         final cachedResult = await loadContactsFromStorage();
         final syncNeeded = await isSyncNeeded();
-        
+
         if (cachedResult != null && !syncNeeded) {
-          debugPrint('Using cached contacts data from ${cachedResult.syncTime}');
+          debugPrint(
+              'Using cached contacts data from ${cachedResult.syncTime}');
           return cachedResult;
         }
       }
-      
+
       debugPrint('Performing full contacts sync with backend...');
 
       // Extract and standardize phone numbers
@@ -579,7 +598,8 @@ class ContactsRepository {
       // Remove duplicates while preserving mapping
       final uniquePhoneNumbers = contactPhoneNumbers.toSet().toList();
 
-      debugPrint('Syncing ${uniquePhoneNumbers.length} unique phone number variations...');
+      debugPrint(
+          'Syncing ${uniquePhoneNumbers.length} unique phone number variations...');
 
       // Find registered users efficiently using HTTP service
       final registeredUsers = await findRegisteredUsers(uniquePhoneNumbers);
@@ -613,7 +633,8 @@ class ContactsRepository {
         ));
       }
 
-      debugPrint('Created ${syncedContacts.length} synced contacts with local names');
+      debugPrint(
+          'Created ${syncedContacts.length} synced contacts with local names');
 
       // Create unregistered contacts list
       final processedContactIds = <String>{};
@@ -638,8 +659,12 @@ class ContactsRepository {
 
       // Generate contact hashes for change detection
       final contactHashes = <String, String>{};
-      for (final contact in [...syncedContacts.map((c) => c.user.uid), ...unregisteredContacts.map((c) => c.id)]) {
-        contactHashes[contact] = sha256.convert(utf8.encode(contact)).toString();
+      for (final contact in [
+        ...syncedContacts.map((c) => c.user.uid),
+        ...unregisteredContacts.map((c) => c.id)
+      ]) {
+        contactHashes[contact] =
+            sha256.convert(utf8.encode(contact)).toString();
       }
 
       // Create result with version for cache invalidation
@@ -650,10 +675,10 @@ class ContactsRepository {
         syncVersion: DateTime.now().millisecondsSinceEpoch.toString(),
         contactHashes: contactHashes,
       );
-      
+
       // Save to storage
       await saveContactsToStorage(result);
-      
+
       return result;
     } catch (e) {
       debugPrint('Error syncing contacts: $e');
@@ -672,14 +697,14 @@ class ContactsRepository {
       if (!await isSyncNeeded(isBackground: true)) {
         return false; // No sync needed
       }
-      
+
       final deviceContacts = await getDeviceContacts();
       await syncContactsWithBackend(
         deviceContacts: deviceContacts,
         currentUser: currentUser,
         forceSync: false,
       );
-      
+
       return true;
     } catch (e) {
       debugPrint('Background sync failed: $e');
@@ -695,18 +720,21 @@ class ContactsRepository {
   Future<UserModel?> searchUserByPhoneNumber(String phoneNumber) async {
     try {
       final standardized = standardizePhoneNumber(phoneNumber);
-      final response = await _httpClient.get('/users/search?phoneNumber=${Uri.encodeComponent(standardized)}');
-      
+      final response = await _httpClient.get(
+          '/users/search?phoneNumber=${Uri.encodeComponent(standardized)}');
+
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         if (responseData['user'] != null) {
-          return UserModel.fromMap(responseData['user'] as Map<String, dynamic>);
+          return UserModel.fromMap(
+              responseData['user'] as Map<String, dynamic>);
         }
       }
       return null;
     } catch (e) {
       debugPrint('Error searching user by phone number: $e');
-      throw ContactsSearchException('Failed to search user by phone number: $e');
+      throw ContactsSearchException(
+          'Failed to search user by phone number: $e');
     }
   }
 
@@ -716,9 +744,10 @@ class ContactsRepository {
       final response = await _httpClient.post('/contacts/block', body: {
         'contactId': contactUid,
       });
-      
+
       if (response.statusCode != 200) {
-        throw ContactsNetworkException('Failed to block contact: ${response.body}');
+        throw ContactsNetworkException(
+            'Failed to block contact: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error blocking contact: $e');
@@ -735,9 +764,10 @@ class ContactsRepository {
       final response = await _httpClient.post('/contacts/unblock', body: {
         'contactId': contactUid,
       });
-      
+
       if (response.statusCode != 200) {
-        throw ContactsNetworkException('Failed to unblock contact: ${response.body}');
+        throw ContactsNetworkException(
+            'Failed to unblock contact: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error unblocking contact: $e');
@@ -752,15 +782,17 @@ class ContactsRepository {
   Future<List<UserModel>> getBlockedContacts() async {
     try {
       final response = await _httpClient.get('/contacts/blocked');
-      
+
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         final List<dynamic> blockedData = responseData['blockedContacts'] ?? [];
         return blockedData
-            .map((contactData) => UserModel.fromMap(contactData as Map<String, dynamic>))
+            .map((contactData) =>
+                UserModel.fromMap(contactData as Map<String, dynamic>))
             .toList();
       } else {
-        throw ContactsNetworkException('Failed to get blocked contacts: ${response.body}');
+        throw ContactsNetworkException(
+            'Failed to get blocked contacts: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error getting blocked contacts: $e');
@@ -802,7 +834,8 @@ class ContactsRepository {
     }
 
     // If 9 digits (Kenya mobile without leading 0)
-    if (digits.length == 9 && (digits.startsWith('7') || digits.startsWith('1'))) {
+    if (digits.length == 9 &&
+        (digits.startsWith('7') || digits.startsWith('1'))) {
       return '+254$digits';
     }
 
@@ -848,36 +881,32 @@ class ContactsRepository {
   List<Contact> _removeDuplicateContacts(List<Contact> contacts) {
     final seen = <String>{};
     final uniqueContacts = <Contact>[];
-    
+
     for (final contact in contacts) {
       // Create a unique key based on name and primary phone
-      final primaryPhone = contact.phones.isNotEmpty 
+      final primaryPhone = contact.phones.isNotEmpty
           ? standardizePhoneNumber(contact.phones.first.number)
           : '';
       final key = '${contact.displayName.toLowerCase().trim()}:$primaryPhone';
-      
+
       if (!seen.contains(key)) {
         seen.add(key);
         uniqueContacts.add(contact);
       }
     }
-    
+
     return uniqueContacts;
   }
-  
+
   // Helper method to chunk list for batch processing
   List<List<T>> _chunkList<T>(List<T> list, int chunkSize) {
     final chunks = <List<T>>[];
-    
+
     for (var i = 0; i < list.length; i += chunkSize) {
-      chunks.add(
-        list.sublist(
-          i, 
-          i + chunkSize > list.length ? list.length : i + chunkSize
-        )
-      );
+      chunks.add(list.sublist(
+          i, i + chunkSize > list.length ? list.length : i + chunkSize));
     }
-    
+
     return chunks;
   }
 }

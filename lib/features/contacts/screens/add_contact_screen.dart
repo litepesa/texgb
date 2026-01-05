@@ -43,15 +43,15 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
 
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-      
+
       // Ensure phone number is in international format
       String phoneNumber = _phoneController.text.trim();
       if (!phoneNumber.startsWith('+')) {
         phoneNumber = '+$phoneNumber'; // Add + if missing
       }
-      
+
       final user = await contactsNotifier.searchUserByPhoneNumber(phoneNumber);
-      
+
       setState(() {
         _isSearching = false;
         _foundUser = user;
@@ -78,7 +78,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     try {
       final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
       await contactsNotifier.addContact(_foundUser!);
-      
+
       if (mounted) {
         showSnackBar(context, 'Contact added successfully');
         Navigator.pop(context);
@@ -94,7 +94,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   // Navigate to contact profile
   void _viewContactProfile() {
     if (_foundUser == null) return;
-    
+
     Navigator.pushNamed(
       context,
       Constants.contactProfileScreen,
@@ -107,7 +107,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
     final primaryColor = modernTheme.primaryColor!;
-    
+
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
       body: SafeArea(
@@ -162,7 +162,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                       ),
                     ),
                   ),
-                  
+
                   // Enhanced Title
                   Expanded(
                     child: Container(
@@ -192,13 +192,13 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                       ),
                     ),
                   ),
-                  
+
                   // Placeholder for symmetry
                   const SizedBox(width: 44),
                 ],
               ),
             ),
-            
+
             // Main content
             Expanded(
               child: Padding(
@@ -208,7 +208,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                   children: [
                     // Phone number input with enhanced design
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(
                         color: modernTheme.surfaceColor,
                         borderRadius: BorderRadius.circular(16),
@@ -279,8 +280,10 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                 )
                               : null,
                           border: InputBorder.none,
-                          labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                          hintStyle: TextStyle(color: modernTheme.textTertiaryColor),
+                          labelStyle:
+                              TextStyle(color: modernTheme.textSecondaryColor),
+                          hintStyle:
+                              TextStyle(color: modernTheme.textTertiaryColor),
                         ),
                         style: TextStyle(color: modernTheme.textColor),
                         keyboardType: TextInputType.phone,
@@ -293,9 +296,9 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                         },
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Enhanced Search button
                     Material(
                       color: Colors.transparent,
@@ -306,15 +309,19 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: _isSearching ? primaryColor.withOpacity(0.5) : primaryColor,
+                            color: _isSearching
+                                ? primaryColor.withOpacity(0.5)
+                                : primaryColor,
                             borderRadius: BorderRadius.circular(16),
-                            boxShadow: _isSearching ? null : [
-                              BoxShadow(
-                                color: primaryColor.withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                            boxShadow: _isSearching
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: primaryColor.withOpacity(0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -355,7 +362,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                         ),
                       ),
                     ),
-                    
+
                     // Error message with enhanced design
                     if (_error != null)
                       Container(
@@ -397,7 +404,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                           ],
                         ),
                       ),
-                    
+
                     // Found user with enhanced design
                     if (_foundUser != null)
                       Container(
@@ -412,7 +419,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: modernTheme.primaryColor!.withOpacity(0.08),
+                              color:
+                                  modernTheme.primaryColor!.withOpacity(0.08),
                               blurRadius: 24,
                               offset: const Offset(0, 6),
                               spreadRadius: -6,
@@ -451,15 +459,16 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                       child: Image.network(
                                         _foundUser!.profileImage,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => 
-                                            _buildFallbackAvatar(),
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                _buildFallbackAvatar(),
                                       ),
                                     )
                                   : _buildFallbackAvatar(),
                             ),
-                            
+
                             const SizedBox(height: 16),
-                            
+
                             // User name
                             Text(
                               _foundUser!.name,
@@ -471,12 +480,13 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            
+
                             const SizedBox(height: 8),
-                            
+
                             // Phone number badge
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: primaryColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
@@ -505,17 +515,19 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                 ],
                               ),
                             ),
-                            
+
                             // Bio if available
                             if (_foundUser!.bio.isNotEmpty) ...[
                               const SizedBox(height: 16),
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: modernTheme.surfaceVariantColor!.withOpacity(0.3),
+                                  color: modernTheme.surfaceVariantColor!
+                                      .withOpacity(0.3),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: modernTheme.dividerColor!.withOpacity(0.15),
+                                    color: modernTheme.dividerColor!
+                                        .withOpacity(0.15),
                                     width: 1,
                                   ),
                                 ),
@@ -531,9 +543,9 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                 ),
                               ),
                             ],
-                            
+
                             const SizedBox(height: 24),
-                            
+
                             // Action buttons
                             Row(
                               children: [
@@ -545,26 +557,36 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                       onTap: _isSearching ? null : _addContact,
                                       borderRadius: BorderRadius.circular(14),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 14),
                                         decoration: BoxDecoration(
-                                          color: _isSearching ? primaryColor.withOpacity(0.5) : primaryColor,
-                                          borderRadius: BorderRadius.circular(14),
-                                          boxShadow: _isSearching ? null : [
-                                            BoxShadow(
-                                              color: primaryColor.withOpacity(0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
+                                          color: _isSearching
+                                              ? primaryColor.withOpacity(0.5)
+                                              : primaryColor,
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          boxShadow: _isSearching
+                                              ? null
+                                              : [
+                                                  BoxShadow(
+                                                    color: primaryColor
+                                                        .withOpacity(0.3),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Container(
                                               padding: const EdgeInsets.all(3),
                                               decoration: BoxDecoration(
-                                                color: Colors.white.withOpacity(0.2),
-                                                borderRadius: BorderRadius.circular(3),
+                                                color: Colors.white
+                                                    .withOpacity(0.2),
+                                                borderRadius:
+                                                    BorderRadius.circular(3),
                                               ),
                                               child: const Icon(
                                                 Icons.person_add_rounded,
@@ -574,7 +596,9 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                             ),
                                             const SizedBox(width: 6),
                                             Text(
-                                              _isSearching ? 'Adding...' : 'Add Contact',
+                                              _isSearching
+                                                  ? 'Adding...'
+                                                  : 'Add Contact',
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 14,
@@ -587,38 +611,47 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                     ),
                                   ),
                                 ),
-                                
                                 const SizedBox(width: 12),
-                                
                                 Expanded(
                                   child: Material(
                                     color: Colors.transparent,
                                     borderRadius: BorderRadius.circular(14),
                                     child: InkWell(
-                                      onTap: _isSearching ? null : _viewContactProfile,
+                                      onTap: _isSearching
+                                          ? null
+                                          : _viewContactProfile,
                                       borderRadius: BorderRadius.circular(14),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 14),
                                         decoration: BoxDecoration(
-                                          color: modernTheme.surfaceVariantColor,
-                                          borderRadius: BorderRadius.circular(14),
+                                          color:
+                                              modernTheme.surfaceVariantColor,
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                           border: Border.all(
-                                            color: modernTheme.dividerColor!.withOpacity(0.3),
+                                            color: modernTheme.dividerColor!
+                                                .withOpacity(0.3),
                                             width: 1,
                                           ),
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Container(
                                               padding: const EdgeInsets.all(3),
                                               decoration: BoxDecoration(
-                                                color: modernTheme.textSecondaryColor!.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(3),
+                                                color: modernTheme
+                                                    .textSecondaryColor!
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(3),
                                               ),
                                               child: Icon(
                                                 Icons.info_outline_rounded,
-                                                color: modernTheme.textSecondaryColor,
+                                                color: modernTheme
+                                                    .textSecondaryColor,
                                                 size: 14,
                                               ),
                                             ),
@@ -626,7 +659,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                                             Text(
                                               'View Profile',
                                               style: TextStyle(
-                                                color: modernTheme.textSecondaryColor,
+                                                color: modernTheme
+                                                    .textSecondaryColor,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -642,7 +676,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                           ],
                         ),
                       ),
-                    
+
                     // Information about adding contacts when no user found
                     if (_foundUser == null && !_isSearching && _error == null)
                       Expanded(
@@ -653,7 +687,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                               Container(
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
-                                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                                  color: modernTheme.primaryColor!
+                                      .withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -684,9 +719,11 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                               ),
                               const SizedBox(height: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: modernTheme.surfaceVariantColor!.withOpacity(0.5),
+                                  color: modernTheme.surfaceVariantColor!
+                                      .withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -716,7 +753,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   Widget _buildFallbackAvatar() {
     final modernTheme = context.modernTheme;
     final primaryColor = modernTheme.primaryColor!;
-    
+
     return Container(
       width: 80,
       height: 80,
@@ -733,7 +770,9 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       ),
       child: Center(
         child: Text(
-          _foundUser?.name.isNotEmpty == true ? _foundUser!.name[0].toUpperCase() : '?',
+          _foundUser?.name.isNotEmpty == true
+              ? _foundUser!.name[0].toUpperCase()
+              : '?',
           style: const TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,

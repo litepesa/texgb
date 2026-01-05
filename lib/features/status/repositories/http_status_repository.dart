@@ -204,7 +204,8 @@ class HttpStatusRepository implements StatusRepository {
     required bool isVideo,
   }) async {
     try {
-      print('🔼 Uploading ${isVideo ? 'video' : 'image'} to ${StatusConstants.apiUploadMedia}');
+      print(
+          '🔼 Uploading ${isVideo ? 'video' : 'image'} to ${StatusConstants.apiUploadMedia}');
       print('📁 File path: ${file.path}');
       print('📦 File size: ${await file.length()} bytes');
 
@@ -214,7 +215,9 @@ class HttpStatusRepository implements StatusRepository {
         file,
         'file', // Field name must be "file"
         additionalFields: {
-          'type': isVideo ? 'video' : 'post', // "post" for images, "video" for videos
+          'type': isVideo
+              ? 'video'
+              : 'post', // "post" for images, "video" for videos
         },
       );
 
@@ -231,22 +234,19 @@ class HttpStatusRepository implements StatusRepository {
 
           if (mediaUrl == null) {
             throw StatusRepositoryException(
-              'Upload response missing URL. Response: ${response.body}'
-            );
+                'Upload response missing URL. Response: ${response.body}');
           }
 
           if (mediaUrl is! String) {
             throw StatusRepositoryException(
-              'Upload URL is not a string. Got: ${mediaUrl.runtimeType}. Response: ${response.body}'
-            );
+                'Upload URL is not a string. Got: ${mediaUrl.runtimeType}. Response: ${response.body}');
           }
 
           print('✅ Upload successful: $mediaUrl');
           return mediaUrl;
         } catch (e) {
           throw StatusRepositoryException(
-            'Failed to parse upload response: $e. Body: ${response.body}'
-          );
+              'Failed to parse upload response: $e. Body: ${response.body}');
         }
       }
 
@@ -255,8 +255,8 @@ class HttpStatusRepository implements StatusRepository {
       try {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>;
         errorMessage = errorData['error'] as String? ??
-                      errorData['message'] as String? ??
-                      errorMessage;
+            errorData['message'] as String? ??
+            errorMessage;
       } catch (_) {
         errorMessage += ': ${response.body}';
       }

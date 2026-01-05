@@ -43,7 +43,8 @@ class _ChannelSettingsScreenState extends ConsumerState<ChannelSettingsScreen> {
   Future<void> _loadChannel() async {
     setState(() => _isLoading = true);
 
-    final channelAsync = await ref.read(channelProvider(widget.channelId).future);
+    final channelAsync =
+        await ref.read(channelProvider(widget.channelId).future);
 
     if (channelAsync != null) {
       setState(() {

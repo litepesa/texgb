@@ -189,7 +189,8 @@ class _GiftMessageBubbleState extends State<GiftMessageBubble>
                           gradient: LinearGradient(
                             colors: [
                               modernTheme.primaryColor ?? Colors.purple,
-                              modernTheme.primaryColor?.withOpacity(0.7) ?? Colors.purpleAccent,
+                              modernTheme.primaryColor?.withOpacity(0.7) ??
+                                  Colors.purpleAccent,
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -198,7 +199,9 @@ class _GiftMessageBubbleState extends State<GiftMessageBubble>
                           boxShadow: [
                             BoxShadow(
                               color: (modernTheme.primaryColor ?? Colors.purple)
-                                  .withOpacity(_isOpened ? 0.3 : _glowAnimation.value * 0.5),
+                                  .withOpacity(_isOpened
+                                      ? 0.3
+                                      : _glowAnimation.value * 0.5),
                               blurRadius: _isOpened ? 20 : 15,
                               spreadRadius: _isOpened ? 5 : 3,
                             ),
@@ -242,7 +245,8 @@ class _GiftMessageBubbleState extends State<GiftMessageBubble>
                                     Transform.translate(
                                       offset: Offset(
                                         0,
-                                        -40 * math.sin(_lidAnimation.value.abs()),
+                                        -40 *
+                                            math.sin(_lidAnimation.value.abs()),
                                       ),
                                       child: Transform.rotate(
                                         angle: _lidAnimation.value,
@@ -251,14 +255,17 @@ class _GiftMessageBubbleState extends State<GiftMessageBubble>
                                           width: 90,
                                           height: 20,
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.95),
-                                            borderRadius: const BorderRadius.only(
+                                            color:
+                                                Colors.white.withOpacity(0.95),
+                                            borderRadius:
+                                                const BorderRadius.only(
                                               topLeft: Radius.circular(8),
                                               topRight: Radius.circular(8),
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.2),
+                                                color: Colors.black
+                                                    .withOpacity(0.2),
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 2),
                                               ),
@@ -270,7 +277,8 @@ class _GiftMessageBubbleState extends State<GiftMessageBubble>
                                               height: 4,
                                               decoration: BoxDecoration(
                                                 color: modernTheme.primaryColor,
-                                                borderRadius: BorderRadius.circular(2),
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
                                               ),
                                             ),
                                           ),
@@ -356,7 +364,8 @@ class _GiftMessageBubbleState extends State<GiftMessageBubble>
 
                     return Positioned(
                       left: 125 + particle.dx * progress * 150,
-                      top: 80 + particle.dy * progress * 200 +
+                      top: 80 +
+                          particle.dy * progress * 200 +
                           (progress * progress * 200), // Gravity effect
                       child: Transform.rotate(
                         angle: particle.rotation * progress * 4 * math.pi,
@@ -397,7 +406,8 @@ class ConfettiParticle {
       : dx = (math.Random().nextDouble() - 0.5) * 2,
         dy = -math.Random().nextDouble(),
         size = math.Random().nextDouble() * 8 + 4,
-        color = Colors.primaries[math.Random().nextInt(Colors.primaries.length)],
+        color =
+            Colors.primaries[math.Random().nextInt(Colors.primaries.length)],
         rotation = math.Random().nextDouble(),
         isCircle = math.Random().nextBool();
 }

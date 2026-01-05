@@ -427,9 +427,8 @@ class GroupMessages extends _$GroupMessages {
 
       // Replace temp message with real one
       final currentMessages = state.valueOrNull ?? [];
-      final updatedMessages = currentMessages
-          .where((m) => !m.id.startsWith('temp_'))
-          .toList();
+      final updatedMessages =
+          currentMessages.where((m) => !m.id.startsWith('temp_')).toList();
 
       // Add real message if not already added by WebSocket
       if (!updatedMessages.any((m) => m.id == sentMessage.id)) {

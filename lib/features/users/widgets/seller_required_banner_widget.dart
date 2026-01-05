@@ -29,10 +29,12 @@ class SellerRequiredBannerWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SellerRequiredBannerWidget> createState() => _SellerRequiredBannerWidgetState();
+  ConsumerState<SellerRequiredBannerWidget> createState() =>
+      _SellerRequiredBannerWidgetState();
 }
 
-class _SellerRequiredBannerWidgetState extends ConsumerState<SellerRequiredBannerWidget>
+class _SellerRequiredBannerWidgetState
+    extends ConsumerState<SellerRequiredBannerWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _bannerAnimationController;
   late Animation<double> _bannerAnimation;
@@ -210,42 +212,18 @@ class _SellerRequiredBannerWidgetState extends ConsumerState<SellerRequiredBanne
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    const Text(
-                                      '🏪 Become a Seller!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.3),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Text(
-                                        'REQUIRED',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                const Text(
+                                  '🏪 Become a Seller!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 const Text(
-                                  'Upgrade to seller account to list products',
+                                  'Upgrade to seller account to start listing on the Marketplace',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -322,10 +300,12 @@ class SellerRequiredBannerCard extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SellerRequiredBannerCard> createState() => _SellerRequiredBannerCardState();
+  ConsumerState<SellerRequiredBannerCard> createState() =>
+      _SellerRequiredBannerCardState();
 }
 
-class _SellerRequiredBannerCardState extends ConsumerState<SellerRequiredBannerCard>
+class _SellerRequiredBannerCardState
+    extends ConsumerState<SellerRequiredBannerCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _bannerAnimationController;
   late Animation<double> _bannerAnimation;

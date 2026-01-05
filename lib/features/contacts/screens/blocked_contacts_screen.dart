@@ -12,12 +12,12 @@ class BlockedContactsScreen extends ConsumerStatefulWidget {
   const BlockedContactsScreen({super.key});
 
   @override
-  ConsumerState<BlockedContactsScreen> createState() => _BlockedContactsScreenState();
+  ConsumerState<BlockedContactsScreen> createState() =>
+      _BlockedContactsScreenState();
 }
 
-class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen> 
+class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
     with AutomaticKeepAliveClientMixin {
-  
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearching = false;
@@ -66,10 +66,11 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   List<UserModel> _getFilteredBlockedContacts(List<UserModel> blockedContacts) {
     if (_searchQuery.isEmpty) return blockedContacts;
-    
-    return blockedContacts.where((contact) => 
-        contact.name.toLowerCase().contains(_searchQuery) ||
-        contact.phoneNumber.toLowerCase().contains(_searchQuery))
+
+    return blockedContacts
+        .where((contact) =>
+            contact.name.toLowerCase().contains(_searchQuery) ||
+            contact.phoneNumber.toLowerCase().contains(_searchQuery))
         .toList();
   }
 
@@ -82,9 +83,9 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     final theme = context.modernTheme;
-    
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
@@ -142,7 +143,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                       ),
                     ),
                   ),
-                  
+
                   // Enhanced Title
                   Expanded(
                     child: Container(
@@ -150,7 +151,9 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                       child: Column(
                         children: [
                           Text(
-                            _isSearching ? 'Search Blocked' : 'Blocked Contacts',
+                            _isSearching
+                                ? 'Search Blocked'
+                                : 'Blocked Contacts',
                             style: TextStyle(
                               color: theme.textColor,
                               fontSize: 18,
@@ -172,7 +175,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                       ),
                     ),
                   ),
-                  
+
                   // Enhanced Search Button
                   if (!_isSearching)
                     Material(
@@ -200,7 +203,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                         ),
                       ),
                     ),
-                  
+
                   // Enhanced Clear Search Button
                   if (_isSearching)
                     Material(
@@ -233,12 +236,13 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                 ],
               ),
             ),
-            
+
             // Search Field (when active)
             if (_isSearching)
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 decoration: BoxDecoration(
                   color: theme.surfaceColor,
                   borderRadius: BorderRadius.circular(12),
@@ -270,7 +274,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                   style: TextStyle(color: theme.textColor),
                 ),
               ),
-            
+
             // Main content
             Expanded(
               child: _buildBlockedContactsList(),
@@ -283,32 +287,33 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   Widget _buildBlockedContactsList() {
     final theme = context.modernTheme;
-    
+
     return Consumer(
       builder: (context, ref, child) {
         final contactsState = ref.watch(contactsNotifierProvider);
-        
+
         return contactsState.when(
           data: (state) {
             if (state.isLoading && _isInitializing) {
               return _buildLoadingState();
             }
-            
+
             if (state.error != null) {
               return _buildErrorState(state.error!);
             }
-            
+
             final blockedContacts = state.blockedContacts;
-            final filteredContacts = _getFilteredBlockedContacts(blockedContacts);
-            
+            final filteredContacts =
+                _getFilteredBlockedContacts(blockedContacts);
+
             if (blockedContacts.isEmpty) {
               return _buildEmptyState();
             }
-            
+
             if (filteredContacts.isEmpty && _searchQuery.isNotEmpty) {
               return _buildNoSearchResultsState();
             }
-            
+
             return RefreshIndicator(
               onRefresh: _loadBlockedContacts,
               color: theme.primaryColor,
@@ -332,7 +337,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   Widget _buildLoadingState() {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -359,7 +364,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   Widget _buildErrorState(String error) {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -425,7 +430,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   Widget _buildEmptyState() {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -476,7 +481,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   Widget _buildNoSearchResultsState() {
     final theme = context.modernTheme;
-    
+
     return Container(
       color: theme.surfaceColor,
       child: Center(
@@ -525,7 +530,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   Widget _buildBlockedContactItem(UserModel contact, int index) {
     final theme = context.modernTheme;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -584,9 +589,9 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                   ),
                   child: _buildCachedAvatar(contact),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 // Enhanced Contact Info
                 Expanded(
                   child: Column(
@@ -605,12 +610,13 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Phone number with enhanced styling
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(6),
@@ -639,12 +645,13 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Blocked status indicator
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(6),
@@ -672,9 +679,9 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 // Enhanced Unblock Button
                 Material(
                   color: Colors.transparent,
@@ -690,7 +697,8 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                         minWidth: 80,
                         maxWidth: 100,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.green,
                         borderRadius: BorderRadius.circular(14),
@@ -748,7 +756,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
   // Cached avatar widget for better performance
   Widget _buildCachedAvatar(UserModel contact) {
     final theme = context.modernTheme;
-    
+
     if (contact.profileImage.isEmpty) {
       return CircleAvatar(
         radius: 24,
@@ -795,7 +803,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
 
   void _showContactOptionsSheet(UserModel contact) {
     final theme = context.modernTheme;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -824,7 +832,7 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // Contact info
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -857,9 +865,9 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Unblock option
             Material(
               color: Colors.transparent,
@@ -869,7 +877,8 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                   _showUnblockConfirmationDialog(contact);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Row(
                     children: [
                       Container(
@@ -898,23 +907,24 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
-  
+
   Future<void> _showUnblockConfirmationDialog(UserModel contact) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         final theme = context.modernTheme;
-        
+
         return AlertDialog(
           backgroundColor: theme.surfaceColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             'Unblock Contact',
             style: TextStyle(
@@ -940,7 +950,8 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('Unblock'),
             ),
@@ -948,10 +959,12 @@ class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen>
         );
       },
     );
-    
+
     if (confirmed == true && mounted) {
       try {
-        await ref.read(contactsNotifierProvider.notifier).unblockContact(contact);
+        await ref
+            .read(contactsNotifierProvider.notifier)
+            .unblockContact(contact);
         if (mounted) {
           _showSuccessSnackBar('${contact.name} unblocked');
         }

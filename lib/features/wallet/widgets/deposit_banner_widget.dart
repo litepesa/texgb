@@ -9,13 +9,13 @@ import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 class DepositBannerWidget extends ConsumerStatefulWidget {
   /// Whether to show the banner even if balance is not zero
   final bool forceShow;
-  
+
   /// Custom vertical position (0.0 to 1.0 of screen height)
   final double? verticalPosition;
-  
+
   /// Horizontal margin
   final double horizontalMargin;
-  
+
   /// Custom callback when banner is tapped (optional)
   final VoidCallback? onTap;
 
@@ -28,7 +28,8 @@ class DepositBannerWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DepositBannerWidget> createState() => _DepositBannerWidgetState();
+  ConsumerState<DepositBannerWidget> createState() =>
+      _DepositBannerWidgetState();
 }
 
 class _DepositBannerWidgetState extends ConsumerState<DepositBannerWidget>
@@ -39,7 +40,7 @@ class _DepositBannerWidgetState extends ConsumerState<DepositBannerWidget>
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize banner animation
     _bannerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -308,7 +309,7 @@ class _DepositBannerWidgetState extends ConsumerState<DepositBannerWidget>
 class DepositBannerCard extends ConsumerStatefulWidget {
   /// Whether to show the banner even if balance is not zero
   final bool forceShow;
-  
+
   /// Custom callback when banner is tapped (optional)
   final VoidCallback? onTap;
 
@@ -330,7 +331,7 @@ class _DepositBannerCardState extends ConsumerState<DepositBannerCard>
   @override
   void initState() {
     super.initState();
-    
+
     _bannerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,

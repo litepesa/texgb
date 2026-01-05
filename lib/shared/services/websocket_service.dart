@@ -12,12 +12,12 @@ enum WebSocketEvent {
   disconnected,
   error,
   reconnecting,
-  
+
   // Chat events
   chatCreated,
   chatUpdated,
   chatDeleted,
-  
+
   // Message events
   messageReceived,
   messageSent,
@@ -25,15 +25,15 @@ enum WebSocketEvent {
   messageDeleted,
   messageDelivered,
   messageRead,
-  
+
   // Typing events
   userTyping,
   userStoppedTyping,
-  
+
   // Presence events
   userOnline,
   userOffline,
-  
+
   // Reaction events
   reactionAdded,
   reactionRemoved,
@@ -66,7 +66,7 @@ class WebSocketMessage {
       type: json['type'] as String,
       data: json['data'] as Map<String, dynamic>,
       id: json['id'] as String?,
-      timestamp: json['timestamp'] != null 
+      timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'] as String)
           : DateTime.now(),
     );
@@ -150,7 +150,7 @@ class WebSocketService {
       });
 
       _channel = WebSocketChannel.connect(uri);
-      
+
       // Listen to messages
       _channelSubscription = _channel!.stream.listen(
         _handleMessage,
@@ -166,7 +166,7 @@ class WebSocketService {
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
-      
+
       _connectionStateController.add(true);
       debugPrint('WebSocket: Connected successfully');
 
@@ -175,13 +175,12 @@ class WebSocketService {
 
       // Emit connected event
       _emitEvent(WebSocketEvent.connected, {});
-
     } catch (e) {
       _connectionTimeoutTimer?.cancel();
       _isConnecting = false;
       debugPrint('WebSocket: Connection failed: $e');
       _errorController.add('Connection failed: $e');
-      
+
       if (_shouldReconnect) {
         _scheduleReconnect();
       }
@@ -221,21 +220,22 @@ class WebSocketService {
     _reconnectTimer?.cancel();
     _heartbeatTimer?.cancel();
     _connectionTimeoutTimer?.cancel();
-    
+
     await _channelSubscription?.cancel();
     await _channel?.sink.close(status.normalClosure);
-    
+
     _channel = null;
     _channelSubscription = null;
     _isConnected = false;
     _isConnecting = false;
-    
+
     _connectionStateController.add(false);
     _emitEvent(WebSocketEvent.disconnected, {});
   }
 
   // Send message to server
-  Future<Map<String, dynamic>?> send(String type, Map<String, dynamic> data, {bool waitForResponse = false}) async {
+  Future<Map<String, dynamic>?> send(String type, Map<String, dynamic> data,
+      {bool waitForResponse = false}) async {
     if (!_isConnected) {
       throw WebSocketException('WebSocket not connected');
     }
@@ -301,7 +301,7 @@ class WebSocketService {
         case 'connection_established':
           debugPrint('WebSocket: Connection established');
           break;
-        
+
         case 'pong':
           debugPrint('WebSocket: Heartbeat acknowledged');
           break;
@@ -315,7 +315,6 @@ class WebSocketService {
           // Emit event for all other message types
           _eventController.add(wsMessage);
       }
-
     } catch (e) {
       debugPrint('WebSocket: Failed to handle message: $e');
       _errorController.add('Failed to handle message: $e');
@@ -352,14 +351,16 @@ class WebSocketService {
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint('WebSocket: Max reconnection attempts reached');
-      _errorController.add('Failed to reconnect after $_maxReconnectAttempts attempts');
+      _errorController
+          .add('Failed to reconnect after $_maxReconnectAttempts attempts');
       return;
     }
 
     _reconnectAttempts++;
     final delay = _reconnectDelay * _reconnectAttempts;
-    
-    debugPrint('WebSocket: Scheduling reconnect attempt $_reconnectAttempts in ${delay.inSeconds}s');
+
+    debugPrint(
+        'WebSocket: Scheduling reconnect attempt $_reconnectAttempts in ${delay.inSeconds}s');
     _emitEvent(WebSocketEvent.reconnecting, {'attempt': _reconnectAttempts});
 
     _reconnectTimer?.cancel();
@@ -413,12 +414,14 @@ class WebSocketService {
 
   // Subscribe to specific event type
   Stream<WebSocketMessage> subscribeToEvent(String eventType) {
-    return _eventController.stream.where((message) => message.type == eventType);
+    return _eventController.stream
+        .where((message) => message.type == eventType);
   }
 
   // Subscribe to multiple event types
   Stream<WebSocketMessage> subscribeToEvents(List<String> eventTypes) {
-    return _eventController.stream.where((message) => eventTypes.contains(message.type));
+    return _eventController.stream
+        .where((message) => eventTypes.contains(message.type));
   }
 
   // Dispose
@@ -488,17 +491,20 @@ class WebSocketService {
   }
 
   // Send message through WebSocket
-  Future<Map<String, dynamic>?> sendMessage(Map<String, dynamic> messageData) async {
+  Future<Map<String, dynamic>?> sendMessage(
+      Map<String, dynamic> messageData) async {
     return await send('send_message', messageData, waitForResponse: true);
   }
 
   // Create chat through WebSocket
-  Future<Map<String, dynamic>?> createChat(Map<String, dynamic> chatData) async {
+  Future<Map<String, dynamic>?> createChat(
+      Map<String, dynamic> chatData) async {
     return await send('create_chat', chatData, waitForResponse: true);
   }
 
   // Update message through WebSocket
-  Future<void> updateMessage(String chatId, String messageId, Map<String, dynamic> updates) async {
+  Future<void> updateMessage(
+      String chatId, String messageId, Map<String, dynamic> updates) async {
     await send('update_message', {
       'chatId': chatId,
       'messageId': messageId,
@@ -507,7 +513,8 @@ class WebSocketService {
   }
 
   // Delete message through WebSocket
-  Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
+  Future<void> deleteMessage(
+      String chatId, String messageId, bool deleteForEveryone) async {
     await send('delete_message', {
       'chatId': chatId,
       'messageId': messageId,
@@ -532,7 +539,8 @@ class WebSocketService {
   }
 
   // Add reaction to message
-  Future<void> addReaction(String chatId, String messageId, String reaction) async {
+  Future<void> addReaction(
+      String chatId, String messageId, String reaction) async {
     await send('add_reaction', {
       'chatId': chatId,
       'messageId': messageId,
@@ -553,7 +561,7 @@ class WebSocketService {
 class WebSocketException implements Exception {
   final String message;
   const WebSocketException(this.message);
-  
+
   @override
   String toString() => 'WebSocketException: $message';
 }

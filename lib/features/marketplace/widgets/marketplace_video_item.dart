@@ -1,4 +1,4 @@
-// lib/features/marketplace/widgets/marketplace_video_item.dart - COMPLETE UPDATED VERSION
+// lib/features/marketplace/widgets/marketplace_video_item.dart - WeChat Channels Style Layout for Marketplace
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -78,6 +78,17 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   // Download state management
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
+
+  // Bottom nav bar height
+  static const double _bottomNavHeight = 60.0;
+  // Top rounded corner radius
+  static const double _topCornerRadius = 16.0;
+
+  // Marketplace brand colors - teal/green theme to differentiate from video feature
+  static const Color _primaryColor = Color(0xFF00BFA5); // Teal
+  static const Color _secondaryColor = Color(0xFF00897B); // Darker teal
+  static const Color _accentColor = Color(0xFF4DB6AC); // Light teal
+  static const Color _dmButtonColor = Color(0xFF00ACC1); // Cyan for DM
 
   @override
   bool get wantKeepAlive => true;
@@ -243,94 +254,6 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     }
   }
 
-  // Follow user functionality
-  Future<void> _followCurrentUser() async {
-    final canInteract = await _requireAuthentication('follow users');
-    if (!canInteract) return;
-
-    final currentUser = ref.read(currentUserProvider);
-
-    // Check if trying to follow self
-    if (widget.marketplaceVideo.userId == currentUser!.uid) {
-      _showCannotFollowSelfMessage();
-      return;
-    }
-
-    try {
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      await authNotifier.followUser(widget.marketplaceVideo.userId);
-
-      _showSnackBar('You are now following ${widget.marketplaceVideo.userName}');
-
-      // Trigger UI update
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (e) {
-      debugPrint('Error following user: $e');
-      _showSnackBar('Failed to follow user. Please try again.');
-    }
-  }
-
-  void _showCannotFollowSelfMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_off,
-                color: Colors.blue,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Cannot Follow Yourself',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You cannot follow your own account.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Gift functionality
   Future<void> _showVirtualGifts() async {
     final canInteract = await _requireAuthentication('send gifts');
@@ -383,12 +306,12 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
+                color: _primaryColor.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.card_giftcard,
-                color: Colors.orange,
+                color: _primaryColor,
                 size: 32,
               ),
             ),
@@ -414,142 +337,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Buy product functionality (dummy for now - will add cart/payment later)
-  Future<void> _buyProduct() async {
-    final canInteract = await _requireAuthentication('buy this product');
-    if (!canInteract) return;
-
-    final currentUser = ref.read(currentUserProvider);
-
-    // Check if user is trying to buy their own product
-    if (widget.marketplaceVideo.userId == currentUser!.uid) {
-      _showCannotBuyOwnProductMessage();
-      return;
-    }
-
-    // Show coming soon message (placeholder until cart/payment is implemented)
-    _showComingSoonMessage();
-  }
-
-  void _showCannotBuyOwnProductMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                color: Colors.orange,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Cannot Buy Own Product',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You cannot purchase your own product.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showComingSoonMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart,
-                color: Colors.blue,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Checkout Coming Soon',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'We\'re working on adding cart and payment features. Stay tuned!',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: _primaryColor,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Got it'),
@@ -789,7 +577,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   Future<void> _createControllerFromNetwork() async {
-    final cachedUri = MarketplaceCacheService().getLocalUri(widget.marketplaceVideo.videoUrl);
+    final cachedUri =
+        MarketplaceCacheService().getLocalUri(widget.marketplaceVideo.videoUrl);
 
     _videoPlayerController = VideoPlayerController.networkUrl(
       cachedUri,
@@ -845,7 +634,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   }
 
   void _togglePlayPause() {
-    if (widget.marketplaceVideo.isMultipleImages || _isCommentsSheetOpen) return;
+    if (widget.marketplaceVideo.isMultipleImages || _isCommentsSheetOpen)
+      return;
 
     if (!_isInitialized) {
       if (!_isInitializing) {
@@ -975,7 +765,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             videoUrl: widget.marketplaceVideo.videoUrl,
             thumbnailUrl: widget.marketplaceVideo.thumbnailUrl.isNotEmpty
                 ? widget.marketplaceVideo.thumbnailUrl
-                : (widget.marketplaceVideo.isMultipleImages && widget.marketplaceVideo.imageUrls.isNotEmpty
+                : (widget.marketplaceVideo.isMultipleImages &&
+                        widget.marketplaceVideo.imageUrls.isNotEmpty
                     ? widget.marketplaceVideo.imageUrls.first
                     : ''),
             userName: widget.marketplaceVideo.userName,
@@ -986,14 +777,16 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
           if (chatId != null && mounted) {
             // Get listing owner user data for chat screen
             final authNotifier = ref.read(authenticationProvider.notifier);
-            final listingOwner = await authNotifier.getUserById(widget.marketplaceVideo.userId);
+            final listingOwner =
+                await authNotifier.getUserById(widget.marketplaceVideo.userId);
 
             // Create UserModel for navigation
-            final contact = listingOwner ?? UserModel.fromMap({
-              'uid': widget.marketplaceVideo.userId,
-              'name': widget.marketplaceVideo.userName,
-              'profileImage': widget.marketplaceVideo.userImage,
-            });
+            final contact = listingOwner ??
+                UserModel.fromMap({
+                  'uid': widget.marketplaceVideo.userId,
+                  'name': widget.marketplaceVideo.userName,
+                  'profileImage': widget.marketplaceVideo.userImage,
+                });
 
             // Navigate to chat screen
             if (mounted) {
@@ -1034,12 +827,12 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.2),
+                color: _dmButtonColor.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.message,
-                color: Colors.blue,
+                color: _dmButtonColor,
                 size: 32,
               ),
             ),
@@ -1054,7 +847,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             ),
             const SizedBox(height: 8),
             const Text(
-              'You cannot send a direct message to your own video.',
+              'You cannot send a direct message to your own listing.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
@@ -1065,7 +858,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             ElevatedButton(
               onPressed: () => context.pop(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: _dmButtonColor,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Got it'),
@@ -1076,50 +869,9 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     );
   }
 
-  // Back navigation functionality
-  void _handleBackNavigation() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
-
-  // Timestamp parsing and formatting methods
-  DateTime _parseVideoTimestamp() {
-    try {
-      return DateTime.parse(widget.marketplaceVideo.createdAt);
-    } catch (e) {
-      return DateTime.now();
-    }
-  }
-
-  String _getRelativeTime() {
-    final now = DateTime.now();
-    final videoTime = _parseVideoTimestamp();
-    final difference = now.difference(videoTime);
-
-    if (difference.inSeconds < 30) {
-      return 'Just now';
-    } else if (difference.inSeconds < 60) {
-      return 'Less than a minute ago';
-    } else if (difference.inMinutes < 60) {
-      final minutes = difference.inMinutes;
-      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
-    } else if (difference.inHours < 24) {
-      final hours = difference.inHours;
-      return hours == 1 ? '1 hour ago' : '$hours hours ago';
-    } else if (difference.inDays < 7) {
-      final days = difference.inDays;
-      return days == 1 ? 'Yesterday' : '$days days ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return months == 1 ? '1 month ago' : '$months months ago';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return years == 1 ? '1 year ago' : '$years years ago';
-    }
+  // Navigate to user profile
+  void _navigateToUserProfile() {
+    context.push(RoutePaths.userProfile(widget.marketplaceVideo.userId));
   }
 
   String _formatCount(int count) {
@@ -1150,38 +902,62 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   Widget build(BuildContext context) {
     super.build(context);
 
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Container(
       width: double.infinity,
       height: double.infinity,
       color: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
+      child: Column(
         children: [
-          GestureDetector(
-            onTap: _togglePlayPause,
-            onDoubleTap: _handleDoubleTap,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildMediaContent(),
-                if (widget.isLoading || _isInitializing)
-                  _buildLoadingIndicator(),
-                if (!widget.marketplaceVideo.isMultipleImages &&
-                    _isInitialized &&
-                    !_isPlaying &&
-                    !_isCommentsSheetOpen)
-                  _buildTikTokPlayIndicator(),
-                if (_showLikeAnimation && !_isCommentsSheetOpen)
-                  _buildLikeAnimation(),
-                if (widget.marketplaceVideo.isMultipleImages &&
-                    widget.marketplaceVideo.imageUrls.length > 1 &&
-                    !_isCommentsSheetOpen)
-                  _buildCarouselIndicators(),
-              ],
+          // Video content area with rounded top corners
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(_topCornerRadius),
+                topRight: Radius.circular(_topCornerRadius),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Video/Image content
+                  GestureDetector(
+                    onTap: _togglePlayPause,
+                    onDoubleTap: _handleDoubleTap,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildMediaContent(),
+                        if (widget.isLoading || _isInitializing)
+                          _buildLoadingIndicator(),
+                        if (!widget.marketplaceVideo.isMultipleImages &&
+                            _isInitialized &&
+                            !_isPlaying &&
+                            !_isCommentsSheetOpen)
+                          _buildTikTokPlayIndicator(),
+                        if (_showLikeAnimation && !_isCommentsSheetOpen)
+                          _buildLikeAnimation(),
+                        if (widget.marketplaceVideo.isMultipleImages &&
+                            widget.marketplaceVideo.imageUrls.length > 1 &&
+                            !_isCommentsSheetOpen)
+                          _buildCarouselIndicators(),
+                      ],
+                    ),
+                  ),
+                  // Caption overlay at bottom of video area
+                  if (!_isCommentsSheetOpen) _buildCaptionOverlay(),
+                ],
+              ),
             ),
           ),
-          if (!_isCommentsSheetOpen) _buildTopLeftUserInfo(),
-          if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
+          // Bottom navigation bar
+          if (!_isCommentsSheetOpen)
+            Container(
+              height: _bottomNavHeight + bottomPadding,
+              padding: EdgeInsets.only(bottom: bottomPadding),
+              color: Colors.black,
+              child: _buildBottomNavBar(),
+            ),
         ],
       ),
     );
@@ -1200,11 +976,11 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
                   builder: (context, child) {
                     return Transform.scale(
                       scale: _heartScaleAnimation.value,
-                      child: const Icon(
-                        CupertinoIcons.heart,
-                        color: Colors.red,
+                      child: Icon(
+                        CupertinoIcons.heart_fill,
+                        color: _primaryColor,
                         size: 80,
-                        shadows: [
+                        shadows: const [
                           Shadow(
                             color: Colors.black,
                             blurRadius: 8,
@@ -1248,8 +1024,8 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
               child: Opacity(
                 opacity: opacity,
                 child: Icon(
-                  CupertinoIcons.heart,
-                  color: Colors.red,
+                  CupertinoIcons.heart_fill,
+                  color: _primaryColor,
                   size: 20 + (index % 3) * 10.0,
                   shadows: [
                     Shadow(
@@ -1356,12 +1132,12 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   Widget _buildLoadingIndicator() {
     return Container(
       color: Colors.black.withOpacity(0.3),
-      child: const Center(
+      child: Center(
         child: SizedBox(
           width: 32,
           height: 32,
           child: CircularProgressIndicator(
-            color: Colors.white,
+            color: _primaryColor,
             strokeWidth: 3,
           ),
         ),
@@ -1385,282 +1161,91 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
   Widget _buildTikTokPlayIndicator() {
     return const Center(
       child: Icon(
-        CupertinoIcons.play,
+        CupertinoIcons.play_fill,
         color: Colors.white,
         size: 60,
       ),
     );
   }
 
-  // Top left user info with back arrow, avatar, name, follow button, and timestamp
-  Widget _buildTopLeftUserInfo() {
-    final topPadding = MediaQuery.of(context).padding.top;
-
+  // Caption overlay at bottom of video area
+  Widget _buildCaptionOverlay() {
     return Positioned(
-      top: topPadding,
+      bottom: 2,
       left: 16,
       right: 16,
-      child: _buildUserInfoWithBackArrow(),
-    );
-  }
-
-  Widget _buildUserInfoWithBackArrow() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final videoUser = _getUserDataIfAvailable();
-        final currentUser = ref.read(currentUserProvider);
-        final isCurrentUserVideo = currentUser?.uid == widget.marketplaceVideo.userId;
-        final isFollowing = ref
-            .read(authenticationProvider.notifier)
-            .isUserFollowed(widget.marketplaceVideo.userId);
-
-        return GestureDetector(
-          onTap: _navigateToUserProfile,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Back Arrow
-              GestureDetector(
-                onTap: _handleBackNavigation,
-                child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: const Icon(
-                    CupertinoIcons.arrow_left,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 1),
-              // Profile Avatar
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: widget.marketplaceVideo.userImage.isNotEmpty == true
-                      ? Image.network(
-                          widget.marketplaceVideo.userImage,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  widget.marketplaceVideo.userName.isNotEmpty == true
-                                      ? widget.marketplaceVideo.userName[0].toUpperCase()
-                                      : 'U',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Center(
-                            child: Text(
-                              widget.marketplaceVideo.userName.isNotEmpty == true
-                                  ? widget.marketplaceVideo.userName[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Username and follow button
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            widget.marketplaceVideo.userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black,
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // FOLLOW BUTTON - Only show if not current user's video and not already following
-                        if (!isCurrentUserVideo &&
-                            currentUser != null &&
-                            !isFollowing)
-                          GestureDetector(
-                            onTap: _followCurrentUser,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1DA1F2),
-                                    Color(0xFF0D8BD9),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF1DA1F2)
-                                        .withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.person_add_alt_1,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Follow',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                      color: Colors.white,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.black.withOpacity(0.3),
-                                          blurRadius: 2,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    // Timestamp
-                    Text(
-                      _getRelativeTime(),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 2,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Bottom overlay with captions, hashtags, and action buttons
-  Widget _buildBottomContentOverlay() {
-    if (_isCommentsSheetOpen) return const SizedBox.shrink();
-
-    final bottomPadding = MediaQuery.of(context).padding.bottom + 4;
-
-    return Positioned(
-      bottom: bottomPadding,
-      left: 0, // Remove left padding from parent
-      right: 0, // Remove right padding from parent
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Caption and hashtags
           if (widget.marketplaceVideo.caption.isNotEmpty ||
-              widget.marketplaceVideo.tags.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16), // Add padding only to caption
-              child: _buildCaptionWithHashtags(),
+              widget.marketplaceVideo.tags.isNotEmpty)
+            GestureDetector(
+              onTap: _toggleCaptionExpansion,
+              child: _buildCaptionText(),
             ),
-            const SizedBox(height: 8),
-          ],
-          _buildActionRow(),
+          // Timestamp - sits right above bottom nav
+          Text(
+            _getRelativeTime(),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.7),
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCaptionWithHashtags() {
-    if (widget.marketplaceVideo.caption.isEmpty && widget.marketplaceVideo.tags.isEmpty) {
-      return const SizedBox.shrink();
+  // Timestamp parsing and formatting methods
+  DateTime _parseVideoTimestamp() {
+    try {
+      return DateTime.parse(widget.marketplaceVideo.createdAt);
+    } catch (e) {
+      return DateTime.now();
     }
+  }
 
+  String _getRelativeTime() {
+    final now = DateTime.now();
+    final videoTime = _parseVideoTimestamp();
+    final difference = now.difference(videoTime);
+
+    if (difference.inSeconds < 30) {
+      return 'Just now';
+    } else if (difference.inSeconds < 60) {
+      return 'Less than a minute ago';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return hours == 1 ? '1 hour ago' : '$hours hours ago';
+    } else if (difference.inDays < 7) {
+      final days = difference.inDays;
+      return days == 1 ? 'Yesterday' : '$days days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return months == 1 ? '1 month ago' : '$months months ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return years == 1 ? '1 year ago' : '$years years ago';
+    }
+  }
+
+  Widget _buildCaptionText() {
     final captionStyle = TextStyle(
       color: Colors.white,
       fontSize: 14,
@@ -1684,23 +1269,21 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
 
     // Add hashtags if they exist
     if (widget.marketplaceVideo.tags.isNotEmpty) {
-      final hashtags = widget.marketplaceVideo.tags.map((tag) => '#$tag').join(' ');
+      final hashtags =
+          widget.marketplaceVideo.tags.map((tag) => '#$tag').join(' ');
       if (fullText.isNotEmpty) {
-        fullText += '\n$hashtags';
+        fullText += ' $hashtags';
       } else {
         fullText = hashtags;
       }
     }
 
-    return GestureDetector(
-      onTap: _toggleCaptionExpansion,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        child: _showFullCaption
-            ? _buildExpandedCaption(fullText, captionStyle, moreStyle)
-            : _buildTruncatedCaption(fullText, captionStyle, moreStyle),
-      ),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: _showFullCaption
+          ? _buildExpandedCaption(fullText, captionStyle, moreStyle)
+          : _buildTruncatedCaption(fullText, captionStyle, moreStyle),
     );
   }
 
@@ -1776,299 +1359,181 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     );
   }
 
-  void _navigateToUserProfile() {
-    context.push(RoutePaths.userProfile(widget.marketplaceVideo.userId));
-  }
+  // Bottom navigation bar with user info, price, and action buttons
+  Widget _buildBottomNavBar() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hasPrice = widget.marketplaceVideo.price > 0;
 
-  // Action row - conditionally shows Gift/Save OR Price/Buy based on video price
-  Widget _buildActionRow() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.only(left: 16, right: 16), // Add horizontal padding here
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Show Gift/Save for free content (price = 0)
-          // Show Price/Buy for paid content (price > 0)
-          if (widget.marketplaceVideo.price == 0) ...[
-            _buildGiftButton(),
-            const SizedBox(width: 8),
-            _buildSaveButton(),
-            const SizedBox(width: 12),
-          ] else ...[
-            _buildPriceButton(),
-            const SizedBox(width: 8),
-            _buildBuyButton(),
-            const SizedBox(width: 12),
-          ],
-
-          // Like button
-          _buildActionButton(
-            icon: widget.marketplaceVideo.isLiked == true
-                ? CupertinoIcons.heart_fill
-                : CupertinoIcons.heart,
-            count: widget.marketplaceVideo.likes,
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFFFF5252), // Red
-                Color(0xFFFF1744), // Darker red
-              ],
-            ),
-            onTap: _likeCurrentVideo,
-          ),
-
-          const SizedBox(width: 10),
-
-          // Comment button
-          _buildActionButton(
-            icon: CupertinoIcons.text_bubble,
-            count: widget.marketplaceVideo.comments,
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF4FC3F7), // Light blue
-                Color(0xFF29B6F6), // Blue
-              ],
-            ),
-            onTap: _showCommentsForCurrentVideo,
-          ),
-
-          const SizedBox(width: 10),
-
-          // DM button
-          _buildDMActionButton(
-            onTap: _openDirectMessage,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Gift button (for free content)
-  Widget _buildGiftButton() {
-    return GestureDetector(
-      onTap: _showVirtualGifts,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFFD700), // Gold start
-              Color(0xFFFFA500), // Orange end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.card_giftcard,
-              color: Colors.white,
-              size: 14,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'GIFT',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+        return Container(
+          height: _bottomNavHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              // Left side: User avatar + username + price
+              Expanded(
+                child: GestureDetector(
+                  onTap: _navigateToUserProfile,
+                  child: Row(
+                    children: [
+                      // Profile Avatar
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: _primaryColor.withOpacity(0.5),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: widget.marketplaceVideo.userImage.isNotEmpty
+                              ? Image.network(
+                                  widget.marketplaceVideo.userImage,
+                                  width: 36,
+                                  height: 36,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return _buildAvatarPlaceholder();
+                                  },
+                                )
+                              : _buildAvatarPlaceholder(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Username and price
+                      Flexible(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.marketplaceVideo.userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (hasPrice) ...[
+                              const SizedBox(height: 2),
+                              _buildPriceTag(),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Save button (for free content)
-  Widget _buildSaveButton() {
-    return GestureDetector(
-      onTap: _downloadCurrentVideo,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF66BB6A), // Green start
-              Color(0xFF43A047), // Darker green end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: _isDownloading
-            ? Row(
+              // Right side: Action buttons - DM, Like, Comment (original styling)
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      value: _downloadProgress,
-                      color: Colors.white,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      strokeWidth: 2,
+                  // DM button - Primary action with gradient
+                  _buildActionButton(
+                    icon: CupertinoIcons.chat_bubble_2,
+                    label: 'DM',
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF00BCD4), // Cyan
+                        Color(0xFF00ACC1), // Darker cyan
+                      ],
                     ),
+                    onTap: _openDirectMessage,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${(_downloadProgress * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                  const SizedBox(width: 10),
+                  // Like button
+                  _buildActionButton(
+                    icon: widget.marketplaceVideo.isLiked == true
+                        ? CupertinoIcons.heart_fill
+                        : CupertinoIcons.heart,
+                    count: widget.marketplaceVideo.likes,
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFFFF5252), // Red
+                        Color(0xFFFF1744), // Darker red
+                      ],
                     ),
+                    onTap: _likeCurrentVideo,
                   ),
-                ],
-              )
-            : const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.download,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'SAVE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                  const SizedBox(width: 10),
+                  // Comment button
+                  _buildActionButton(
+                    icon: CupertinoIcons.text_bubble,
+                    count: widget.marketplaceVideo.comments,
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF4FC3F7), // Light blue
+                        Color(0xFF29B6F6), // Blue
+                      ],
                     ),
+                    onTap: _showCommentsForCurrentVideo,
                   ),
                 ],
               ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  // Price button (for paid content)
-  Widget _buildPriceButton() {
+  // Price tag widget
+  Widget _buildPriceTag() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFF4CAF50), // Green start
-            Color(0xFF2E7D32), // Darker green end
+            _primaryColor,
+            _secondaryColor,
           ],
         ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        widget.marketplaceVideo.formattedPrice,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.local_offer,
+    );
+  }
+
+  Widget _buildAvatarPlaceholder() {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: _primaryColor.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Center(
+        child: Text(
+          widget.marketplaceVideo.userName.isNotEmpty
+              ? widget.marketplaceVideo.userName[0].toUpperCase()
+              : 'U',
+          style: const TextStyle(
             color: Colors.white,
-            size: 14,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
-          const SizedBox(width: 4),
-          Text(
-            widget.marketplaceVideo.formattedPrice,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Buy button (for paid content - dummy for now)
-  Widget _buildBuyButton() {
-    return GestureDetector(
-      onTap: _buyProduct,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFF6B6B), // Coral red start
-              Color(0xFFE55353), // Darker red end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.shopping_cart,
-              color: Colors.white,
-              size: 14,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'BUY',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
+  // Original action button styling with gradient and integrated count
   Widget _buildActionButton({
     required IconData icon,
-    required int count,
+    int? count,
+    String? label,
     required Gradient gradient,
     required VoidCallback onTap,
   }) {
@@ -2101,7 +1566,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             ),
             const SizedBox(width: 4),
             Text(
-              _formatCount(count),
+              label ?? (count != null ? _formatCount(count) : '0'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,
@@ -2114,68 +1579,17 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
     );
   }
 
-  Widget _buildDMActionButton({
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF7E57C2), // Purple
-              Color(0xFF5E35B1), // Darker purple
-            ],
-          ),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              CupertinoIcons.chat_bubble_2,
-              color: Colors.white,
-              size: 16,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'DM',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildCarouselIndicators() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
-    final topPosition = MediaQuery.of(context).padding.top + 120;
-
     return Positioned(
-      top: topPosition,
+      top: 60,
       left: 0,
       right: 0,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(widget.marketplaceVideo.imageUrls.length, (index) {
+        children:
+            List.generate(widget.marketplaceVideo.imageUrls.length, (index) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: _currentImageIndex == index ? 8 : 6,
@@ -2184,7 +1598,7 @@ class _MarketplaceItemState extends ConsumerState<MarketplaceItem>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(3),
               color: _currentImageIndex == index
-                  ? Colors.white
+                  ? _primaryColor
                   : Colors.white.withOpacity(0.5),
               boxShadow: [
                 BoxShadow(

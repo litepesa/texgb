@@ -23,33 +23,32 @@ class CustomSwipeToReply extends StatefulWidget {
 
 class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
     with TickerProviderStateMixin {
-  
   late AnimationController _animationController;
   late AnimationController _replyIconController;
   late Animation<double> _slideAnimation;
   late Animation<double> _replyIconAnimation;
-  
+
   double _dragExtent = 0.0;
   bool _dragUnderway = false;
   bool _hasTriggeredReply = false;
-  
+
   static const double _kSwipeThreshold = 80.0;
   static const double _kMaxSwipeDistance = 120.0;
 
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _replyIconController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _slideAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -57,7 +56,7 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
       parent: _animationController,
       curve: Curves.easeOutCubic,
     ));
-    
+
     _replyIconAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -77,7 +76,7 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
   void _handleDragStart(DragStartDetails details) {
     _dragUnderway = true;
     _hasTriggeredReply = false;
-    
+
     if (_animationController.isAnimating) {
       _animationController.stop();
     }
@@ -85,22 +84,22 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (!_dragUnderway) return;
-    
+
     final delta = details.primaryDelta ?? 0.0;
-    
+
     // Only allow right swipes (positive delta for LTR)
     if (delta > 0) {
       setState(() {
         _dragExtent = (_dragExtent + delta).clamp(0.0, _kMaxSwipeDistance);
       });
-      
+
       // Trigger haptic feedback and icon animation when threshold is reached
       if (_dragExtent >= _kSwipeThreshold && !_hasTriggeredReply) {
         _hasTriggeredReply = true;
         _replyIconController.forward().then((_) {
           _replyIconController.reverse();
         });
-        
+
         // Haptic feedback
         HapticFeedback.mediumImpact();
       } else if (_dragExtent < _kSwipeThreshold && _hasTriggeredReply) {
@@ -112,13 +111,13 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
 
   void _handleDragEnd(DragEndDetails details) {
     if (!_dragUnderway) return;
-    
+
     _dragUnderway = false;
-    
+
     if (_dragExtent >= _kSwipeThreshold) {
       // Trigger reply
       widget.onSwipeToReply();
-      
+
       // Show completion animation
       _animationController.forward().then((_) {
         _animationController.reverse().then((_) {
@@ -139,7 +138,7 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     final animation = Tween<double>(
       begin: currentPosition,
       end: targetPosition,
@@ -147,13 +146,13 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
       parent: controller,
       curve: Curves.easeOut,
     ));
-    
+
     animation.addListener(() {
       setState(() {
         _dragExtent = animation.value;
       });
     });
-    
+
     controller.forward().then((_) {
       controller.dispose();
     });
@@ -162,7 +161,7 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return GestureDetector(
       onHorizontalDragStart: _handleDragStart,
       onHorizontalDragUpdate: _handleDragUpdate,
@@ -179,9 +178,10 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
               child: AnimatedBuilder(
                 animation: _replyIconAnimation,
                 builder: (context, child) {
-                  final opacity = (_dragExtent / _kSwipeThreshold).clamp(0.0, 1.0);
+                  final opacity =
+                      (_dragExtent / _kSwipeThreshold).clamp(0.0, 1.0);
                   final scale = 0.8 + (0.4 * _replyIconAnimation.value);
-                  
+
                   return Center(
                     child: Transform.scale(
                       scale: scale,
@@ -189,9 +189,9 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: _hasTriggeredReply 
-                            ? Colors.green.withOpacity(0.9)
-                            : Colors.green.withOpacity(0.7 * opacity),
+                          color: _hasTriggeredReply
+                              ? Colors.green.withOpacity(0.9)
+                              : Colors.green.withOpacity(0.7 * opacity),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -206,7 +206,7 @@ class _CustomSwipeToReplyState extends State<CustomSwipeToReply>
               ),
             ),
           ],
-          
+
           // Message content with slide transformation
           Transform.translate(
             offset: Offset(_dragExtent, 0),

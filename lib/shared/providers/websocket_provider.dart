@@ -5,12 +5,12 @@ import 'package:textgb/shared/services/websocket_service.dart';
 // WebSocket service provider
 final websocketServiceProvider = Provider<WebSocketService>((ref) {
   final service = WebSocketService();
-  
+
   // Ensure cleanup when provider is disposed
   ref.onDispose(() {
     service.dispose();
   });
-  
+
   return service;
 });
 
@@ -33,13 +33,15 @@ final websocketErrorStreamProvider = StreamProvider<String>((ref) {
 });
 
 // Provider for specific event type stream
-final websocketEventTypeStreamProvider = StreamProvider.family<WebSocketMessage, String>((ref, eventType) {
+final websocketEventTypeStreamProvider =
+    StreamProvider.family<WebSocketMessage, String>((ref, eventType) {
   final service = ref.watch(websocketServiceProvider);
   return service.subscribeToEvent(eventType);
 });
 
 // Provider for multiple event types stream
-final websocketEventTypesStreamProvider = StreamProvider.family<WebSocketMessage, List<String>>((ref, eventTypes) {
+final websocketEventTypesStreamProvider =
+    StreamProvider.family<WebSocketMessage, List<String>>((ref, eventTypes) {
   final service = ref.watch(websocketServiceProvider);
   return service.subscribeToEvents(eventTypes);
 });

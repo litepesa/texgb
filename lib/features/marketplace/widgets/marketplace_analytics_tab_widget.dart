@@ -24,7 +24,11 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final engagementRate = marketplaceVideo.views > 0
-        ? ((marketplaceVideo.likes + marketplaceVideo.comments + marketplaceVideo.shares) / marketplaceVideo.views * 100)
+        ? ((marketplaceVideo.likes +
+                marketplaceVideo.comments +
+                marketplaceVideo.shares) /
+            marketplaceVideo.views *
+            100)
         : 0.0;
 
     return SingleChildScrollView(
@@ -104,8 +108,11 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  marketplaceVideo.isActive ? Icons.check_circle : Icons.pause_circle,
-                  color: marketplaceVideo.isActive ? Colors.green : Colors.orange,
+                  marketplaceVideo.isActive
+                      ? Icons.check_circle
+                      : Icons.pause_circle,
+                  color:
+                      marketplaceVideo.isActive ? Colors.green : Colors.orange,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -252,7 +259,9 @@ class MarketplaceAnalyticsTabWidget extends StatelessWidget {
           Text(
             trend,
             style: TextStyle(
-              color: trend.contains('↗') || trend.contains('Excellent') || trend.contains('Featured')
+              color: trend.contains('↗') ||
+                      trend.contains('Excellent') ||
+                      trend.contains('Featured')
                   ? Colors.green
                   : modernTheme.textSecondaryColor,
               fontSize: 10,

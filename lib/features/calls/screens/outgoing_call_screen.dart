@@ -16,7 +16,8 @@ class OutgoingCallScreen extends ConsumerStatefulWidget {
   ConsumerState<OutgoingCallScreen> createState() => _OutgoingCallScreenState();
 }
 
-class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen> with SingleTickerProviderStateMixin {
+class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -43,9 +44,11 @@ class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen> with Si
             builder: (context) => const ActiveCallScreen(),
           ),
         );
-      } else if (next != null && (next.status == CallStatus.declined ||
-                                   next.status == CallStatus.busy ||
-                                   next.status == CallStatus.timeout) && mounted) {
+      } else if (next != null &&
+          (next.status == CallStatus.declined ||
+              next.status == CallStatus.busy ||
+              next.status == CallStatus.timeout) &&
+          mounted) {
         // Call was declined/busy/timeout, show message and close
         _showEndMessage(next.status);
       }
@@ -117,7 +120,8 @@ class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen> with Si
                 children: [
                   // Call type indicator
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),

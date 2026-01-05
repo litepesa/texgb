@@ -32,17 +32,17 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _rotationController = AnimationController(
       duration: const Duration(seconds: 20),
       vsync: this,
     )..repeat();
-    
+
     _shimmerController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
@@ -71,19 +71,19 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
   List<UserModel> get liveUsers {
     final users = ref.watch(usersProvider);
     final currentUser = ref.watch(currentUserProvider);
-    
+
     List<UserModel> filteredList = users.where((user) => user.isLive).toList();
 
     if (currentUser != null) {
       filteredList.removeWhere((user) => user.id == currentUser.id);
     }
-    
+
     filteredList.sort((a, b) {
       if (a.isVerified && !b.isVerified) return -1;
       if (!a.isVerified && b.isVerified) return 1;
       return b.followers.compareTo(a.followers);
     });
-    
+
     return filteredList;
   }
 
@@ -116,25 +116,23 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
-    
+
     return Scaffold(
       backgroundColor: theme.backgroundColor,
-      body: !_isInitialized 
-        ? _buildLoadingView(theme)
-        : _buildContent(theme),
+      body: !_isInitialized ? _buildLoadingView(theme) : _buildContent(theme),
     );
   }
 
   Widget _buildContent(ModernThemeExtension theme) {
     final users = liveUsers;
-    
+
     return RefreshIndicator(
       onRefresh: _refreshLiveUsers,
       color: theme.primaryColor,
       backgroundColor: theme.surfaceColor,
-      child: users.isEmpty 
-        ? _buildPremiumEmptyState(theme)
-        : _buildLiveUsersGrid(users, theme),
+      child: users.isEmpty
+          ? _buildPremiumEmptyState(theme)
+          : _buildLiveUsersGrid(users, theme),
     );
   }
 
@@ -167,7 +165,8 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            theme.primaryColor!.withOpacity(0.3 * (1 - _pulseController.value)),
+                            theme.primaryColor!.withOpacity(
+                                0.3 * (1 - _pulseController.value)),
                             Colors.transparent,
                           ],
                         ),
@@ -264,7 +263,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                           );
                         },
                       ),
-                      
+
                       // Pulsing circle
                       AnimatedBuilder(
                         animation: _pulseController,
@@ -284,7 +283,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                           );
                         },
                       ),
-                      
+
                       // Main container
                       Container(
                         width: 140,
@@ -312,9 +311,9 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 48),
-                  
+
                   // Title
                   ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
@@ -334,9 +333,9 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Description
                   Text(
                     'There are no active live streams at the moment.\nCheck back soon for exciting shopping experiences!',
@@ -348,14 +347,14 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  
+
                   const SizedBox(height: 48),
-                  
+
                   // Feature cards
                   _buildFeatureCards(theme),
-                  
+
                   const SizedBox(height: 48),
-                  
+
                   // CTA Button
                   _buildNotifyButton(theme),
                 ],
@@ -507,7 +506,8 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     );
   }
 
-  Widget _buildLiveUsersGrid(List<UserModel> users, ModernThemeExtension theme) {
+  Widget _buildLiveUsersGrid(
+      List<UserModel> users, ModernThemeExtension theme) {
     return CustomScrollView(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -575,14 +575,16 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 16),
+                      Icon(Icons.local_fire_department_rounded,
+                          color: Colors.white, size: 16),
                       SizedBox(width: 4),
                       Text(
                         'HOT',
@@ -599,7 +601,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
             ),
           ),
         ),
-        
+
         // Grid of live users
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -618,7 +620,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
             ),
           ),
         ),
-        
+
         // Bottom padding to avoid bottom nav bar
         const SliverToBoxAdapter(
           child: SizedBox(height: 100),
@@ -627,9 +629,10 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
     );
   }
 
-  Widget _buildLiveUserCard(UserModel user, ModernThemeExtension theme, int index) {
+  Widget _buildLiveUserCard(
+      UserModel user, ModernThemeExtension theme, int index) {
     final isTopSeller = index < 3;
-    
+
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),
@@ -640,14 +643,14 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isTopSeller 
-                  ? theme.primaryColor! 
+              color: isTopSeller
+                  ? theme.primaryColor!
                   : theme.dividerColor!.withOpacity(0.3),
               width: isTopSeller ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: isTopSeller 
+                color: isTopSeller
                     ? theme.primaryColor!.withOpacity(0.3)
                     : Colors.black.withOpacity(0.1),
                 blurRadius: 20,
@@ -695,7 +698,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                           ),
                         ),
                       ),
-                
+
                 // Gradient overlay
                 Container(
                   decoration: BoxDecoration(
@@ -709,7 +712,7 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                     ),
                   ),
                 ),
-                
+
                 // Content
                 Padding(
                   padding: const EdgeInsets.all(10),
@@ -785,12 +788,13 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                           ),
                         ],
                       ),
-                      
+
                       // Top seller badge
                       if (isTopSeller) ...[
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: theme.primaryColor,
                             borderRadius: BorderRadius.circular(4),
@@ -816,9 +820,9 @@ class _LiveUsersScreenState extends ConsumerState<LiveUsersScreen>
                           ),
                         ),
                       ],
-                      
+
                       const Spacer(),
-                      
+
                       // Bottom info
                       Row(
                         children: [

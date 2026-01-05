@@ -13,65 +13,87 @@ enum MessageEnum {
   image,
   video,
   audio,
-  file,        // For document files
-  location,    // For location sharing
-  contact,     // For contact sharing
+  file, // For document files
+  location, // For location sharing
+  contact, // For contact sharing
   videoReaction, // NEW: For video reaction messages
-  gift,        // For virtual gift messages
+  gift, // For virtual gift messages
 }
 
 // New enum for message status with detailed states
 enum MessageStatus {
-  sending,    // Message is being sent (local only)
-  sent,       // Message has been sent to server
-  delivered,  // Message has been delivered to receiver's device
-  read,       // ⚠️ INTENTIONALLY UNUSED - WeChat-like privacy: no read receipts shown to senders
-  failed;     // Message failed to send
-  
+  sending, // Message is being sent (local only)
+  sent, // Message has been sent to server
+  delivered, // Message has been delivered to receiver's device
+  read, // ⚠️ INTENTIONALLY UNUSED - WeChat-like privacy: no read receipts shown to senders
+  failed; // Message failed to send
+
   String get name {
     switch (this) {
-      case MessageStatus.sending: return 'sending';
-      case MessageStatus.sent: return 'sent';
-      case MessageStatus.delivered: return 'delivered';
-      case MessageStatus.read: return 'read';
-      case MessageStatus.failed: return 'failed';
+      case MessageStatus.sending:
+        return 'sending';
+      case MessageStatus.sent:
+        return 'sent';
+      case MessageStatus.delivered:
+        return 'delivered';
+      case MessageStatus.read:
+        return 'read';
+      case MessageStatus.failed:
+        return 'failed';
     }
   }
-  
+
   static MessageStatus fromString(String status) {
     switch (status) {
-      case 'sending': return MessageStatus.sending;
-      case 'sent': return MessageStatus.sent;
-      case 'delivered': return MessageStatus.delivered;
-      case 'read': return MessageStatus.read;
-      case 'failed': return MessageStatus.failed;
-      default: return MessageStatus.sending;
+      case 'sending':
+        return MessageStatus.sending;
+      case 'sent':
+        return MessageStatus.sent;
+      case 'delivered':
+        return MessageStatus.delivered;
+      case 'read':
+        return MessageStatus.read;
+      case 'failed':
+        return MessageStatus.failed;
+      default:
+        return MessageStatus.sending;
     }
   }
-  
+
   IconData get icon {
     switch (this) {
-      case MessageStatus.sending: return Icons.access_time;
-      case MessageStatus.sent: return Icons.done;
-      case MessageStatus.delivered: return Icons.done_all;
-      case MessageStatus.read: return Icons.done_all;
-      case MessageStatus.failed: return Icons.error_outline;
+      case MessageStatus.sending:
+        return Icons.access_time;
+      case MessageStatus.sent:
+        return Icons.done;
+      case MessageStatus.delivered:
+        return Icons.done_all;
+      case MessageStatus.read:
+        return Icons.done_all;
+      case MessageStatus.failed:
+        return Icons.error_outline;
     }
   }
-  
+
   Color getColor(BuildContext context) {
     final theme = Theme.of(context);
     switch (this) {
-      case MessageStatus.sending: return Colors.grey;
-      case MessageStatus.sent: return Colors.grey;
-      case MessageStatus.delivered: return Colors.grey;
-      case MessageStatus.read: return Colors.blue;
-      case MessageStatus.failed: return Colors.red;
+      case MessageStatus.sending:
+        return Colors.grey;
+      case MessageStatus.sent:
+        return Colors.grey;
+      case MessageStatus.delivered:
+        return Colors.grey;
+      case MessageStatus.read:
+        return Colors.blue;
+      case MessageStatus.failed:
+        return Colors.red;
     }
   }
-  
+
   // Add helper extension methods for easier status checking
-  bool get isDelivered => this == MessageStatus.delivered || this == MessageStatus.read;
+  bool get isDelivered =>
+      this == MessageStatus.delivered || this == MessageStatus.read;
   bool get isRead => this == MessageStatus.read;
   bool get isSent => this == MessageStatus.sent || isDelivered || isRead;
   bool get isFailed => this == MessageStatus.failed;
@@ -92,9 +114,9 @@ enum StatusType {
 
 /// Privacy settings for status posts
 enum StatusPrivacyType {
-  all_contacts,    // All contacts can see
-  except,          // All contacts except specific ones
-  only,            // Only specific contacts can see
+  all_contacts, // All contacts can see
+  except, // All contacts except specific ones
+  only, // Only specific contacts can see
 }
 
 // Extension for converting string to MessageEnum
@@ -220,11 +242,11 @@ extension MessageEnumHelper on MessageEnum {
   }
 
   bool get isMedia {
-    return this == MessageEnum.image || 
-           this == MessageEnum.video || 
-           this == MessageEnum.audio || 
-           this == MessageEnum.file ||
-           this == MessageEnum.videoReaction; // Video reactions also contain media
+    return this == MessageEnum.image ||
+        this == MessageEnum.video ||
+        this == MessageEnum.audio ||
+        this == MessageEnum.file ||
+        this == MessageEnum.videoReaction; // Video reactions also contain media
   }
 }
 
@@ -242,7 +264,7 @@ extension StatusTypeExtension on StatusType {
         return 'link';
     }
   }
-  
+
   static StatusType fromString(String type) {
     switch (type.toLowerCase()) {
       case 'video':
@@ -256,7 +278,7 @@ extension StatusTypeExtension on StatusType {
         return StatusType.text;
     }
   }
-  
+
   /// Get a user-friendly name for the status type
   String get displayName {
     switch (this) {
@@ -270,7 +292,7 @@ extension StatusTypeExtension on StatusType {
         return 'Photo';
     }
   }
-  
+
   /// Get an icon for the status type
   String get icon {
     switch (this) {
@@ -316,7 +338,7 @@ extension StatusPrivacyTypeExtension on StatusPrivacyType {
         return StatusPrivacyType.all_contacts;
     }
   }
-  
+
   /// Get a user-friendly name for the privacy type
   String get displayName {
     switch (this) {
@@ -328,7 +350,7 @@ extension StatusPrivacyTypeExtension on StatusPrivacyType {
         return 'My contacts';
     }
   }
-  
+
   /// Get an icon for the privacy type
   String get icon {
     switch (this) {
@@ -373,7 +395,7 @@ extension ChatActionExtension on ChatAction {
         return 'Info';
     }
   }
-  
+
   IconData get icon {
     switch (this) {
       case ChatAction.reply:

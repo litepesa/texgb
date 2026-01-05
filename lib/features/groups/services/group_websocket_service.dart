@@ -141,7 +141,8 @@ class GroupWebSocketService {
 
     // Listen to all events on this channel
     channel.messages.listen((message) {
-      debugPrint('GroupWebSocket: Received message on $channelName: ${message.event}');
+      debugPrint(
+          'GroupWebSocket: Received message on $channelName: ${message.event}');
 
       final eventData = {
         'event': message.event.value,
@@ -161,7 +162,8 @@ class GroupWebSocketService {
         debugPrint('GroupWebSocket: Joined group $groupId successfully');
         return channel;
       } else {
-        debugPrint('GroupWebSocket: Failed to join group $groupId: ${pushResponse.response}');
+        debugPrint(
+            'GroupWebSocket: Failed to join group $groupId: ${pushResponse.response}');
         throw Exception('Failed to join group channel');
       }
     } catch (e) {
@@ -251,7 +253,8 @@ class GroupWebSocketService {
       'message_id': messageId,
     });
 
-    debugPrint('GroupWebSocket: Marked message $messageId as read in group $groupId');
+    debugPrint(
+        'GroupWebSocket: Marked message $messageId as read in group $groupId');
   }
 
   // ==================== TYPING INDICATORS ====================
@@ -337,8 +340,8 @@ class GroupWebSocketService {
 
   /// Listen to member changes
   Stream<Map<String, dynamic>> listenToMemberChanges(String groupId) {
-    return subscribeToEvents(
-        groupId, ['member_joined', 'member_left', 'member_added', 'member_removed']);
+    return subscribeToEvents(groupId,
+        ['member_joined', 'member_left', 'member_added', 'member_removed']);
   }
 
   /// Listen to group updates

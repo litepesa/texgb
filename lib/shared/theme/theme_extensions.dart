@@ -156,11 +156,14 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     return ModernThemeExtension(
       backgroundColor: Color.lerp(backgroundColor, other.backgroundColor, t),
       surfaceColor: Color.lerp(surfaceColor, other.surfaceColor, t),
-      surfaceVariantColor: Color.lerp(surfaceVariantColor, other.surfaceVariantColor, t),
+      surfaceVariantColor:
+          Color.lerp(surfaceVariantColor, other.surfaceVariantColor, t),
       appBarColor: Color.lerp(appBarColor, other.appBarColor, t),
       textColor: Color.lerp(textColor, other.textColor, t),
-      textSecondaryColor: Color.lerp(textSecondaryColor, other.textSecondaryColor, t),
-      textTertiaryColor: Color.lerp(textTertiaryColor, other.textTertiaryColor, t),
+      textSecondaryColor:
+          Color.lerp(textSecondaryColor, other.textSecondaryColor, t),
+      textTertiaryColor:
+          Color.lerp(textTertiaryColor, other.textTertiaryColor, t),
       dividerColor: Color.lerp(dividerColor, other.dividerColor, t),
       primaryColor: Color.lerp(primaryColor, other.primaryColor, t),
       secondaryColor: Color.lerp(secondaryColor, other.secondaryColor, t),
@@ -271,7 +274,8 @@ class ChatThemeExtension extends ThemeExtension<ChatThemeExtension> {
       senderTextColor: senderTextColor ?? this.senderTextColor,
       receiverTextColor: receiverTextColor ?? this.receiverTextColor,
       systemMessageColor: systemMessageColor ?? this.systemMessageColor,
-      systemMessageTextColor: systemMessageTextColor ?? this.systemMessageTextColor,
+      systemMessageTextColor:
+          systemMessageTextColor ?? this.systemMessageTextColor,
       timestampColor: timestampColor ?? this.timestampColor,
       inputBackgroundColor: inputBackgroundColor ?? this.inputBackgroundColor,
       senderBubbleRadius: senderBubbleRadius ?? this.senderBubbleRadius,
@@ -284,23 +288,33 @@ class ChatThemeExtension extends ThemeExtension<ChatThemeExtension> {
       ThemeExtension<ChatThemeExtension>? other, double t) {
     if (other is! ChatThemeExtension) return this;
     return ChatThemeExtension(
-      chatBackgroundColor: Color.lerp(chatBackgroundColor, other.chatBackgroundColor, t),
-      senderBubbleColor: Color.lerp(senderBubbleColor, other.senderBubbleColor, t),
-      receiverBubbleColor: Color.lerp(receiverBubbleColor, other.receiverBubbleColor, t),
+      chatBackgroundColor:
+          Color.lerp(chatBackgroundColor, other.chatBackgroundColor, t),
+      senderBubbleColor:
+          Color.lerp(senderBubbleColor, other.senderBubbleColor, t),
+      receiverBubbleColor:
+          Color.lerp(receiverBubbleColor, other.receiverBubbleColor, t),
       senderTextColor: Color.lerp(senderTextColor, other.senderTextColor, t),
-      receiverTextColor: Color.lerp(receiverTextColor, other.receiverTextColor, t),
-      systemMessageColor: Color.lerp(systemMessageColor, other.systemMessageColor, t),
-      systemMessageTextColor: Color.lerp(systemMessageTextColor, other.systemMessageTextColor, t),
+      receiverTextColor:
+          Color.lerp(receiverTextColor, other.receiverTextColor, t),
+      systemMessageColor:
+          Color.lerp(systemMessageColor, other.systemMessageColor, t),
+      systemMessageTextColor:
+          Color.lerp(systemMessageTextColor, other.systemMessageTextColor, t),
       timestampColor: Color.lerp(timestampColor, other.timestampColor, t),
-      inputBackgroundColor: Color.lerp(inputBackgroundColor, other.inputBackgroundColor, t),
-      senderBubbleRadius: BorderRadius.lerp(senderBubbleRadius, other.senderBubbleRadius, t),
-      receiverBubbleRadius: BorderRadius.lerp(receiverBubbleRadius, other.receiverBubbleRadius, t),
+      inputBackgroundColor:
+          Color.lerp(inputBackgroundColor, other.inputBackgroundColor, t),
+      senderBubbleRadius:
+          BorderRadius.lerp(senderBubbleRadius, other.senderBubbleRadius, t),
+      receiverBubbleRadius: BorderRadius.lerp(
+          receiverBubbleRadius, other.receiverBubbleRadius, t),
     );
   }
 }
 
 /// Responsive spacing and sizing theme extension
-class ResponsiveThemeExtension extends ThemeExtension<ResponsiveThemeExtension> {
+class ResponsiveThemeExtension
+    extends ThemeExtension<ResponsiveThemeExtension> {
   final double compactSpacing;
   final double mediumSpacing;
   final double expandedSpacing;
@@ -310,7 +324,7 @@ class ResponsiveThemeExtension extends ThemeExtension<ResponsiveThemeExtension> 
 
   const ResponsiveThemeExtension({
     this.compactSpacing = 8.0,
-    this.mediumSpacing = 16.0, 
+    this.mediumSpacing = 16.0,
     this.expandedSpacing = 24.0,
     this.compactRadius = 8.0,
     this.mediumRadius = 16.0,
@@ -372,7 +386,7 @@ class AnimationThemeExtension extends ThemeExtension<AnimationThemeExtension> {
   final Duration longDuration;
   final Curve standardCurve;
   final Curve emphasizedCurve;
-  
+
   const AnimationThemeExtension({
     this.shortDuration = const Duration(milliseconds: 150),
     this.mediumDuration = const Duration(milliseconds: 300),

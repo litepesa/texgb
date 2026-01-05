@@ -53,7 +53,8 @@ class StatusRing extends StatelessWidget {
                   hasUnviewed: hasUnviewed,
                   isMyStatus: isMyStatus,
                   ringWidth: 3.0,
-                  primaryColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                  primaryColor: modernTheme.primaryColor ??
+                      Theme.of(context).primaryColor,
                 ),
                 child: Center(
                   child: Stack(
@@ -77,11 +78,13 @@ class StatusRing extends StatelessWidget {
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
                               color: Colors.grey[300],
-                              child: const Icon(Icons.person, color: Colors.white),
+                              child:
+                                  const Icon(Icons.person, color: Colors.white),
                             ),
                             errorWidget: (context, url, error) => Container(
                               color: Colors.grey[300],
-                              child: const Icon(Icons.person, color: Colors.white),
+                              child:
+                                  const Icon(Icons.person, color: Colors.white),
                             ),
                           ),
                         ),
@@ -97,7 +100,8 @@ class StatusRing extends StatelessWidget {
                             height: 24,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                              color: modernTheme.primaryColor ??
+                                  Theme.of(context).primaryColor,
                               border: Border.all(
                                 color: Colors.white,
                                 width: 2,
@@ -191,7 +195,8 @@ class _SegmentedRingPainter extends CustomPainter {
     }
   }
 
-  void _drawSegmentedRing(Canvas canvas, Offset center, double radius, LinearGradient gradient) {
+  void _drawSegmentedRing(
+      Canvas canvas, Offset center, double radius, LinearGradient gradient) {
     const gapAngle = 0.08; // Small gap between segments (in radians)
     final segmentAngle = (2 * math.pi - (statusCount * gapAngle)) / statusCount;
 

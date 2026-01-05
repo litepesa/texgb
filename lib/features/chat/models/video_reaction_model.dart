@@ -39,7 +39,8 @@ class VideoReactionModel {
       userName: map['userName'] ?? '',
       userImage: map['userImage'] ?? '',
       reaction: map['reaction'],
-      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
+      timestamp:
+          DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -65,13 +66,13 @@ class VideoReactionModel {
 
   // Convenience methods
   bool get hasReaction => reaction != null && reaction!.isNotEmpty;
-  
+
   String get displayContent => reaction ?? '';
-  
+
   String get timeAgo {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
@@ -87,25 +88,23 @@ class VideoReactionModel {
 
   // Validation
   bool get isValid {
-    return videoId.isNotEmpty && 
-           videoUrl.isNotEmpty && 
-           userName.isNotEmpty;
+    return videoId.isNotEmpty && videoUrl.isNotEmpty && userName.isNotEmpty;
   }
 
   List<String> get validationErrors {
     final errors = <String>[];
-    
+
     if (videoId.isEmpty) errors.add('Video ID is required');
     if (videoUrl.isEmpty) errors.add('Video URL is required');
     if (userName.isEmpty) errors.add('User name is required');
-    
+
     return errors;
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is VideoReactionModel &&
         other.videoId == videoId &&
         other.videoUrl == videoUrl &&

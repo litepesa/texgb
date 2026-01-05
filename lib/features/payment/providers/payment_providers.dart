@@ -34,7 +34,9 @@ class PaymentState {
   }) {
     return PaymentState(
       transactions: transactions ?? this.transactions,
-      currentTransaction: clearCurrentTransaction ? null : (currentTransaction ?? this.currentTransaction),
+      currentTransaction: clearCurrentTransaction
+          ? null
+          : (currentTransaction ?? this.currentTransaction),
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
     );

@@ -154,13 +154,15 @@ class StatusFeed extends _$StatusFeed {
       final statusGroups = results[0] as List<StatusGroup>;
       final myStatuses = results[1] as List<StatusModel>;
 
-      print('📥 Fetched ${myStatuses.length} my statuses, ${statusGroups.length} status groups');
+      print(
+          '📥 Fetched ${myStatuses.length} my statuses, ${statusGroups.length} status groups');
 
       // Filter expired statuses
       final activeGroups = StatusTimeService.filterActiveGroups(statusGroups);
       final activeMyStatuses = StatusTimeService.filterActive(myStatuses);
 
-      print('✅ Active: ${activeMyStatuses.length} my statuses, ${activeGroups.length} groups');
+      print(
+          '✅ Active: ${activeMyStatuses.length} my statuses, ${activeGroups.length} groups');
 
       // Sort groups by latest status
       final sortedGroups = StatusTimeService.sortGroupsByLatest(activeGroups);
@@ -235,7 +237,8 @@ class StatusFeed extends _$StatusFeed {
           );
         }).toList();
 
-        state = AsyncValue.data(currentState.copyWith(statusGroups: updatedGroups));
+        state =
+            AsyncValue.data(currentState.copyWith(statusGroups: updatedGroups));
       });
     } catch (e) {
       print('Error viewing status: $e');
@@ -258,7 +261,9 @@ class StatusFeed extends _$StatusFeed {
             if (status.id == statusId) {
               return status.copyWith(
                 isLikedByMe: !currentlyLiked,
-                likesCount: currentlyLiked ? status.likesCount - 1 : status.likesCount + 1,
+                likesCount: currentlyLiked
+                    ? status.likesCount - 1
+                    : status.likesCount + 1,
               );
             }
             return status;
@@ -278,7 +283,9 @@ class StatusFeed extends _$StatusFeed {
           if (status.id == statusId) {
             return status.copyWith(
               isLikedByMe: !currentlyLiked,
-              likesCount: currentlyLiked ? status.likesCount - 1 : status.likesCount + 1,
+              likesCount: currentlyLiked
+                  ? status.likesCount - 1
+                  : status.likesCount + 1,
             );
           }
           return status;
@@ -330,7 +337,8 @@ class StatusFeed extends _$StatusFeed {
             );
           }).toList();
 
-          state = AsyncValue.data(currentState.copyWith(statusGroups: updatedGroups));
+          state = AsyncValue.data(
+              currentState.copyWith(statusGroups: updatedGroups));
         });
       }
     } catch (e) {
@@ -347,9 +355,8 @@ class StatusFeed extends _$StatusFeed {
       if (success) {
         // Remove from local state
         state.whenData((currentState) {
-          final updatedMyStatuses = currentState.myStatuses
-              .where((s) => s.id != statusId)
-              .toList();
+          final updatedMyStatuses =
+              currentState.myStatuses.where((s) => s.id != statusId).toList();
 
           state = AsyncValue.data(currentState.copyWith(
             myStatuses: updatedMyStatuses,

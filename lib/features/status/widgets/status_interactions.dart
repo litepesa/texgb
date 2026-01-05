@@ -97,7 +97,8 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
   Widget _buildGiftButton() {
     return _InteractionButton(
       icon: Icons.card_giftcard_rounded,
-      label: widget.status.giftsCount > 0 ? '${widget.status.giftsCount}' : null,
+      label:
+          widget.status.giftsCount > 0 ? '${widget.status.giftsCount}' : null,
       color: const Color(0xFFE55252),
       onTap: _handleGiftTap,
     );
@@ -279,7 +280,8 @@ class _StatusInteractionsState extends ConsumerState<StatusInteractions>
       scale: _likeScaleAnimation,
       child: _InteractionButton(
         icon: isLiked ? Icons.favorite : Icons.favorite_border,
-        label: widget.status.likesCount > 0 ? '${widget.status.likesCount}' : null,
+        label:
+            widget.status.likesCount > 0 ? '${widget.status.likesCount}' : null,
         color: const Color(0xFFE55252),
         onTap: _handleLikeTap,
       ),
