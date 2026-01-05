@@ -73,7 +73,7 @@ final statusFeedProvider =
 );
 
 typedef _$StatusFeed = AutoDisposeAsyncNotifier<StatusFeedState>;
-String _$statusCreationHash() => r'0c2ee1dcec533fb5da0690b31626b62f4b71e635';
+String _$statusCreationHash() => r'1af89d74af32058576ef45d2a1810c19630e1804';
 
 /// See also [StatusCreation].
 @ProviderFor(StatusCreation)

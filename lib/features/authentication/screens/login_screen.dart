@@ -75,26 +75,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: RichText(
                     text: TextSpan(
                       children: [
-                        /*TextSpan(
-                          text: 'Wema',
+                        TextSpan(
+                          text: 'Woh',
                           style: TextStyle(
                             fontSize: 40,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                            letterSpacing: -0.3,
-                          ),
-                        ),*/
-                        TextSpan(
-                          text: 'Wema',
-                          style: TextStyle(
-                            fontSize: 45,
                             fontWeight: FontWeight.w700,
                             color: wechatGreen,
                             letterSpacing: -1.0,
                           ),
                         ),
                         TextSpan(
-                          text: "Shop",
+                          text: "Zuh",
                           style: TextStyle(
                             color: const Color(0xFFFE2C55),
                             fontWeight: FontWeight.w700,

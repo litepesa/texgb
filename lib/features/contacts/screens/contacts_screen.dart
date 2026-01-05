@@ -240,6 +240,25 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             ),
           ),
           centerTitle: false,
+          actions: [
+            // Manual sync button
+            RotationTransition(
+              turns: _refreshAnimationController,
+              child: IconButton(
+                icon: Icon(
+                  Icons.sync_rounded,
+                  color: theme.primaryColor,
+                  size: 22,
+                ),
+                tooltip: 'Sync contacts',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _forceSyncContacts();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           systemOverlayStyle: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness:

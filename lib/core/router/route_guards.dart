@@ -81,43 +81,6 @@ class RouteGuard {
     if (isAuthenticated && hasProfile) {
       debugPrint('   ✅ User fully authenticated with profile');
 
-      // Check if user has paid activation fee
-      final hasPaid = _hasUserPaid();
-      debugPrint('   - Has Paid: $hasPaid');
-
-      // 3a. User authenticated with profile but hasn't paid (first wallet top-up required)
-      if (!hasPaid) {
-        debugPrint('   ⚠️  User has not made first wallet top-up');
-
-        // Allow access to wallet top-up screen
-        if (currentPath == '/wallet-topup') {
-          debugPrint('   ✅ Allowing access to wallet top-up screen');
-          return null;
-        }
-
-        // Allow access to payment status screen
-        if (currentPath.startsWith('/payment-status/')) {
-          debugPrint('   ✅ Allowing access to payment status screen');
-          return null;
-        }
-
-        // Allow logout routes
-        if (currentPath == RoutePaths.landing ||
-            currentPath == RoutePaths.login) {
-          debugPrint('   ✅ Allowing access to auth routes (logout flow)');
-          return null;
-        }
-
-        // Redirect to wallet top-up for all other routes (first-time purchase required)
-        debugPrint(
-            '   ↩️  Redirecting to wallet top-up (minimum 50 coins = KES 75)');
-        return '/wallet-topup';
-      }
-
-      // 3b. User authenticated, has profile, and has made first wallet top-up
-      debugPrint(
-          '   ✅ User fully authenticated, has profile, and has completed first wallet top-up');
-
       // Prevent authenticated users from accessing auth screens
       if (RoutePaths.isAuthRoute(currentPath)) {
         debugPrint(
@@ -125,7 +88,7 @@ class RouteGuard {
         return RoutePaths.home;
       }
 
-      // Allow access to all other routes (including wallet top-up for additional purchases)
+      // Allow access to all app routes
       debugPrint('   ✅ Allowing access to protected route');
       return null;
     }
@@ -192,39 +155,6 @@ class RouteGuard {
     }
   }
 
-  /// Check if user has paid activation fee
-  bool _hasUserPaid() {
-    try {
-      // Get user from authentication state
-      final authState = ref.read(authenticationProvider);
-
-      final hasPaid = authState.maybeWhen(
-        data: (state) {
-          // Try to get current user from state
-          // This will depend on your AuthenticationState structure
-          // You might need to adjust this based on how you store the current user
-
-          // If you have a currentUser method or property
-          final currentUser = ref.read(currentUserProvider);
-
-          if (currentUser == null) {
-            return false;
-          }
-
-          return currentUser.hasPaid;
-        },
-        orElse: () => false,
-      );
-
-      debugPrint('   - User Has Paid Check: $hasPaid');
-
-      return hasPaid;
-    } catch (e) {
-      debugPrint('   ⚠️  Error checking payment status: $e');
-      // If there's an error, assume user hasn't paid (safer to redirect to payment)
-      return false;
-    }
-  }
 }
 
 // ==================== ROUTE GUARD PROVIDER ====================

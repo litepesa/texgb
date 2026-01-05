@@ -1,4 +1,4 @@
-// lib/features/marketplace/screens/marketplace_feed_screen.dart - WeChat Channels Style Layout
+// lib/features/marketplace/screens/marketplace_feed_screen.dart - COMPLETE UPDATED VERSION WITH FULL SCREEN VIDEO
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -30,8 +30,7 @@ class MarketplaceFeedScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MarketplaceFeedScreen> createState() =>
-      MarketplaceFeedScreenState();
+  ConsumerState<MarketplaceFeedScreen> createState() => MarketplaceFeedScreenState();
 }
 
 class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
@@ -43,14 +42,10 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   // Core controllers
   final PageController _pageController = PageController();
 
-  // Feed filter tab state
-  int _selectedTabIndex = 2; // Default to "Hot" tab
-  final List<String> _feedTabs = ['Flashsale', 'Live', 'Hot'];
-
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
-  bool _isScreenActive = false;
+  bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
   bool _isNavigatingAway = false;
@@ -60,7 +55,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
-
+  
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
 
@@ -78,8 +73,6 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialVideoPosition();
       _precacheInitialVideos(); // Start precaching immediately
-      // Auto-play videos when screen loads
-      onScreenBecameActive();
     });
 
     _hasInitialized = true;
@@ -97,11 +90,9 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     final brightness = Theme.of(context).brightness;
     _originalSystemUiStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     );
@@ -158,17 +149,16 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
   void _restoreOriginalSystemUI() {
     debugPrint('MarketplaceFeedScreen: Restoring original system UI');
-
+    
     if (!mounted) return;
-
+    
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness:
-          isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
@@ -212,7 +202,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     if (marketplaceVideos.isEmpty) return;
 
     debugPrint('Precaching initial marketplaceVideos for instant playback...');
-
+    
     // Get first 3 marketplaceVideo URLs (skip image posts)
     final videoUrls = marketplaceVideos
         .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
@@ -223,8 +213,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     if (videoUrls.isNotEmpty) {
       MarketplaceCacheService().precacheMultiple(
         videoUrls,
-        cacheSegmentsPerVideo:
-            3, // Cache 6MB per marketplaceVideo for instant start
+        cacheSegmentsPerVideo: 3, // Cache 6MB per marketplaceVideo for instant start
         maxConcurrent: 2,
       );
     }
@@ -242,27 +231,26 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     final marketplaceVideos = ref.read(marketplaceVideosProvider);
     if (marketplaceVideos.isEmpty) return;
 
-    debugPrint(
-        'Starting intelligent preloading for index: $_currentVideoIndex');
-
+    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
+    
     // Filter to get only actual marketplaceVideos (no image posts)
     final videoOnlyList = marketplaceVideos
         .where((v) => !v.isMultipleImages && v.videoUrl.isNotEmpty)
         .toList();
-
+    
     if (videoOnlyList.isEmpty) return;
-
+    
     // Find current marketplaceVideo in the filtered list
     final currentVideo = marketplaceVideos[_currentVideoIndex];
-
+    
     // If current item is an image post, find nearest marketplaceVideo
     if (currentVideo.isMultipleImages) {
       debugPrint('Current item is image post, skipping preload');
       return;
     }
-
-    final currentIndexInVideoList =
-        videoOnlyList.indexWhere((v) => v.videoUrl == currentVideo.videoUrl);
+    
+    final currentIndexInVideoList = videoOnlyList
+        .indexWhere((v) => v.videoUrl == currentVideo.videoUrl);
 
     if (currentIndexInVideoList == -1) return;
 
@@ -271,8 +259,8 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     MarketplaceCacheService().intelligentPreload(
       videoUrls: videoUrls,
       currentIndex: currentIndexInVideoList,
-      preloadNext: 5, // Preload next 5 marketplaceVideos
-      preloadPrevious: 2, // Preload previous 2 marketplaceVideos
+      preloadNext: 5,           // Preload next 5 marketplaceVideos
+      preloadPrevious: 2,       // Preload previous 2 marketplaceVideos
       cacheSegmentsPerVideo: 3, // 6MB per marketplaceVideo (increased from 2)
     );
   }
@@ -293,11 +281,9 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       _currentVideoController!.play();
       debugPrint('MarketplaceFeedScreen: Video controller playing');
     } else {
-      debugPrint(
-          'MarketplaceFeedScreen: Video controller not ready, attempting initialization');
+      debugPrint('MarketplaceFeedScreen: Video controller not ready, attempting initialization');
       final marketplaceVideos = ref.read(marketplaceVideosProvider);
-      if (marketplaceVideos.isNotEmpty &&
-          _currentVideoIndex < marketplaceVideos.length) {
+      if (marketplaceVideos.isNotEmpty && _currentVideoIndex < marketplaceVideos.length) {
         setState(() {});
       }
     }
@@ -329,20 +315,20 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
   void _setupSystemUI() {
     debugPrint('MarketplaceFeedScreen: Setting up black system UI');
-
+    
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Colors.black,
+      systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
   }
 
   void _handleInitialVideoPosition() {
     if (!mounted) return;
-
+    
     setState(() {
       _isFirstLoad = false;
     });
@@ -356,12 +342,10 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
   void _jumpToVideo(String videoId) {
     final marketplaceVideos = ref.read(marketplaceVideosProvider);
-    final videoIndex = marketplaceVideos
-        .indexWhere((marketplaceVideo) => marketplaceVideo.id == videoId);
+    final videoIndex = marketplaceVideos.indexWhere((marketplaceVideo) => marketplaceVideo.id == videoId);
 
     if (videoIndex != -1) {
-      debugPrint(
-          'MarketplaceFeedScreen: Jumping to marketplaceVideo at index $videoIndex');
+      debugPrint('MarketplaceFeedScreen: Jumping to marketplaceVideo at index $videoIndex');
 
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && _pageController.hasClients) {
@@ -373,13 +357,11 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
           _startIntelligentPreloading();
 
-          debugPrint(
-              'MarketplaceFeedScreen: Successfully jumped to marketplaceVideo $videoId at index $videoIndex');
+          debugPrint('MarketplaceFeedScreen: Successfully jumped to marketplaceVideo $videoId at index $videoIndex');
         }
       });
     } else {
-      debugPrint(
-          'MarketplaceFeedScreen: Video with ID $videoId not found in list');
+      debugPrint('MarketplaceFeedScreen: Video with ID $videoId not found in list');
     }
   }
 
@@ -405,11 +387,9 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
         final duration = controller.value.duration.inMilliseconds;
         if (duration > 0) {
           final progress = position / duration;
-          ref.read(marketplaceProgressProvider.notifier).state =
-              progress.clamp(0.0, 1.0);
+          ref.read(marketplaceProgressProvider.notifier).state = progress.clamp(0.0, 1.0);
         }
-        ref.read(isMarketplacePlayingProvider.notifier).state =
-            controller.value.isPlaying;
+        ref.read(isMarketplacePlayingProvider.notifier).state = controller.value.isPlaying;
       }
     });
 
@@ -436,8 +416,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       return;
     }
 
-    debugPrint(
-        'MarketplaceFeedScreen: Starting fresh marketplaceVideo from beginning');
+    debugPrint('MarketplaceFeedScreen: Starting fresh marketplaceVideo from beginning');
 
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.seekTo(Duration.zero);
@@ -448,8 +427,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   }
 
   void onManualPlayPause(bool isPlaying) {
-    debugPrint(
-        'MarketplaceFeedScreen: Manual play/pause - isPlaying: $isPlaying');
+    debugPrint('MarketplaceFeedScreen: Manual play/pause - isPlaying: $isPlaying');
     setState(() {
       _isManuallyPaused = !isPlaying;
     });
@@ -476,8 +454,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     }
 
     final marketplaceNotifier = ref.read(marketplaceProvider.notifier);
-    marketplaceNotifier
-        .incrementMarketplaceVideoViewCount(marketplaceVideos[index].id);
+    marketplaceNotifier.incrementMarketplaceVideoViewCount(marketplaceVideos[index].id);
   }
 
   Widget _buildSmallVideoWindow() {
@@ -538,8 +515,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
   Widget _buildVideoContentOnly() {
     final marketplaceVideos = ref.read(marketplaceVideosProvider);
 
-    if (marketplaceVideos.isEmpty ||
-        _currentVideoIndex >= marketplaceVideos.length) {
+    if (marketplaceVideos.isEmpty || _currentVideoIndex >= marketplaceVideos.length) {
       return Container(color: Colors.black);
     }
 
@@ -557,7 +533,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       return Container(
         color: Colors.black,
         child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00BFA5)),
+          child: CircularProgressIndicator(color: Colors.white, value: 20),
         ),
       );
     }
@@ -641,24 +617,6 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     );
   }
 
-  void _onTabSelected(int index) {
-    setState(() {
-      _selectedTabIndex = index;
-    });
-    // TODO: Add filtering logic based on selected tab
-  }
-
-  void _handleBackNavigation() {
-    _stopPlayback();
-    _restoreOriginalSystemUI();
-
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
-  }
-
   @override
   void dispose() {
     debugPrint('MarketplaceFeedScreen: Disposing');
@@ -684,7 +642,6 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
 
     final marketplaceVideos = ref.watch(marketplaceVideosProvider);
     final isAppInitializing = ref.watch(isAppInitializingProvider);
-    final topPadding = MediaQuery.of(context).padding.top;
 
     // Show loading only while app is initializing
     if (isAppInitializing || (_isFirstLoad && marketplaceVideos.isEmpty)) {
@@ -698,7 +655,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
                 width: 48,
                 height: 48,
                 child: CircularProgressIndicator(
-                  color: Color(0xFF00BFA5), // Teal for marketplace
+                  color: Colors.white,
                   strokeWidth: 3,
                 ),
               ),
@@ -717,132 +674,28 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     }
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       backgroundColor: Colors.black,
-      body: Column(
+      body: Stack(
         children: [
-          // Black status bar area
-          Container(
-            height: topPadding,
-            color: Colors.black,
+          // Full screen marketplaceVideo - NO padding, NO ClipRRect
+          Positioned.fill(
+            child: _buildBody(marketplaceVideos),
           ),
-          // Video content area with header overlay inside
-          Expanded(
-            child: Stack(
-              children: [
-                _buildBody(marketplaceVideos),
-                // Header overlay inside video area
-                if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
-                // Small marketplaceVideo window when comments are open
-                if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildHeaderOverlay() {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.6),
-              Colors.black.withOpacity(0.3),
-              Colors.transparent,
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            // Back button
-            GestureDetector(
-              onTap: _handleBackNavigation,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  CupertinoIcons.back,
-                  color: Colors.white,
-                  size: 24,
-                  shadows: [
-                    Shadow(color: Colors.black, blurRadius: 4),
-                  ],
-                ),
-              ),
+          // Small marketplaceVideo window when comments are open
+          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+
+          // Header with search button (hidden when comments open)
+          if (!_isCommentsSheetOpen)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 0,
+              right: 0,
+              child: _buildSimplifiedHeader(),
             ),
-            const SizedBox(width: 8),
-            // Feed filter tabs
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_feedTabs.length, (index) {
-                  final isSelected = _selectedTabIndex == index;
-                  return GestureDetector(
-                    onTap: () => _onTabSelected(index),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _feedTabs[index],
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.white.withOpacity(0.6),
-                              fontSize: 15,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                              shadows: const [
-                                Shadow(color: Colors.black, blurRadius: 4),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            height: 2,
-                            width: isSelected ? 16 : 0,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF00BFA5)
-                                  : Colors.transparent, // Teal indicator
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Search button
-            GestureDetector(
-              onTap: _showSearchOverlay,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  CupertinoIcons.search,
-                  color: Colors.white,
-                  size: 24,
-                  shadows: [
-                    Shadow(color: Colors.black, blurRadius: 4),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -870,10 +723,54 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
           isCommentsOpen: _isCommentsSheetOpen,
           isFeedScreen: true,
           // Pass callback to show comments with small marketplaceVideo window
-          onCommentsPressed: () =>
-              _showCommentsForCurrentVideo(marketplaceVideo),
+          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceVideo),
         );
       },
+    );
+  }
+
+  Widget _buildSimplifiedHeader() {
+    // Get system top padding for proper alignment
+    final systemTopPadding = MediaQuery.of(context).padding.top + -8;
+    
+    return Positioned(
+      top: systemTopPadding,
+      left: 0,
+      right: 0,
+      child: Row(
+        children: [
+          const SizedBox(width: 56),
+
+          const Expanded(
+            child: SizedBox.shrink(),
+          ),
+
+          // Search button
+          IconButton(
+            onPressed: _showSearchOverlay,
+            icon: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Search',
+          ),
+        ],
+      ),
     );
   }
 }

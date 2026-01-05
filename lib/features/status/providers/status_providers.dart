@@ -452,8 +452,8 @@ class StatusCreation extends _$StatusCreation {
     try {
       final status = await _repository.createStatus(request);
 
-      // Force immediate refresh (bypass cache)
-      ref.read(statusFeedProvider.notifier).refresh();
+      // Force immediate refresh (bypass cache) - MUST await!
+      await ref.read(statusFeedProvider.notifier).refresh();
 
       return status;
     } catch (e) {
@@ -493,8 +493,8 @@ class StatusCreation extends _$StatusCreation {
 
       final status = await _repository.createStatus(statusRequest);
 
-      // Force immediate refresh (bypass cache)
-      ref.read(statusFeedProvider.notifier).refresh();
+      // Force immediate refresh (bypass cache) - MUST await!
+      await ref.read(statusFeedProvider.notifier).refresh();
 
       return status;
     } catch (e) {
@@ -538,8 +538,8 @@ class StatusCreation extends _$StatusCreation {
 
       final status = await _repository.createStatus(statusRequest);
 
-      // Force immediate refresh (bypass cache)
-      ref.read(statusFeedProvider.notifier).refresh();
+      // Force immediate refresh (bypass cache) - MUST await!
+      await ref.read(statusFeedProvider.notifier).refresh();
 
       return status;
     } catch (e) {

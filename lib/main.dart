@@ -91,7 +91,7 @@ class AppRoot extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
-                      'WemaShop',
+                      'WohZuh',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -138,7 +138,7 @@ class AppRoot extends ConsumerWidget {
       data: (themeData) => MaterialApp.router(
         // ==================== APP CONFIGURATION ====================
         debugShowCheckedModeBanner: false,
-        title: 'WemaShop',
+        title: 'WohZuh',
 
         // ==================== THEME ====================
         theme: themeData.activeTheme,

@@ -136,7 +136,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           const SizedBox(height: 16),
                           _buildMarketStat(
                             '1M+',
-                            'Active users on WemaShop',
+                            'Active users on WohZuh',
                             Icons.people_rounded,
                           ),
                           const SizedBox(height: 10),
@@ -159,7 +159,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
-                              '💡 Your competitors are already reaching thousands of customers daily. Don\'t get left behind!',
+                              '💡 Be among the first sellers to tap into 1M+ buyers. Most sellers haven\'t discovered this opportunity yet!',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -185,7 +185,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           icon: Icons.groups_rounded,
                           title: 'Massive Audience Reach',
                           description:
-                              'Reach over 1 million active Kenyan users on WemaShop - your potential customers are already here',
+                              'Reach over 1 million active Kenyan users on WohZuh - your potential customers are already here',
                           gradient: const LinearGradient(
                             colors: [Color(0xFFD32F2F), Color(0xFFE53935)],
                           ),
@@ -205,7 +205,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           icon: CupertinoIcons.bubble_left,
                           title: 'Direct Buyer Connection',
                           description:
-                              'Buyers can message you instantly through WemaShop\'s built-in messaging - no third-party apps needed',
+                              'Buyers can message you instantly through WohZuh\'s built-in messaging - no third-party apps needed',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
                           ),
@@ -225,7 +225,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           icon: Icons.campaign_rounded,
                           title: 'Free Social Media Ads',
                           description:
-                              'Get your products advertised for FREE on Facebook, TikTok, and Instagram - reach millions beyond WemaShop!',
+                              'Get your products advertised for FREE on Facebook, TikTok, and Instagram - reach millions beyond WohZuh!',
                           gradient: const LinearGradient(
                             colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
                           ),
@@ -283,7 +283,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _buildMissingItem(
-                            '🚫 Losing sales to competitors who are already on WemaShop',
+                            '🚫 Missing out on 1M+ buyers with minimal competition in your niche',
                           ),
                           _buildMissingItem(
                             '🚫 Missing out on 1M+ active buyers searching daily',
@@ -292,7 +292,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                             '🚫 Paying commissions on other platforms when you could keep 100%',
                           ),
                           _buildMissingItem(
-                            '🚫 Limited reach when you could access WemaShop\'s growing user base',
+                            '🚫 Limited reach when you could access WohZuh\'s growing user base',
                           ),
                           _buildMissingItem(
                             '🚫 Complicated processes instead of simple direct messaging',
@@ -398,7 +398,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Smart sellers are already reaching thousands of customers daily on WemaShop. Your competition is growing - don\'t get left behind!',
+                            'Early sellers are dominating their niches on WohZuh with zero competition. Claim your market position before others discover this goldmine!',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 15,
@@ -450,7 +450,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 const SizedBox(height: 8),
                                 Text(
                                   '• Instant activation within 30 minutes (8 AM - 5 PM)\n'
-                                  '• Annual subscription (999 KES/year)\n'
+                                  '• One-time payment (USD 23 / KES 3,000)\n'
                                   '• Start posting products immediately after upgrade\n'
                                   '• Get verified later to build even more trust',
                                   style: TextStyle(
@@ -498,7 +498,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                                 Icon(Icons.rocket_launch_rounded, size: 22),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Start Selling - KES 999/year',
+                                  'Start Selling - USD 23',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -510,7 +510,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Annual subscription',
+                          'One-time payment (KES 3,000)',
                           style: TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -777,7 +777,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'KES 999',
+                          'KES 3,000',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -788,7 +788,7 @@ class SellerUpgradeWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Annual subscription for seller access',
+                      'One-time payment for seller access',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,

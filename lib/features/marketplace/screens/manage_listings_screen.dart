@@ -488,6 +488,22 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               : _error != null
                   ? _buildErrorView(modernTheme)
                   : _buildManagePostsView(modernTheme),
+      floatingActionButton: !_isLoading && !_hasNoProfile && _error == null
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                context.push(RoutePaths.createMarketplaceListing);
+              },
+              backgroundColor: modernTheme.primaryColor,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Post',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -1310,8 +1326,35 @@ class _ManageListingsScreenState extends ConsumerState<ManageListingsScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            if (_filterBy != 'all') ...[
-              const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            if (_filterBy == 'all') ...[
+              // Create Listing button for empty state
+              ElevatedButton.icon(
+                onPressed: () {
+                  context.push(RoutePaths.createMarketplaceListing);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text(
+                  'Create Your First Listing',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ] else ...[
               TextButton(
                 onPressed: () {
                   setState(() {

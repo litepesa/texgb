@@ -225,7 +225,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome to WemaShop!',
+                      'Welcome to WohZuh',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -234,7 +234,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Create your profile to start buying and selling on WemaShop',
+                      'Create your wohzuh profile to start using the App!',
                       style: TextStyle(
                         color: Color(0xFFF3F4F6),
                         fontSize: 16,
@@ -449,39 +449,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         ),
                 ),
               ),
-
+              
               const SizedBox(height: 20),
-
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: const Color(0xFFFBBF24).withOpacity(0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.lock_outline,
-                      color: Color(0xFF92400E),
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Your information is secure and helps us show you relevant content for you.',
-                        style: TextStyle(
-                          color: Color(0xFF92400E),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 40),
             ],
           ),
         ),

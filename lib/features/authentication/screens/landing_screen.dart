@@ -191,48 +191,25 @@ class _AppLogo extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Subtle green accent line
-          Positioned(
-            bottom: 0,
-            child: Container(
-              height: 3,
-              width: 40,
-              decoration: BoxDecoration(
-                color: wechatGreen,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
-          // Clean, minimalist logo text
           RichText(
             text: const TextSpan(
               children: [
-                /*TextSpan(
-                  text: 'Wema',
+                TextSpan(
+                  text: 'Woh',
                   style: TextStyle(
                     fontSize: 50,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white,
-                    letterSpacing: -1.0,
-                  ),
-                ),*/
-                TextSpan(
-                  text: 'Wema',
-                  style: TextStyle(
-                    fontSize: 45,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
                     color: wechatGreen,
                     letterSpacing: -1.0,
                   ),
                 ),
                 TextSpan(
-                  text: "Shop",
-                  style: TextStyle(
+                  text: "Zuh",
+                  style: TextStyle(                    
+                    fontWeight: FontWeight.bold,
                     color: Color(0xFFFE2C55),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 40,
-                    letterSpacing: -0.3,
+                    fontSize: 50,
+                    letterSpacing: -1.0,
                   ),
                 ),
               ],
