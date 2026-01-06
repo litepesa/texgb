@@ -527,7 +527,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: theme.surfaceColor!.withOpacity(0.6),
         child: Text(
-          'Invite to TextGB',
+          'Invite to WohZuh',
           style: TextStyle(
             color: theme.textSecondaryColor,
             fontSize: 12,
@@ -721,14 +721,14 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         backgroundColor: theme.surfaceColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
-          'Invite to TextGB',
+          'Invite to WohZuh',
           style: TextStyle(
             color: theme.textColor,
             fontWeight: FontWeight.w600,
           ),
         ),
         content: Text(
-          'Invite ${contact.displayName.isEmpty ? phoneNumber : contact.displayName} to join TextGB?',
+          'Invite ${contact.displayName.isEmpty ? phoneNumber : contact.displayName} to join WohZuh?',
           style: TextStyle(color: theme.textSecondaryColor),
         ),
         actions: [

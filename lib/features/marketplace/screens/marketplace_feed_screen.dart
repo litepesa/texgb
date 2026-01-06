@@ -617,6 +617,18 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
     );
   }
 
+  // ADDED: Back navigation handler from document 1
+  void _handleBackNavigation() {
+    _stopPlayback();
+    _restoreOriginalSystemUI();
+    
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
   @override
   void dispose() {
     debugPrint('MarketplaceFeedScreen: Disposing');
@@ -687,7 +699,7 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
           // Small marketplaceVideo window when comments are open
           if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
 
-          // Header with search button (hidden when comments open)
+          // Header with back button and search button (hidden when comments open)
           if (!_isCommentsSheetOpen)
             Positioned(
               top: MediaQuery.of(context).padding.top + 16,
@@ -739,7 +751,30 @@ class MarketplaceFeedScreenState extends ConsumerState<MarketplaceFeedScreen>
       right: 0,
       child: Row(
         children: [
-          const SizedBox(width: 56),
+          // ADDED: Back button from document 1
+          IconButton(
+            onPressed: _handleBackNavigation,
+            icon: const Icon(
+              CupertinoIcons.back,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Back',
+          ),
 
           const Expanded(
             child: SizedBox.shrink(),

@@ -1,4 +1,4 @@
-// lib/features/marketplace/screens/single_marketplace_video_screen.dart - WeChat Channels Style Layout
+// lib/features/marketplace/screens/single_marketplace_video_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,25 +30,26 @@ class SingleMarketplaceVideoScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SingleMarketplaceVideoScreen> createState() =>
-      _SingleMarketplaceVideoScreenState();
+  ConsumerState<SingleMarketplaceVideoScreen> createState() => _SingleMarketplaceVideoScreenState();
 }
 
-class _SingleMarketplaceVideoScreenState
-    extends ConsumerState<SingleMarketplaceVideoScreen>
+class _SingleMarketplaceVideoScreenState extends ConsumerState<SingleMarketplaceVideoScreen>
     with
         WidgetsBindingObserver,
         TickerProviderStateMixin,
         AutomaticKeepAliveClientMixin {
+  // Core controllers
   final PageController _pageController = PageController();
 
+  // State management
   int _currentMarketplaceItemIndex = 0;
   bool _isAppInForeground = true;
   final bool _isScreenActive = true;
   bool _isNavigatingAway = false;
   bool _isManuallyPaused = false;
-  bool _isCommentsSheetOpen = false;
+  bool _isCommentsSheetOpen = false; // Track comments sheet state
 
+  // Video data
   UserModel? _marketplaceItemAuthor;
   List<MarketplaceVideoModel> _marketplaceItems = [];
   bool _isLoading = true;
@@ -56,8 +57,11 @@ class _SingleMarketplaceVideoScreenState
   bool _isFollowing = false;
   bool _isOwner = false;
 
+  // Video controllers
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
+
+  // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
 
   @override
@@ -75,12 +79,14 @@ class _SingleMarketplaceVideoScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Store original system UI after dependencies are available
     if (_originalSystemUiStyle == null) {
       _storeOriginalSystemUI();
     }
   }
 
   void _storeOriginalSystemUI() {
+    // Store the current system UI style before making changes
     final brightness = Theme.of(context).brightness;
     _originalSystemUiStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -95,19 +101,21 @@ class _SingleMarketplaceVideoScreenState
   }
 
   void _setupSystemUI() {
+    // Set transparent status bar and navigation bar for full immersive experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Colors.black,
+      systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
   }
 
   void _setupCacheCleanup() {
-    _cacheCleanupTimer =
-        Timer.periodic(const Duration(minutes: 10), (timer) {});
+    _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
+      // Cache cleanup logic can be added here if needed
+    });
   }
 
   @override
@@ -141,23 +149,26 @@ class _SingleMarketplaceVideoScreenState
     });
 
     try {
+      // Get the specific marketplaceVideo first to find the user
       final allVideos = ref.read(marketplaceVideosProvider);
       final targetVideo = allVideos.firstWhere(
         (marketplaceVideo) => marketplaceVideo.id == widget.videoId,
         orElse: () => throw Exception('Video not found'),
       );
 
+      // Get the user/author
       final allUsers = ref.read(usersProvider);
       final author = allUsers.firstWhere(
         (user) => user.uid == targetVideo.userId,
         orElse: () => throw Exception('User not found'),
       );
 
+      // Load all user marketplaceVideos
       final userVideos = allVideos
-          .where((marketplaceVideo) =>
-              marketplaceVideo.userId == targetVideo.userId)
+          .where((marketplaceVideo) => marketplaceVideo.userId == targetVideo.userId)
           .toList();
 
+      // Sort by newest first
       userVideos.sort((a, b) {
         try {
           final aTime = DateTime.parse(a.createdAt);
@@ -168,13 +179,14 @@ class _SingleMarketplaceVideoScreenState
         }
       });
 
-      final targetIndex = userVideos.indexWhere(
-          (marketplaceVideo) => marketplaceVideo.id == widget.videoId);
+      // Find the index of the target marketplaceVideo
+      final targetIndex =
+          userVideos.indexWhere((marketplaceVideo) => marketplaceVideo.id == widget.videoId);
+
       final followedUsers = ref.read(followedUsersProvider);
       final isFollowing = followedUsers.contains(targetVideo.userId);
       final currentUser = ref.read(currentUserProvider);
-      final isOwner =
-          currentUser != null && currentUser.uid == targetVideo.userId;
+      final isOwner = currentUser != null && currentUser.uid == targetVideo.userId;
 
       if (mounted) {
         setState(() {
@@ -186,6 +198,7 @@ class _SingleMarketplaceVideoScreenState
           _currentMarketplaceItemIndex = targetIndex >= 0 ? targetIndex : 0;
         });
 
+        // Set the page controller to the target marketplaceVideo after the widget is built
         if (targetIndex >= 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _pageController.hasClients) {
@@ -198,6 +211,7 @@ class _SingleMarketplaceVideoScreenState
           });
         }
 
+        // Initialize intelligent preloading
         _startIntelligentPreloading();
       }
     } catch (e) {
@@ -217,7 +231,11 @@ class _SingleMarketplaceVideoScreenState
         _isCommentsSheetOpen) {
       return;
     }
+
     if (_marketplaceItems.isEmpty) return;
+
+    debugPrint('Starting intelligent preloading for index: $_currentMarketplaceItemIndex');
+    // Preloading logic can be added here if needed
   }
 
   void _startFreshPlayback() {
@@ -230,11 +248,14 @@ class _SingleMarketplaceVideoScreenState
       return;
     }
 
+    debugPrint('SingleMarketplaceVideoScreen: Starting fresh playback');
+
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
+      debugPrint('SingleMarketplaceVideoScreen: Video controller playing');
     } else {
-      if (_marketplaceItems.isNotEmpty &&
-          _currentMarketplaceItemIndex < _marketplaceItems.length) {
+      debugPrint('SingleMarketplaceVideoScreen: Video controller not ready, attempting initialization');
+      if (_marketplaceItems.isNotEmpty && _currentMarketplaceItemIndex < _marketplaceItems.length) {
         setState(() {});
       }
     }
@@ -244,6 +265,8 @@ class _SingleMarketplaceVideoScreenState
   }
 
   void _stopPlayback() {
+    debugPrint('SingleMarketplaceVideoScreen: Stopping playback');
+
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
       if (!_isCommentsSheetOpen) {
@@ -253,11 +276,13 @@ class _SingleMarketplaceVideoScreenState
   }
 
   void _pauseForNavigation() {
+    debugPrint('SingleMarketplaceVideoScreen: Pausing for navigation');
     _isNavigatingAway = true;
     _stopPlayback();
   }
 
   void _resumeFromNavigation() {
+    debugPrint('SingleMarketplaceVideoScreen: Resuming from navigation');
     _isNavigatingAway = false;
     if (_isScreenActive &&
         _isAppInForeground &&
@@ -310,7 +335,9 @@ class _SingleMarketplaceVideoScreenState
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
-                Positioned.fill(child: _buildVideoContentOnly()),
+                Positioned.fill(
+                  child: _buildVideoContentOnly(),
+                ),
                 Positioned(
                   top: 8,
                   right: 8,
@@ -320,8 +347,11 @@ class _SingleMarketplaceVideoScreenState
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
                     ),
-                    child:
-                        const Icon(Icons.close, color: Colors.white, size: 16),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
               ],
@@ -333,8 +363,7 @@ class _SingleMarketplaceVideoScreenState
   }
 
   Widget _buildVideoContentOnly() {
-    if (_marketplaceItems.isEmpty ||
-        _currentMarketplaceItemIndex >= _marketplaceItems.length) {
+    if (_marketplaceItems.isEmpty || _currentMarketplaceItemIndex >= _marketplaceItems.length) {
       return Container(color: Colors.black);
     }
 
@@ -352,7 +381,8 @@ class _SingleMarketplaceVideoScreenState
       return Container(
         color: Colors.black,
         child: const Center(
-            child: CircularProgressIndicator(color: Color(0xFF00BFA5))),
+          child: CircularProgressIndicator(color: Colors.white, value: 20),
+        ),
       );
     }
 
@@ -373,7 +403,8 @@ class _SingleMarketplaceVideoScreenState
       return Container(
         color: Colors.black,
         child: const Center(
-            child: Icon(Icons.broken_image, color: Colors.white, size: 32)),
+          child: Icon(Icons.broken_image, color: Colors.white, size: 32),
+        ),
       );
     }
 
@@ -389,8 +420,8 @@ class _SingleMarketplaceVideoScreenState
             return Container(
               color: Colors.black,
               child: const Center(
-                  child:
-                      Icon(Icons.broken_image, color: Colors.white, size: 32)),
+                child: Icon(Icons.broken_image, color: Colors.white, size: 32),
+              ),
             );
           },
         );
@@ -406,6 +437,8 @@ class _SingleMarketplaceVideoScreenState
         _isCommentsSheetOpen) {
       return;
     }
+
+    debugPrint('Video controller ready, setting up fresh playback');
 
     setState(() {
       _currentVideoController = controller;
@@ -424,6 +457,7 @@ class _SingleMarketplaceVideoScreenState
   }
 
   void onManualPlayPause(bool isPlaying) {
+    debugPrint('SingleMarketplaceVideoScreen: Manual play/pause - isPlaying: $isPlaying');
     setState(() {
       _isManuallyPaused = !isPlaying;
     });
@@ -431,6 +465,8 @@ class _SingleMarketplaceVideoScreenState
 
   void _onPageChanged(int index) {
     if (index >= _marketplaceItems.length || !_isScreenActive) return;
+
+    debugPrint('Page changed to: $index');
 
     setState(() {
       _currentMarketplaceItemIndex = index;
@@ -446,9 +482,7 @@ class _SingleMarketplaceVideoScreenState
       WakelockPlus.enable();
     }
 
-    ref
-        .read(marketplaceProvider.notifier)
-        .incrementMarketplaceVideoViewCount(_marketplaceItems[index].id);
+    ref.read(marketplaceProvider.notifier).incrementMarketplaceVideoViewCount(_marketplaceItems[index].id);
   }
 
   void _handleBackNavigation() {
@@ -482,6 +516,7 @@ class _SingleMarketplaceVideoScreenState
     });
   }
 
+  // Show comments with small marketplaceVideo window
   void _showCommentsForCurrentVideo(MarketplaceVideoModel marketplaceVideo) {
     _setVideoWindowMode(true);
 
@@ -501,10 +536,11 @@ class _SingleMarketplaceVideoScreenState
     });
   }
 
-  Future<void> _openDirectMessage(
-      MarketplaceVideoModel marketplaceVideo) async {
+  // Direct message functionality - Shows marketplace reaction input
+  Future<void> _openDirectMessage(MarketplaceVideoModel marketplaceVideo) async {
     _pauseForNavigation();
 
+    // Show marketplace reaction input bottom sheet
     final reaction = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -516,26 +552,27 @@ class _SingleMarketplaceVideoScreenState
       ),
     );
 
+    // If reaction was provided, create chat and send message
     if (reaction != null && reaction.trim().isNotEmpty && mounted) {
       try {
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => const Center(
-            child: CircularProgressIndicator(color: Color(0xFF00BFA5)),
+            child: CircularProgressIndicator(color: Colors.white),
           ),
         );
 
         final chatNotifier = ref.read(chatListProvider.notifier);
 
+        // Create chat with video reaction
         final chatId = await chatNotifier.createChatWithVideoReaction(
           otherUserId: marketplaceVideo.userId,
           videoId: marketplaceVideo.id,
           videoUrl: marketplaceVideo.videoUrl,
           thumbnailUrl: marketplaceVideo.thumbnailUrl.isNotEmpty
               ? marketplaceVideo.thumbnailUrl
-              : (marketplaceVideo.isMultipleImages &&
-                      marketplaceVideo.imageUrls.isNotEmpty
+              : (marketplaceVideo.isMultipleImages && marketplaceVideo.imageUrls.isNotEmpty
                   ? marketplaceVideo.imageUrls.first
                   : ''),
           userName: marketplaceVideo.userName,
@@ -544,21 +581,22 @@ class _SingleMarketplaceVideoScreenState
         );
 
         if (mounted) {
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(); // Close loading dialog
         }
 
         if (chatId != null && mounted) {
+          // Get listing owner user data for chat screen
           final authNotifier = ref.read(authenticationProvider.notifier);
-          final listingOwner =
-              await authNotifier.getUserById(marketplaceVideo.userId);
+          final listingOwner = await authNotifier.getUserById(marketplaceVideo.userId);
 
-          final contact = listingOwner ??
-              UserModel.fromMap({
-                'uid': marketplaceVideo.userId,
-                'name': marketplaceVideo.userName,
-                'profileImage': marketplaceVideo.userImage,
-              });
+          // Create UserModel for navigation
+          final contact = listingOwner ?? UserModel.fromMap({
+            'uid': marketplaceVideo.userId,
+            'name': marketplaceVideo.userName,
+            'profileImage': marketplaceVideo.userImage,
+          });
 
+          // Navigate to chat screen
           if (mounted) {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -583,6 +621,7 @@ class _SingleMarketplaceVideoScreenState
       }
     }
 
+    // Resume video playback
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         _resumeFromNavigation();
@@ -608,6 +647,18 @@ class _SingleMarketplaceVideoScreenState
 
     if (_originalSystemUiStyle != null) {
       SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else if (mounted) {
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness:
+            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: true,
+      ));
     }
 
     _cacheCleanupTimer?.cancel();
@@ -617,17 +668,58 @@ class _SingleMarketplaceVideoScreenState
     super.dispose();
   }
 
+  Widget _buildHeaderOverlay() {
+    final systemTopPadding = MediaQuery.of(context).padding.top + -8;
+    
+    return Positioned(
+      top: systemTopPadding,
+      left: 0,
+      right: 0,
+        child: Row(
+          children: [
+            // Back button
+            GestureDetector(
+              onTap: _handleBackNavigation,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  CupertinoIcons.back,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+            // User name in center
+            Expanded(
+              child: Center(
+                child: Text(
+                  _marketplaceItemAuthor?.name ?? 'Listings',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            // Spacer for symmetry
+            const SizedBox(width: 40),
+          ],
+        ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    final topPadding = MediaQuery.of(context).padding.top;
-
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body:
-            Center(child: CircularProgressIndicator(color: Color(0xFF00BFA5))),
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
       );
     }
 
@@ -645,85 +737,20 @@ class _SingleMarketplaceVideoScreenState
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Column(
+        extendBodyBehindAppBar: true,
+        extendBody: true,
+        body: Stack(
           children: [
-            // Black status bar area
-            Container(
-              height: topPadding,
-              color: Colors.black,
+            // Main marketplaceVideo content - full screen
+            Positioned.fill(
+              child: _buildVideoFeed(),
             ),
-            // Video content area with header overlay inside
-            Expanded(
-              child: Stack(
-                children: [
-                  _buildVideoFeed(),
-                  // Header overlay inside video area
-                  if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
-                  // Small video window when comments are open
-                  if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildHeaderOverlay() {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.6),
-              Colors.black.withOpacity(0.3),
-              Colors.transparent,
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            // Back button
-            GestureDetector(
-              onTap: _handleBackNavigation,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  CupertinoIcons.back,
-                  color: Colors.white,
-                  size: 24,
-                  shadows: [
-                    Shadow(color: Colors.black, blurRadius: 4),
-                  ],
-                ),
-              ),
-            ),
-            // User name in center
-            Expanded(
-              child: Center(
-                child: Text(
-                  _marketplaceItemAuthor?.name ?? 'Listings',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(color: Colors.black, blurRadius: 4),
-                    ],
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            // Spacer for symmetry
-            const SizedBox(width: 40),
+            // Header overlay with back button and username
+            if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
+
+            // Small marketplaceVideo window when comments are open
+            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
           ],
         ),
       ),
@@ -756,8 +783,7 @@ class _SingleMarketplaceVideoScreenState
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen,
           showVerificationBadge: true,
-          onCommentsPressed: () =>
-              _showCommentsForCurrentVideo(marketplaceVideo),
+          onCommentsPressed: () => _showCommentsForCurrentVideo(marketplaceVideo),
           onDirectMessagePressed: () => _openDirectMessage(marketplaceVideo),
         );
       },
@@ -769,31 +795,29 @@ class _SingleMarketplaceVideoScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.storefront_outlined, color: Colors.white, size: 80),
+          const Icon(Icons.videocam_off_outlined, color: Colors.white, size: 80),
           const SizedBox(height: 24),
           const Text(
-            'No Listings Yet',
-            style: TextStyle(
-                color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            'No Videos Yet',
+            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             _isOwner
-                ? 'Create your first listing to share with your followers'
-                : 'This user hasn\'t posted any listings yet',
+                ? 'Create your first marketplaceVideo to share with your followers'
+                : 'This user hasn\'t posted any marketplaceVideos yet',
             style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 16),
             textAlign: TextAlign.center,
           ),
           if (_isOwner) ...[
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () =>
-                  context.push(RoutePaths.createMarketplaceListing),
+              onPressed: () => context.push(RoutePaths.createMarketplaceListing),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00BFA5),
+                backgroundColor: const Color(0xFFFF0050),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Create Listing'),
+              child: const Text('Create Video'),
             ),
           ],
         ],
@@ -810,8 +834,7 @@ class _SingleMarketplaceVideoScreenState
           const SizedBox(height: 24),
           const Text(
             'Error Loading Content',
-            style: TextStyle(
-                color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
@@ -823,7 +846,7 @@ class _SingleMarketplaceVideoScreenState
           ElevatedButton(
             onPressed: _handleBackNavigation,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00BFA5),
+              backgroundColor: const Color(0xFFFF0050),
               foregroundColor: Colors.white,
             ),
             child: const Text('Go Back'),
