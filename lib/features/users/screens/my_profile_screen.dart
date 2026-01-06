@@ -109,11 +109,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   void _editProfile() {
     if (_user == null) return;
 
-    Navigator.pushNamed(
-      context,
-      Constants.editProfileScreen,
-      arguments: _user,
-    ).then((_) => _refreshUserData());
+    context.push(RoutePaths.editProfile, extra: _user).then((_) {
+      _refreshUserData();
+    });
   }
 
   @override
