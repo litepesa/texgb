@@ -737,7 +737,7 @@ class SellerUpgradeWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Annual Subscription:',
+                'One Time Payment:',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,

@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION WITH FULL SCREEN VIDEO
+// lib/features/videos/screens/videos_feed_screen.dart - COMPLETE UPDATED VERSION WITH BLACK STATUS BAR
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -322,7 +322,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     debugPrint('VideosFeedScreen: Setting up black system UI');
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black, // Changed from transparent
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.light,
@@ -466,10 +466,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   Widget _buildSmallVideoWindow() {
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-
     return Positioned(
-      top: systemTopPadding + 20,
+      top: 20, // Fixed position, no system padding needed
       right: 20,
       child: GestureDetector(
         onTap: () {
@@ -682,27 +680,39 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      extendBody: true,
       backgroundColor: Colors.black,
-      body: Stack(
+      body: Column(
         children: [
-          // Full screen video - NO padding, NO ClipRRect
-          Positioned.fill(
-            child: _buildBody(videos),
+          // Black status bar area
+          Container(
+            width: double.infinity,
+            height: MediaQuery.of(context).padding.top,
+            color: Colors.black,
           ),
+          
+          // Video content fills remaining space
+          Expanded(
+            child: Stack(
+              children: [
+                // Full screen video
+                Positioned.fill(
+                  child: _buildBody(videos),
+                ),
 
-          // Small video window when comments are open
-          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+                // Small video window when comments are open
+                if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
 
-          // Header with search button (hidden when comments open)
-          if (!_isCommentsSheetOpen)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              left: 0,
-              right: 0,
-              child: _buildSimplifiedHeader(),
+                // Header with search button (hidden when comments open)
+                if (!_isCommentsSheetOpen)
+                  Positioned(
+                    top: 16,
+                    left: 0,
+                    right: 0,
+                    child: _buildSimplifiedHeader(),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -738,47 +748,39 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   Widget _buildSimplifiedHeader() {
-    // Get system top padding for proper alignment
-    final systemTopPadding = MediaQuery.of(context).padding.top + -8;
+    return Row(
+      children: [
+        const SizedBox(width: 56),
 
-    return Positioned(
-      top: systemTopPadding,
-      left: 0,
-      right: 0,
-      child: Row(
-        children: [
-          const SizedBox(width: 56),
+        const Expanded(
+          child: SizedBox.shrink(),
+        ),
 
-          const Expanded(
-            child: SizedBox.shrink(),
+        // Search button
+        IconButton(
+          onPressed: _showSearchOverlay,
+          icon: const Icon(
+            CupertinoIcons.search,
+            color: Colors.white,
+            size: 28,
+            shadows: [
+              Shadow(
+                color: Colors.black,
+                blurRadius: 3,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
-
-          // Search button
-          IconButton(
-            onPressed: _showSearchOverlay,
-            icon: const Icon(
-              CupertinoIcons.search,
-              color: Colors.white,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            iconSize: 28,
-            padding: const EdgeInsets.all(12),
-            constraints: const BoxConstraints(
-              minWidth: 44,
-              minHeight: 44,
-            ),
-            splashRadius: 24,
-            tooltip: 'Search',
+          iconSize: 28,
+          padding: const EdgeInsets.all(12),
+          constraints: const BoxConstraints(
+            minWidth: 44,
+            minHeight: 44,
           ),
-        ],
-      ),
+          splashRadius: 24,
+          tooltip: 'Search',
+        ),
+      ],
     );
   }
 }

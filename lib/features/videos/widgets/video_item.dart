@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - COMPLETE UPDATED VERSION
+// lib/features/videos/widgets/video_item.dart - TIKTOK/REELS STYLE LAYOUT UPDATE
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -1079,13 +1079,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Back navigation functionality
-  void _handleBackNavigation() {
-    if (context.canPop()) {
-      context.pop();
-    }
-  }
-
   // Timestamp parsing and formatting methods
   DateTime _parseVideoTimestamp() {
     try {
@@ -1183,8 +1176,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ],
             ),
           ),
-          if (!_isCommentsSheetOpen) _buildTopLeftUserInfo(),
-          if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
+          
+          // Bottom left content area (TikTok/Reels style)
+          if (!_isCommentsSheetOpen) _buildBottomLeftContent(),
+          
+          // Right side action menu (TikTok/Reels style)
+          if (!_isCommentsSheetOpen) _buildRightSideActions(),
         ],
       ),
     );
@@ -1395,268 +1392,126 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Top left user info with back arrow, avatar, name, follow button, and timestamp
-  Widget _buildTopLeftUserInfo() {
-    final topPadding = MediaQuery.of(context).padding.top;
-
+  // TIKTOK/REELS STYLE: Bottom left content area
+  Widget _buildBottomLeftContent() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 8;
+    
     return Positioned(
-      top: topPadding,
       left: 16,
       right: 16,
-      child: _buildUserInfoWithBackArrow(),
+      bottom: bottomPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Price tag for paid content (placed before username)
+          if (widget.video.price > 0) ...[
+            _buildPriceButton(),
+            const SizedBox(height: 4),
+          ],
+          
+          // Username with verification badge
+          _buildUsernameRow(),
+          
+          const SizedBox(height: 1),
+          
+          // Caption with hashtags
+          if (widget.video.caption.isNotEmpty || widget.video.tags.isNotEmpty)
+            _buildCaptionWithHashtags(),
+          
+          const SizedBox(height: 1),
+          
+          // Timestamp
+          _buildTimestamp(),
+        ],
+      ),
     );
   }
 
-  Widget _buildUserInfoWithBackArrow() {
+  Widget _buildPriceButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.local_offer,
+          color: Colors.greenAccent[400],
+          size: 16,
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(0.6),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        const SizedBox(width: 4),
+        Text(
+          widget.video.formattedPrice,
+          style: TextStyle(
+            color: Colors.greenAccent[400],
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.6),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUsernameRow() {
     return Consumer(
       builder: (context, ref, child) {
-        final videoUser = _getUserDataIfAvailable();
-        final currentUser = ref.read(currentUserProvider);
-        final isCurrentUserVideo = currentUser?.uid == widget.video.userId;
-        final isFollowing = ref
-            .read(authenticationProvider.notifier)
-            .isUserFollowed(widget.video.userId);
+        // Get the actual user data to check verification status
+        final userData = _getUserDataIfAvailable();
+        final isUserVerified = userData?.isVerified ?? false;
 
         return GestureDetector(
           onTap: _navigateToUserProfile,
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Back Arrow
-              GestureDetector(
-                onTap: _handleBackNavigation,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  child: const Icon(
-                    CupertinoIcons.arrow_left,
+              // Username
+              Flexible(
+                child: Text(
+                  '@${widget.video.userName}',
+                  style: const TextStyle(
                     color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 1),
-              // Profile Avatar
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: widget.video.userImage.isNotEmpty == true
-                      ? Image.network(
-                          widget.video.userImage,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  widget.video.userName.isNotEmpty == true
-                                      ? widget.video.userName[0].toUpperCase()
-                                      : 'U',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Center(
-                            child: Text(
-                              widget.video.userName.isNotEmpty == true
-                                  ? widget.video.userName[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Username and follow button
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            widget.video.userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black,
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // FOLLOW BUTTON - Only show if not current user's video and not already following
-                        if (!isCurrentUserVideo &&
-                            currentUser != null &&
-                            !isFollowing)
-                          GestureDetector(
-                            onTap: _followCurrentUser,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1DA1F2),
-                                    Color(0xFF0D8BD9),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF1DA1F2)
-                                        .withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.person_add_alt_1,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Follow',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                      color: Colors.white,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.black.withOpacity(0.3),
-                                          blurRadius: 2,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    // Timestamp
-                    Text(
-                      _getRelativeTime(),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 2,
-                          ),
-                        ],
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 4,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              
+              // Verification badge - based on USER verification, not video
+              if (isUserVerified && widget.showVerificationBadge) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.verified,
+                  color: Colors.blue[600],
+                  size: 18,
+                  /*shadows: const [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 4,
+                    ),
+                  ],*/
+                ),
+              ],
             ],
           ),
         );
       },
-    );
-  }
-
-  // Bottom overlay with captions, hashtags, and action buttons
-  Widget _buildBottomContentOverlay() {
-    if (_isCommentsSheetOpen) return const SizedBox.shrink();
-
-    final bottomPadding = MediaQuery.of(context).padding.bottom + 4;
-
-    return Positioned(
-      bottom: bottomPadding,
-      left: 0, // Remove left padding from parent
-      right: 0, // Remove right padding from parent
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.video.caption.isNotEmpty ||
-              widget.video.tags.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16), // Add padding only to caption
-              child: _buildCaptionWithHashtags(),
-            ),
-            const SizedBox(height: 8),
-          ],
-          _buildActionRow(), // No padding here - handled inside
-        ],
-      ),
     );
   }
 
@@ -1667,8 +1522,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
     final captionStyle = TextStyle(
       color: Colors.white,
-      fontSize: 14,
-      height: 1.3,
+      fontSize: 15,
+      height: 1.4,
       shadows: [
         Shadow(
           color: Colors.black.withOpacity(0.7),
@@ -1698,13 +1553,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
     return GestureDetector(
       onTap: _toggleCaptionExpansion,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        child: _showFullCaption
-            ? _buildExpandedCaption(fullText, captionStyle, moreStyle)
-            : _buildTruncatedCaption(fullText, captionStyle, moreStyle),
-      ),
+      child: _showFullCaption
+          ? _buildExpandedCaption(fullText, captionStyle, moreStyle)
+          : _buildTruncatedCaption(fullText, captionStyle, moreStyle),
     );
   }
 
@@ -1718,7 +1569,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             style: captionStyle,
           ),
           TextSpan(
-            text: ' less',
+            text: '  less',
             style: moreStyle,
           ),
         ],
@@ -1780,402 +1631,307 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  void _navigateToUserProfile() {
-    context.push(RoutePaths.userProfile(widget.video.userId));
+  Widget _buildTimestamp() {
+    return Text(
+      _getRelativeTime(),
+      style: TextStyle(
+        color: Colors.white.withOpacity(0.8),
+        fontSize: 12,
+        shadows: [
+          Shadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 2,
+          ),
+        ],
+      ),
+    );
   }
 
-  // Action row - conditionally shows Gift/Save OR Price/Buy based on video price
-  Widget _buildActionRow() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.only(
-          left: 16, right: 16), // Add horizontal padding here
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+  // TIKTOK/REELS STYLE: Right side action menu
+  Widget _buildRightSideActions() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    return Positioned(
+      right: 8,
+      bottom: bottomPadding,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Show Gift/Save for free content (price = 0)
-          // Show Price/Buy for paid content (price > 0)
-          if (widget.video.price == 0) ...[
-            _buildGiftButton(),
-            const SizedBox(width: 8),
-            _buildSaveButton(),
-            const SizedBox(width: 12),
-          ] else ...[
-            _buildPriceButton(),
-            const SizedBox(width: 8),
-            _buildBuyButton(),
-            const SizedBox(width: 12),
-          ],
-
+          // Profile avatar with follow badge
+          _buildProfileAvatarWithFollowBadge(),
+          
+          const SizedBox(height: 14),
+          
           // Like button
-          _buildActionButton(
+          _buildRightSideActionButton(
             icon: widget.video.isLiked == true
                 ? CupertinoIcons.heart_fill
                 : CupertinoIcons.heart,
             count: widget.video.likes,
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFFFF5252), // Red
-                Color(0xFFFF1744), // Darker red
-              ],
-            ),
+            color: Colors.white,
             onTap: _likeCurrentVideo,
           ),
-
-          const SizedBox(width: 10),
-
+          
+          const SizedBox(height: 14),
+          
           // Comment button
-          _buildActionButton(
+          _buildRightSideActionButton(
             icon: CupertinoIcons.text_bubble,
             count: widget.video.comments,
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF4FC3F7), // Light blue
-                Color(0xFF29B6F6), // Blue
-              ],
-            ),
+            color: Colors.white,
             onTap: _showCommentsForCurrentVideo,
           ),
-
-          const SizedBox(width: 10),
-
+          
+          const SizedBox(height: 14),
+          
           // DM button
-          _buildDMActionButton(
+          _buildRightSideActionButton(
+            icon: CupertinoIcons.chat_bubble_2,
+            count: 0,
+            color: Colors.white,
             onTap: _openDirectMessage,
           ),
+          
+          const SizedBox(height: 14),
+          
+          // Gift/Save or Buy button based on video price
+          if (widget.video.price == 0) ...[
+            // Gift button for free content
+            _buildRightSideActionButton(
+              icon: CupertinoIcons.gift,
+              count: 0,
+              color: Colors.white,
+              onTap: _showVirtualGifts,
+            ),
+            
+            const SizedBox(height: 14),
+            
+            // Save button for free content
+            _buildRightSideActionButton(
+              icon: _isDownloading ? Icons.downloading : Icons.download,
+              count: 0,
+              color: _isDownloading ? Colors.green : Colors.white,
+              onTap: _downloadCurrentVideo,
+              isDownloading: _isDownloading,
+              downloadProgress: _downloadProgress,
+            ),
+          ] else ...[
+            // Buy button for paid content
+            _buildRightSideActionButton(
+              icon: Icons.shopping_cart_checkout_rounded,
+              count: 0,
+              color: Colors.white,
+              onTap: _buyProduct,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // Gift button (for free content)
-  Widget _buildGiftButton() {
-    return GestureDetector(
-      onTap: _showVirtualGifts,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFFD700), // Gold start
-              Color(0xFFFFA500), // Orange end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildProfileAvatarWithFollowBadge() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final currentUser = ref.read(currentUserProvider);
+        final isCurrentUserVideo = currentUser?.uid == widget.video.userId;
+        final isFollowing = ref
+            .read(authenticationProvider.notifier)
+            .isUserFollowed(widget.video.userId);
+
+        return Stack(
+          clipBehavior: Clip.none,
           children: [
-            Icon(
-              Icons.card_giftcard,
-              color: Colors.white,
-              size: 14,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'GIFT',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+            // Profile avatar
+            GestureDetector(
+              onTap: _navigateToUserProfile,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: widget.video.userImage.isNotEmpty == true
+                      ? Image.network(
+                          widget.video.userImage,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  widget.video.userName.isNotEmpty == true
+                                      ? widget.video.userName[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Center(
+                            child: Text(
+                              widget.video.userName.isNotEmpty == true
+                                  ? widget.video.userName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Save button (for free content)
-  Widget _buildSaveButton() {
-    return GestureDetector(
-      onTap: _downloadCurrentVideo,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF66BB6A), // Green start
-              Color(0xFF43A047), // Darker green end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: _isDownloading
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      value: _downloadProgress,
+            
+            // Follow badge (+ button) - Only show if not current user's video and not already following
+            if (!isCurrentUserVideo && currentUser != null && !isFollowing)
+              Positioned(
+                bottom: -4,
+                left: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _followCurrentUser,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add,
                       color: Colors.white,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      strokeWidth: 2,
+                      size: 16,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${(_downloadProgress * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              )
-            : const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.download,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'SAVE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+                ),
               ),
-      ),
+          ],
+        );
+      },
     );
   }
 
-  // Price button (for paid content)
-  Widget _buildPriceButton() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF4CAF50), // Green start
-            Color(0xFF2E7D32), // Darker green end
-          ],
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.local_offer,
-            color: Colors.white,
-            size: 14,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            widget.video.formattedPrice,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Buy button (for paid content - dummy for now)
-  Widget _buildBuyButton() {
-    return GestureDetector(
-      onTap: _buyProduct,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFF6B6B), // Coral red start
-              Color(0xFFE55353), // Darker red end
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.shopping_cart,
-              color: Colors.white,
-              size: 14,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'BUY',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
+  Widget _buildRightSideActionButton({
     required IconData icon,
     required int count,
-    required Gradient gradient,
+    required Color color,
     required VoidCallback onTap,
+    bool isDownloading = false,
+    double downloadProgress = 0.0,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: isDownloading && downloadProgress > 0
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        value: downloadProgress,
+                        color: Colors.green,
+                        backgroundColor: Colors.white.withOpacity(0.3),
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Icon(
+                      icon,
+                      color: color,
+                      size: 28,
+                    ),
             ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
+        const SizedBox(height: 4),
+        if (count > 0)
+          Text(
+            _formatCount(count),
+            style: TextStyle(
               color: Colors.white,
-              size: 16,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 2,
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            Text(
-              _formatCount(count),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDMActionButton({
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF7E57C2), // Purple
-              Color(0xFF5E35B1), // Darker purple
-            ],
           ),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              CupertinoIcons.chat_bubble_2,
-              color: Colors.white,
-              size: 16,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'DM',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
   Widget _buildCarouselIndicators() {
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
-    final topPosition = MediaQuery.of(context).padding.top + 120;
+    final topPadding = MediaQuery.of(context).padding.top + 120;
 
     return Positioned(
-      top: topPosition,
+      top: topPadding,
       left: 0,
       right: 0,
       child: Row(
@@ -2202,5 +1958,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         }),
       ),
     );
+  }
+
+  void _navigateToUserProfile() {
+    context.push(RoutePaths.userProfile(widget.video.userId));
   }
 }

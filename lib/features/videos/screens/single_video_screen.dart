@@ -1,4 +1,4 @@
-// lib/features/videos/screens/single_video_screen.dart - WeChat Channels Style Layout
+// lib/features/videos/screens/single_video_screen.dart - Full Screen Videos
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -93,7 +93,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
   void _setupSystemUI() {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
@@ -624,8 +624,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final topPadding = MediaQuery.of(context).padding.top;
-
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -647,25 +645,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Column(
+        extendBodyBehindAppBar: true,
+        body: Stack(
           children: [
-            // Black status bar area
-            Container(
-              height: topPadding,
-              color: Colors.black,
-            ),
-            // Video content area with header overlay inside
-            Expanded(
-              child: Stack(
-                children: [
-                  _buildVideoFeed(),
-                  // Header overlay inside video area
-                  if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
-                  // Small video window when comments are open
-                  if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-                ],
-              ),
-            ),
+            _buildVideoFeed(),
+            if (!_isCommentsSheetOpen) _buildHeaderOverlay(),
+            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
           ],
         ),
       ),
@@ -673,12 +658,19 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   Widget _buildHeaderOverlay() {
+    final topPadding = MediaQuery.of(context).padding.top;
+
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: EdgeInsets.only(
+          left: 8,
+          right: 8,
+          top: topPadding + -8,
+          bottom: 12,
+        ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -692,7 +684,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         ),
         child: Row(
           children: [
-            // Back button
             GestureDetector(
               onTap: _handleBackNavigation,
               child: Container(
@@ -707,7 +698,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                 ),
               ),
             ),
-            // User name in center
             Expanded(
               child: Center(
                 child: Text(
@@ -724,7 +714,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                 ),
               ),
             ),
-            // Spacer for symmetry
             const SizedBox(width: 40),
           ],
         ),

@@ -174,8 +174,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final videoInfo = await _analyzeVideo(videoFile);
 
     // Check if video is longer than 5 minutes
-    if (videoInfo.duration.inSeconds > 300) {
-      _showError('Video must be under 5 minutes');
+    if (videoInfo.duration.inSeconds > 900) {
+      _showError('Video must be under 15 minutes');
       await _disableWakelock();
       return;
     }
